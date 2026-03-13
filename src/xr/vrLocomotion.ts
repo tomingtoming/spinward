@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 
+import { getForwardDirection } from '../app/forwardDirection'
 import { moveSurfaceRigState, applySurfaceRigState, type SurfaceRigState } from '../app/surfaceRig'
 import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
 
@@ -37,7 +38,8 @@ export class VRLocomotion {
       return
     }
 
-    localMove.set(0, 0, 0)
+    let moveAxisX = 0
+    let moveAxisY = 0
     let snapAxisX = 0
     let snapAxisMagnitudeSq = 0
 
@@ -63,20 +65,8 @@ export class VRLocomotion {
       if (inputSource.handedness === 'right') {
         continue
       }
-
-      headForward.set(0, 0, -1).applyQuaternion(this.camera.quaternion)
-      headForward.y = 0
-
-      if (headForward.lengthSq() < 1e-6) {
-        headForward.set(0, 0, -1)
-      } else {
-        headForward.normalize()
-      }
-
-      headRight.copy(headForward).cross(localUp).normalize()
-      localMove
-        .addScaledVector(headForward, -axisY)
-        .addScaledVector(headRight, axisX)
+      moveAxisX += axisX
+      moveAxisY += axisY
     }
 
     const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
@@ -84,6 +74,21 @@ export class VRLocomotion {
     if (snapIntent !== 0) {
       this.viewRig.rotation.y -= snapIntent * SNAP_TURN_RADIANS
     }
+
+    localMove.set(0, 0, 0)
+    headForward.copy(getForwardDirection(this.camera))
+    headForward.y = 0
+
+    if (headForward.lengthSq() < 1e-6) {
+      headForward.set(0, 0, -1)
+    } else {
+      headForward.normalize()
+    }
+
+    headRight.copy(headForward).cross(localUp).normalize()
+    localMove
+      .addScaledVector(headForward, -moveAxisY)
+      .addScaledVector(headRight, moveAxisX)
 
     if (localMove.lengthSq() < 1e-6) {
       return

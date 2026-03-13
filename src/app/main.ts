@@ -8,6 +8,7 @@ import { applySurfaceRigState, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
 import { ForceVectorArrows } from '../objects/forceVectors'
+import { Starfield } from '../objects/starfield'
 import {
   DEFAULT_HABITAT_CONFIG,
   rpmToOmega,
@@ -37,6 +38,11 @@ export const bootstrapApp = () => {
     radius: habitatConfig.radius,
     length: habitatConfig.length
   })
+  const starfield = new Starfield({
+    radius: habitatConfig.radius,
+    length: habitatConfig.length
+  })
+  scene.add(starfield.group)
   scene.add(habitat.group)
 
   const playerRig = new THREE.Group()
@@ -55,7 +61,7 @@ export const bootstrapApp = () => {
     70,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    4000
   )
   camera.position.set(0, 1.6, 0)
   viewRig.add(camera)
@@ -125,6 +131,12 @@ export const bootstrapApp = () => {
       radius: habitatConfig.radius,
       length: habitatConfig.length
     })
+    starfield.setDimensions({
+      radius: habitatConfig.radius,
+      length: habitatConfig.length
+    })
+    camera.far = Math.max(4000, starfield.getSuggestedCameraFar())
+    camera.updateProjectionMatrix()
     applySurfaceRigState(playerRig, surfaceRigState, habitatConfig.radius)
     desktopLookControls.syncToRig(habitatConfig.radius)
   }
@@ -269,6 +281,7 @@ export const bootstrapApp = () => {
 
     // Update order: input -> grab state -> simulation -> render.
     const omega = rpmToOmega(habitatConfig.rpm)
+    starfield.update(deltaSeconds, omega)
 
     for (const ball of balls) {
       ball.step({
