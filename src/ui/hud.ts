@@ -24,7 +24,7 @@ export const createHud = (): HudHandle => {
   const controls = document.createElement('div')
   controls.className = 'hud__controls'
   controls.textContent =
-    'VR: trigger=grab/spawn, grip=reset box, both hands independent | PC: Space/click=throw'
+    'VR: trigger=grab/spawn, both hands independent | PC: left click/Space=throw, right drag or arrow keys=look'
 
   root.append(stats, controls)
   document.body.append(root)

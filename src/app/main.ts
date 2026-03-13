@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 
+import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { Ball } from '../objects/ball'
@@ -58,6 +59,8 @@ export const bootstrapApp = () => {
   renderer.xr.setReferenceSpaceType('local-floor')
   document.body.appendChild(renderer.domElement)
   document.body.appendChild(VRButton.createButton(renderer))
+
+  const desktopLookControls = new DesktopLookControls(camera, renderer.domElement)
 
   const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
   scene.add(light)
@@ -217,11 +220,16 @@ export const bootstrapApp = () => {
     requestDesktopThrow()
   })
 
-  renderer.domElement.addEventListener('pointerdown', () => {
+  renderer.domElement.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) {
+      return
+    }
+
     requestDesktopThrow()
   })
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+    desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
 
     if (desktopThrowQueued) {
@@ -273,6 +281,10 @@ export const bootstrapApp = () => {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
+  })
+
+  window.addEventListener('beforeunload', () => {
+    desktopLookControls.dispose()
   })
 
   console.info(
