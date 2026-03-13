@@ -1,20 +1,28 @@
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 
+import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
+import { ForceVectorArrows } from '../objects/forceVectors'
 import {
   DEFAULT_HABITAT_CONFIG,
   rpmToOmega,
   surfaceGravityFromConfig
 } from '../sim/habitatConfig'
 import { createDebugGui } from '../ui/debugGui'
+import { createHud } from '../ui/hud'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
-import { GrabSystem, type GrabTarget } from '../xr/grabSystem'
+import { GrabSystem } from '../xr/grabSystem'
 
 export const bootstrapApp = () => {
   const habitatConfig = { ...DEFAULT_HABITAT_CONFIG }
+  const debugVisuals = {
+    showForceVectors: true,
+    forceVectorScale: 0.08,
+    showHud: true
+  }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
 
@@ -60,6 +68,7 @@ export const bootstrapApp = () => {
 
   const restitution = 0.55
   const balls: Ball[] = []
+  const forceVectorArrows = new ForceVectorArrows()
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
@@ -67,28 +76,7 @@ export const bootstrapApp = () => {
   const spawnOffset = new THREE.Vector3()
   let desktopThrowQueued = false
 
-  const boxState = {
-    grabbed: false,
-    hovered: false
-  }
-
-  const boxMaterial = new THREE.MeshStandardMaterial({
-    color: 0x66ccff,
-    emissive: 0x000000
-  })
-
-  const box = new THREE.Mesh(new THREE.BoxGeometry(), boxMaterial)
-  scene.add(box)
-
-  const placeFromRigLocal = (object: THREE.Object3D, localPosition: THREE.Vector3) => {
-    object.position.copy(playerRig.localToWorld(localPosition.clone()))
-  }
-
-  const updateBoxAppearance = () => {
-    boxMaterial.emissive.setHex(
-      boxState.grabbed ? 0x113322 : boxState.hovered ? 0x0f3a52 : 0x000000
-    )
-  }
+  scene.add(forceVectorArrows.group)
 
   const grabSystem = new GrabSystem({
     scene,
@@ -101,11 +89,6 @@ export const bootstrapApp = () => {
         releasedByController: controller
       })
       return ball.grabTarget
-    },
-    onSqueezeStart: () => {
-      grabSystem.placeObjectInFrontOfViewer(box)
-      box.position.addScaledVector(new THREE.Vector3(-1, 0, 0), 0.2)
-      box.rotation.set(0, 0, 0)
     }
   })
 
@@ -113,47 +96,29 @@ export const bootstrapApp = () => {
     controllerVelocity.registerController(controller)
   }
 
-  const boxTarget: GrabTarget = {
-    object: box,
-    holdRotation: new THREE.Euler(0, 0, 0),
-    onGrabStart: () => {
-      boxState.grabbed = true
-      updateBoxAppearance()
-    },
-    onGrabEnd: () => {
-      boxState.grabbed = false
-      updateBoxAppearance()
-    },
-    onHoverChange: (hovered) => {
-      boxState.hovered = hovered
-      updateBoxAppearance()
-    }
-  }
-
-  grabSystem.registerTarget(boxTarget)
-  updateBoxAppearance()
-
-  const syncHabitat = (resetBox = false) => {
+  const syncHabitat = () => {
     habitat.setDimensions({
       radius: habitatConfig.radius,
       length: habitatConfig.length
     })
     playerRig.position.set(habitatConfig.radius, 0, 0)
-
-    if (resetBox && grabSystem.getGrabbedTarget() !== boxTarget) {
-      placeFromRigLocal(box, new THREE.Vector3(0, 1.1, -2.2))
-      box.rotation.set(0, 0, 0)
-    }
   }
 
-  syncHabitat(true)
+  syncHabitat()
+
+  const hud = createHud()
 
   const debugGui = createDebugGui({
     config: habitatConfig,
+    debugVisuals,
     onHabitatChange: () => {
-      syncHabitat(true)
+      syncHabitat()
+    },
+    onVisualChange: () => {
+      hud.setVisible(debugVisuals.showHud)
     }
   })
+  hud.setVisible(debugVisuals.showHud)
 
   const spawnBall = ({
     origin,
@@ -162,8 +127,9 @@ export const bootstrapApp = () => {
     origin: THREE.Object3D
     releasedByController?: THREE.XRTargetRaySpace
   }) => {
+    // Balls spawn slightly in front of the hand/camera so they do not self-intersect on release.
     origin.getWorldPosition(worldPosition)
-    origin.getWorldDirection(worldForward)
+    getForwardDirection(origin, worldForward)
     spawnOffset.copy(worldForward).multiplyScalar(0.35)
 
     const ball = new Ball({
@@ -171,12 +137,13 @@ export const bootstrapApp = () => {
       maxTrailPoints: habitatConfig.maxTrailPoints,
       lifetimeSeconds: habitatConfig.ballLifetimeSeconds,
       onReleased: (controller, releasedBall) => {
+        // Controller velocity is noisy at low speed, so fall back to forward throw when needed.
         worldVelocity
           .copy(controllerVelocity.getVelocity(controller))
           .multiplyScalar(habitatConfig.ballSpeedScale)
 
         if (worldVelocity.lengthSq() < 4) {
-          controller.getWorldDirection(worldForward)
+          getForwardDirection(controller, worldForward)
           worldVelocity.copy(worldForward).multiplyScalar(6 * habitatConfig.ballSpeedScale)
         }
 
@@ -211,6 +178,18 @@ export const bootstrapApp = () => {
       ball.dispose()
       balls.splice(index, 1)
     }
+  }
+
+  const getTrackedBall = () => {
+    for (let index = balls.length - 1; index >= 0; index -= 1) {
+      const ball = balls[index]
+
+      if (!ball.isGrabbed) {
+        return ball
+      }
+    }
+
+    return balls.at(-1) ?? null
   }
 
   const throwDesktopBall = () => {
@@ -250,12 +229,9 @@ export const bootstrapApp = () => {
       throwDesktopBall()
     }
 
-    if (grabSystem.getGrabbedTarget() !== boxTarget) {
-      box.rotation.y += 0.01
-    }
-
     grabSystem.update()
 
+    // Update order: input -> grab state -> simulation -> render.
     const omega = rpmToOmega(habitatConfig.rpm)
 
     for (const ball of balls) {
@@ -269,6 +245,24 @@ export const bootstrapApp = () => {
     }
 
     removeExpiredBalls()
+    const trackedBall = getTrackedBall()
+
+    forceVectorArrows.update({
+      ball: trackedBall,
+      omega,
+      scale: debugVisuals.forceVectorScale,
+      visible: debugVisuals.showForceVectors
+    })
+
+    hud.update({
+      radius: habitatConfig.radius,
+      rpm: habitatConfig.rpm,
+      gTarget: surfaceGravityFromConfig(habitatConfig),
+      ballCount: balls.length,
+      trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
+      xrActive: renderer.xr.isPresenting,
+      forceVectors: debugVisuals.showForceVectors
+    })
     debugGui.update()
     renderer.render(scene, camera)
   })

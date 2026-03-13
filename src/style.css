@@ -15,3 +15,28 @@ canvas {
 button {
   font: inherit;
 }
+
+.hud {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  max-width: min(720px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid rgba(130, 168, 192, 0.28);
+  border-radius: 12px;
+  background: rgba(4, 15, 24, 0.8);
+  color: #d8ebf4;
+  font-size: 13px;
+  line-height: 1.45;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.hud__stats {
+  font-weight: 600;
+}
+
+.hud__controls {
+  margin-top: 6px;
+  color: rgba(216, 235, 244, 0.78);
+}

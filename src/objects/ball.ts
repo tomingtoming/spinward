@@ -111,6 +111,7 @@ export class Ball {
       return
     }
 
+    // Simulation state lives in world space; rendering reads directly from the mesh transform.
     this.ageSeconds += config.deltaSeconds
     advanceBallState(
       {
@@ -145,6 +146,7 @@ export class Ball {
       this.trailPoints.shift()
     }
 
+    // Rebuilding the line is sufficient here because trail sizes stay intentionally small.
     this.trail.geometry.setFromPoints(this.trailPoints)
   }
 

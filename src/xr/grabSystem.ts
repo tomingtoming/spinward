@@ -29,19 +29,14 @@ type GrabSystemOptions = {
   onSqueezeStart?: (controller: THREE.XRTargetRaySpace) => void
 }
 
-type GrabState = {
-  controller: THREE.XRTargetRaySpace
-  target: GrabTarget
-}
-
 export class GrabSystem {
   private readonly raycaster = new THREE.Raycaster()
   private readonly controllerModelFactory = new XRControllerModelFactory()
-  private readonly viewerPosition = new THREE.Vector3()
-  private readonly viewerDirection = new THREE.Vector3()
   private readonly targets = new Set<GrabTarget>()
   private readonly controllers: ControllerState[]
-  private grabbed: GrabState | null = null
+  private readonly grabbedByController = new Map<THREE.XRTargetRaySpace, GrabTarget>()
+  private readonly controllerByTarget = new Map<GrabTarget, THREE.XRTargetRaySpace>()
+  private readonly hoverCounts = new Map<GrabTarget, number>()
 
   constructor(private readonly options: GrabSystemOptions) {
     this.raycaster.far = DEFAULT_RAY_LENGTH
@@ -53,15 +48,19 @@ export class GrabSystem {
   }
 
   unregisterTarget(target: GrabTarget) {
-    if (this.grabbed?.target === target) {
-      this.releaseGrab()
+    const grabbingController = this.controllerByTarget.get(target)
+
+    if (grabbingController !== undefined) {
+      this.releaseGrab(grabbingController)
     }
 
     this.targets.delete(target)
+    this.controllerByTarget.delete(target)
+    this.hoverCounts.delete(target)
 
     for (const controller of this.controllers) {
       if (controller.hoveredTarget === target) {
-        controller.hoveredTarget.onHoverChange?.(false)
+        this.updateHoverCount(target, -1)
         controller.hoveredTarget = null
       }
     }
@@ -71,45 +70,39 @@ export class GrabSystem {
     return this.controllers
   }
 
-  getGrabbedTarget() {
-    return this.grabbed?.target ?? null
+  getGrabbedTarget(controller?: THREE.XRTargetRaySpace) {
+    if (controller !== undefined) {
+      return this.grabbedByController.get(controller) ?? null
+    }
+
+    const [firstTarget] = this.grabbedByController.values()
+    return firstTarget ?? null
   }
 
-  releaseGrab() {
-    if (this.grabbed === null) {
+  isTargetGrabbed(target: GrabTarget) {
+    return this.controllerByTarget.has(target)
+  }
+
+  releaseGrab(controller: THREE.XRTargetRaySpace) {
+    const target = this.grabbedByController.get(controller)
+
+    if (target === undefined) {
       return
     }
 
-    const { controller, target } = this.grabbed
     this.options.scene.attach(target.object)
     target.onGrabEnd?.(controller)
-    this.grabbed = null
-  }
-
-  placeObjectInFrontOfViewer(object: THREE.Object3D, distance = 1.5) {
-    const viewer = this.options.renderer.xr.isPresenting
-      ? this.options.renderer.xr.getCamera()
-      : this.options.camera
-
-    viewer.getWorldPosition(this.viewerPosition)
-    this.viewerDirection.set(0, 0, -1).applyQuaternion(viewer.quaternion)
-    this.viewerDirection.y = 0
-
-    if (this.viewerDirection.lengthSq() === 0) {
-      this.viewerDirection.set(0, 0, -1)
-    } else {
-      this.viewerDirection.normalize()
-    }
-
-    object.position.copy(this.viewerPosition).addScaledVector(this.viewerDirection, distance)
+    this.grabbedByController.delete(controller)
+    this.controllerByTarget.delete(target)
   }
 
   update() {
     let hasHoveredTarget = false
 
     for (const controllerState of this.controllers) {
-      const isHolding = this.grabbed?.controller === controllerState.controller
-      const hoveredTarget = this.grabbed === null ? this.findHoveredTarget(controllerState.controller) : null
+      // Each controller now owns its own grab slot, so both hands can hold/throw independently.
+      const isHolding = this.grabbedByController.has(controllerState.controller)
+      const hoveredTarget = isHolding ? null : this.findHoveredTarget(controllerState.controller)
 
       this.setHoveredTarget(controllerState, hoveredTarget)
 
@@ -134,12 +127,9 @@ export class GrabSystem {
       this.handleSelectStart(event.target)
     })
     controller.addEventListener('selectend', (event) => {
-      if (this.grabbed?.controller === event.target) {
-        this.releaseGrab()
-      }
+      this.releaseGrab(event.target)
     })
     controller.addEventListener('squeezestart', (event) => {
-      this.releaseGrab()
       this.options.onSqueezeStart?.(event.target)
     })
 
@@ -164,7 +154,7 @@ export class GrabSystem {
   }
 
   private handleSelectStart(controller: THREE.XRTargetRaySpace) {
-    if (this.grabbed !== null) {
+    if (this.grabbedByController.has(controller)) {
       return
     }
 
@@ -183,6 +173,11 @@ export class GrabSystem {
   }
 
   private grabTarget(controller: THREE.XRTargetRaySpace, target: GrabTarget) {
+    if (this.controllerByTarget.has(target)) {
+      return
+    }
+
+    // Objects are attached directly to the controller so the existing grab behavior stays intact.
     controller.attach(target.object)
     target.object.position.copy(target.holdOffset ?? DEFAULT_HOLD_OFFSET)
 
@@ -191,7 +186,8 @@ export class GrabSystem {
     }
 
     target.onGrabStart?.(controller)
-    this.grabbed = { controller, target }
+    this.grabbedByController.set(controller, target)
+    this.controllerByTarget.set(target, controller)
   }
 
   private setHoveredTarget(
@@ -205,8 +201,14 @@ export class GrabSystem {
       return
     }
 
-    previousTarget?.onHoverChange?.(false)
-    target?.onHoverChange?.(true)
+    if (previousTarget !== null) {
+      this.updateHoverCount(previousTarget, -1)
+    }
+
+    if (target !== null) {
+      this.updateHoverCount(target, 1)
+    }
+
     controllerState.hoveredTarget = target
   }
 
@@ -217,6 +219,10 @@ export class GrabSystem {
     this.raycaster.setFromXRController(controller)
 
     for (const target of this.targets) {
+      if (this.controllerByTarget.has(target)) {
+        continue
+      }
+
       const [intersection] = this.raycaster.intersectObject(target.object, true)
 
       if (intersection === undefined || intersection.distance >= closestDistance) {
@@ -233,5 +239,17 @@ export class GrabSystem {
           distance: closestDistance,
           target: closestTarget
         }
+  }
+
+  private updateHoverCount(target: GrabTarget, delta: number) {
+    const nextCount = Math.max(0, (this.hoverCounts.get(target) ?? 0) + delta)
+
+    if (nextCount === 0) {
+      this.hoverCounts.delete(target)
+    } else {
+      this.hoverCounts.set(target, nextCount)
+    }
+
+    target.onHoverChange?.(nextCount > 0)
   }
 }

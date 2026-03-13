@@ -18,6 +18,7 @@ export const confineSphereToCylinder = (
   const maxRadialDistance = Math.max(0, config.radius - config.sphereRadius)
   const radialDistance = Math.hypot(position.x, position.z)
 
+  // Keep the sphere center on or inside the inner wall and reflect outward motion.
   if (radialDistance > maxRadialDistance && radialDistance > 0) {
     collided = true
     radialNormal.set(position.x / radialDistance, position.z / radialDistance)
@@ -33,6 +34,7 @@ export const confineSphereToCylinder = (
 
   const halfLength = Math.max(0, config.length * 0.5 - config.sphereRadius)
 
+  // Treat the cylinder ends as simple caps for Sprint 1.
   if (position.y > halfLength) {
     collided = true
     position.y = halfLength
