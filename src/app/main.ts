@@ -40,7 +40,9 @@ export const bootstrapApp = () => {
   scene.add(habitat.group)
 
   const playerRig = new THREE.Group()
+  const viewRig = new THREE.Group()
   scene.add(playerRig)
+  playerRig.add(viewRig)
 
   const rigBasis = new THREE.Matrix4().makeBasis(
     new THREE.Vector3(0, 1, 0),
@@ -56,7 +58,7 @@ export const bootstrapApp = () => {
     1000
   )
   camera.position.set(0, 1.6, 0)
-  playerRig.add(camera)
+  viewRig.add(camera)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -96,7 +98,7 @@ export const bootstrapApp = () => {
     scene,
     camera,
     renderer,
-    controllerRoot: playerRig,
+    controllerRoot: viewRig,
     onEmptySelectStart: (controller) => {
       const ball = spawnBall({
         origin: controller,
@@ -113,6 +115,7 @@ export const bootstrapApp = () => {
   const vrLocomotion = new VRLocomotion(
     grabSystem.getControllers().map(({ controller }) => controller),
     playerRig,
+    viewRig,
     camera,
     surfaceRigState
   )

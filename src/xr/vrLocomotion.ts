@@ -1,9 +1,11 @@
 import * as THREE from 'three'
 
 import { moveSurfaceRigState, applySurfaceRigState, type SurfaceRigState } from '../app/surfaceRig'
+import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
 
 const MOVE_SPEED = 4.5
 const DEADZONE = 0.18
+const SNAP_TURN_RADIANS = Math.PI / 6
 const headForward = new THREE.Vector3()
 const headRight = new THREE.Vector3()
 const localMove = new THREE.Vector3()
@@ -11,10 +13,12 @@ const localUp = new THREE.Vector3(0, 1, 0)
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
+  private readonly snapTurnState = createSnapTurnState()
 
   constructor(
     controllers: THREE.XRTargetRaySpace[],
     private readonly playerRig: THREE.Group,
+    private readonly viewRig: THREE.Group,
     private readonly camera: THREE.PerspectiveCamera,
     private readonly surfaceState: SurfaceRigState
   ) {
@@ -34,6 +38,8 @@ export class VRLocomotion {
     }
 
     localMove.set(0, 0, 0)
+    let snapAxisX = 0
+    let snapAxisMagnitudeSq = 0
 
     for (const inputSource of this.inputSourceByController.values()) {
       const gamepad = inputSource.gamepad
@@ -43,8 +49,18 @@ export class VRLocomotion {
       }
 
       const [axisX, axisY] = this.readPrimaryStick(gamepad)
+      const stickMagnitudeSq = axisX * axisX + axisY * axisY
+
+      if (inputSource.handedness === 'right' && stickMagnitudeSq > snapAxisMagnitudeSq) {
+        snapAxisMagnitudeSq = stickMagnitudeSq
+        snapAxisX = axisX
+      }
 
       if (Math.abs(axisX) < DEADZONE && Math.abs(axisY) < DEADZONE) {
+        continue
+      }
+
+      if (inputSource.handedness === 'right') {
         continue
       }
 
@@ -61,6 +77,12 @@ export class VRLocomotion {
       localMove
         .addScaledVector(headForward, -axisY)
         .addScaledVector(headRight, axisX)
+    }
+
+    const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
+
+    if (snapIntent !== 0) {
+      this.viewRig.rotation.y -= snapIntent * SNAP_TURN_RADIANS
     }
 
     if (localMove.lengthSq() < 1e-6) {
