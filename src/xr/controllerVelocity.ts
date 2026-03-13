@@ -7,7 +7,6 @@ type ControllerSample = {
 }
 
 const ZERO_VECTOR = new THREE.Vector3()
-const currentPosition = new THREE.Vector3()
 
 export class ControllerVelocityTracker {
   private readonly samples = new Map<THREE.XRTargetRaySpace, ControllerSample>()
@@ -26,15 +25,13 @@ export class ControllerVelocityTracker {
 
   update(deltaSeconds: number) {
     for (const [controller, sample] of this.samples) {
-      controller.getWorldPosition(currentPosition)
-
       if (!sample.initialized || deltaSeconds <= 0) {
         sample.velocity.set(0, 0, 0)
       } else {
-        sample.velocity.copy(currentPosition).sub(sample.previousPosition).divideScalar(deltaSeconds)
+        sample.velocity.copy(controller.position).sub(sample.previousPosition).divideScalar(deltaSeconds)
       }
 
-      sample.previousPosition.copy(currentPosition)
+      sample.previousPosition.copy(controller.position)
       sample.initialized = true
     }
   }

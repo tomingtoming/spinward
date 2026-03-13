@@ -4,6 +4,7 @@ import { VRButton } from 'three/addons/webxr/VRButton.js'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
+import { applySurfaceRigState, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
 import { ForceVectorArrows } from '../objects/forceVectors'
@@ -16,9 +17,14 @@ import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
+import { VRLocomotion } from '../xr/vrLocomotion'
 
 export const bootstrapApp = () => {
   const habitatConfig = { ...DEFAULT_HABITAT_CONFIG }
+  const surfaceRigState: SurfaceRigState = {
+    axialPosition: 0,
+    azimuth: 0
+  }
   const debugVisuals = {
     showForceVectors: true,
     forceVectorScale: 0.08,
@@ -60,7 +66,12 @@ export const bootstrapApp = () => {
   document.body.appendChild(renderer.domElement)
   document.body.appendChild(VRButton.createButton(renderer))
 
-  const desktopLookControls = new DesktopLookControls(camera, renderer.domElement)
+  const desktopLookControls = new DesktopLookControls(
+    surfaceRigState,
+    playerRig,
+    camera,
+    renderer.domElement
+  )
 
   const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
   scene.add(light)
@@ -99,12 +110,20 @@ export const bootstrapApp = () => {
     controllerVelocity.registerController(controller)
   }
 
+  const vrLocomotion = new VRLocomotion(
+    grabSystem.getControllers().map(({ controller }) => controller),
+    playerRig,
+    camera,
+    surfaceRigState
+  )
+
   const syncHabitat = () => {
     habitat.setDimensions({
       radius: habitatConfig.radius,
       length: habitatConfig.length
     })
-    playerRig.position.set(habitatConfig.radius, 0, 0)
+    applySurfaceRigState(playerRig, surfaceRigState, habitatConfig.radius)
+    desktopLookControls.syncToRig(habitatConfig.radius)
   }
 
   syncHabitat()
@@ -229,8 +248,14 @@ export const bootstrapApp = () => {
   })
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
-    desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
+    desktopLookControls.update(
+      deltaSeconds,
+      renderer.xr.isPresenting,
+      habitatConfig.radius,
+      habitatConfig.length
+    )
+    vrLocomotion.update(deltaSeconds, renderer.xr.isPresenting, habitatConfig.radius, habitatConfig.length)
 
     if (desktopThrowQueued) {
       desktopThrowQueued = false
