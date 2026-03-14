@@ -159,6 +159,10 @@ export const bootstrapApp = async () => {
       radius: habitatConfig.radius,
       span: getHabitatSpanMeters(),
       presetId: habitatConfig.currentPresetId
+    }),
+    () => ({
+      xrActive: renderer.xr.isPresenting,
+      devicePixelRatio: window.devicePixelRatio
     })
   )
   const controllerVelocity = new ControllerVelocityTracker()
@@ -649,6 +653,7 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
+    farFieldRenderer.sync()
     farFieldRenderer.update(deltaSeconds)
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
@@ -677,6 +682,7 @@ export const bootstrapApp = async () => {
       trailMode: debugVisuals.trailMode,
       region: playerRegion,
       playerMode: playerTraversal.mode,
+      farField: farFieldRenderer.getDebugSnapshot(),
       watchMenuOpen,
       verification:
         verificationBallTarget === null || verification === null

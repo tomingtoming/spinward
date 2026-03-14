@@ -18,6 +18,12 @@ type HudSnapshot = {
   watchMenuOpen: boolean
   region: 'inside' | 'outside'
   playerMode: 'attached' | 'free-fly'
+  farField: {
+    enabled: boolean
+    layerCount: number
+    textureSize: number
+    radialSegments: number
+  }
   verification: {
     inertialVelocity: Vector3
     rotatingVelocity: Vector3
@@ -82,6 +88,8 @@ export const createHud = (): HudHandle => {
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
+        `far ${snapshot.farField.enabled ? 'on' : 'off'} ` +
+        `L${snapshot.farField.layerCount} tex ${snapshot.farField.textureSize} seg ${snapshot.farField.radialSegments} | ` +
         `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +
         `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | ` +
         `${snapshot.xrActive ? 'XR' : 'desktop'}${reattachText}` +

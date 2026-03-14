@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 
+import { resolveFarFieldLodProfile, type FarFieldLodProfile } from './farFieldLod'
 import {
   createFarFieldTexturePlan,
   renderFarFieldTexturePlan
@@ -16,8 +17,15 @@ export type FarFieldHabitatState = {
   presetId: string
 }
 
+export type FarFieldDebugSnapshot = {
+  enabled: boolean
+  layerCount: number
+  textureSize: number
+  radialSegments: number
+}
+
 type FarFieldLayer = {
-  mesh: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>
+  mesh: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>
   canvas: HTMLCanvasElement
   context: CanvasRenderingContext2D
   texture: THREE.CanvasTexture
@@ -41,7 +49,8 @@ const disableRaycast = () => undefined
 
 export const createFarFieldSignature = (
   settings: FarFieldSettings,
-  habitat: FarFieldHabitatState
+  habitat: FarFieldHabitatState,
+  profile: FarFieldLodProfile
 ) =>
   JSON.stringify({
     enabled: settings.enabled,
@@ -52,7 +61,10 @@ export const createFarFieldSignature = (
     bandArc_deg: settings.bandArc_deg,
     parallaxLayers: settings.parallaxLayers,
     parallaxOffset_m: settings.parallaxOffset_m,
-    textureSize: settings.textureSize,
+    textureSize: profile.textureSize,
+    effectiveLayers: profile.layerCount,
+    radialSegments: profile.radialSegments,
+    heightSegments: profile.heightSegments,
     presetId: habitat.presetId,
     radius: habitat.radius,
     span: habitat.span
@@ -65,18 +77,35 @@ export class FarFieldRenderer {
   private elapsedSinceRefresh = 0
   private refreshEpoch = 0
   private lastSignature: string | null = null
+  private currentProfile: FarFieldLodProfile = {
+    layerCount: 1,
+    textureSize: 256,
+    radialSegments: 40,
+    heightSegments: 4,
+    refreshInterval_s: 0
+  }
 
   constructor(
     scene: THREE.Scene | THREE.Group,
     private readonly getSettings: () => FarFieldSettings,
-    private readonly getHabitat: () => FarFieldHabitatState
+    private readonly getHabitat: () => FarFieldHabitatState,
+    private readonly getRuntime: () => { xrActive: boolean; devicePixelRatio: number } = () => ({
+      xrActive: false,
+      devicePixelRatio: 1
+    })
   ) {
     scene.add(this.group)
     this.group.renderOrder = 1
   }
 
   sync() {
-    const signature = createFarFieldSignature(this.getSettings(), this.getHabitat())
+    const settings = this.getSettings()
+    this.currentProfile = resolveFarFieldLodProfile(settings, this.getRuntime())
+    const signature = createFarFieldSignature(
+      settings,
+      this.getHabitat(),
+      this.currentProfile
+    )
 
     if (signature === this.lastSignature) {
       return
@@ -97,7 +126,7 @@ export class FarFieldRenderer {
     }
 
     const resolvedMode = resolveFarFieldMode(settings.mode, habitat.presetId)
-    const layerCount = settings.parallaxLayers
+    const layerCount = this.currentProfile.layerCount
     const clampedBandHeight = Math.min(settings.bandHeight_m, habitat.span * 0.9)
     const arcRadians = THREE.MathUtils.degToRad(settings.bandArc_deg)
     const thetaStart = Math.PI - arcRadians * 0.5
@@ -112,27 +141,25 @@ export class FarFieldRenderer {
         layerRadius,
         layerRadius,
         clampedBandHeight,
-        64,
-        8,
+        this.currentProfile.radialSegments,
+        this.currentProfile.heightSegments,
         true,
         thetaStart,
         arcRadians
       )
-      const { canvas, context } = createCanvas(settings.textureSize)
+      const { canvas, context } = createCanvas(this.currentProfile.textureSize)
       const texture = new THREE.CanvasTexture(canvas)
       texture.colorSpace = THREE.SRGBColorSpace
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
-      const material = new THREE.MeshStandardMaterial({
+      const material = new THREE.MeshBasicMaterial({
         map: texture,
-        emissiveMap: texture,
-        emissive: resolvedMode === 'night' ? new THREE.Color(0xf8fafc) : new THREE.Color(0x000000),
-        emissiveIntensity: resolvedMode === 'night' ? settings.intensity : 0,
-        color: resolvedMode === 'day' ? new THREE.Color(0xcbd5e1) : new THREE.Color(0x1f2937),
-        roughness: 1,
-        metalness: 0,
+        color: new THREE.Color().setScalar(
+          resolvedMode === 'night' ? Math.max(0.25, settings.intensity) : 1
+        ),
         side: THREE.BackSide,
-        fog: false
+        fog: false,
+        toneMapped: false
       })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.raycast = disableRaycast
@@ -154,7 +181,7 @@ export class FarFieldRenderer {
 
     if (
       !settings.enabled ||
-      settings.updateInterval_s <= 0 ||
+      this.currentProfile.refreshInterval_s <= 0 ||
       this.layers.length === 0
     ) {
       return
@@ -162,7 +189,7 @@ export class FarFieldRenderer {
 
     this.elapsedSinceRefresh += Math.max(0, deltaSeconds)
 
-    if (this.elapsedSinceRefresh < settings.updateInterval_s) {
+    if (this.elapsedSinceRefresh < this.currentProfile.refreshInterval_s) {
       return
     }
 
@@ -176,19 +203,30 @@ export class FarFieldRenderer {
     this.group.parent?.remove(this.group)
   }
 
+  getDebugSnapshot(): FarFieldDebugSnapshot {
+    return {
+      enabled: this.group.visible,
+      layerCount: this.layers.length,
+      textureSize: this.currentProfile.textureSize,
+      radialSegments: this.currentProfile.radialSegments
+    }
+  }
+
   private repaintTextures(mode: Exclude<FarFieldMode, 'auto'>) {
     const settings = this.getSettings()
 
     for (const [index, layer] of this.layers.entries()) {
       const plan = createFarFieldTexturePlan({
-        textureSize: settings.textureSize,
+        textureSize: this.currentProfile.textureSize,
         density: settings.density,
         seed: layer.seed + this.refreshEpoch + index * 97
       })
       layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height)
       renderFarFieldTexturePlan(layer.context, plan, mode)
       layer.texture.needsUpdate = true
-      layer.mesh.material.emissiveIntensity = mode === 'night' ? settings.intensity : 0
+      layer.mesh.material.color.setScalar(
+        mode === 'night' ? Math.max(0.25, settings.intensity) : 1
+      )
       layer.mesh.material.needsUpdate = true
     }
   }
