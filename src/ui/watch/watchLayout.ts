@@ -1,16 +1,26 @@
 import * as THREE from 'three'
 
 export type WatchActionId =
-  | 'rpm-decrement'
-  | 'rpm-increment'
-  | 'radius-decrement'
-  | 'radius-increment'
-  | 'throw-scale-decrement'
-  | 'throw-scale-increment'
-  | 'landing-assist-decrement'
-  | 'landing-assist-increment'
-  | 'reattach-threshold-decrement'
-  | 'reattach-threshold-increment'
+  | 'rpm-coarse-decrement'
+  | 'rpm-fine-decrement'
+  | 'rpm-fine-increment'
+  | 'rpm-coarse-increment'
+  | 'radius-coarse-decrement'
+  | 'radius-fine-decrement'
+  | 'radius-fine-increment'
+  | 'radius-coarse-increment'
+  | 'throw-scale-coarse-decrement'
+  | 'throw-scale-fine-decrement'
+  | 'throw-scale-fine-increment'
+  | 'throw-scale-coarse-increment'
+  | 'landing-assist-coarse-decrement'
+  | 'landing-assist-fine-decrement'
+  | 'landing-assist-fine-increment'
+  | 'landing-assist-coarse-increment'
+  | 'reattach-threshold-coarse-decrement'
+  | 'reattach-threshold-fine-decrement'
+  | 'reattach-threshold-fine-increment'
+  | 'reattach-threshold-coarse-increment'
 
 export type WatchButton = {
   id: WatchActionId
@@ -26,8 +36,7 @@ export type WatchRow = {
   label: string
   valueX: number
   valueY: number
-  decrement: WatchButton
-  increment: WatchButton
+  buttons: [WatchButton, WatchButton, WatchButton, WatchButton]
 }
 
 export type WatchExpandedLayout = {
@@ -54,33 +63,53 @@ const makeRow = (
   top: number,
   panelWidth: number
 ): WatchRow => {
-  const buttonWidth = 84
+  const buttonWidth = 72
   const buttonHeight = 64
   const rightMargin = 36
-  const incrementX = panelWidth - rightMargin - buttonWidth
-  const decrementX = incrementX - 104
+  const coarseIncrementX = panelWidth - rightMargin - buttonWidth
+  const fineIncrementX = coarseIncrementX - 84
+  const fineDecrementX = fineIncrementX - 84
+  const coarseDecrementX = fineDecrementX - 84
 
   return {
     key,
     label,
     valueX: 42,
     valueY: top + 54,
-    decrement: {
-      id: `${actionPrefix}-decrement` as WatchActionId,
-      label: '-',
-      x: decrementX,
-      y: top + 18,
-      width: buttonWidth,
-      height: buttonHeight
-    },
-    increment: {
-      id: `${actionPrefix}-increment` as WatchActionId,
-      label: '+',
-      x: incrementX,
-      y: top + 18,
-      width: buttonWidth,
-      height: buttonHeight
-    }
+    buttons: [
+      {
+        id: `${actionPrefix}-coarse-decrement` as WatchActionId,
+        label: '--',
+        x: coarseDecrementX,
+        y: top + 18,
+        width: buttonWidth,
+        height: buttonHeight
+      },
+      {
+        id: `${actionPrefix}-fine-decrement` as WatchActionId,
+        label: '-',
+        x: fineDecrementX,
+        y: top + 18,
+        width: buttonWidth,
+        height: buttonHeight
+      },
+      {
+        id: `${actionPrefix}-fine-increment` as WatchActionId,
+        label: '+',
+        x: fineIncrementX,
+        y: top + 18,
+        width: buttonWidth,
+        height: buttonHeight
+      },
+      {
+        id: `${actionPrefix}-coarse-increment` as WatchActionId,
+        label: '++',
+        x: coarseIncrementX,
+        y: top + 18,
+        width: buttonWidth,
+        height: buttonHeight
+      }
+    ]
   }
 }
 
@@ -100,7 +129,7 @@ export const createWatchExpandedLayout = (
     width,
     height,
     rows,
-    buttons: rows.flatMap((row) => [row.decrement, row.increment])
+    buttons: rows.flatMap((row) => row.buttons)
   }
 }
 

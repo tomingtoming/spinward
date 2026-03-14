@@ -158,7 +158,7 @@ export const bootstrapApp = async () => {
   let desktopThrowQueued = false
   let frameAngle = 0
   let settingsDirty = false
-  let xrWatchMenuOpen = false
+  let watchUiHot = false
   let desktopUiCamera: THREE.PerspectiveCamera = camera
   const playerTraversal = createPlayerTraversalState(
     initialSurfaceState,
@@ -184,7 +184,7 @@ export const bootstrapApp = async () => {
     renderer,
     controllerRoot: viewRig,
     shouldBlockSelectStart: (controller) =>
-      xrWatchMenuOpen ||
+      (watchUiHot && vrLocomotion?.getHandedness(controller) === 'right') ||
       (playerTraversal.mode === 'free-fly' && vrLocomotion?.getHandedness(controller) === 'left'),
     onEmptySelectStart: (controller) => {
       const ball = spawnBall({
@@ -415,16 +415,6 @@ export const bootstrapApp = async () => {
     const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
 
-    if (xrWatchInput.toggleWatchMenu) {
-      xrWatchMenuOpen = !xrWatchMenuOpen
-      watchPanel.setExpanded(xrWatchMenuOpen)
-    }
-
-    if (!renderer.xr.isPresenting && xrWatchMenuOpen) {
-      xrWatchMenuOpen = false
-      watchPanel.setExpanded(false)
-    }
-
     if (desktopThrowQueued) {
       desktopThrowQueued = false
       throwDesktopBall()
@@ -552,7 +542,7 @@ export const bootstrapApp = async () => {
       visible: debugVisuals.showForceVectors
     })
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle)
-    const watchMenuOpen = xrWatchMenuOpen || desktopQuickPanel.isVisible
+    const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
 
     hud.update({
       radius: habitatConfig.radius,
@@ -616,6 +606,8 @@ export const bootstrapApp = async () => {
       playerMode: playerTraversal.mode,
       region: playerRegion,
       watchMenuOpen,
+      observerMode: effectiveObserverMode,
+      trailMode: debugVisuals.trailMode,
       ballCount: balls.length
     })
     watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
@@ -623,11 +615,12 @@ export const bootstrapApp = async () => {
     watchPanel.updateHover(
       laserPointer.update(
         watchPanel.interactiveObject,
-        renderer.xr.isPresenting && xrWatchMenuOpen
+        renderer.xr.isPresenting
       )?.uv ?? null
     )
+    watchUiHot = renderer.xr.isPresenting && watchPanel.hasHover
 
-    if (renderer.xr.isPresenting && xrWatchMenuOpen && xrWatchInput.rightTriggerPressed) {
+    if (renderer.xr.isPresenting && xrWatchInput.rightTriggerPressed) {
       watchPanel.clickHovered()
     }
 

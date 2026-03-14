@@ -11,10 +11,10 @@ import {
 } from './watchLayout'
 import { renderWatchExpanded, renderWatchStatus } from './watchRenderer'
 
-const STATUS_SCALE = new THREE.Vector3(0.18, 0.09, 1)
-const EXPANDED_SCALE = new THREE.Vector3(0.36, 0.43, 1)
-const WRIST_OFFSET = new THREE.Vector3(-0.055, 0.015, -0.02)
-const BASE_PANEL_ROTATION = new THREE.Euler(-0.75, 0.5, -0.35)
+const STATUS_SCALE = new THREE.Vector3(0.14, 0.075, 1)
+const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.32, 1)
+const WRIST_OFFSET = new THREE.Vector3(-0.016, -0.036, -0.014)
+const BASE_PANEL_ROTATION = new THREE.Euler(-1.42, -0.12, -1.28)
 
 const anchorPosition = new THREE.Vector3()
 const anchorQuaternion = new THREE.Quaternion()
@@ -74,11 +74,13 @@ export class WatchPanel {
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
     this.statusMesh.scale.copy(STATUS_SCALE)
     this.expandedMesh.scale.copy(EXPANDED_SCALE)
-    this.expandedMesh.position.set(0.02, 0.24, 0.035)
-    this.expandedMesh.visible = false
+    this.expandedMesh.position.set(0, 0, 0)
+    this.expandedMesh.visible = true
+    this.statusMesh.visible = false
     this.group.renderOrder = 30
     this.group.add(this.statusMesh, this.expandedMesh)
     this.group.visible = false
+    this.expanded = true
   }
 
   get isExpanded() {
@@ -87,6 +89,10 @@ export class WatchPanel {
 
   get interactiveObject() {
     return this.expanded ? this.expandedMesh : null
+  }
+
+  get hasHover() {
+    return this.hoveredAction !== null
   }
 
   setExpanded(expanded: boolean) {

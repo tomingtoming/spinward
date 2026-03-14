@@ -77,36 +77,52 @@ export const renderWatchExpanded = (
   ctx.fillStyle = '#f6fbff'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.font = '700 34px "Avenir Next", sans-serif'
-  ctx.fillText('WATCH / PLAY', 36, 28)
+  ctx.font = '700 30px "Avenir Next", sans-serif'
+  ctx.fillText('LEFT WRIST / PLAY', 28, 22)
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.8)'
-  ctx.font = '600 20px "Avenir Next", sans-serif'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
   ctx.fillText(
-    `${snapshot.playerMode} | ${snapshot.region} | rpm ${snapshot.rpm.toFixed(1)} | g ${snapshot.surfaceGravity.toFixed(1)}`,
-    36,
-    76
+    `${snapshot.playerMode} | ${snapshot.region} | view ${snapshot.observerMode} | trail ${snapshot.trailMode}`,
+    28,
+    64
   )
-  ctx.fillText('Hold left Y to close. Right trigger clicks.', 36, 108)
+  ctx.fillText(
+    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | balls ${snapshot.ballCount}`,
+    28,
+    92
+  )
+  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 120)
 
   const valuesByRowKey: Record<string, string> = {
-    rpm: snapshot.rpm.toFixed(1),
+    rpm: snapshot.rpm.toFixed(2),
     radius: `${snapshot.radius.toFixed(0)} m`,
     throwScale: snapshot.throwScale.toFixed(2),
     landingAssist: snapshot.landingAssist.toFixed(1),
     reattachThreshold: snapshot.reattachThreshold.toFixed(2)
   }
+  const stepLabelsByRowKey: Record<string, string> = {
+    rpm: `fine ${snapshot.rpmFineStep.toFixed(2)} / coarse ${snapshot.rpmCoarseStep.toFixed(2)}`,
+    radius: `fine ${snapshot.radiusFineStep.toFixed(0)} / coarse ${snapshot.radiusCoarseStep.toFixed(0)}`,
+    throwScale: `fine ${snapshot.throwScaleFineStep.toFixed(2)} / coarse ${snapshot.throwScaleCoarseStep.toFixed(2)}`,
+    landingAssist: `fine ${snapshot.landingAssistFineStep.toFixed(1)} / coarse ${snapshot.landingAssistCoarseStep.toFixed(1)}`,
+    reattachThreshold: `fine ${snapshot.reattachThresholdFineStep.toFixed(2)} / coarse ${snapshot.reattachThresholdCoarseStep.toFixed(2)}`
+  }
 
   for (const row of layout.rows) {
     ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-    ctx.font = '600 20px "Avenir Next", sans-serif'
+    ctx.font = '600 18px "Avenir Next", sans-serif'
     ctx.fillText(row.label.toUpperCase(), row.valueX, row.valueY - 28)
+    ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
+    ctx.font = '500 15px "Avenir Next", sans-serif'
+    ctx.fillText(stepLabelsByRowKey[row.key], row.valueX, row.valueY + 38)
 
     ctx.fillStyle = '#f6fbff'
-    ctx.font = '700 34px "Avenir Next", sans-serif'
+    ctx.font = '700 30px "Avenir Next", sans-serif'
     ctx.fillText(valuesByRowKey[row.key], row.valueX, row.valueY)
 
-    drawButton(ctx, row.decrement, hoveredAction)
-    drawButton(ctx, row.increment, hoveredAction)
+    for (const button of row.buttons) {
+      drawButton(ctx, button, hoveredAction)
+    }
   }
 }

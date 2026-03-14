@@ -9,13 +9,16 @@ test('settingsStore adjusts habitat values and notifies listeners', () => {
     notifications += 1
   })
 
-  store.adjustRpm(0.1)
-  store.adjustRadius(10)
-  store.adjustThrowScale(0.05)
+  expect(store.getRpmFineStep()).toBeCloseTo(0.01, 6)
+  expect(store.getRadiusFineStep()).toBeCloseTo(1, 6)
 
-  expect(store.habitat.rpm).toBeCloseTo(5.1, 6)
-  expect(store.habitat.radius).toBe(30)
-  expect(store.habitat.ballSpeedScale).toBeCloseTo(1.05, 6)
+  store.adjustRpm(1, 'fine')
+  store.adjustRadius(10, 'fine')
+  store.adjustThrowScale(1, 'fine')
+
+  expect(store.habitat.rpm).toBeCloseTo(5.01, 6)
+  expect(store.habitat.radius).toBe(28)
+  expect(store.habitat.ballSpeedScale).toBeCloseTo(1.01, 6)
   expect(notifications).toBe(3)
 })
 
@@ -32,8 +35,11 @@ test('settingsStore clamps grouped assist and reattach adjustments', () => {
     }
   )
 
-  store.adjustLandingAssist(-10)
-  store.adjustReattachThreshold(-10)
+  expect(store.getLandingAssistFineStep()).toBeCloseTo(0.1, 6)
+  expect(store.getReattachThresholdFineStep()).toBeCloseTo(0.01, 6)
+
+  store.adjustLandingAssist(-10, 'coarse')
+  store.adjustReattachThreshold(-10, 'coarse')
 
   expect(store.reattach.assistNormalDamping).toBeGreaterThanOrEqual(0)
   expect(store.reattach.assistSurfaceDamping).toBeGreaterThanOrEqual(0)
