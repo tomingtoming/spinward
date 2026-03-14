@@ -55,6 +55,8 @@ test('Ball keeps inertial motion in Rapier while curving in the rotating frame',
     world.step()
     ball.step({
       deltaSeconds,
+      habitatRadius: 100,
+      habitatLength: 100,
       omega,
       frameAngleEnd: frameAngle
     })
@@ -113,6 +115,8 @@ test('Ball.setVelocity updates the Rapier body using inertial velocity', async (
   world.step()
   ball.step({
     deltaSeconds,
+    habitatRadius: 100,
+    habitatLength: 100,
     omega,
     frameAngleEnd: frameAngle + omega * deltaSeconds
   })
@@ -153,6 +157,8 @@ test('Ball charge color brightens as the held launch speed increases', async () 
   now = 1.2
   ball.step({
     deltaSeconds: 1 / 60,
+    habitatRadius: 100,
+    habitatLength: 100,
     omega: 0,
     frameAngleEnd: 0
   })
@@ -188,6 +194,8 @@ test('Ball keeps the charged launch color after release', async () => {
   now = 1.2
   ball.step({
     deltaSeconds: 1 / 60,
+    habitatRadius: 100,
+    habitatLength: 100,
     omega: 0,
     frameAngleEnd: 0
   })
@@ -229,6 +237,8 @@ test('Ball collides with the colony inner wall in Rapier', async () => {
     world.step()
     ball.step({
       deltaSeconds: 1 / 60,
+      habitatRadius: 10,
+      habitatLength: 20,
       omega: 0,
       frameAngleEnd: 0
     })

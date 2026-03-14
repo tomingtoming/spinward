@@ -9,6 +9,7 @@ import {
   inertialPositionToRotating,
   inertialVelocityToRotating
 } from '../sim/frameTransforms'
+import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 
@@ -28,6 +29,8 @@ type BallOptions = {
 
 type BallStepConfig = {
   deltaSeconds: number
+  habitatRadius: number
+  habitatLength: number
   omega: number
   frameAngleEnd: number
 }
@@ -64,6 +67,7 @@ export class Ball {
   ) => void
   private readonly nowSeconds: () => number
   private readonly world: World
+  private readonly restitution: number
   private readonly rigidBody: RigidBody
   private readonly inertialPosition = new THREE.Vector3()
   private readonly inertialVelocity = new THREE.Vector3()
@@ -86,6 +90,7 @@ export class Ball {
     this.onReleased = options.onReleased
     this.nowSeconds = options.nowSeconds ?? (() => performance.now() * 0.001)
     this.world = options.physics.world
+    this.restitution = options.physics.restitution
     this.frameAngle = options.frameAngle
     this.omega = options.omega
 
@@ -229,6 +234,7 @@ export class Ball {
     copyRapierVector(this.rigidBody.translation(), this.inertialPosition)
     copyRapierVector(this.rigidBody.linvel(), this.inertialVelocity)
     this.syncRenderState()
+    this.applyHabitatCollision(config)
     this.appendTrailPoint()
   }
 
@@ -280,6 +286,33 @@ export class Ball {
   private replaceTrailGeometry() {
     this.trail.geometry.dispose()
     this.trail.geometry = new THREE.BufferGeometry().setFromPoints(this.trailPoints)
+  }
+
+  private applyHabitatCollision(config: BallStepConfig) {
+    const collided = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
+      radius: config.habitatRadius,
+      length: config.habitatLength,
+      sphereRadius: this.radius,
+      restitution: this.restitution,
+      omega: this.omega,
+      capEnds: false
+    })
+
+    if (!collided) {
+      return
+    }
+
+    this.mesh.position.copy(this.rotatingPosition)
+    rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
+    rotatingVelocityToInertial(
+      this.rotatingPosition,
+      this.rotatingVelocity,
+      this.omega,
+      this.frameAngle,
+      this.inertialVelocity
+    )
+    this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
+    this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
   }
 
   private updateAppearance() {

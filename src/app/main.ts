@@ -418,6 +418,8 @@ export const bootstrapApp = async () => {
     for (const ball of balls) {
       ball.step({
         deltaSeconds,
+        habitatRadius: habitatConfig.radius,
+        habitatLength: habitatConfig.length,
         omega,
         frameAngleEnd: frameAngle
       })
