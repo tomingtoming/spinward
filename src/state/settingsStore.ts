@@ -41,13 +41,16 @@ export const createSettingsStore = (
     ...reattachOverrides
   }
   const listeners = new Set<SettingsListener>()
+  const markHabitatCustom = () => {
+    habitat.currentPresetId = 'custom'
+  }
 
   const notify = () => {
     for (const listener of listeners) {
       listener()
     }
   }
-  const getRadiusFineStep = () => getAdaptiveStep(habitat.radius, 2, 1)
+  const getRadiusFineStep = () => getAdaptiveStep(habitat.radius, 3, 1)
   const getRadiusCoarseStep = () => selectStep(getRadiusFineStep(), 'coarse')
   const getRpmFineStep = () => getAdaptiveStep(habitat.rpm, 3, 0.01)
   const getRpmCoarseStep = () => selectStep(getRpmFineStep(), 'coarse')
@@ -70,6 +73,33 @@ export const createSettingsStore = (
     getSurfaceGravity() {
       return surfaceGravityFromConfig(habitat)
     },
+    setHabitatConfig(nextValues: Partial<Pick<
+      HabitatConfig,
+      'type' | 'radius' | 'length' | 'thickness' | 'rpm' | 'simScale' | 'currentPresetId'
+    >>) {
+      if (nextValues.type !== undefined) {
+        habitat.type = nextValues.type
+      }
+      if (nextValues.radius !== undefined) {
+        habitat.radius = nextValues.radius
+      }
+      if (nextValues.length !== undefined) {
+        habitat.length = nextValues.length
+      }
+      if (nextValues.thickness !== undefined) {
+        habitat.thickness = nextValues.thickness
+      }
+      if (nextValues.rpm !== undefined) {
+        habitat.rpm = nextValues.rpm
+      }
+      if (nextValues.simScale !== undefined) {
+        habitat.simScale = nextValues.simScale
+      }
+      if (nextValues.currentPresetId !== undefined) {
+        habitat.currentPresetId = nextValues.currentPresetId
+      }
+      notify()
+    },
     getRadiusFineStep,
     getRadiusCoarseStep,
     getRpmFineStep,
@@ -82,12 +112,14 @@ export const createSettingsStore = (
     getReattachThresholdCoarseStep,
     adjustRadius(ticks: number, mode: StepMode = 'fine') {
       const step = selectStep(getRadiusFineStep(), mode)
-      habitat.radius = clamp(roundToStep(habitat.radius + step * ticks, step), 10, 2000)
+      habitat.radius = clamp(roundToStep(habitat.radius + step * ticks, step), 10, 100000)
+      markHabitatCustom()
       notify()
     },
     adjustRpm(ticks: number, mode: StepMode = 'fine') {
       const step = selectStep(getRpmFineStep(), mode)
       habitat.rpm = clamp(roundToStep(habitat.rpm + step * ticks, step), 0, 12)
+      markHabitatCustom()
       notify()
     },
     adjustThrowScale(ticks: number, mode: StepMode = 'fine') {

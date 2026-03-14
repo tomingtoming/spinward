@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 
-import type { SettingsStore } from '../state/settingsStore'
-import { applyWatchAction, type WatchRenderSnapshot } from '../ui/watch/watchBindings'
+import {
+  isWatchActionDisabled,
+  type WatchRenderSnapshot
+} from '../ui/watch/watchBindings'
 import {
   WATCH_EXPANDED_SIZE,
   createWatchExpandedLayout,
@@ -42,10 +44,11 @@ export class PcQuickPanel {
   private readonly texture = new THREE.CanvasTexture(this.canvas.canvas)
   private readonly raycaster = new THREE.Raycaster()
   private readonly layout = createWatchExpandedLayout()
+  private snapshot: WatchRenderSnapshot | null = null
   private visible = false
   private hoveredAction: WatchActionId | null = null
 
-  constructor(private readonly settingsStore: SettingsStore) {
+  constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
     this.texture.colorSpace = THREE.SRGBColorSpace
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
@@ -80,6 +83,8 @@ export class PcQuickPanel {
   }
 
   update(camera: THREE.PerspectiveCamera, snapshot: WatchRenderSnapshot, active: boolean) {
+    this.snapshot = snapshot
+
     if (!active || !this.visible) {
       this.mesh.visible = false
       return
@@ -137,8 +142,7 @@ export class PcQuickPanel {
       return false
     }
 
-    applyWatchAction(this.settingsStore, this.hoveredAction)
-    return true
+    return this.onAction(this.hoveredAction) ?? true
   }
 
   private raycast(
@@ -159,6 +163,12 @@ export class PcQuickPanel {
       return null
     }
 
-    return getWatchButtonAtUv(this.layout, hit.uv)
+    const button = getWatchButtonAtUv(this.layout, hit.uv)
+
+    if (button === null || this.snapshot === null) {
+      return button
+    }
+
+    return isWatchActionDisabled(this.snapshot, button.id) ? null : button
   }
 }

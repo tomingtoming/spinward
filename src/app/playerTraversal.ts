@@ -10,7 +10,10 @@ import {
   type SurfaceRigState
 } from './surfaceRig'
 import type { RapierModule } from '../physics/rapierContext'
-import { copyRapierVector, toRapierVector } from '../physics/rapierMath'
+import {
+  copyRapierVectorScaled,
+  toRapierVectorScaled
+} from '../physics/rapierMath'
 import {
   inertialPositionToRotating,
   inertialVelocityToRotating,
@@ -23,11 +26,13 @@ export type PlayerTraversalMode = 'attached' | 'free-fly'
 type PlayerTraversalPhysicsState = {
   world: World
   freeFlyBody: RigidBody
+  simScale: number
 }
 
 export type PlayerTraversalPhysicsContext = {
   rapier: RapierModule
   world: World
+  simScale?: number
 }
 
 export type PlayerTraversalState = {
@@ -136,17 +141,18 @@ export const createPlayerTraversalState = (
   syncAttachedInertialState(state, radius, frameAngle, omega, zeroRotatingVelocity)
 
   if (physics !== undefined) {
+    const simScale = physics.simScale ?? 1
     const freeFlyBody = physics.world.createRigidBody(
       physics.rapier.RigidBodyDesc.dynamic()
         .setTranslation(
-          state.inertialPosition.x,
-          state.inertialPosition.y,
-          state.inertialPosition.z
+          state.inertialPosition.x * simScale,
+          state.inertialPosition.y * simScale,
+          state.inertialPosition.z * simScale
         )
         .setLinvel(
-          state.inertialVelocity.x,
-          state.inertialVelocity.y,
-          state.inertialVelocity.z
+          state.inertialVelocity.x * simScale,
+          state.inertialVelocity.y * simScale,
+          state.inertialVelocity.z * simScale
         )
         .setGravityScale(0)
         .setLinearDamping(0)
@@ -157,13 +163,13 @@ export const createPlayerTraversalState = (
     )
     physics.world.createCollider(
       physics.rapier.ColliderDesc.capsule(
-        PLAYER_COLLIDER_HALF_HEIGHT,
-        PLAYER_COLLIDER_RADIUS
+        PLAYER_COLLIDER_HALF_HEIGHT * simScale,
+        PLAYER_COLLIDER_RADIUS * simScale
       )
         .setTranslation(
-          playerColliderOffset.x,
-          playerColliderOffset.y,
-          playerColliderOffset.z
+          playerColliderOffset.x * simScale,
+          playerColliderOffset.y * simScale,
+          playerColliderOffset.z * simScale
         )
         .setFriction(0.5)
         .setRestitution(0.05),
@@ -171,7 +177,8 @@ export const createPlayerTraversalState = (
     )
     state.physics = {
       world: physics.world,
-      freeFlyBody
+      freeFlyBody,
+      simScale
     }
     syncFreeFlyBodyToState(state, false)
   }
@@ -255,7 +262,10 @@ export const stepFreeFlyPlayer = (
   }
 
   if (state.physics !== null) {
-    state.physics.freeFlyBody.setLinvel(toRapierVector(state.inertialVelocity), true)
+    state.physics.freeFlyBody.setLinvel(
+      toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+      true
+    )
     return
   }
 
@@ -298,8 +308,16 @@ export const syncPlayerTraversalFromPhysics = (state: PlayerTraversalState) => {
     return
   }
 
-  copyRapierVector(state.physics.freeFlyBody.translation(), state.inertialPosition)
-  copyRapierVector(state.physics.freeFlyBody.linvel(), state.inertialVelocity)
+  copyRapierVectorScaled(
+    state.physics.freeFlyBody.translation(),
+    state.physics.simScale,
+    state.inertialPosition
+  )
+  copyRapierVectorScaled(
+    state.physics.freeFlyBody.linvel(),
+    state.physics.simScale,
+    state.inertialVelocity
+  )
 }
 
 export const disposePlayerTraversalState = (state: PlayerTraversalState) => {
@@ -453,7 +471,10 @@ export const applyReattachAssist = (
   )
 
   if (state.physics !== null) {
-    state.physics.freeFlyBody.setLinvel(toRapierVector(state.inertialVelocity), true)
+    state.physics.freeFlyBody.setLinvel(
+      toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+      true
+    )
   }
 
   return true
@@ -483,9 +504,52 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, enabled: boolean) =
     return
   }
 
-  state.physics.freeFlyBody.setTranslation(toRapierVector(state.inertialPosition), true)
-  state.physics.freeFlyBody.setLinvel(toRapierVector(state.inertialVelocity), true)
+  state.physics.freeFlyBody.setTranslation(
+    toRapierVectorScaled(state.inertialPosition, state.physics.simScale),
+    true
+  )
+  state.physics.freeFlyBody.setLinvel(
+    toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+    true
+  )
   state.physics.freeFlyBody.setEnabled(enabled)
+}
+
+export const resetPlayerToAttached = (
+  state: PlayerTraversalState,
+  config: {
+    axialPosition: number
+    azimuth: number
+    radius: number
+    frameAngle: number
+    omega: number
+  }
+) => {
+  state.mode = 'attached'
+  state.surface.axialPosition = config.axialPosition
+  state.surface.azimuth = config.azimuth
+  syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
+}
+
+export const resetPlayerToFreeFly = (
+  state: PlayerTraversalState,
+  config: {
+    rotatingPosition: THREE.Vector3
+    rotatingVelocity?: THREE.Vector3
+    frameAngle: number
+    omega: number
+  }
+) => {
+  state.mode = 'free-fly'
+  rotatingPositionToInertial(config.rotatingPosition, config.frameAngle, state.inertialPosition)
+  rotatingVelocityToInertial(
+    config.rotatingPosition,
+    config.rotatingVelocity ?? zeroRotatingVelocity,
+    config.omega,
+    config.frameAngle,
+    state.inertialVelocity
+  )
+  syncFreeFlyBodyToState(state, true)
 }
 
 export const mergeLocomotionIntent = (

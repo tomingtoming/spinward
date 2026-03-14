@@ -1,4 +1,4 @@
-import type { WatchRenderSnapshot } from './watchBindings'
+import { isWatchActionDisabled, type WatchRenderSnapshot } from './watchBindings'
 import type { WatchActionId, WatchExpandedLayout, WatchButton } from './watchLayout'
 
 const clearCanvas = (ctx: CanvasRenderingContext2D) => {
@@ -25,16 +25,35 @@ const drawPanelShell = (
 const drawButton = (
   ctx: CanvasRenderingContext2D,
   button: WatchButton,
-  hoveredAction: WatchActionId | null
+  hoveredAction: WatchActionId | null,
+  state: {
+    disabled?: boolean
+    active?: boolean
+  } = {}
 ) => {
-  const hovered = hoveredAction === button.id
+  const hovered = !state.disabled && hoveredAction === button.id
+  const fillStyle = state.disabled
+    ? 'rgba(24, 38, 48, 0.7)'
+    : hovered
+      ? '#67e8f9'
+      : state.active
+        ? '#0f5c73'
+        : '#183648'
+  const strokeStyle = state.disabled
+    ? 'rgba(148, 163, 184, 0.2)'
+    : hovered
+      ? '#d9fbff'
+      : state.active
+        ? '#9be7f5'
+        : 'rgba(192, 228, 248, 0.24)'
+  const textStyle = state.disabled ? 'rgba(148, 163, 184, 0.7)' : hovered ? '#02131b' : '#d8ebf4'
 
-  ctx.fillStyle = hovered ? '#67e8f9' : '#183648'
+  ctx.fillStyle = fillStyle
   ctx.fillRect(button.x, button.y, button.width, button.height)
-  ctx.strokeStyle = hovered ? '#d9fbff' : 'rgba(192, 228, 248, 0.24)'
+  ctx.strokeStyle = strokeStyle
   ctx.lineWidth = 2
   ctx.strokeRect(button.x, button.y, button.width, button.height)
-  ctx.fillStyle = hovered ? '#02131b' : '#d8ebf4'
+  ctx.fillStyle = textStyle
   ctx.font = '600 32px "Avenir Next", sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -44,6 +63,11 @@ const drawButton = (
     button.y + button.height * 0.53
   )
 }
+
+const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
+  (action === 'preset-apply-izma' && snapshot.currentPresetId === 'izma') ||
+  (action === 'preset-apply-cooper' && snapshot.currentPresetId === 'cooper') ||
+  (action === 'preset-apply-elysium' && snapshot.currentPresetId === 'elysium')
 
 export const renderWatchStatus = (
   ctx: CanvasRenderingContext2D,
@@ -59,10 +83,15 @@ export const renderWatchStatus = (
   ctx.fillText('WATCH', 22, 18)
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.8)'
-  ctx.font = '600 20px "Avenir Next", sans-serif'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
   ctx.fillText(`${snapshot.playerMode} | ${snapshot.region}`, 22, 62)
-  ctx.fillText(`rpm ${snapshot.rpm.toFixed(1)} | g ${snapshot.surfaceGravity.toFixed(1)}`, 22, 92)
-  ctx.fillText(`R ${snapshot.radius.toFixed(0)}m | balls ${snapshot.ballCount}`, 22, 122)
+  ctx.fillText(`${snapshot.currentPresetName} | ${snapshot.habitatType}`, 22, 88)
+  ctx.fillText(
+    `rpm ${snapshot.rpm.toFixed(2)} | g ${snapshot.surfaceGravity.toFixed(2)} | balls ${snapshot.ballCount}`,
+    22,
+    114
+  )
+  ctx.fillText(`R ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m`, 22, 140)
 }
 
 export const renderWatchExpanded = (
@@ -88,11 +117,16 @@ export const renderWatchExpanded = (
     64
   )
   ctx.fillText(
-    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | balls ${snapshot.ballCount}`,
+    `preset ${snapshot.currentPresetName} | ${snapshot.habitatType} | R ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m | sim ${snapshot.simScale.toFixed(3)}`,
     28,
     92
   )
-  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 120)
+  ctx.fillText(
+    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | balls ${snapshot.ballCount}`,
+    28,
+    120
+  )
+  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 148)
 
   const valuesByRowKey: Record<string, string> = {
     rpm: snapshot.rpm.toFixed(2),
@@ -124,5 +158,41 @@ export const renderWatchExpanded = (
     for (const button of row.buttons) {
       drawButton(ctx, button, hoveredAction)
     }
+  }
+
+  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
+  ctx.fillText('PRESETS', 42, 652)
+  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
+  ctx.font = '500 15px "Avenir Next", sans-serif'
+  ctx.fillText(
+    'Apply clears live balls, rebuilds Rapier scale, and respawns on the inner wall.',
+    42,
+    678
+  )
+
+  for (const button of layout.presetButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      active: isActivePresetAction(snapshot, button.id)
+    })
+  }
+
+  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
+  ctx.fillText('RESPAWN', 42, 852)
+  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
+  ctx.font = '500 15px "Avenir Next", sans-serif'
+  ctx.fillText(
+    snapshot.axisEndRespawnEnabled
+      ? 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.'
+      : 'Axis End is disabled for ring presets. Use Inner Wall to respawn safely.',
+    42,
+    878
+  )
+
+  for (const button of layout.respawnButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      disabled: isWatchActionDisabled(snapshot, button.id)
+    })
   }
 }

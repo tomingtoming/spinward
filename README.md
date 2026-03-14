@@ -1,6 +1,6 @@
 # O’Neill Cylinder Playground
 
-Meta Quest 3S のブラウザで開けるように、`vite + typescript + three.js` で WebXR playground を構成しています。現在は Sprint 2 段階で、Rapier の慣性系シミュレーションと、回転座標系の表示変換を分けたまま「投げると曲がる」と「慣性系では直線に近い」を見比べられます。
+Meta Quest 3S のブラウザで開けるように、`vite + typescript + three.js` で WebXR playground を構成しています。現在は Sprint 2 段階で、Rapier の慣性系シミュレーションと、回転座標系の表示変換を分けたまま「投げると曲がる」と「慣性系では直線に近い」を見比べられます。Habitat preset、Respawn、`real` と `simScale` の分離まで実装済みです。
 
 ## セットアップ
 
@@ -40,7 +40,9 @@ bun run preview -- --host 0.0.0.0
 - VR: `free-fly` 中は左スティック左右でロール角速度、前後でピッチ角速度を与えます。
 - VR: `free-fly` 中は左 grip で回転 brake を掛け、現在の角速度を徐々に落とせます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
-- VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は 2 桁有効を目安に step が自動で変わります。
+- VR: wrist UI から `Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
+- VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。`Axis End` は cylinder のみで、ring preset では disabled です。
+- VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
 - VR: 右スティック左右で `snap turn` できます。
 - VR: 球のトリガーを離すと放します。球はその時のコントローラ速度から投げ速度を決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
@@ -54,8 +56,8 @@ bun run preview -- --host 0.0.0.0
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
-- PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定を変えられます。
-- GUI: `radius`, `rpm`, `throw scale`, `surface g`, `reattach` 閾値と弱い landing assist の強さを右上で調整できます。
+- PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定、preset、respawn を操作できます。
+- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `reattach` 閾値と弱い landing assist の強さを右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
@@ -72,6 +74,9 @@ bun run preview -- --host 0.0.0.0
 - ここでの `1G` は「内壁位置での局所的な遠心加速度の大きさ」です。小半径・高rpmでは Earth の一様重力とは見え方がかなり違い、コリオリも強く出ます。
 - Rapier world は慣性系で動かしています。
 - 回転座標系は表示、入力解釈、デバッグ可視化のための変換層です。
+- 設定や HUD に出す寸法は `real` メートル系です。
+- Rapier world に渡す位置、速度、collider 寸法は `sim = real * simScale` です。
+- 現在の描画と回転座標系変換は `real` 側で統一し、Rapier 境界だけ `simScale` で変換しています。
 - 球と `free-fly` プレイヤーの内部状態は慣性系で保持し、描画時に回転系へ戻しています。
 - `attached` プレイヤーだけは内壁拘束ロジックを使います。
 - Trail は 2 系統あります。
@@ -84,6 +89,19 @@ a_c  = -2 (Ω × v)
 a_cf = -(Ω × (Ω × r))
 ```
 
+## Presets
+
+- Izma Colony: 半径 `3200m`, 全長 `40000m`, 周期 `113.5s`, `0.5286rpm`, `simScale 0.02`
+- Cooper Station: 半径 `3200m`, 全長 `32000m`, `0.5rpm`, `simScale 0.02`
+- Elysium: 半径 `30000m`, リング厚み `2000m`, 周期 `348s`, `0.1724rpm`, `simScale 0.005`
+- Elysium は現在の traversal と collider を保つため、見た目と接触は「短い axial band を持つ ring 近似」として扱っています。
+
+## Respawn
+
+- `Inner Wall`: 円筒中央の内壁へ戻り、`attached` で開始します。
+- `Axis End`: 円筒端の回転軸上へ戻り、`free-fly` で開始します。
+- `Axis End` は cylinder preset のみ有効です。ring preset では disabled になります。
+
 ## 実装済みの主な内容
 
 - シリンダー内壁メッシュと簡易グリッド
@@ -95,6 +113,8 @@ a_cf = -(Ω × (Ω × r))
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
+- `Izma / Cooper / Elysium` preset と `real / simScale` 分離
+- 内壁中央 / 軸端の 2 種 respawn
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト

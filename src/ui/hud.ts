@@ -3,8 +3,12 @@ import type { ObserverMode, TrailMode } from '../app/observerMode'
 
 type HudSnapshot = {
   radius: number
+  span: number
   rpm: number
   gTarget: number
+  presetName: string
+  habitatType: 'cylinder' | 'ring'
+  simScale: number
   ballCount: number
   trackedBallSpeed: number
   xrActive: boolean
@@ -50,7 +54,7 @@ export const createHud = (): HudHandle => {
   const controls = document.createElement('div')
   controls.className = 'hud__controls'
   controls.textContent =
-    'VR: left wrist watch is always visible, right trigger clicks the watch only while aiming at it, otherwise throws balls; attached=left stick walk, left trigger launch, free-fly=left trigger thrust, left grip attitude brake, left stick click slow, left stick X roll/Y pitch, right stick snap turn | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
+    'VR: left wrist watch stays open, right trigger clicks it only while aiming at the panel, otherwise throws; attached=left stick walk, left trigger launch; free-fly=left trigger thrust, left grip attitude brake, left stick click slow, left stick X roll/Y pitch, right stick snap turn | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
 
   root.append(stats, controls)
   document.body.append(root)
@@ -71,8 +75,10 @@ export const createHud = (): HudHandle => {
             `${snapshot.reattach.ready ? 'ready' : 'hold'}`
 
       stats.textContent =
-        `radius ${snapshot.radius.toFixed(0)}m | rpm ${snapshot.rpm.toFixed(1)} | ` +
+        `preset ${snapshot.presetName} | ${snapshot.habitatType} | ` +
+        `radius ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m | rpm ${snapshot.rpm.toFixed(2)} | ` +
         `g ${snapshot.gTarget.toFixed(2)}m/s^2 | balls ${snapshot.ballCount} | ` +
+        `sim ${snapshot.simScale.toFixed(3)} | ` +
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +

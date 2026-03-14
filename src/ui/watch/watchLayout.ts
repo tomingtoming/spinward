@@ -21,6 +21,11 @@ export type WatchActionId =
   | 'reattach-threshold-fine-decrement'
   | 'reattach-threshold-fine-increment'
   | 'reattach-threshold-coarse-increment'
+  | 'preset-apply-izma'
+  | 'preset-apply-cooper'
+  | 'preset-apply-elysium'
+  | 'respawn-inner-wall'
+  | 'respawn-axis-end'
 
 export type WatchButton = {
   id: WatchActionId
@@ -43,6 +48,8 @@ export type WatchExpandedLayout = {
   width: number
   height: number
   rows: WatchRow[]
+  presetButtons: [WatchButton, WatchButton, WatchButton]
+  respawnButtons: [WatchButton, WatchButton]
   buttons: WatchButton[]
 }
 
@@ -53,8 +60,24 @@ export const WATCH_STATUS_SIZE = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 860
+  height: 1160
 } as const
+
+const makeActionButton = (
+  id: WatchActionId,
+  label: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): WatchButton => ({
+  id,
+  label,
+  x,
+  y,
+  width,
+  height
+})
 
 const makeRow = (
   key: string,
@@ -124,12 +147,64 @@ export const createWatchExpandedLayout = (
     makeRow('landingAssist', 'Assist', 'landing-assist', 430, width),
     makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 522, width)
   ]
+  const wideButtonWidth = 198
+  const wideButtonHeight = 64
+  const sectionLeft = 42
+  const sectionGap = 18
+  const presetTop = 714
+  const respawnTop = 914
+  const presetButtons: [WatchButton, WatchButton, WatchButton] = [
+    makeActionButton(
+      'preset-apply-izma',
+      'Izma',
+      sectionLeft,
+      presetTop,
+      wideButtonWidth,
+      wideButtonHeight
+    ),
+    makeActionButton(
+      'preset-apply-cooper',
+      'Cooper',
+      sectionLeft + wideButtonWidth + sectionGap,
+      presetTop,
+      wideButtonWidth,
+      wideButtonHeight
+    ),
+    makeActionButton(
+      'preset-apply-elysium',
+      'Elysium',
+      sectionLeft + (wideButtonWidth + sectionGap) * 2,
+      presetTop,
+      wideButtonWidth,
+      wideButtonHeight
+    )
+  ]
+  const respawnButtons: [WatchButton, WatchButton] = [
+    makeActionButton(
+      'respawn-inner-wall',
+      'Inner Wall',
+      sectionLeft,
+      respawnTop,
+      300,
+      wideButtonHeight
+    ),
+    makeActionButton(
+      'respawn-axis-end',
+      'Axis End',
+      sectionLeft + 318,
+      respawnTop,
+      300,
+      wideButtonHeight
+    )
+  ]
 
   return {
     width,
     height,
     rows,
-    buttons: rows.flatMap((row) => row.buttons)
+    presetButtons,
+    respawnButtons,
+    buttons: [...rows.flatMap((row) => row.buttons), ...presetButtons, ...respawnButtons]
   }
 }
 

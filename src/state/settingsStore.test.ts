@@ -54,3 +54,20 @@ test('settingsStore computes surface gravity from the shared habitat state', () 
 
   expect(store.getSurfaceGravity()).toBeGreaterThan(7)
 })
+
+test('settingsStore keeps preset assignment explicit and returns to custom on manual habitat edits', () => {
+  const store = createSettingsStore()
+
+  store.setHabitatConfig({
+    radius: 3200,
+    rpm: 0.5286,
+    simScale: 0.02,
+    currentPresetId: 'izma'
+  })
+
+  expect(store.habitat.currentPresetId).toBe('izma')
+
+  store.adjustRadius(1, 'fine')
+
+  expect(store.habitat.currentPresetId).toBe('custom')
+})

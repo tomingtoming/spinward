@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 
-import type { SettingsStore } from '../../state/settingsStore'
-import { applyWatchAction, type WatchRenderSnapshot } from './watchBindings'
+import {
+  isWatchActionDisabled,
+  type WatchRenderSnapshot
+} from './watchBindings'
 import {
   WATCH_EXPANDED_SIZE,
   WATCH_STATUS_SIZE,
@@ -67,9 +69,10 @@ export class WatchPanel {
   )
   private readonly layout = createWatchExpandedLayout()
   private hoveredAction: WatchActionId | null = null
+  private snapshot: WatchRenderSnapshot | null = null
   private expanded = false
 
-  constructor(private readonly settingsStore: SettingsStore) {
+  constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
     this.statusTexture.colorSpace = THREE.SRGBColorSpace
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
     this.statusMesh.scale.copy(STATUS_SCALE)
@@ -113,6 +116,8 @@ export class WatchPanel {
     xrActive: boolean,
     leftGrip: THREE.Object3D | null
   ) {
+    this.snapshot = snapshot
+
     if (!xrActive || leftGrip === null) {
       this.group.visible = false
       return
@@ -142,12 +147,16 @@ export class WatchPanel {
   }
 
   updateHover(uv: THREE.Vector2 | null) {
-    if (!this.expanded || uv === null) {
+    if (!this.expanded || uv === null || this.snapshot === null) {
       this.hoveredAction = null
       return
     }
 
-    this.hoveredAction = getWatchButtonAtUv(this.layout, uv)?.id ?? null
+    const hoveredButton = getWatchButtonAtUv(this.layout, uv)
+    this.hoveredAction =
+      hoveredButton !== null && !isWatchActionDisabled(this.snapshot, hoveredButton.id)
+        ? hoveredButton.id
+        : null
   }
 
   clickHovered() {
@@ -155,7 +164,6 @@ export class WatchPanel {
       return false
     }
 
-    applyWatchAction(this.settingsStore, this.hoveredAction)
-    return true
+    return this.onAction(this.hoveredAction) ?? true
   }
 }

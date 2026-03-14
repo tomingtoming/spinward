@@ -31,17 +31,21 @@ import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
+import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import {
+  getHabitatSpan,
   rpmToOmega,
 } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
-import { createWatchRenderSnapshot } from '../ui/watch/watchBindings'
+import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
+import type { WatchActionId } from '../ui/watch/watchLayout'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
 import { LaserPointer } from '../xr/laserPointer'
@@ -72,11 +76,11 @@ export const bootstrapApp = async () => {
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
-    length: habitatConfig.length
+    length: getHabitatSpan(habitatConfig)
   })
   const starfield = new Starfield({
     radius: habitatConfig.radius,
-    length: habitatConfig.length
+    length: getHabitatSpan(habitatConfig)
   })
   worldRoot.add(starfield.group)
   worldRoot.add(habitat.group)
@@ -133,9 +137,11 @@ export const bootstrapApp = async () => {
   const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
   physicsWorld.lengthUnit = 1
   physicsWorld.maxCcdSubsteps = 2
+  const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {
-    radius: habitatConfig.radius,
-    length: habitatConfig.length
+    radius: habitatConfig.radius * habitatConfig.simScale,
+    length: getHabitatSpanMeters() * habitatConfig.simScale,
+    wallThickness: Math.max(2 * habitatConfig.simScale, 0.05)
   })
 
   const restitution = 0.55
@@ -160,16 +166,13 @@ export const bootstrapApp = async () => {
   let settingsDirty = false
   let watchUiHot = false
   let desktopUiCamera: THREE.PerspectiveCamera = camera
-  const playerTraversal = createPlayerTraversalState(
-    initialSurfaceState,
-    habitatConfig.radius,
-    0,
-    0,
-    {
+  const buildPlayerTraversal = () =>
+    createPlayerTraversalState(initialSurfaceState, habitatConfig.radius, frameAngle, rpmToOmega(habitatConfig.rpm), {
       rapier,
-      world: physicsWorld
-    }
-  )
+      world: physicsWorld,
+      simScale: habitatConfig.simScale
+    })
+  let playerTraversal = buildPlayerTraversal()
   let vrLocomotion: VRLocomotion | null = null
   let verificationBall: Ball | null = null
   const previousTrackedRotatingVelocity = new THREE.Vector3()
@@ -206,32 +209,118 @@ export const bootstrapApp = async () => {
     camera
   )
   const xrInputMap = new XRInputMap(grabSystem.getControllers())
-  const watchPanel = new WatchPanel(settingsStore)
+  const watchPanel = new WatchPanel((action) => handleWatchAction(action))
   const laserPointer = new LaserPointer()
-  const desktopQuickPanel = new PcQuickPanel(settingsStore)
+  const desktopQuickPanel = new PcQuickPanel((action) => handleWatchAction(action))
   scene.add(watchPanel.group)
   scene.add(desktopQuickPanel.mesh)
   settingsStore.subscribe(() => {
     settingsDirty = true
   })
 
+  const clearBalls = () => {
+    for (const ball of balls.splice(0)) {
+      grabSystem.unregisterTarget(ball.grabTarget)
+      ball.dispose()
+    }
+
+    verificationBall = null
+  }
+
+  const respawnPlayerInnerWall = () => {
+    respawnInnerWall(playerTraversal, {
+      radius: habitatConfig.radius,
+      frameAngle,
+      omega: rpmToOmega(habitatConfig.rpm)
+    })
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    return true
+  }
+
+  const respawnPlayerAxisEnd = () => {
+    const didRespawn = respawnAxisEnd(playerTraversal, {
+      type: habitatConfig.type,
+      length: getHabitatSpanMeters(),
+      frameAngle,
+      omega: rpmToOmega(habitatConfig.rpm)
+    })
+
+    if (didRespawn) {
+      applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    }
+
+    return didRespawn
+  }
+
+  const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
+    disposePlayerTraversalState(playerTraversal)
+    playerTraversal = buildPlayerTraversal()
+
+    if (respawnMode === 'axis-end') {
+      respawnPlayerAxisEnd()
+      return
+    }
+
+    respawnPlayerInnerWall()
+  }
+
+  function handleWatchAction(action: WatchActionId) {
+    if (applyWatchAction(settingsStore, action)) {
+      return true
+    }
+
+    switch (action) {
+      case 'preset-apply-izma':
+        frameAngle = 0
+        applyPresetToSettingsStore(settingsStore, 'izma')
+        clearBalls()
+        rebuildPlayerTraversal('inner-wall')
+        syncHabitat()
+        settingsDirty = false
+        return true
+      case 'preset-apply-cooper':
+        frameAngle = 0
+        applyPresetToSettingsStore(settingsStore, 'cooper')
+        clearBalls()
+        rebuildPlayerTraversal('inner-wall')
+        syncHabitat()
+        settingsDirty = false
+        return true
+      case 'preset-apply-elysium':
+        frameAngle = 0
+        applyPresetToSettingsStore(settingsStore, 'elysium')
+        clearBalls()
+        rebuildPlayerTraversal('inner-wall')
+        syncHabitat()
+        settingsDirty = false
+        return true
+      case 'respawn-inner-wall':
+        return respawnPlayerInnerWall()
+      case 'respawn-axis-end':
+        return respawnPlayerAxisEnd()
+    }
+  }
+
   const syncHabitat = () => {
+    const habitatSpan = getHabitatSpanMeters()
     habitat.setDimensions({
       radius: habitatConfig.radius,
-      length: habitatConfig.length
+      length: habitatSpan
     })
     starfield.setDimensions({
       radius: habitatConfig.radius,
-      length: habitatConfig.length
+      length: habitatSpan
     })
     camera.far = Math.max(4000, starfield.getSuggestedCameraFar())
     camera.updateProjectionMatrix()
     inertialObserverCamera.far = camera.far
     inertialObserverCamera.updateProjectionMatrix()
     rotatingCylinder.rebuild({
-      radius: habitatConfig.radius,
-      length: habitatConfig.length
+      radius: habitatConfig.radius * habitatConfig.simScale,
+      length: habitatSpan * habitatConfig.simScale,
+      wallThickness: Math.max(2 * habitatConfig.simScale, 0.05)
     })
+    starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
   }
 
@@ -273,7 +362,8 @@ export const bootstrapApp = async () => {
       physics: {
         rapier,
         world: physicsWorld,
-        restitution
+        restitution,
+        simScale: habitatConfig.simScale
       },
       initialPosition: worldPosition.clone().add(spawnOffset),
       maxTrailPoints: habitatConfig.maxTrailPoints,
@@ -399,6 +489,7 @@ export const bootstrapApp = async () => {
     }
 
     const omega = rpmToOmega(habitatConfig.rpm)
+    const habitatSpan = getHabitatSpanMeters()
     const frameAngleStart = frameAngle
     const effectiveObserverMode = getEffectiveObserverMode(
       debugVisuals.observerMode,
@@ -437,7 +528,7 @@ export const bootstrapApp = async () => {
         axisDistanceDelta: locomotionIntent.attachedAxis * 6 * deltaSeconds,
         tangentDistanceDelta: locomotionIntent.attachedTangent * 6 * deltaSeconds,
         radius: habitatConfig.radius,
-        length: habitatConfig.length,
+        length: habitatSpan,
         deltaSeconds,
         omega,
         frameAngleEnd: frameAngle
@@ -464,7 +555,7 @@ export const bootstrapApp = async () => {
         ? applyReattachAssist(playerTraversal, {
             ...reattachTuning,
             radius: habitatConfig.radius,
-            length: habitatConfig.length,
+            length: habitatSpan,
             omega,
             frameAngle,
             deltaSeconds
@@ -475,7 +566,7 @@ export const bootstrapApp = async () => {
         ? evaluateReattachPlayer(playerTraversal, {
             ...reattachTuning,
             radius: habitatConfig.radius,
-            length: habitatConfig.length,
+            length: habitatSpan,
             omega,
             frameAngle
           })
@@ -484,7 +575,7 @@ export const bootstrapApp = async () => {
       tryReattachPlayer(playerTraversal, {
         ...reattachTuning,
         radius: habitatConfig.radius,
-        length: habitatConfig.length,
+        length: habitatSpan,
         omega,
         frameAngle
       })
@@ -493,7 +584,7 @@ export const bootstrapApp = async () => {
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
         radius: habitatConfig.radius,
-        length: habitatConfig.length,
+        length: habitatSpan,
         frameAngle,
         ready: reattachStatus?.canAttach ?? false,
         assistActive
@@ -504,7 +595,7 @@ export const bootstrapApp = async () => {
       ball.step({
         deltaSeconds,
         habitatRadius: habitatConfig.radius,
-        habitatLength: habitatConfig.length,
+        habitatLength: habitatSpan,
         omega,
         frameAngleEnd: frameAngle,
         trailMode: debugVisuals.trailMode
@@ -541,13 +632,25 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
-    const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle)
+    const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
+    const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
+      playerMode: playerTraversal.mode,
+      region: playerRegion,
+      watchMenuOpen,
+      observerMode: effectiveObserverMode,
+      trailMode: debugVisuals.trailMode,
+      ballCount: balls.length
+    })
 
     hud.update({
       radius: habitatConfig.radius,
+      span: habitatSpan,
       rpm: habitatConfig.rpm,
       gTarget: settingsStore.getSurfaceGravity(),
+      presetName: getPresetName(habitatConfig.currentPresetId),
+      habitatType: habitatConfig.type,
+      simScale: habitatConfig.simScale,
       ballCount: balls.length,
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
@@ -601,15 +704,6 @@ export const bootstrapApp = async () => {
       inertialObserverCamera.updateMatrixWorld(true)
       desktopUiCamera = inertialObserverCamera
     }
-
-    const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
-      playerMode: playerTraversal.mode,
-      region: playerRegion,
-      watchMenuOpen,
-      observerMode: effectiveObserverMode,
-      trailMode: debugVisuals.trailMode,
-      ballCount: balls.length
-    })
     watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
     laserPointer.setController(renderer.xr.isPresenting ? xrWatchInput.rightController : null)
     watchPanel.updateHover(

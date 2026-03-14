@@ -2,7 +2,10 @@ import * as THREE from 'three'
 import type { Collider, RigidBody, World } from '@dimforge/rapier3d-compat'
 
 import type { RapierModule } from '../physics/rapierContext'
-import { copyRapierVector, toRapierVector } from '../physics/rapierMath'
+import {
+  copyRapierVectorScaled,
+  toRapierVectorScaled
+} from '../physics/rapierMath'
 import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial,
@@ -41,6 +44,7 @@ type BallPhysicsContext = {
   rapier: RapierModule
   world: World
   restitution: number
+  simScale?: number
 }
 
 const DEFAULT_HOLD_OFFSET = new THREE.Vector3(0, -0.03, -0.35)
@@ -73,6 +77,7 @@ export class Ball {
   private readonly nowSeconds: () => number
   private readonly world: World
   private readonly restitution: number
+  private readonly simScale: number
   private readonly rigidBody: RigidBody
   private readonly inertialPosition = new THREE.Vector3()
   private readonly inertialVelocity = new THREE.Vector3()
@@ -96,6 +101,7 @@ export class Ball {
     this.nowSeconds = options.nowSeconds ?? (() => performance.now() * 0.001)
     this.world = options.physics.world
     this.restitution = options.physics.restitution
+    this.simScale = options.physics.simScale ?? 1
     this.frameAngle = options.frameAngle
     this.omega = options.omega
 
@@ -116,14 +122,14 @@ export class Ball {
     this.rigidBody = this.world.createRigidBody(
       options.physics.rapier.RigidBodyDesc.dynamic()
         .setTranslation(
-          this.inertialPosition.x,
-          this.inertialPosition.y,
-          this.inertialPosition.z
+          this.inertialPosition.x * this.simScale,
+          this.inertialPosition.y * this.simScale,
+          this.inertialPosition.z * this.simScale
         )
         .setLinvel(
-          this.inertialVelocity.x,
-          this.inertialVelocity.y,
-          this.inertialVelocity.z
+          this.inertialVelocity.x * this.simScale,
+          this.inertialVelocity.y * this.simScale,
+          this.inertialVelocity.z * this.simScale
         )
         .setGravityScale(0)
         .setLinearDamping(0)
@@ -133,7 +139,7 @@ export class Ball {
         .setCcdEnabled(true)
     )
     this.collider = this.world.createCollider(
-      options.physics.rapier.ColliderDesc.ball(this.radius)
+      options.physics.rapier.ColliderDesc.ball(this.radius * this.simScale)
         .setRestitution(options.physics.restitution)
         .setFriction(0.8),
       this.rigidBody
@@ -186,7 +192,7 @@ export class Ball {
         this.rotatingVelocity.set(0, 0, 0)
         this.inertialVelocity.set(0, 0, 0)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.KinematicPositionBased, true)
-        this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
+        this.rigidBody.setLinvel(toRapierVectorScaled(this.inertialVelocity, this.simScale), true)
         this.collider.setEnabled(false)
         this.resetTrail()
         this.updateAppearance()
@@ -196,7 +202,7 @@ export class Ball {
         const heldSeconds = Math.max(0, this.nowSeconds() - this.grabStartedAtSeconds)
         this.releasedChargeRatio = computeThrowChargeRatio(heldSeconds)
         this.syncFromWorldPose()
-        this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
+        this.rigidBody.setTranslation(toRapierVectorScaled(this.inertialPosition, this.simScale), true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
         this.collider.setEnabled(true)
         this.updateAppearance()
@@ -238,7 +244,7 @@ export class Ball {
       this.frameAngle,
       this.inertialVelocity
     )
-    this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
+    this.rigidBody.setLinvel(toRapierVectorScaled(this.inertialVelocity, this.simScale), true)
   }
 
   step(config: BallStepConfig) {
@@ -247,15 +253,17 @@ export class Ball {
 
     if (this.grabbed) {
       this.syncFromWorldPose()
-      this.rigidBody.setNextKinematicTranslation(toRapierVector(this.inertialPosition))
+      this.rigidBody.setNextKinematicTranslation(
+        toRapierVectorScaled(this.inertialPosition, this.simScale)
+      )
       this.updateTrails(config.trailMode)
       this.updateAppearance()
       return
     }
 
     this.ageSeconds += config.deltaSeconds
-    copyRapierVector(this.rigidBody.translation(), this.inertialPosition)
-    copyRapierVector(this.rigidBody.linvel(), this.inertialVelocity)
+    copyRapierVectorScaled(this.rigidBody.translation(), this.simScale, this.inertialPosition)
+    copyRapierVectorScaled(this.rigidBody.linvel(), this.simScale, this.inertialVelocity)
     this.syncRenderState()
     this.applyHabitatCollision(config)
     this.updateTrails(config.trailMode)
@@ -368,8 +376,8 @@ export class Ball {
       this.frameAngle,
       this.inertialVelocity
     )
-    this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
-    this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
+    this.rigidBody.setTranslation(toRapierVectorScaled(this.inertialPosition, this.simScale), true)
+    this.rigidBody.setLinvel(toRapierVectorScaled(this.inertialVelocity, this.simScale), true)
   }
 
   private updateAppearance() {

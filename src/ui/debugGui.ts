@@ -1,7 +1,7 @@
 import GUI from 'lil-gui'
 
 import type { ObserverMode, TrailMode } from '../app/observerMode'
-import { surfaceGravityFromConfig, type HabitatConfig } from '../sim/habitatConfig'
+import { getHabitatSpan, surfaceGravityFromConfig, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
 
 export type DebugVisualState = {
@@ -37,19 +37,27 @@ export const createDebugGui = ({
 }: DebugGuiOptions): DebugGuiHandle => {
   const gui = new GUI({ title: 'O’Neill Cylinder' })
   const derivedState = {
-    gTarget: surfaceGravityFromConfig(config)
+    gTarget: surfaceGravityFromConfig(config),
+    spanMeters: getHabitatSpan(config),
+    simScale: config.simScale,
+    presetId: config.currentPresetId
   }
 
   const syncDerivedState = () => {
     derivedState.gTarget = surfaceGravityFromConfig(config)
+    derivedState.spanMeters = getHabitatSpan(config)
+    derivedState.simScale = config.simScale
+    derivedState.presetId = config.currentPresetId
   }
 
   gui.domElement.style.zIndex = '20'
 
   gui
-    .add(config, 'radius', 10, 2000, 1)
+    .add(config, 'radius', 10, 100000, 1)
     .name('radius (m)')
+    .listen()
     .onChange(() => {
+      config.currentPresetId = 'custom'
       syncDerivedState()
       onHabitatChange()
       onSettingsChange()
@@ -58,7 +66,9 @@ export const createDebugGui = ({
   gui
     .add(config, 'rpm', 0, 12, 0.1)
     .name('rpm')
+    .listen()
     .onChange(() => {
+      config.currentPresetId = 'custom'
       syncDerivedState()
       onHabitatChange()
       onSettingsChange()
@@ -73,6 +83,9 @@ export const createDebugGui = ({
     })
 
   gui.add(derivedState, 'gTarget').name('surface g').listen()
+  gui.add(derivedState, 'spanMeters').name('span (m)').listen()
+  gui.add(derivedState, 'simScale').name('sim scale').listen()
+  gui.add(derivedState, 'presetId').name('preset').listen()
 
   const reattachFolder = gui.addFolder('Reattach')
   reattachFolder

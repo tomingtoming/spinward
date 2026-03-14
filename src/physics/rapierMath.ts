@@ -10,3 +10,21 @@ export const toRapierVector = (source: THREE.Vector3) => ({
   y: source.y,
   z: source.z
 })
+
+export const scaleVector = (
+  source: THREE.Vector3,
+  scale: number,
+  target = new THREE.Vector3()
+) => target.copy(source).multiplyScalar(scale)
+
+export const copyRapierVectorScaled = (
+  source: { x: number; y: number; z: number },
+  simScale: number,
+  target = new THREE.Vector3()
+) => target.set(source.x / simScale, source.y / simScale, source.z / simScale)
+
+export const toRapierVectorScaled = (source: THREE.Vector3, simScale: number) => ({
+  x: source.x * simScale,
+  y: source.y * simScale,
+  z: source.z * simScale
+})
