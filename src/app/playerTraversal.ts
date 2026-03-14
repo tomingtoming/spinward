@@ -23,19 +23,20 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
+import { createUnitsContext, type UnitsContext } from '../units/units'
 
 export type PlayerTraversalMode = 'attached' | 'free-fly'
 
 type PlayerTraversalPhysicsState = {
   world: World
   freeFlyBody: RigidBody
-  simScale: number
+  units: UnitsContext
 }
 
 export type PlayerTraversalPhysicsContext = {
   rapier: RapierModule
   world: World
-  simScale?: number
+  units?: UnitsContext
 }
 
 export type PlayerTraversalState = {
@@ -144,7 +145,7 @@ export const createPlayerTraversalState = (
   syncAttachedInertialState(state, radius, frameAngle, omega, zeroRotatingVelocity)
 
   if (physics !== undefined) {
-    const simScale = physics.simScale ?? 1
+    const units = physics.units ?? createUnitsContext(1)
     const freeFlyBody = createRigidBodyAtRealPose(
       physics.world,
       physics.rapier.RigidBodyDesc.dynamic()
@@ -158,17 +159,17 @@ export const createPlayerTraversalState = (
         position: state.inertialPosition,
         linearVelocity: state.inertialVelocity
       },
-      simScale
+      units
     )
     physics.world.createCollider(
       physics.rapier.ColliderDesc.capsule(
-        scaleLengthForRapier(PLAYER_COLLIDER_HALF_HEIGHT, simScale),
-        scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, simScale)
+        scaleLengthForRapier(PLAYER_COLLIDER_HALF_HEIGHT, units),
+        scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, units)
       )
         .setTranslation(
-          scaleLengthForRapier(playerColliderOffset.x, simScale),
-          scaleLengthForRapier(playerColliderOffset.y, simScale),
-          scaleLengthForRapier(playerColliderOffset.z, simScale)
+          scaleLengthForRapier(playerColliderOffset.x, units),
+          scaleLengthForRapier(playerColliderOffset.y, units),
+          scaleLengthForRapier(playerColliderOffset.z, units)
         )
         .setFriction(0.5)
         .setRestitution(0.05),
@@ -177,7 +178,7 @@ export const createPlayerTraversalState = (
     state.physics = {
       world: physics.world,
       freeFlyBody,
-      simScale
+      units
     }
     syncFreeFlyBodyToState(state, false)
   }
@@ -264,7 +265,7 @@ export const stepFreeFlyPlayer = (
     setRigidBodyLinvelFromReal(
       state.physics.freeFlyBody,
       state.inertialVelocity,
-      state.physics.simScale,
+      state.physics.units,
       true
     )
     return
@@ -309,7 +310,7 @@ export const syncPlayerTraversalFromPhysics = (state: PlayerTraversalState) => {
     return
   }
 
-  readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.simScale, {
+  readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.units, {
     position: state.inertialPosition,
     linearVelocity: state.inertialVelocity
   })
@@ -469,7 +470,7 @@ export const applyReattachAssist = (
     setRigidBodyLinvelFromReal(
       state.physics.freeFlyBody,
       state.inertialVelocity,
-      state.physics.simScale,
+      state.physics.units,
       true
     )
   }
@@ -504,13 +505,13 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, enabled: boolean) =
   setRigidBodyTranslationFromReal(
     state.physics.freeFlyBody,
     state.inertialPosition,
-    state.physics.simScale,
+    state.physics.units,
     true
   )
   setRigidBodyLinvelFromReal(
     state.physics.freeFlyBody,
     state.inertialVelocity,
-    state.physics.simScale,
+    state.physics.units,
     true
   )
   state.physics.freeFlyBody.setEnabled(enabled)

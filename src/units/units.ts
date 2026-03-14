@@ -4,6 +4,7 @@ export type Sim = number & { __brand: 'Sim' }
 
 export type RealVec3 = { x: Real; y: Real; z: Real }
 export type SimVec3 = { x: Sim; y: Sim; z: Sim }
+export type UnitsContext = ReturnType<typeof createUnitsContext>
 
 export const asReal = (value: number) => value as Real
 
@@ -51,3 +52,13 @@ export const omegaForSurfaceG = (g: number, radiusMeters: number) =>
 
 export const approxEqual = (a: number, b: number, epsilon: number) =>
   Math.abs(a - b) <= epsilon
+
+export const createUnitsContext = (simScale: number) => ({
+  simScale,
+  toSimLength: (real: number) => Number(toSimLength(asReal(real), simScale)),
+  toRealLength: (sim: number) => Number(toRealLength(asSim(sim), simScale)),
+  toSimVec3: (value: RealVec3) => toSimVec3(value, simScale),
+  toRealVec3: (value: SimVec3) => toRealVec3(value, simScale),
+  toSimVel: (value: RealVec3) => toSimVel(value, simScale),
+  toRealVel: (value: SimVec3) => toRealVel(value, simScale)
+})

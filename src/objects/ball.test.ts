@@ -10,6 +10,7 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
+import { createUnitsContext } from '../units/units'
 
 const expectVectorCloseTo = (actual: THREE.Vector3, expected: THREE.Vector3) => {
   expect(actual.x).toBeCloseTo(expected.x, 4)
@@ -347,12 +348,12 @@ test('Ball keeps the same real collision result across sim scales', async () => 
   const izmaCylinder = createRotatingCylinderBody(rapier, izmaWorld, {
     radius: 3200,
     length: 40000,
-    simScale: 0.02
+    units: createUnitsContext(0.02)
   })
   const elysiumCylinder = createRotatingCylinderBody(rapier, elysiumWorld, {
     radius: 3200,
     length: 40000,
-    simScale: 0.005
+    units: createUnitsContext(0.005)
   })
   const initialPosition = new THREE.Vector3(3199.2, 0.5, 0)
   const initialVelocity = new THREE.Vector3(12, 0, 0)
@@ -362,7 +363,7 @@ test('Ball keeps the same real collision result across sim scales', async () => 
       rapier,
       world: izmaWorld,
       restitution: 0.4,
-      simScale: 0.02
+      units: createUnitsContext(0.02)
     },
     initialPosition,
     maxTrailPoints: 16,
@@ -375,7 +376,7 @@ test('Ball keeps the same real collision result across sim scales', async () => 
       rapier,
       world: elysiumWorld,
       restitution: 0.4,
-      simScale: 0.005
+      units: createUnitsContext(0.005)
     },
     initialPosition,
     maxTrailPoints: 16,

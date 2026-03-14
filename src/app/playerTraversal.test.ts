@@ -20,6 +20,7 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
+import { createUnitsContext } from '../units/units'
 
 const expectVectorCloseTo = (actual: THREE.Vector3, expected: THREE.Vector3) => {
   expect(actual.x).toBeCloseTo(expected.x, 5)
@@ -224,7 +225,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
       10,
       0,
       1,
-      { rapier, world, simScale }
+      { rapier, world, units: createUnitsContext(simScale) }
     )
 
   const izmaState = buildState(izmaWorld, 0.02)

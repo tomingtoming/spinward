@@ -44,7 +44,7 @@ import { createHud } from '../ui/hud'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
 import type { WatchActionId } from '../ui/watch/watchLayout'
-import { rpmToOmega } from '../units/units'
+import { createUnitsContext, rpmToOmega } from '../units/units'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
 import { LaserPointer } from '../xr/laserPointer'
@@ -136,10 +136,11 @@ export const bootstrapApp = async () => {
   physicsWorld.lengthUnit = 1
   physicsWorld.maxCcdSubsteps = 2
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
+  const getUnits = () => createUnitsContext(habitatConfig.simScale)
   const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {
     radius: habitatConfig.radius,
     length: getHabitatSpanMeters(),
-    simScale: habitatConfig.simScale
+    units: getUnits()
   })
 
   const restitution = 0.55
@@ -168,7 +169,7 @@ export const bootstrapApp = async () => {
     createPlayerTraversalState(initialSurfaceState, habitatConfig.radius, frameAngle, rpmToOmega(habitatConfig.rpm), {
       rapier,
       world: physicsWorld,
-      simScale: habitatConfig.simScale
+      units: getUnits()
     })
   let playerTraversal = buildPlayerTraversal()
   let vrLocomotion: VRLocomotion | null = null
@@ -316,7 +317,7 @@ export const bootstrapApp = async () => {
     rotatingCylinder.rebuild({
       radius: habitatConfig.radius,
       length: habitatSpan,
-      simScale: habitatConfig.simScale
+      units: getUnits()
     })
     starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
@@ -361,7 +362,7 @@ export const bootstrapApp = async () => {
         rapier,
         world: physicsWorld,
         restitution,
-        simScale: habitatConfig.simScale
+        units: getUnits()
       },
       initialPosition: worldPosition.clone().add(spawnOffset),
       maxTrailPoints: habitatConfig.maxTrailPoints,

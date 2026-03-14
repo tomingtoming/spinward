@@ -5,6 +5,7 @@ import { createPlayerTraversalState } from '../app/playerTraversal'
 import { initRapier } from '../physics/rapierContext'
 import { respawnAxisEnd, respawnInnerWall } from './respawn'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
+import { createUnitsContext } from '../units/units'
 
 test('respawnInnerWall places the player back on the inner wall center', () => {
   const state = createPlayerTraversalState({ axialPosition: 5, azimuth: 1 }, 10, 0.4, 1.1)
@@ -69,14 +70,14 @@ test('respawnInnerWall is defined in real meters while Rapier pose follows sim s
     radius,
     0,
     0,
-    { rapier, world: izmaWorld, simScale: 0.02 }
+    { rapier, world: izmaWorld, units: createUnitsContext(0.02) }
   )
   const elysiumState = createPlayerTraversalState(
     { axialPosition: 0, azimuth: 0 },
     radius,
     0,
     0,
-    { rapier, world: elysiumWorld, simScale: 0.005 }
+    { rapier, world: elysiumWorld, units: createUnitsContext(0.005) }
   )
 
   respawnInnerWall(izmaState, { radius, frameAngle: 0, omega: 0 })
@@ -103,14 +104,14 @@ test('respawnAxisEnd is defined in real meters while Rapier pose follows sim sca
     3200,
     0,
     0,
-    { rapier, world: izmaWorld, simScale: 0.02 }
+    { rapier, world: izmaWorld, units: createUnitsContext(0.02) }
   )
   const elysiumState = createPlayerTraversalState(
     { axialPosition: 0, azimuth: 0 },
     3200,
     0,
     0,
-    { rapier, world: elysiumWorld, simScale: 0.005 }
+    { rapier, world: elysiumWorld, units: createUnitsContext(0.005) }
   )
 
   expect(

@@ -20,6 +20,7 @@ import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 import type { TrailMode } from '../app/observerMode'
+import { createUnitsContext, type UnitsContext } from '../units/units'
 
 type BallOptions = {
   physics: BallPhysicsContext
@@ -48,7 +49,7 @@ type BallPhysicsContext = {
   rapier: RapierModule
   world: World
   restitution: number
-  simScale?: number
+  units?: UnitsContext
 }
 
 const DEFAULT_HOLD_OFFSET = new THREE.Vector3(0, -0.03, -0.35)
@@ -81,7 +82,7 @@ export class Ball {
   private readonly nowSeconds: () => number
   private readonly world: World
   private readonly restitution: number
-  private readonly simScale: number
+  private readonly units: UnitsContext
   private readonly rigidBody: RigidBody
   private readonly inertialPosition = new THREE.Vector3()
   private readonly inertialVelocity = new THREE.Vector3()
@@ -105,7 +106,7 @@ export class Ball {
     this.nowSeconds = options.nowSeconds ?? (() => performance.now() * 0.001)
     this.world = options.physics.world
     this.restitution = options.physics.restitution
-    this.simScale = options.physics.simScale ?? 1
+    this.units = options.physics.units ?? createUnitsContext(1)
     this.frameAngle = options.frameAngle
     this.omega = options.omega
 
@@ -136,10 +137,10 @@ export class Ball {
         position: this.inertialPosition,
         linearVelocity: this.inertialVelocity
       },
-      this.simScale
+      this.units
     )
     this.collider = this.world.createCollider(
-      options.physics.rapier.ColliderDesc.ball(scaleLengthForRapier(this.radius, this.simScale))
+      options.physics.rapier.ColliderDesc.ball(scaleLengthForRapier(this.radius, this.units))
         .setRestitution(options.physics.restitution)
         .setFriction(0.8),
       this.rigidBody
@@ -192,7 +193,7 @@ export class Ball {
         this.rotatingVelocity.set(0, 0, 0)
         this.inertialVelocity.set(0, 0, 0)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.KinematicPositionBased, true)
-        setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.simScale, true)
+        setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.units, true)
         this.collider.setEnabled(false)
         this.resetTrail()
         this.updateAppearance()
@@ -202,7 +203,7 @@ export class Ball {
         const heldSeconds = Math.max(0, this.nowSeconds() - this.grabStartedAtSeconds)
         this.releasedChargeRatio = computeThrowChargeRatio(heldSeconds)
         this.syncFromWorldPose()
-        setRigidBodyTranslationFromReal(this.rigidBody, this.inertialPosition, this.simScale, true)
+        setRigidBodyTranslationFromReal(this.rigidBody, this.inertialPosition, this.units, true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
         this.collider.setEnabled(true)
         this.updateAppearance()
@@ -244,7 +245,7 @@ export class Ball {
       this.frameAngle,
       this.inertialVelocity
     )
-    setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.simScale, true)
+    setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.units, true)
   }
 
   step(config: BallStepConfig) {
@@ -253,14 +254,14 @@ export class Ball {
 
     if (this.grabbed) {
       this.syncFromWorldPose()
-      setNextKinematicTranslationFromReal(this.rigidBody, this.inertialPosition, this.simScale)
+      setNextKinematicTranslationFromReal(this.rigidBody, this.inertialPosition, this.units)
       this.updateTrails(config.trailMode)
       this.updateAppearance()
       return
     }
 
     this.ageSeconds += config.deltaSeconds
-    readRigidBodyPoseAsReal(this.rigidBody, this.simScale, {
+    readRigidBodyPoseAsReal(this.rigidBody, this.units, {
       position: this.inertialPosition,
       linearVelocity: this.inertialVelocity
     })
@@ -376,8 +377,8 @@ export class Ball {
       this.frameAngle,
       this.inertialVelocity
     )
-    setRigidBodyTranslationFromReal(this.rigidBody, this.inertialPosition, this.simScale, true)
-    setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.simScale, true)
+    setRigidBodyTranslationFromReal(this.rigidBody, this.inertialPosition, this.units, true)
+    setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.units, true)
   }
 
   private updateAppearance() {

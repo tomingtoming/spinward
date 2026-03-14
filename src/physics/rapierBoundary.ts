@@ -4,10 +4,8 @@ import type { RigidBody, RigidBodyDesc, World } from '@dimforge/rapier3d-compat'
 import {
   asSim,
   asReal,
-  toRealLength,
-  toSimLength,
-  toRealVec3,
-  toSimVec3
+  createUnitsContext,
+  type UnitsContext
 } from '../units/units'
 
 // Three/Rapier data crosses the real<->sim boundary only through these helpers.
@@ -22,14 +20,17 @@ const writeRealStruct = (
   target = new THREE.Vector3()
 ) => target.set(value.x, value.y, value.z)
 
-export const scaleLengthForRapier = (realLength: number, simScale: number) =>
-  Number(toSimLength(asReal(realLength), simScale))
+const resolveUnits = (units: UnitsContext | number) =>
+  typeof units === 'number' ? createUnitsContext(units) : units
+
+export const scaleLengthForRapier = (realLength: number, units: UnitsContext | number) =>
+  resolveUnits(units).toSimLength(realLength)
 
 export const scaleVector3ForRapier = (
   realVector: THREE.Vector3,
-  simScale: number
+  units: UnitsContext | number
 ) => {
-  const scaled = toSimVec3(toRealStruct(realVector), simScale)
+  const scaled = resolveUnits(units).toSimVec3(toRealStruct(realVector))
 
   return {
     x: Number(scaled.x),
@@ -40,17 +41,16 @@ export const scaleVector3ForRapier = (
 
 export const readRapierVectorAsReal = (
   value: { x: number; y: number; z: number },
-  simScale: number,
+  units: UnitsContext | number,
   target = new THREE.Vector3()
 ) =>
   writeRealStruct(
-    toRealVec3(
+    resolveUnits(units).toRealVec3(
       {
         x: asSim(value.x),
         y: asSim(value.y),
         z: asSim(value.z)
-      },
-      simScale
+      }
     ),
     target
   )
@@ -62,12 +62,13 @@ export const createRigidBodyAtRealPose = (
     position: THREE.Vector3
     linearVelocity?: THREE.Vector3
   },
-  simScale: number
+  units: UnitsContext | number
 ) => {
-  const simPosition = scaleVector3ForRapier(pose.position, simScale)
+  const resolvedUnits = resolveUnits(units)
+  const simPosition = scaleVector3ForRapier(pose.position, resolvedUnits)
   const simVelocity = scaleVector3ForRapier(
     pose.linearVelocity ?? new THREE.Vector3(),
-    simScale
+    resolvedUnits
   )
 
   return world.createRigidBody(
@@ -79,50 +80,51 @@ export const createRigidBodyAtRealPose = (
 
 export const readRigidBodyPoseAsReal = (
   body: RigidBody,
-  simScale: number,
+  units: UnitsContext | number,
   target = {
     position: new THREE.Vector3(),
     linearVelocity: new THREE.Vector3()
   }
 ) => {
-  readRapierVectorAsReal(body.translation(), simScale, target.position)
-  readRapierVectorAsReal(body.linvel(), simScale, target.linearVelocity)
+  const resolvedUnits = resolveUnits(units)
+  readRapierVectorAsReal(body.translation(), resolvedUnits, target.position)
+  readRapierVectorAsReal(body.linvel(), resolvedUnits, target.linearVelocity)
   return target
 }
 
 export const setRigidBodyTranslationFromReal = (
   body: RigidBody,
   position: THREE.Vector3,
-  simScale: number,
+  units: UnitsContext | number,
   wakeUp: boolean
 ) => {
-  body.setTranslation(scaleVector3ForRapier(position, simScale), wakeUp)
+  body.setTranslation(scaleVector3ForRapier(position, resolveUnits(units)), wakeUp)
 }
 
 export const setRigidBodyLinvelFromReal = (
   body: RigidBody,
   linearVelocity: THREE.Vector3,
-  simScale: number,
+  units: UnitsContext | number,
   wakeUp: boolean
 ) => {
-  body.setLinvel(scaleVector3ForRapier(linearVelocity, simScale), wakeUp)
+  body.setLinvel(scaleVector3ForRapier(linearVelocity, resolveUnits(units)), wakeUp)
 }
 
 export const setNextKinematicTranslationFromReal = (
   body: RigidBody,
   position: THREE.Vector3,
-  simScale: number
+  units: UnitsContext | number
 ) => {
-  body.setNextKinematicTranslation(scaleVector3ForRapier(position, simScale))
+  body.setNextKinematicTranslation(scaleVector3ForRapier(position, resolveUnits(units)))
 }
 
 export const applyImpulseReal = (
   body: RigidBody,
   impulse: THREE.Vector3,
-  simScale: number,
+  units: UnitsContext | number,
   wakeUp: boolean
 ) => {
-  const simImpulse = toSimVec3(toRealStruct(impulse), simScale)
+  const simImpulse = resolveUnits(units).toSimVec3(toRealStruct(impulse))
   body.applyImpulse(
     {
       x: Number(simImpulse.x),
@@ -134,11 +136,11 @@ export const applyImpulseReal = (
 }
 
 export const getStableWallThicknessReal = (
-  simScale: number,
+  units: UnitsContext | number,
   nominalRealThickness = 2,
   minimumSimThickness = 0.05
 ) =>
   Math.max(
     nominalRealThickness,
-    Number(toRealLength(asSim(minimumSimThickness), simScale))
+    resolveUnits(units).toRealLength(minimumSimThickness)
   )

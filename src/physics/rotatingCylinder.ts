@@ -2,11 +2,12 @@ import * as THREE from 'three'
 
 import type { RapierModule } from './rapierContext'
 import { getStableWallThicknessReal, scaleLengthForRapier } from './rapierBoundary'
+import { createUnitsContext, type UnitsContext } from '../units/units'
 
 export type RotatingCylinderConfig = {
   radius: number
   length: number
-  simScale?: number
+  units?: UnitsContext
   segmentCount?: number
   wallThickness?: number
 }
@@ -56,14 +57,14 @@ export const createRotatingCylinderBody = (
   const colliders: ReturnType<InstanceType<RapierModule['World']>['createCollider']>[] = []
 
   const rebuild = (nextConfig: RotatingCylinderConfig) => {
-    const simScale = nextConfig.simScale ?? 1
+    const units = nextConfig.units ?? createUnitsContext(1)
     const scaledConfig: RotatingCylinderConfig = {
       ...nextConfig,
-      radius: scaleLengthForRapier(nextConfig.radius, simScale),
-      length: scaleLengthForRapier(nextConfig.length, simScale),
+      radius: scaleLengthForRapier(nextConfig.radius, units),
+      length: scaleLengthForRapier(nextConfig.length, units),
       wallThickness: scaleLengthForRapier(
-        nextConfig.wallThickness ?? getStableWallThicknessReal(simScale),
-        simScale
+        nextConfig.wallThickness ?? getStableWallThicknessReal(units),
+        units
       )
     }
 
