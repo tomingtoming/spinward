@@ -11,6 +11,7 @@ type HudSnapshot = {
   forceVectors: boolean
   observerMode: ObserverMode
   trailMode: TrailMode
+  watchMenuOpen: boolean
   region: 'inside' | 'outside'
   playerMode: 'attached' | 'free-fly'
   verification: {
@@ -49,7 +50,7 @@ export const createHud = (): HudHandle => {
   const controls = document.createElement('div')
   controls.className = 'hud__controls'
   controls.textContent =
-    'VR: attached=left stick walk, left trigger launch, free-fly=left trigger thrust along left hand, left grip attitude brake, left stick click slow, left stick X roll rate/Y pitch rate, right stick snap turn, ball trigger hold=charge | PC: left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
+    'VR: left Y hold=watch menu, attached=left stick walk, left trigger launch, free-fly=left trigger thrust, left grip attitude brake, left stick click slow, left stick X roll/Y pitch, right stick snap turn, right trigger=watch click or ball throw | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
 
   root.append(stats, controls)
   document.body.append(root)
@@ -75,6 +76,7 @@ export const createHud = (): HudHandle => {
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
+        `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +
         `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | ` +
         `${snapshot.xrActive ? 'XR' : 'desktop'}${reattachText}` +
         (snapshot.verification === null

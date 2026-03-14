@@ -13,7 +13,6 @@ import {
   applyReattachAssist,
   applyPlayerTraversalState,
   createPlayerTraversalState,
-  DEFAULT_REATTACH_TUNING,
   detachPlayerToFreeFly,
   disposePlayerTraversalState,
   evaluateReattachPlayer,
@@ -31,24 +30,29 @@ import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
+import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { computeFrameVerification } from '../sim/frameVerification'
 import {
-  DEFAULT_HABITAT_CONFIG,
   rpmToOmega,
-  surfaceGravityFromConfig
 } from '../sim/habitatConfig'
+import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
+import { createWatchRenderSnapshot } from '../ui/watch/watchBindings'
+import { WatchPanel } from '../ui/watch/watchPanel'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
+import { LaserPointer } from '../xr/laserPointer'
 import { computeThrowChargeSpeed } from '../xr/throwCharge'
 import { VRLocomotion } from '../xr/vrLocomotion'
+import { XRInputMap } from '../xr/xrInputMap'
 
 export const bootstrapApp = async () => {
-  const habitatConfig = { ...DEFAULT_HABITAT_CONFIG }
-  const reattachTuning = { ...DEFAULT_REATTACH_TUNING }
+  const settingsStore = createSettingsStore()
+  const habitatConfig = settingsStore.habitat
+  const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = {
     axialPosition: 0,
     azimuth: 0
@@ -153,6 +157,9 @@ export const bootstrapApp = async () => {
   const locomotionIntent = getIdleLocomotionIntent()
   let desktopThrowQueued = false
   let frameAngle = 0
+  let settingsDirty = false
+  let xrWatchMenuOpen = false
+  let desktopUiCamera: THREE.PerspectiveCamera = camera
   const playerTraversal = createPlayerTraversalState(
     initialSurfaceState,
     habitatConfig.radius,
@@ -177,7 +184,8 @@ export const bootstrapApp = async () => {
     renderer,
     controllerRoot: viewRig,
     shouldBlockSelectStart: (controller) =>
-      playerTraversal.mode === 'free-fly' && vrLocomotion?.getHandedness(controller) === 'left',
+      xrWatchMenuOpen ||
+      (playerTraversal.mode === 'free-fly' && vrLocomotion?.getHandedness(controller) === 'left'),
     onEmptySelectStart: (controller) => {
       const ball = spawnBall({
         origin: controller,
@@ -197,6 +205,15 @@ export const bootstrapApp = async () => {
     viewRig,
     camera
   )
+  const xrInputMap = new XRInputMap(grabSystem.getControllers())
+  const watchPanel = new WatchPanel(settingsStore)
+  const laserPointer = new LaserPointer()
+  const desktopQuickPanel = new PcQuickPanel(settingsStore)
+  scene.add(watchPanel.group)
+  scene.add(desktopQuickPanel.mesh)
+  settingsStore.subscribe(() => {
+    settingsDirty = true
+  })
 
   const syncHabitat = () => {
     habitat.setDimensions({
@@ -228,6 +245,9 @@ export const bootstrapApp = async () => {
     debugVisuals,
     onHabitatChange: () => {
       syncHabitat()
+    },
+    onSettingsChange: () => {
+      settingsStore.notify()
     },
     onVisualChange: () => {
       hud.setVisible(debugVisuals.showHud)
@@ -331,12 +351,31 @@ export const bootstrapApp = async () => {
   }
 
   window.addEventListener('keydown', (event) => {
+    if (event.code === 'Tab' && !renderer.xr.isPresenting) {
+      event.preventDefault()
+      desktopQuickPanel.toggle()
+      return
+    }
+
     if (event.code !== 'Space' || event.repeat) {
       return
     }
 
     event.preventDefault()
+
+    if (desktopQuickPanel.isVisible) {
+      return
+    }
+
     requestDesktopThrow()
+  })
+
+  renderer.domElement.addEventListener('pointermove', (event) => {
+    if (renderer.xr.isPresenting) {
+      return
+    }
+
+    desktopQuickPanel.handlePointerMove(event, desktopUiCamera, renderer.domElement)
   })
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -344,10 +383,21 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (!renderer.xr.isPresenting && desktopQuickPanel.isVisible) {
+      event.preventDefault()
+      desktopQuickPanel.handlePointerDown(event, desktopUiCamera, renderer.domElement)
+      return
+    }
+
     requestDesktopThrow()
   })
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+    if (settingsDirty) {
+      syncHabitat()
+      settingsDirty = false
+    }
+
     const omega = rpmToOmega(habitatConfig.rpm)
     const frameAngleStart = frameAngle
     const effectiveObserverMode = getEffectiveObserverMode(
@@ -362,7 +412,18 @@ export const bootstrapApp = async () => {
       playerTraversal.mode,
       frameAngleStart
     )
+    const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
+
+    if (xrWatchInput.toggleWatchMenu) {
+      xrWatchMenuOpen = !xrWatchMenuOpen
+      watchPanel.setExpanded(xrWatchMenuOpen)
+    }
+
+    if (!renderer.xr.isPresenting && xrWatchMenuOpen) {
+      xrWatchMenuOpen = false
+      watchPanel.setExpanded(false)
+    }
 
     if (desktopThrowQueued) {
       desktopThrowQueued = false
@@ -490,19 +551,22 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
+    const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle)
+    const watchMenuOpen = xrWatchMenuOpen || desktopQuickPanel.isVisible
 
     hud.update({
       radius: habitatConfig.radius,
       rpm: habitatConfig.rpm,
-      gTarget: surfaceGravityFromConfig(habitatConfig),
+      gTarget: settingsStore.getSurfaceGravity(),
       ballCount: balls.length,
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
       forceVectors: debugVisuals.showForceVectors,
       observerMode: effectiveObserverMode,
       trailMode: debugVisuals.trailMode,
-      region: getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle),
+      region: playerRegion,
       playerMode: playerTraversal.mode,
+      watchMenuOpen,
       verification:
         verificationBallTarget === null || verification === null
           ? null
@@ -530,6 +594,7 @@ export const bootstrapApp = async () => {
     })
     debugGui.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
+    desktopUiCamera = camera
 
     if (effectiveObserverMode === 'inertial-fixed' && !renderer.xr.isPresenting) {
       camera.updateWorldMatrix(true, false)
@@ -544,11 +609,31 @@ export const bootstrapApp = async () => {
       inertialObserverCamera.position.copy(observerPose.position)
       inertialObserverCamera.quaternion.copy(observerPose.orientation)
       inertialObserverCamera.updateMatrixWorld(true)
-      renderer.render(scene, inertialObserverCamera)
-      return
+      desktopUiCamera = inertialObserverCamera
     }
 
-    renderer.render(scene, camera)
+    const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
+      playerMode: playerTraversal.mode,
+      region: playerRegion,
+      watchMenuOpen,
+      ballCount: balls.length
+    })
+    watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
+    laserPointer.setController(renderer.xr.isPresenting ? xrWatchInput.rightController : null)
+    watchPanel.updateHover(
+      laserPointer.update(
+        watchPanel.interactiveObject,
+        renderer.xr.isPresenting && xrWatchMenuOpen
+      )?.uv ?? null
+    )
+
+    if (renderer.xr.isPresenting && xrWatchMenuOpen && xrWatchInput.rightTriggerPressed) {
+      watchPanel.clickHovered()
+    }
+
+    watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
+    desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
+    renderer.render(scene, desktopUiCamera)
   })
 
   gameLoop.start()
@@ -570,6 +655,6 @@ export const bootstrapApp = async () => {
   })
 
   console.info(
-    `Cylinder axis: Y, Omega: (0, ${rpmToOmega(habitatConfig.rpm).toFixed(3)}, 0), g=${surfaceGravityFromConfig(habitatConfig).toFixed(2)}`
+    `Cylinder axis: Y, Omega: (0, ${rpmToOmega(habitatConfig.rpm).toFixed(3)}, 0), g=${settingsStore.getSurfaceGravity().toFixed(2)}`
   )
 }

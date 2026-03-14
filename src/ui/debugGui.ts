@@ -18,6 +18,7 @@ type DebugGuiOptions = {
   reattachTuning: ReattachTuning
   debugVisuals: DebugVisualState
   onHabitatChange: () => void
+  onSettingsChange: () => void
   onVisualChange: () => void
 }
 
@@ -31,6 +32,7 @@ export const createDebugGui = ({
   reattachTuning,
   debugVisuals,
   onHabitatChange,
+  onSettingsChange,
   onVisualChange
 }: DebugGuiOptions): DebugGuiHandle => {
   const gui = new GUI({ title: 'O’Neill Cylinder' })
@@ -50,6 +52,7 @@ export const createDebugGui = ({
     .onChange(() => {
       syncDerivedState()
       onHabitatChange()
+      onSettingsChange()
     })
 
   gui
@@ -58,12 +61,16 @@ export const createDebugGui = ({
     .onChange(() => {
       syncDerivedState()
       onHabitatChange()
+      onSettingsChange()
     })
 
   gui
     .add(config, 'ballSpeedScale', 0.25, 3, 0.05)
     .name('throw scale')
-    .onChange(syncDerivedState)
+    .onChange(() => {
+      syncDerivedState()
+      onSettingsChange()
+    })
 
   gui.add(derivedState, 'gTarget').name('surface g').listen()
 
@@ -71,24 +78,31 @@ export const createDebugGui = ({
   reattachFolder
     .add(reattachTuning, 'radialTolerance', 0.05, 1.2, 0.01)
     .name('radial tol (m)')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'maxNormalSpeed', 0.1, 4, 0.05)
     .name('normal speed')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'maxSurfaceSpeed', 0.1, 6, 0.05)
     .name('surface speed')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'assistDistance', 0.1, 3, 0.05)
     .name('assist dist')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'assistNormalDamping', 0, 12, 0.1)
     .name('assist normal')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'assistSurfaceDamping', 0, 8, 0.1)
     .name('assist surface')
+    .onChange(onSettingsChange)
   reattachFolder
     .add(reattachTuning, 'assistRadialPull', 0, 6, 0.1)
     .name('assist pull')
+    .onChange(onSettingsChange)
   reattachFolder.open()
 
   const debugFolder = gui.addFolder('Debug View')

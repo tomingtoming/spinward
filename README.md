@@ -39,6 +39,8 @@ bun run preview -- --host 0.0.0.0
 - VR: `free-fly` 中は左スティック押し込みで平行移動 brake を掛け、ドッキング前に速度を落とせます。
 - VR: `free-fly` 中は左スティック左右でロール角速度、前後でピッチ角速度を与えます。
 - VR: `free-fly` 中は左 grip で回転 brake を掛け、現在の角速度を徐々に落とせます。
+- VR: 左手には常時ミニ wrist UI が出ます。左 `Y` 長押しで展開/収納します。
+- VR: wrist UI 展開中だけ、右手レーザーと右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
 - VR: 右スティック左右で `snap turn` できます。
 - VR: 球のトリガーを離すと放します。球はその時のコントローラ速度から投げ速度を決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
@@ -52,6 +54,7 @@ bun run preview -- --host 0.0.0.0
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
+- PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定を変えられます。
 - GUI: `radius`, `rpm`, `throw scale`, `surface g`, `reattach` 閾値と弱い landing assist の強さを右上で調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
@@ -90,6 +93,7 @@ a_cf = -(Ω × (Ω × r))
 - Rapier による球の慣性系シミュレーションと、回転する内壁への接触処理
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
+- 左手 wrist UI、右手 UI レーザー、PC quick panel
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト
