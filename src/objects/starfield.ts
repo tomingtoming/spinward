@@ -37,9 +37,9 @@ export class Starfield {
     this.group.add(this.stars)
   }
 
-  update(deltaSeconds: number, omega: number) {
+  setFrameAngle(frameAngle: number) {
     // In the rotating frame, inertial stars appear to sweep past in the opposite direction.
-    this.group.rotation.y -= omega * deltaSeconds
+    this.group.rotation.y = -frameAngle
   }
 
   getSuggestedCameraFar() {

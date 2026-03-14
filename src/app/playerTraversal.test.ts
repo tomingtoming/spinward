@@ -1,0 +1,395 @@
+import { expect, test } from 'bun:test'
+import * as THREE from 'three'
+
+import {
+  applyReattachAssist,
+  detachPlayerToFreeFly,
+  DEFAULT_REATTACH_TUNING,
+  applyPlayerTraversalState,
+  createPlayerTraversalState,
+  disposePlayerTraversalState,
+  evaluateReattachPlayer,
+  getPlayerTraversalRegion,
+  syncPlayerTraversalFromPhysics,
+  tryReattachPlayer,
+  stepAttachedPlayer,
+  stepFreeFlyPlayer
+} from './playerTraversal'
+import { initRapier } from '../physics/rapierContext'
+import {
+  rotatingPositionToInertial,
+  rotatingVelocityToInertial
+} from '../sim/frameTransforms'
+
+const expectVectorCloseTo = (actual: THREE.Vector3, expected: THREE.Vector3) => {
+  expect(actual.x).toBeCloseTo(expected.x, 5)
+  expect(actual.y).toBeCloseTo(expected.y, 5)
+  expect(actual.z).toBeCloseTo(expected.z, 5)
+}
+
+test('stepAttachedPlayer transitions to free-fly after crossing the opening', () => {
+  const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1.2)
+  const expectedVelocity = new THREE.Vector3(0, 2, -12).applyAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    0.6
+  )
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1.2,
+    frameAngleEnd: 0.6
+  })
+
+  expect(state.mode).toBe('free-fly')
+  expect(state.surface.axialPosition).toBeCloseTo(9.4, 6)
+  expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
+})
+
+test('stepAttachedPlayer keeps the player attached while still inside the cylinder', () => {
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0, 1)
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 2,
+    tangentDistanceDelta: 5,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 1,
+    omega: 1,
+    frameAngleEnd: 1
+  })
+
+  expect(state.mode).toBe('attached')
+  expect(state.surface.axialPosition).toBeCloseTo(2, 6)
+  expect(state.surface.azimuth).toBeCloseTo(0.5, 6)
+})
+
+test('detachPlayerToFreeFly switches mode and adds launch velocity in the rotating frame', () => {
+  const frameAngle = 0.6
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 2, azimuth: 0 }, 10, frameAngle, omega)
+  const previousVelocity = state.inertialVelocity.clone()
+
+  detachPlayerToFreeFly(state, {
+    launchVelocity: new THREE.Vector3(0, 1.5, -4),
+    frameAngle
+  })
+
+  expect(state.mode).toBe('free-fly')
+  expectVectorCloseTo(
+    state.inertialVelocity,
+    previousVelocity.add(new THREE.Vector3(0, 1.5, -4).applyAxisAngle(new THREE.Vector3(0, 1, 0), frameAngle))
+  )
+})
+
+test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', () => {
+  const state = createPlayerTraversalState({ axialPosition: 9.2, azimuth: 0 }, 10, 0, 1)
+  const rig = new THREE.Group()
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1,
+    frameAngleEnd: 0.5
+  })
+
+  const previousVelocity = state.inertialVelocity.clone()
+
+  stepFreeFlyPlayer(state, {
+    thrustAcceleration: new THREE.Vector3(0, 0, 0),
+    deltaSeconds: 0.5,
+    frameAngleStart: 0.5,
+    frameAngleEnd: 1,
+    linearDamping: 0,
+    brakeAmount: 0,
+    brakeDamping: 6,
+    maxSpeed: 100
+  })
+  applyPlayerTraversalState(rig, state, 10, 1)
+
+  expect(state.mode).toBe('free-fly')
+  expectVectorCloseTo(state.inertialVelocity, previousVelocity)
+  expect(rig.position.x).toBeGreaterThan(11)
+  expect(rig.position.y).toBeGreaterThan(11)
+  expect(Math.abs(rig.position.z)).toBeLessThan(1)
+})
+
+test('getPlayerTraversalRegion reports outside for a free-flying player beyond the opening', () => {
+  const state = createPlayerTraversalState({ axialPosition: 9.6, azimuth: 0 }, 10, 0, 1)
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 0.5,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1,
+    frameAngleEnd: 0.5
+  })
+
+  expect(getPlayerTraversalRegion(state, 20, 0.5)).toBe('outside')
+})
+
+test('stepAttachedPlayer seeds a Rapier body when transitioning to free-fly', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const state = createPlayerTraversalState(
+    { axialPosition: 8.4, azimuth: 0 },
+    10,
+    0,
+    1.2,
+    { rapier, world }
+  )
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1.2,
+    frameAngleEnd: 0.6
+  })
+
+  const expectedPosition = state.inertialPosition.clone().addScaledVector(state.inertialVelocity, 0.5)
+  world.timestep = 0.5
+  world.step()
+  syncPlayerTraversalFromPhysics(state)
+
+  expect(state.mode).toBe('free-fly')
+  expectVectorCloseTo(state.inertialPosition, expectedPosition)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the state', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const state = createPlayerTraversalState(
+    { axialPosition: 8.4, azimuth: 0 },
+    10,
+    0,
+    1,
+    { rapier, world }
+  )
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1,
+    frameAngleEnd: 0.5
+  })
+
+  const previousVelocity = state.inertialVelocity.clone()
+  const inertialAcceleration = rotatingPositionToInertial(new THREE.Vector3(0, 0, 2), 0.5)
+  const expectedVelocity = previousVelocity.clone().addScaledVector(inertialAcceleration, 0.5)
+
+  stepFreeFlyPlayer(state, {
+    thrustAcceleration: new THREE.Vector3(0, 0, 2),
+    deltaSeconds: 0.5,
+    frameAngleStart: 0.5,
+    frameAngleEnd: 1,
+    linearDamping: 0,
+    brakeAmount: 0,
+    brakeDamping: 6,
+    maxSpeed: 100
+  })
+  world.timestep = 0.5
+  world.step()
+  syncPlayerTraversalFromPhysics(state)
+
+  expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('stepFreeFlyPlayer brake strongly reduces free-fly linear speed', () => {
+  const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1)
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1,
+    frameAngleEnd: 0.5
+  })
+
+  state.inertialVelocity.set(6, -2, 3)
+
+  stepFreeFlyPlayer(state, {
+    thrustAcceleration: new THREE.Vector3(0, 0, 0),
+    deltaSeconds: 0.5,
+    frameAngleStart: 0.5,
+    frameAngleEnd: 1,
+    linearDamping: 0.7,
+    brakeAmount: 1,
+    brakeDamping: 6,
+    maxSpeed: 100
+  })
+
+  expect(state.inertialVelocity.length()).toBeLessThan(1)
+})
+
+test('tryReattachPlayer returns to attached mode on a low-speed wall contact', () => {
+  const radius = 10
+  const length = 20
+  const frameAngle = 0.4
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const rotatingPosition = new THREE.Vector3(radius - 0.2, 1.4, 0)
+  const rotatingVelocity = new THREE.Vector3(0.15, 0.05, -0.1)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
+  )
+
+  const attached = tryReattachPlayer(state, {
+    ...DEFAULT_REATTACH_TUNING,
+    radius,
+    length,
+    omega,
+    frameAngle
+  })
+
+  expect(attached).toBe(true)
+  expect(state.mode).toBe('attached')
+  expect(state.surface.axialPosition).toBeCloseTo(1.4, 6)
+  expect(state.surface.azimuth).toBeCloseTo(0, 6)
+})
+
+test('evaluateReattachPlayer exposes readiness metrics for low-speed wall contact', () => {
+  const radius = 10
+  const length = 20
+  const frameAngle = 0.4
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const rotatingPosition = new THREE.Vector3(radius - 0.2, 1.4, 0)
+  const rotatingVelocity = new THREE.Vector3(0.15, 0.05, -0.1)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
+  )
+
+  const status = evaluateReattachPlayer(state, {
+    ...DEFAULT_REATTACH_TUNING,
+    radius,
+    length,
+    omega,
+    frameAngle
+  })
+
+  expect(status.withinAxialWindow).toBe(true)
+  expect(status.radialError).toBeLessThan(DEFAULT_REATTACH_TUNING.radialTolerance)
+  expect(status.normalSpeed).toBeLessThan(DEFAULT_REATTACH_TUNING.maxNormalSpeed)
+  expect(status.surfaceSpeed).toBeLessThan(DEFAULT_REATTACH_TUNING.maxSurfaceSpeed)
+  expect(status.canAttach).toBe(true)
+})
+
+test('applyReattachAssist reduces wall-relative speed near the cylinder wall', () => {
+  const radius = 10
+  const length = 20
+  const frameAngle = 0.4
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const rotatingPosition = new THREE.Vector3(radius - 0.55, 1.4, 0)
+  const rotatingVelocity = new THREE.Vector3(1.2, 0.4, -1.1)
+  const config = {
+    ...DEFAULT_REATTACH_TUNING,
+    radius,
+    length,
+    omega,
+    frameAngle
+  }
+  const before = evaluateReattachPlayer(state, config)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
+  )
+
+  const statusBefore = evaluateReattachPlayer(state, config)
+  const assisted = applyReattachAssist(state, {
+    ...config,
+    deltaSeconds: 0.5
+  })
+  const statusAfter = evaluateReattachPlayer(state, config)
+
+  expect(before.canAttach).toBe(false)
+  expect(assisted).toBe(true)
+  expect(statusAfter.normalSpeed).toBeLessThan(statusBefore.normalSpeed)
+  expect(statusAfter.surfaceSpeed).toBeLessThan(statusBefore.surfaceSpeed)
+})
+
+test('applyReattachAssist leaves velocity unchanged away from the wall', () => {
+  const radius = 10
+  const length = 20
+  const frameAngle = 0.4
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const rotatingPosition = new THREE.Vector3(6, 1.4, 0)
+  const rotatingVelocity = new THREE.Vector3(0.5, 0.3, -0.4)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
+  )
+  const beforeVelocity = state.inertialVelocity.clone()
+
+  const assisted = applyReattachAssist(state, {
+    ...DEFAULT_REATTACH_TUNING,
+    radius,
+    length,
+    omega,
+    frameAngle,
+    deltaSeconds: 0.5
+  })
+
+  expect(assisted).toBe(false)
+  expectVectorCloseTo(state.inertialVelocity, beforeVelocity)
+})
+
+test('tryReattachPlayer stays in free-fly when wall-relative speed is too high', () => {
+  const radius = 10
+  const length = 20
+  const frameAngle = 0.4
+  const omega = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const rotatingPosition = new THREE.Vector3(radius - 0.2, 1.4, 0)
+  const rotatingVelocity = new THREE.Vector3(0.1, 0.05, -2.8)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
+  )
+
+  const attached = tryReattachPlayer(state, {
+    ...DEFAULT_REATTACH_TUNING,
+    radius,
+    length,
+    omega,
+    frameAngle
+  })
+
+  expect(attached).toBe(false)
+  expect(state.mode).toBe('free-fly')
+})

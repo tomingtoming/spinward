@@ -1,6 +1,7 @@
 import GUI from 'lil-gui'
 
 import { surfaceGravityFromConfig, type HabitatConfig } from '../sim/habitatConfig'
+import type { ReattachTuning } from '../app/playerTraversal'
 
 export type DebugVisualState = {
   showForceVectors: boolean
@@ -10,6 +11,7 @@ export type DebugVisualState = {
 
 type DebugGuiOptions = {
   config: HabitatConfig
+  reattachTuning: ReattachTuning
   debugVisuals: DebugVisualState
   onHabitatChange: () => void
   onVisualChange: () => void
@@ -22,6 +24,7 @@ export type DebugGuiHandle = {
 
 export const createDebugGui = ({
   config,
+  reattachTuning,
   debugVisuals,
   onHabitatChange,
   onVisualChange
@@ -59,6 +62,30 @@ export const createDebugGui = ({
     .onChange(syncDerivedState)
 
   gui.add(derivedState, 'gTarget').name('surface g').listen()
+
+  const reattachFolder = gui.addFolder('Reattach')
+  reattachFolder
+    .add(reattachTuning, 'radialTolerance', 0.05, 1.2, 0.01)
+    .name('radial tol (m)')
+  reattachFolder
+    .add(reattachTuning, 'maxNormalSpeed', 0.1, 4, 0.05)
+    .name('normal speed')
+  reattachFolder
+    .add(reattachTuning, 'maxSurfaceSpeed', 0.1, 6, 0.05)
+    .name('surface speed')
+  reattachFolder
+    .add(reattachTuning, 'assistDistance', 0.1, 3, 0.05)
+    .name('assist dist')
+  reattachFolder
+    .add(reattachTuning, 'assistNormalDamping', 0, 12, 0.1)
+    .name('assist normal')
+  reattachFolder
+    .add(reattachTuning, 'assistSurfaceDamping', 0, 8, 0.1)
+    .name('assist surface')
+  reattachFolder
+    .add(reattachTuning, 'assistRadialPull', 0, 6, 0.1)
+    .name('assist pull')
+  reattachFolder.open()
 
   const debugFolder = gui.addFolder('Debug View')
   debugFolder

@@ -1,15 +1,22 @@
 import * as THREE from 'three'
 
-import { applySurfaceRigState, moveSurfaceRigState, type SurfaceRigState } from './surfaceRig'
+import { getForwardDirection } from './forwardDirection'
+import { createLocomotionIntent } from './locomotionIntent'
 
 const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
-const MOVE_SPEED = 6
 const MAX_PITCH = Math.PI * 0.48
 
-const localForward = new THREE.Vector3()
-const localRight = new THREE.Vector3()
-const localMove = new THREE.Vector3()
+const attachedForward = new THREE.Vector3()
+const attachedRight = new THREE.Vector3()
+const attachedMove = new THREE.Vector3()
+const freeFlyForward = new THREE.Vector3()
+const freeFlyMove = new THREE.Vector3()
+const inverseRigQuaternion = new THREE.Quaternion()
+const worldRight = new THREE.Vector3()
+const detachLaunchVelocity = new THREE.Vector3()
+const intent = createLocomotionIntent()
+const DETACH_LAUNCH_SPEED = 6
 
 export class DesktopLookControls {
   private yaw = 0
@@ -18,7 +25,6 @@ export class DesktopLookControls {
   private readonly pressedKeys = new Set<string>()
 
   constructor(
-    private readonly surfaceState: SurfaceRigState,
     private readonly playerRig: THREE.Group,
     private readonly camera: THREE.PerspectiveCamera,
     private readonly element: HTMLElement
@@ -42,13 +48,16 @@ export class DesktopLookControls {
     window.removeEventListener('keyup', this.handleKeyUp)
   }
 
-  syncToRig(radius: number) {
-    applySurfaceRigState(this.playerRig, this.surfaceState, radius)
-  }
+  update(deltaSeconds: number, xrActive: boolean) {
+    intent.attachedAxis = 0
+    intent.attachedTangent = 0
+    intent.freeFlyThrust.set(0, 0, 0)
+    intent.freeFlyBrake = 0
+    intent.detachRequested = false
+    intent.detachLaunchVelocity.set(0, 0, 0)
 
-  update(deltaSeconds: number, xrActive: boolean, radius: number, length: number) {
     if (xrActive) {
-      return
+      return intent
     }
 
     let yawDelta = 0
@@ -94,36 +103,54 @@ export class DesktopLookControls {
     }
 
     if (forwardInput !== 0 || rightInput !== 0) {
-      localForward.set(0, 0, -1).applyQuaternion(this.camera.quaternion)
-      localForward.y = 0
+      inverseRigQuaternion.copy(this.playerRig.getWorldQuaternion(new THREE.Quaternion())).invert()
+      attachedForward.copy(getForwardDirection(this.camera)).applyQuaternion(inverseRigQuaternion)
+      attachedForward.y = 0
 
-      if (localForward.lengthSq() < 1e-6) {
-        localForward.set(0, 0, -1)
+      if (attachedForward.lengthSq() < 1e-6) {
+        attachedForward.set(0, 0, -1)
       } else {
-        localForward.normalize()
+        attachedForward.normalize()
       }
 
-      localRight.copy(localForward).cross(new THREE.Vector3(0, 1, 0)).normalize()
-      localMove
-        .copy(localForward)
+      attachedRight.copy(attachedForward).cross(new THREE.Vector3(0, 1, 0)).normalize()
+      attachedMove
+        .copy(attachedForward)
         .multiplyScalar(forwardInput)
-        .addScaledVector(localRight, rightInput)
+        .addScaledVector(attachedRight, rightInput)
 
-      if (localMove.lengthSq() > 1) {
-        localMove.normalize()
+      if (attachedMove.lengthSq() > 1) {
+        attachedMove.normalize()
       }
 
-      const distance = MOVE_SPEED * deltaSeconds
-      moveSurfaceRigState(
-        this.surfaceState,
-        localMove.x * distance,
-        localMove.z * distance,
-        radius,
-        length
-      )
+      intent.attachedAxis = attachedMove.x
+      intent.attachedTangent = attachedMove.z
+
+      freeFlyForward.copy(getForwardDirection(this.camera))
+      worldRight.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion()))
+      freeFlyMove
+        .copy(freeFlyForward)
+        .multiplyScalar(forwardInput)
+        .addScaledVector(worldRight, rightInput)
+
+      if (freeFlyMove.lengthSq() > 1) {
+        freeFlyMove.normalize()
+      }
+
+      intent.freeFlyThrust.copy(freeFlyMove)
     }
 
-    this.syncToRig(radius)
+    if (this.pressedKeys.has('KeyF')) {
+      detachLaunchVelocity.copy(getForwardDirection(this.camera)).multiplyScalar(DETACH_LAUNCH_SPEED)
+      intent.detachRequested = true
+      intent.detachLaunchVelocity.copy(detachLaunchVelocity)
+    }
+
+    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
+      intent.freeFlyBrake = 1
+    }
+
+    return intent
   }
 
   private applyLookDelta(yawDelta: number, pitchDelta: number) {
@@ -175,7 +202,10 @@ export class DesktopLookControls {
       event.code !== 'ArrowLeft' &&
       event.code !== 'ArrowRight' &&
       event.code !== 'ArrowUp' &&
-      event.code !== 'ArrowDown'
+      event.code !== 'ArrowDown' &&
+      event.code !== 'KeyF' &&
+      event.code !== 'ShiftLeft' &&
+      event.code !== 'ShiftRight'
     ) {
       return
     }

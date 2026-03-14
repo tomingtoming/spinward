@@ -1,23 +1,38 @@
 import * as THREE from 'three'
+import type { Collider, RigidBody, World } from '@dimforge/rapier3d-compat'
 
-import { advanceBallState } from '../sim/ballStep'
+import type { RapierModule } from '../physics/rapierContext'
+import { copyRapierVector, toRapierVector } from '../physics/rapierMath'
+import {
+  rotatingPositionToInertial,
+  rotatingVelocityToInertial,
+  inertialPositionToRotating,
+  inertialVelocityToRotating
+} from '../sim/frameTransforms'
 import type { GrabTarget } from '../xr/grabSystem'
 
 type BallOptions = {
+  physics: BallPhysicsContext
   initialPosition: THREE.Vector3
   initialVelocity?: THREE.Vector3
   radius?: number
   color?: number
   maxTrailPoints: number
   lifetimeSeconds: number
+  frameAngle: number
+  omega: number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball) => void
 }
 
 type BallStepConfig = {
   deltaSeconds: number
-  radius: number
-  length: number
   omega: number
+  frameAngleEnd: number
+}
+
+type BallPhysicsContext = {
+  rapier: RapierModule
+  world: World
   restitution: number
 }
 
@@ -27,24 +42,74 @@ export class Ball {
   readonly radius: number
   readonly mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
   readonly trail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
-  readonly velocity: THREE.Vector3
   readonly grabTarget: GrabTarget
 
   private readonly lifetimeSeconds: number
   private readonly maxTrailPoints: number
   private readonly trailPoints: THREE.Vector3[] = []
   private readonly onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball) => void
+  private readonly world: World
+  private readonly rigidBody: RigidBody
+  private readonly inertialPosition = new THREE.Vector3()
+  private readonly inertialVelocity = new THREE.Vector3()
+  private readonly rotatingPosition = new THREE.Vector3()
+  private readonly rotatingVelocity = new THREE.Vector3()
+  private collider: Collider
 
   private hovered = false
   private grabbed = false
   private ageSeconds = 0
+  private frameAngle: number
+  private omega: number
 
   constructor(options: BallOptions) {
     this.radius = options.radius ?? 0.18
-    this.velocity = options.initialVelocity?.clone() ?? new THREE.Vector3()
     this.lifetimeSeconds = options.lifetimeSeconds
     this.maxTrailPoints = options.maxTrailPoints
     this.onReleased = options.onReleased
+    this.world = options.physics.world
+    this.frameAngle = options.frameAngle
+    this.omega = options.omega
+
+    this.rotatingPosition.copy(options.initialPosition)
+    rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
+
+    if (options.initialVelocity !== undefined) {
+      this.rotatingVelocity.copy(options.initialVelocity)
+      rotatingVelocityToInertial(
+        this.rotatingPosition,
+        this.rotatingVelocity,
+        this.omega,
+        this.frameAngle,
+        this.inertialVelocity
+      )
+    }
+
+    this.rigidBody = this.world.createRigidBody(
+      options.physics.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(
+          this.inertialPosition.x,
+          this.inertialPosition.y,
+          this.inertialPosition.z
+        )
+        .setLinvel(
+          this.inertialVelocity.x,
+          this.inertialVelocity.y,
+          this.inertialVelocity.z
+        )
+        .setGravityScale(0)
+        .setLinearDamping(0)
+        .setAngularDamping(1.4)
+        .lockRotations()
+        .setCanSleep(false)
+        .setCcdEnabled(true)
+    )
+    this.collider = this.world.createCollider(
+      options.physics.rapier.ColliderDesc.ball(this.radius)
+        .setRestitution(options.physics.restitution)
+        .setFriction(0.8),
+      this.rigidBody
+    )
 
     const material = new THREE.MeshStandardMaterial({
       color: options.color ?? 0xf59e0b,
@@ -55,7 +120,7 @@ export class Ball {
       new THREE.SphereGeometry(this.radius, 24, 24),
       material
     )
-    this.mesh.position.copy(options.initialPosition)
+    this.mesh.position.copy(this.rotatingPosition)
 
     this.trail = new THREE.Line(
       new THREE.BufferGeometry(),
@@ -78,12 +143,21 @@ export class Ball {
       },
       onGrabStart: () => {
         this.grabbed = true
-        this.velocity.set(0, 0, 0)
+        this.syncFromWorldPose()
+        this.rotatingVelocity.set(0, 0, 0)
+        this.inertialVelocity.set(0, 0, 0)
+        this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.KinematicPositionBased, true)
+        this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
+        this.collider.setEnabled(false)
         this.resetTrail()
         this.updateAppearance()
       },
       onGrabEnd: (controller) => {
         this.grabbed = false
+        this.syncFromWorldPose()
+        this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
+        this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
+        this.collider.setEnabled(true)
         this.updateAppearance()
         this.onReleased?.(controller, this)
       }
@@ -91,7 +165,11 @@ export class Ball {
   }
 
   get position() {
-    return this.mesh.position
+    return this.rotatingPosition
+  }
+
+  get velocity() {
+    return this.rotatingVelocity
   }
 
   get isGrabbed() {
@@ -103,24 +181,31 @@ export class Ball {
   }
 
   setVelocity(nextVelocity: THREE.Vector3) {
-    this.velocity.copy(nextVelocity)
+    this.rotatingVelocity.copy(nextVelocity)
+    rotatingVelocityToInertial(
+      this.rotatingPosition,
+      this.rotatingVelocity,
+      this.omega,
+      this.frameAngle,
+      this.inertialVelocity
+    )
+    this.rigidBody.setLinvel(toRapierVector(this.inertialVelocity), true)
   }
 
   step(config: BallStepConfig) {
+    this.omega = config.omega
+    this.frameAngle = config.frameAngleEnd
+
     if (this.grabbed) {
+      this.syncFromWorldPose()
+      this.rigidBody.setNextKinematicTranslation(toRapierVector(this.inertialPosition))
       return
     }
 
-    // Simulation state lives in world space; rendering reads directly from the mesh transform.
     this.ageSeconds += config.deltaSeconds
-    advanceBallState(
-      {
-        position: this.position,
-        velocity: this.velocity,
-        radius: this.radius
-      },
-      config
-    )
+    copyRapierVector(this.rigidBody.translation(), this.inertialPosition)
+    copyRapierVector(this.rigidBody.linvel(), this.inertialVelocity)
+    this.syncRenderState()
     this.appendTrailPoint()
   }
 
@@ -131,12 +216,13 @@ export class Ball {
     this.mesh.material.dispose()
     this.trail.geometry.dispose()
     this.trail.material.dispose()
+    this.world.removeRigidBody(this.rigidBody)
   }
 
   private resetTrail() {
     this.trailPoints.length = 0
     this.trailPoints.push(this.position.clone())
-    this.trail.geometry.setFromPoints(this.trailPoints)
+    this.replaceTrailGeometry()
   }
 
   private appendTrailPoint() {
@@ -146,8 +232,31 @@ export class Ball {
       this.trailPoints.shift()
     }
 
-    // Rebuilding the line is sufficient here because trail sizes stay intentionally small.
-    this.trail.geometry.setFromPoints(this.trailPoints)
+    // Trail sizes stay intentionally small, so rebuilding the geometry avoids buffer resize warnings.
+    this.replaceTrailGeometry()
+  }
+
+  private syncRenderState() {
+    inertialPositionToRotating(this.inertialPosition, this.frameAngle, this.rotatingPosition)
+    inertialVelocityToRotating(
+      this.inertialPosition,
+      this.inertialVelocity,
+      this.omega,
+      this.frameAngle,
+      this.rotatingVelocity
+    )
+    this.mesh.position.copy(this.rotatingPosition)
+  }
+
+  private syncFromWorldPose() {
+    this.mesh.updateWorldMatrix(true, false)
+    this.mesh.getWorldPosition(this.rotatingPosition)
+    rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
+  }
+
+  private replaceTrailGeometry() {
+    this.trail.geometry.dispose()
+    this.trail.geometry = new THREE.BufferGeometry().setFromPoints(this.trailPoints)
   }
 
   private updateAppearance() {

@@ -4,11 +4,30 @@ import { VRButton } from 'three/addons/webxr/VRButton.js'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
-import { applySurfaceRigState, type SurfaceRigState } from './surfaceRig'
+import {
+  applyReattachAssist,
+  applyPlayerTraversalState,
+  createPlayerTraversalState,
+  DEFAULT_REATTACH_TUNING,
+  detachPlayerToFreeFly,
+  disposePlayerTraversalState,
+  evaluateReattachPlayer,
+  getIdleLocomotionIntent,
+  getPlayerTraversalRegion,
+  mergeLocomotionIntent,
+  syncPlayerTraversalFromPhysics,
+  tryReattachPlayer,
+  stepAttachedPlayer,
+  stepFreeFlyPlayer
+} from './playerTraversal'
+import type { SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
+import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
+import { initRapier } from '../physics/rapierContext'
+import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import {
   DEFAULT_HABITAT_CONFIG,
   rpmToOmega,
@@ -20,9 +39,10 @@ import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
 import { VRLocomotion } from '../xr/vrLocomotion'
 
-export const bootstrapApp = () => {
+export const bootstrapApp = async () => {
   const habitatConfig = { ...DEFAULT_HABITAT_CONFIG }
-  const surfaceRigState: SurfaceRigState = {
+  const reattachTuning = { ...DEFAULT_REATTACH_TUNING }
+  const initialSurfaceState: SurfaceRigState = {
     axialPosition: 0,
     azimuth: 0
   }
@@ -75,7 +95,6 @@ export const bootstrapApp = () => {
   document.body.appendChild(VRButton.createButton(renderer))
 
   const desktopLookControls = new DesktopLookControls(
-    surfaceRigState,
     playerRig,
     camera,
     renderer.domElement
@@ -88,23 +107,49 @@ export const bootstrapApp = () => {
   sun.position.set(-10, 8, 6)
   scene.add(sun)
 
+  const rapier = await initRapier()
+  const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  physicsWorld.lengthUnit = 1
+  physicsWorld.maxCcdSubsteps = 2
+  const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {
+    radius: habitatConfig.radius,
+    length: habitatConfig.length
+  })
+
   const restitution = 0.55
   const balls: Ball[] = []
+  const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
   const worldVelocity = new THREE.Vector3()
   const spawnOffset = new THREE.Vector3()
+  const locomotionIntent = getIdleLocomotionIntent()
   let desktopThrowQueued = false
+  let frameAngle = 0
+  const playerTraversal = createPlayerTraversalState(
+    initialSurfaceState,
+    habitatConfig.radius,
+    0,
+    0,
+    {
+      rapier,
+      world: physicsWorld
+    }
+  )
+  let vrLocomotion: VRLocomotion | null = null
 
   scene.add(forceVectorArrows.group)
+  scene.add(dockingGuide.group)
 
   const grabSystem = new GrabSystem({
     scene,
     camera,
     renderer,
     controllerRoot: viewRig,
+    shouldBlockSelectStart: (controller) =>
+      playerTraversal.mode === 'free-fly' && vrLocomotion?.getHandedness(controller) === 'left',
     onEmptySelectStart: (controller) => {
       const ball = spawnBall({
         origin: controller,
@@ -118,12 +163,11 @@ export const bootstrapApp = () => {
     controllerVelocity.registerController(controller)
   }
 
-  const vrLocomotion = new VRLocomotion(
-    grabSystem.getControllers().map(({ controller }) => controller),
+  vrLocomotion = new VRLocomotion(
+    grabSystem.getControllers(),
     playerRig,
     viewRig,
-    camera,
-    surfaceRigState
+    camera
   )
 
   const syncHabitat = () => {
@@ -137,8 +181,11 @@ export const bootstrapApp = () => {
     })
     camera.far = Math.max(4000, starfield.getSuggestedCameraFar())
     camera.updateProjectionMatrix()
-    applySurfaceRigState(playerRig, surfaceRigState, habitatConfig.radius)
-    desktopLookControls.syncToRig(habitatConfig.radius)
+    rotatingCylinder.rebuild({
+      radius: habitatConfig.radius,
+      length: habitatConfig.length
+    })
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
   }
 
   syncHabitat()
@@ -147,6 +194,7 @@ export const bootstrapApp = () => {
 
   const debugGui = createDebugGui({
     config: habitatConfig,
+    reattachTuning,
     debugVisuals,
     onHabitatChange: () => {
       syncHabitat()
@@ -164,15 +212,24 @@ export const bootstrapApp = () => {
     origin: THREE.Object3D
     releasedByController?: THREE.XRTargetRaySpace
   }) => {
+    const omega = rpmToOmega(habitatConfig.rpm)
+
     // Balls spawn slightly in front of the hand/camera so they do not self-intersect on release.
     origin.getWorldPosition(worldPosition)
     getForwardDirection(origin, worldForward)
     spawnOffset.copy(worldForward).multiplyScalar(0.35)
 
     const ball = new Ball({
+      physics: {
+        rapier,
+        world: physicsWorld,
+        restitution
+      },
       initialPosition: worldPosition.clone().add(spawnOffset),
       maxTrailPoints: habitatConfig.maxTrailPoints,
       lifetimeSeconds: habitatConfig.ballLifetimeSeconds,
+      frameAngle,
+      omega,
       onReleased: (controller, releasedBall) => {
         // Controller velocity is noisy at low speed, so fall back to forward throw when needed.
         worldVelocity
@@ -263,14 +320,17 @@ export const bootstrapApp = () => {
   })
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+    const omega = rpmToOmega(habitatConfig.rpm)
+    const frameAngleStart = frameAngle
+
     controllerVelocity.update(deltaSeconds)
-    desktopLookControls.update(
+    const desktopIntent = desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
+    const vrIntent = vrLocomotion.update(
       deltaSeconds,
       renderer.xr.isPresenting,
-      habitatConfig.radius,
-      habitatConfig.length
+      playerTraversal.mode,
+      frameAngleStart
     )
-    vrLocomotion.update(deltaSeconds, renderer.xr.isPresenting, habitatConfig.radius, habitatConfig.length)
 
     if (desktopThrowQueued) {
       desktopThrowQueued = false
@@ -280,16 +340,88 @@ export const bootstrapApp = () => {
     grabSystem.update()
 
     // Update order: input -> grab state -> simulation -> render.
-    const omega = rpmToOmega(habitatConfig.rpm)
-    starfield.update(deltaSeconds, omega)
+    frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + omega * deltaSeconds, Math.PI * 2)
+    starfield.setFrameAngle(frameAngle)
+    mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
+
+    if (playerTraversal.mode === 'attached' && locomotionIntent.detachRequested) {
+      detachPlayerToFreeFly(playerTraversal, {
+        launchVelocity: locomotionIntent.detachLaunchVelocity,
+        frameAngle
+      })
+    } else if (playerTraversal.mode === 'attached') {
+      stepAttachedPlayer(playerTraversal, {
+        axisDistanceDelta: locomotionIntent.attachedAxis * 6 * deltaSeconds,
+        tangentDistanceDelta: locomotionIntent.attachedTangent * 6 * deltaSeconds,
+        radius: habitatConfig.radius,
+        length: habitatConfig.length,
+        deltaSeconds,
+        omega,
+        frameAngleEnd: frameAngle
+      })
+    } else {
+      stepFreeFlyPlayer(playerTraversal, {
+        thrustAcceleration: locomotionIntent.freeFlyThrust.multiplyScalar(9),
+        deltaSeconds,
+        frameAngleStart,
+        frameAngleEnd: frameAngle,
+        linearDamping: 0.7,
+        brakeAmount: locomotionIntent.freeFlyBrake,
+        brakeDamping: 6,
+        maxSpeed: 14
+      })
+    }
+
+    rotatingCylinder.syncToFrame(frameAngle)
+    physicsWorld.timestep = deltaSeconds
+    physicsWorld.step()
+    syncPlayerTraversalFromPhysics(playerTraversal)
+    const assistActive =
+      playerTraversal.mode === 'free-fly'
+        ? applyReattachAssist(playerTraversal, {
+            ...reattachTuning,
+            radius: habitatConfig.radius,
+            length: habitatConfig.length,
+            omega,
+            frameAngle,
+            deltaSeconds
+          })
+        : false
+    const reattachStatus =
+      playerTraversal.mode === 'free-fly'
+        ? evaluateReattachPlayer(playerTraversal, {
+            ...reattachTuning,
+            radius: habitatConfig.radius,
+            length: habitatConfig.length,
+            omega,
+            frameAngle
+          })
+        : null
+    if (reattachStatus?.canAttach ?? false) {
+      tryReattachPlayer(playerTraversal, {
+        ...reattachTuning,
+        radius: habitatConfig.radius,
+        length: habitatConfig.length,
+        omega,
+        frameAngle
+      })
+    }
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    dockingGuide.update(
+      computeDockingGuideState(playerTraversal, {
+        radius: habitatConfig.radius,
+        length: habitatConfig.length,
+        frameAngle,
+        ready: reattachStatus?.canAttach ?? false,
+        assistActive
+      })
+    )
 
     for (const ball of balls) {
       ball.step({
         deltaSeconds,
-        radius: habitatConfig.radius,
-        length: habitatConfig.length,
         omega,
-        restitution
+        frameAngleEnd: frameAngle
       })
     }
 
@@ -310,7 +442,22 @@ export const bootstrapApp = () => {
       ballCount: balls.length,
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
-      forceVectors: debugVisuals.showForceVectors
+      forceVectors: debugVisuals.showForceVectors,
+      region: getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle),
+      playerMode: playerTraversal.mode,
+      reattach:
+        playerTraversal.mode !== 'free-fly' || reattachStatus === null
+          ? null
+          : {
+              radialError: reattachStatus.radialError,
+              radialTolerance: reattachTuning.radialTolerance,
+              normalSpeed: reattachStatus.normalSpeed,
+              maxNormalSpeed: reattachTuning.maxNormalSpeed,
+              surfaceSpeed: reattachStatus.surfaceSpeed,
+              maxSurfaceSpeed: reattachTuning.maxSurfaceSpeed,
+              assistActive,
+              ready: reattachStatus.canAttach
+            }
     })
     debugGui.update()
     renderer.render(scene, camera)
@@ -326,6 +473,10 @@ export const bootstrapApp = () => {
 
   window.addEventListener('beforeunload', () => {
     desktopLookControls.dispose()
+    disposePlayerTraversalState(playerTraversal)
+    rotatingCylinder.dispose()
+    physicsWorld.free()
+    debugGui.destroy()
   })
 
   console.info(

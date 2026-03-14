@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { confineSphereToCylinder } from './cylinderCollision'
+import { confineSphereToCylinder, confineSphereToRotatingCylinder } from './cylinderCollision'
 import { integrateSemiImplicitEuler } from './integrator'
 import { computeAngularVelocity, computeRotatingFrameAcceleration } from './rotatingFrame'
 
@@ -18,8 +18,15 @@ export type BallStepConfig = {
   restitution: number
 }
 
+export type InertialBallStepConfig = BallStepConfig & {
+  frameAngleStart: number
+  frameAngleEnd: number
+  capEnds?: boolean
+}
+
 const angularVelocity = new THREE.Vector3()
 const acceleration = new THREE.Vector3()
+const zeroAcceleration = new THREE.Vector3()
 
 export const advanceBallState = (ball: BallState, config: BallStepConfig) => {
   computeAngularVelocity(config.omega, angularVelocity)
@@ -37,5 +44,19 @@ export const advanceBallState = (ball: BallState, config: BallStepConfig) => {
     length: config.length,
     sphereRadius: ball.radius,
     restitution: config.restitution
+  })
+}
+
+export const advanceInertialBallState = (ball: BallState, config: InertialBallStepConfig) => {
+  // Once the ball is in the inertial frame, free flight is just constant-velocity motion.
+  integrateSemiImplicitEuler(ball.position, ball.velocity, zeroAcceleration, config.deltaSeconds)
+
+  return confineSphereToRotatingCylinder(ball.position, ball.velocity, {
+    radius: config.radius,
+    length: config.length,
+    sphereRadius: ball.radius,
+    restitution: config.restitution,
+    omega: config.omega,
+    capEnds: config.capEnds
   })
 }

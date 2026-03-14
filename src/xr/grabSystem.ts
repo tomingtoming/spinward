@@ -25,9 +25,12 @@ type GrabSystemOptions = {
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
   controllerRoot?: THREE.Object3D
+  shouldBlockSelectStart?: (controller: THREE.XRTargetRaySpace) => boolean
   onEmptySelectStart?: (controller: THREE.XRTargetRaySpace) => GrabTarget | null | void
   onSqueezeStart?: (controller: THREE.XRTargetRaySpace) => void
 }
+
+export type XRControllerSpaces = Pick<ControllerState, 'controller' | 'grip'>
 
 export class GrabSystem {
   private readonly raycaster = new THREE.Raycaster()
@@ -154,6 +157,10 @@ export class GrabSystem {
   }
 
   private handleSelectStart(controller: THREE.XRTargetRaySpace) {
+    if (this.options.shouldBlockSelectStart?.(controller) ?? false) {
+      return
+    }
+
     if (this.grabbedByController.has(controller)) {
       return
     }
