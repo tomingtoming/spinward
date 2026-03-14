@@ -47,6 +47,9 @@ const createCanvas = (size: number) => {
 
 const disableRaycast = () => undefined
 
+export const getFarFieldThetaStart = (arcRadians: number) =>
+  Math.PI * 1.5 - arcRadians * 0.5
+
 export const createFarFieldSignature = (
   settings: FarFieldSettings,
   habitat: FarFieldHabitatState,
@@ -129,7 +132,7 @@ export class FarFieldRenderer {
     const layerCount = this.currentProfile.layerCount
     const clampedBandHeight = Math.min(settings.bandHeight_m, habitat.span * 0.9)
     const arcRadians = THREE.MathUtils.degToRad(settings.bandArc_deg)
-    const thetaStart = Math.PI - arcRadians * 0.5
+    const thetaStart = getFarFieldThetaStart(arcRadians)
     const baseInset = Math.max(12, settings.parallaxOffset_m * 0.3)
 
     for (let index = 0; index < layerCount; index += 1) {
