@@ -25,13 +25,16 @@ export class ControllerVelocityTracker {
 
   update(deltaSeconds: number) {
     for (const [controller, sample] of this.samples) {
+      controller.updateWorldMatrix(true, false)
+      controller.getWorldPosition(sample.velocity)
+
       if (!sample.initialized || deltaSeconds <= 0) {
         sample.velocity.set(0, 0, 0)
       } else {
-        sample.velocity.copy(controller.position).sub(sample.previousPosition).divideScalar(deltaSeconds)
+        sample.velocity.sub(sample.previousPosition).divideScalar(deltaSeconds)
       }
 
-      sample.previousPosition.copy(controller.position)
+      controller.getWorldPosition(sample.previousPosition)
       sample.initialized = true
     }
   }

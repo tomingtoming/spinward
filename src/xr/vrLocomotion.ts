@@ -84,7 +84,8 @@ export class VRLocomotion {
     let moveAxisY = 0
     let leftRollAxis = 0
     let leftPitchAxis = 0
-    let leftBrake = false
+    let leftAngularBrake = false
+    let leftLinearBrake = false
     let leftSqueeze = 0
     let leftTrigger = 0
     let leftGrip: THREE.XRGripSpace | null = null
@@ -132,7 +133,8 @@ export class VRLocomotion {
         leftPitchAxis = axisY
       }
 
-      leftBrake ||= this.readThumbstickPress(gamepad)
+      leftLinearBrake ||= this.readThumbstickPress(gamepad)
+      leftAngularBrake ||= leftSqueeze > 0.05
     }
 
     const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
@@ -147,11 +149,17 @@ export class VRLocomotion {
     }
 
     if (playerMode === 'free-fly') {
-      stepJetpackAttitude(this.freeFlyAttitude, leftRollAxis, leftPitchAxis, deltaSeconds, leftBrake)
+      stepJetpackAttitude(
+        this.freeFlyAttitude,
+        leftRollAxis,
+        leftPitchAxis,
+        deltaSeconds,
+        leftAngularBrake
+      )
       integrateJetpackAttitudeOrientation(this.freeFlyInertialOrientation, this.freeFlyAttitude, deltaSeconds)
       this.applyFreeFlyAttitude(frameAngle)
       this.previousPlayerMode = playerMode
-      intent.freeFlyBrake = leftSqueeze
+      intent.freeFlyBrake = leftLinearBrake ? 1 : 0
 
       if (leftGrip !== null && leftTrigger > 0.05) {
         leftGrip.updateWorldMatrix(true, false)

@@ -37,6 +37,7 @@ import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
+import { computeThrowChargeSpeed } from '../xr/throwCharge'
 import { VRLocomotion } from '../xr/vrLocomotion'
 
 export const bootstrapApp = async () => {
@@ -230,16 +231,13 @@ export const bootstrapApp = async () => {
       lifetimeSeconds: habitatConfig.ballLifetimeSeconds,
       frameAngle,
       omega,
-      onReleased: (controller, releasedBall) => {
-        // Controller velocity is noisy at low speed, so fall back to forward throw when needed.
-        worldVelocity
-          .copy(controllerVelocity.getVelocity(controller))
-          .multiplyScalar(habitatConfig.ballSpeedScale)
-
-        if (worldVelocity.lengthSq() < 4) {
-          getForwardDirection(controller, worldForward)
-          worldVelocity.copy(worldForward).multiplyScalar(6 * habitatConfig.ballSpeedScale)
-        }
+      onReleased: (controller, releasedBall, heldSeconds) => {
+        worldVelocity.copy(controllerVelocity.getVelocity(controller))
+        getForwardDirection(controller, worldForward)
+        worldVelocity.addScaledVector(
+          worldForward,
+          computeThrowChargeSpeed(heldSeconds, habitatConfig.ballSpeedScale)
+        )
 
         releasedBall.setVelocity(worldVelocity)
       }
@@ -323,7 +321,6 @@ export const bootstrapApp = async () => {
     const omega = rpmToOmega(habitatConfig.rpm)
     const frameAngleStart = frameAngle
 
-    controllerVelocity.update(deltaSeconds)
     const desktopIntent = desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
     const vrIntent = vrLocomotion.update(
       deltaSeconds,
@@ -407,6 +404,7 @@ export const bootstrapApp = async () => {
       })
     }
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    controllerVelocity.update(deltaSeconds)
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
         radius: habitatConfig.radius,

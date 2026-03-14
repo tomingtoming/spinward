@@ -21,7 +21,7 @@ type BallOptions = {
   lifetimeSeconds: number
   frameAngle: number
   omega: number
-  onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball) => void
+  onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
 }
 
 type BallStepConfig = {
@@ -47,7 +47,11 @@ export class Ball {
   private readonly lifetimeSeconds: number
   private readonly maxTrailPoints: number
   private readonly trailPoints: THREE.Vector3[] = []
-  private readonly onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball) => void
+  private readonly onReleased?: (
+    controller: THREE.XRTargetRaySpace,
+    ball: Ball,
+    heldSeconds: number
+  ) => void
   private readonly world: World
   private readonly rigidBody: RigidBody
   private readonly inertialPosition = new THREE.Vector3()
@@ -59,6 +63,7 @@ export class Ball {
   private hovered = false
   private grabbed = false
   private ageSeconds = 0
+  private grabStartedAtSeconds = 0
   private frameAngle: number
   private omega: number
 
@@ -143,6 +148,7 @@ export class Ball {
       },
       onGrabStart: () => {
         this.grabbed = true
+        this.grabStartedAtSeconds = performance.now() * 0.001
         this.syncFromWorldPose()
         this.rotatingVelocity.set(0, 0, 0)
         this.inertialVelocity.set(0, 0, 0)
@@ -154,12 +160,13 @@ export class Ball {
       },
       onGrabEnd: (controller) => {
         this.grabbed = false
+        const heldSeconds = Math.max(0, performance.now() * 0.001 - this.grabStartedAtSeconds)
         this.syncFromWorldPose()
         this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
         this.collider.setEnabled(true)
         this.updateAppearance()
-        this.onReleased?.(controller, this)
+        this.onReleased?.(controller, this, heldSeconds)
       }
     }
   }
