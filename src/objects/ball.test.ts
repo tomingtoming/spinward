@@ -3,6 +3,7 @@ import * as THREE from 'three'
 
 import { Ball } from './ball'
 import { initRapier } from '../physics/rapierContext'
+import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import {
   inertialPositionToRotating,
   inertialVelocityToRotating,
@@ -123,5 +124,84 @@ test('Ball.setVelocity updates the Rapier body using inertial velocity', async (
   expectVectorCloseTo(ball.velocity, expectedRotatingVelocity)
 
   ball.dispose()
+  world.free()
+})
+
+test('Ball charge color brightens as the held launch speed increases', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  let now = 0
+
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(3, 0.5, 0),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0,
+    nowSeconds: () => now
+  })
+
+  ball.grabTarget.onGrabStart?.({} as THREE.XRTargetRaySpace)
+  const startColor = ball.mesh.material.color.clone()
+  const startEmissive = ball.mesh.material.emissive.clone()
+
+  now = 1.2
+  ball.step({
+    deltaSeconds: 1 / 60,
+    omega: 0,
+    frameAngleEnd: 0
+  })
+
+  expect(ball.mesh.material.color.equals(startColor)).toBe(false)
+  expect(ball.mesh.material.emissive.equals(startEmissive)).toBe(false)
+  expect(ball.mesh.material.color.b).toBeGreaterThan(startColor.b)
+
+  ball.dispose()
+  world.free()
+})
+
+test('Ball collides with the colony inner wall in Rapier', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const cylinder = createRotatingCylinderBody(rapier, world, {
+    radius: 10,
+    length: 20
+  })
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(9.2, 0.5, 0),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  ball.setVelocity(new THREE.Vector3(4, 0, 0))
+
+  for (let index = 0; index < 20; index += 1) {
+    cylinder.syncToFrame(0)
+    world.timestep = 1 / 60
+    world.step()
+    ball.step({
+      deltaSeconds: 1 / 60,
+      omega: 0,
+      frameAngleEnd: 0
+    })
+  }
+
+  expect(Math.hypot(ball.position.x, ball.position.z)).toBeLessThan(10.3)
+  expect(ball.velocity.x).toBeLessThan(0)
+
+  ball.dispose()
+  cylinder.dispose()
   world.free()
 })

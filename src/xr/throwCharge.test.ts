@@ -1,10 +1,17 @@
 import { expect, test } from 'bun:test'
 
 import {
+  computeThrowChargeRatio,
   computeThrowChargeSpeed,
   DEFAULT_THROW_CHARGE_SECONDS,
   DEFAULT_THROW_CHARGE_SPEED
 } from './throwCharge'
+
+test('computeThrowChargeRatio starts at zero and clamps at one', () => {
+  expect(computeThrowChargeRatio(0)).toBe(0)
+  expect(computeThrowChargeRatio(DEFAULT_THROW_CHARGE_SECONDS * 0.5)).toBeCloseTo(0.5, 6)
+  expect(computeThrowChargeRatio(DEFAULT_THROW_CHARGE_SECONDS * 2)).toBe(1)
+})
 
 test('computeThrowChargeSpeed starts at zero relative speed', () => {
   expect(computeThrowChargeSpeed(0, 1)).toBe(0)

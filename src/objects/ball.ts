@@ -9,6 +9,7 @@ import {
   inertialPositionToRotating,
   inertialVelocityToRotating
 } from '../sim/frameTransforms'
+import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 
 type BallOptions = {
@@ -21,6 +22,7 @@ type BallOptions = {
   lifetimeSeconds: number
   frameAngle: number
   omega: number
+  nowSeconds?: () => number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
 }
 
@@ -37,6 +39,14 @@ type BallPhysicsContext = {
 }
 
 const DEFAULT_HOLD_OFFSET = new THREE.Vector3(0, -0.03, -0.35)
+const IDLE_COLOR = new THREE.Color(0xf59e0b)
+const CHARGED_COLOR = new THREE.Color(0x67e8f9)
+const IDLE_EMISSIVE = new THREE.Color(0x000000)
+const HOVER_EMISSIVE = new THREE.Color(0x3a2507)
+const GRABBED_EMISSIVE = new THREE.Color(0x5b3410)
+const CHARGED_EMISSIVE = new THREE.Color(0x164e63)
+const displayColor = new THREE.Color()
+const displayEmissive = new THREE.Color()
 
 export class Ball {
   readonly radius: number
@@ -52,6 +62,7 @@ export class Ball {
     ball: Ball,
     heldSeconds: number
   ) => void
+  private readonly nowSeconds: () => number
   private readonly world: World
   private readonly rigidBody: RigidBody
   private readonly inertialPosition = new THREE.Vector3()
@@ -72,6 +83,7 @@ export class Ball {
     this.lifetimeSeconds = options.lifetimeSeconds
     this.maxTrailPoints = options.maxTrailPoints
     this.onReleased = options.onReleased
+    this.nowSeconds = options.nowSeconds ?? (() => performance.now() * 0.001)
     this.world = options.physics.world
     this.frameAngle = options.frameAngle
     this.omega = options.omega
@@ -148,7 +160,7 @@ export class Ball {
       },
       onGrabStart: () => {
         this.grabbed = true
-        this.grabStartedAtSeconds = performance.now() * 0.001
+        this.grabStartedAtSeconds = this.nowSeconds()
         this.syncFromWorldPose()
         this.rotatingVelocity.set(0, 0, 0)
         this.inertialVelocity.set(0, 0, 0)
@@ -160,7 +172,7 @@ export class Ball {
       },
       onGrabEnd: (controller) => {
         this.grabbed = false
-        const heldSeconds = Math.max(0, performance.now() * 0.001 - this.grabStartedAtSeconds)
+        const heldSeconds = Math.max(0, this.nowSeconds() - this.grabStartedAtSeconds)
         this.syncFromWorldPose()
         this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
@@ -206,6 +218,7 @@ export class Ball {
     if (this.grabbed) {
       this.syncFromWorldPose()
       this.rigidBody.setNextKinematicTranslation(toRapierVector(this.inertialPosition))
+      this.updateAppearance()
       return
     }
 
@@ -267,8 +280,16 @@ export class Ball {
   }
 
   private updateAppearance() {
-    this.mesh.material.emissive.setHex(
-      this.grabbed ? 0x5b3410 : this.hovered ? 0x3a2507 : 0x000000
-    )
+    if (this.grabbed) {
+      const chargeRatio = computeThrowChargeRatio(this.nowSeconds() - this.grabStartedAtSeconds)
+      this.mesh.material.color.copy(displayColor.lerpColors(IDLE_COLOR, CHARGED_COLOR, chargeRatio))
+      this.mesh.material.emissive.copy(
+        displayEmissive.lerpColors(GRABBED_EMISSIVE, CHARGED_EMISSIVE, chargeRatio)
+      )
+      return
+    }
+
+    this.mesh.material.color.copy(IDLE_COLOR)
+    this.mesh.material.emissive.copy(this.hovered ? HOVER_EMISSIVE : IDLE_EMISSIVE)
   }
 }

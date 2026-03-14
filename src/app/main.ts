@@ -328,6 +328,7 @@ export const bootstrapApp = async () => {
       playerTraversal.mode,
       frameAngleStart
     )
+    controllerVelocity.update(deltaSeconds)
 
     if (desktopThrowQueued) {
       desktopThrowQueued = false
@@ -404,7 +405,6 @@ export const bootstrapApp = async () => {
       })
     }
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
-    controllerVelocity.update(deltaSeconds)
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
         radius: habitatConfig.radius,

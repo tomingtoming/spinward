@@ -1,6 +1,17 @@
 export const DEFAULT_THROW_CHARGE_SECONDS = 1.2
 export const DEFAULT_THROW_CHARGE_SPEED = 12
 
+export const computeThrowChargeRatio = (
+  heldSeconds: number,
+  fullChargeSeconds = DEFAULT_THROW_CHARGE_SECONDS
+) => {
+  if (heldSeconds <= 0 || fullChargeSeconds <= 0) {
+    return 0
+  }
+
+  return Math.min(heldSeconds / fullChargeSeconds, 1)
+}
+
 export const computeThrowChargeSpeed = (
   heldSeconds: number,
   speedScale: number,
@@ -11,5 +22,5 @@ export const computeThrowChargeSpeed = (
     return 0
   }
 
-  return maxChargeSpeed * speedScale * Math.min(heldSeconds / fullChargeSeconds, 1)
+  return maxChargeSpeed * speedScale * computeThrowChargeRatio(heldSeconds, fullChargeSeconds)
 }
