@@ -139,7 +139,7 @@ export const bootstrapApp = async () => {
   const rapier = await initRapier()
   const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
   physicsWorld.lengthUnit = 1
-  physicsWorld.maxCcdSubsteps = 2
+  physicsWorld.maxCcdSubsteps = 4
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const getUnits = () => createUnitsContext(habitatConfig.simScale)
   const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {

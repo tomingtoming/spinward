@@ -21,14 +21,36 @@ export type CylinderWallPanel = {
 const radialAxis = new THREE.Vector3(0, 1, 0)
 const wallRotation = new THREE.Quaternion()
 
+export const resolveCylinderWallSegmentCount = ({
+  radius,
+  segmentCount,
+  targetPanelWidth = 6,
+  minSegments = 24,
+  maxSegments = 144
+}: Pick<RotatingCylinderConfig, 'radius' | 'segmentCount'> & {
+  targetPanelWidth?: number
+  minSegments?: number
+  maxSegments?: number
+}) => {
+  if (segmentCount !== undefined) {
+    return Math.max(6, Math.floor(segmentCount))
+  }
+
+  const estimated = Math.ceil((Math.PI * 2 * Math.max(radius, 0.001)) / targetPanelWidth)
+  return Math.min(maxSegments, Math.max(minSegments, estimated))
+}
+
 export const buildCylinderWallPanels = ({
   radius,
   length,
-  segmentCount = 72,
+  segmentCount,
   wallThickness = 2
 }: RotatingCylinderConfig): CylinderWallPanel[] => {
   const panels: CylinderWallPanel[] = []
-  const clampedSegments = Math.max(6, Math.floor(segmentCount))
+  const clampedSegments = resolveCylinderWallSegmentCount({
+    radius,
+    segmentCount
+  })
   const halfThickness = wallThickness * 0.5
   const panelWidth = 2 * radius * Math.tan(Math.PI / clampedSegments) + wallThickness
 

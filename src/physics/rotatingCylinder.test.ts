@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { buildCylinderWallPanels } from './rotatingCylinder'
+import { buildCylinderWallPanels, resolveCylinderWallSegmentCount } from './rotatingCylinder'
 
 test('buildCylinderWallPanels creates the requested number of wall segments', () => {
   const panels = buildCylinderWallPanels({
@@ -40,4 +40,13 @@ test('buildCylinderWallPanels spans around the full cylinder circumference', () 
   expect(panels[3]?.translation.z).toBeCloseTo(12.4, 6)
   expect(panels[6]?.translation.x).toBeCloseTo(-12.4, 6)
   expect(panels[6]?.translation.z).toBeCloseTo(0, 6)
+})
+
+test('resolveCylinderWallSegmentCount grows with cylinder radius when using adaptive defaults', () => {
+  const compactCount = resolveCylinderWallSegmentCount({ radius: 10 })
+  const largeCount = resolveCylinderWallSegmentCount({ radius: 80 })
+
+  expect(compactCount).toBeGreaterThanOrEqual(24)
+  expect(largeCount).toBeGreaterThan(compactCount)
+  expect(largeCount).toBeLessThanOrEqual(144)
 })
