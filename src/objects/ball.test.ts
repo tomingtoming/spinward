@@ -165,6 +165,42 @@ test('Ball charge color brightens as the held launch speed increases', async () 
   world.free()
 })
 
+test('Ball keeps the charged launch color after release', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  let now = 0
+
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(3, 0.5, 0),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0,
+    nowSeconds: () => now
+  })
+
+  ball.grabTarget.onGrabStart?.({} as THREE.XRTargetRaySpace)
+  now = 1.2
+  ball.step({
+    deltaSeconds: 1 / 60,
+    omega: 0,
+    frameAngleEnd: 0
+  })
+  const chargedColor = ball.mesh.material.color.clone()
+
+  ball.grabTarget.onGrabEnd?.({} as THREE.XRTargetRaySpace)
+
+  expect(ball.mesh.material.color.equals(chargedColor)).toBe(true)
+
+  ball.dispose()
+  world.free()
+})
+
 test('Ball collides with the colony inner wall in Rapier', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })

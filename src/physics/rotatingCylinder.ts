@@ -21,8 +21,8 @@ const wallRotation = new THREE.Quaternion()
 export const buildCylinderWallPanels = ({
   radius,
   length,
-  segmentCount = 48,
-  wallThickness = 1.2
+  segmentCount = 72,
+  wallThickness = 2
 }: RotatingCylinderConfig): CylinderWallPanel[] => {
   const panels: CylinderWallPanel[] = []
   const clampedSegments = Math.max(6, Math.floor(segmentCount))
@@ -66,7 +66,9 @@ export const createRotatingCylinderBody = (
           panel.halfExtents.z
         )
           .setTranslation(panel.translation.x, panel.translation.y, panel.translation.z)
-          .setRotation(panel.rotation),
+          .setRotation(panel.rotation)
+          .setFriction(0.8)
+          .setRestitution(0.25),
         body
       )
       colliders.push(collider)

@@ -75,6 +75,7 @@ export class Ball {
   private grabbed = false
   private ageSeconds = 0
   private grabStartedAtSeconds = 0
+  private releasedChargeRatio = 0
   private frameAngle: number
   private omega: number
 
@@ -161,6 +162,7 @@ export class Ball {
       onGrabStart: () => {
         this.grabbed = true
         this.grabStartedAtSeconds = this.nowSeconds()
+        this.releasedChargeRatio = 0
         this.syncFromWorldPose()
         this.rotatingVelocity.set(0, 0, 0)
         this.inertialVelocity.set(0, 0, 0)
@@ -173,6 +175,7 @@ export class Ball {
       onGrabEnd: (controller) => {
         this.grabbed = false
         const heldSeconds = Math.max(0, this.nowSeconds() - this.grabStartedAtSeconds)
+        this.releasedChargeRatio = computeThrowChargeRatio(heldSeconds)
         this.syncFromWorldPose()
         this.rigidBody.setTranslation(toRapierVector(this.inertialPosition), true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
@@ -289,7 +292,9 @@ export class Ball {
       return
     }
 
-    this.mesh.material.color.copy(IDLE_COLOR)
+    this.mesh.material.color.copy(
+      displayColor.lerpColors(IDLE_COLOR, CHARGED_COLOR, this.releasedChargeRatio)
+    )
     this.mesh.material.emissive.copy(this.hovered ? HOVER_EMISSIVE : IDLE_EMISSIVE)
   }
 }
