@@ -58,7 +58,8 @@ test('Ball keeps inertial motion in Rapier while curving in the rotating frame',
       habitatRadius: 100,
       habitatLength: 100,
       omega,
-      frameAngleEnd: frameAngle
+      frameAngleEnd: frameAngle,
+      trailMode: 'both'
     })
   }
 
@@ -118,7 +119,8 @@ test('Ball.setVelocity updates the Rapier body using inertial velocity', async (
     habitatRadius: 100,
     habitatLength: 100,
     omega,
-    frameAngleEnd: frameAngle + omega * deltaSeconds
+    frameAngleEnd: frameAngle + omega * deltaSeconds,
+    trailMode: 'both'
   })
 
   expectVectorCloseTo(
@@ -160,7 +162,8 @@ test('Ball charge color brightens as the held launch speed increases', async () 
     habitatRadius: 100,
     habitatLength: 100,
     omega: 0,
-    frameAngleEnd: 0
+    frameAngleEnd: 0,
+    trailMode: 'both'
   })
 
   expect(ball.mesh.material.color.equals(startColor)).toBe(false)
@@ -197,7 +200,8 @@ test('Ball keeps the charged launch color after release', async () => {
     habitatRadius: 100,
     habitatLength: 100,
     omega: 0,
-    frameAngleEnd: 0
+    frameAngleEnd: 0,
+    trailMode: 'both'
   })
   const chargedColor = ball.mesh.material.color.clone()
 
@@ -240,7 +244,8 @@ test('Ball collides with the colony inner wall in Rapier', async () => {
       habitatRadius: 10,
       habitatLength: 20,
       omega: 0,
-      frameAngleEnd: 0
+      frameAngleEnd: 0,
+      trailMode: 'both'
     })
   }
 
@@ -249,5 +254,88 @@ test('Ball collides with the colony inner wall in Rapier', async () => {
 
   ball.dispose()
   cylinder.dispose()
+  world.free()
+})
+
+test('Ball can show rotating and inertial trails at the same time', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(8, 0.5, 0),
+    initialVelocity: new THREE.Vector3(0, 0, -4),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0.4,
+    omega: 0.8
+  })
+
+  world.timestep = 0.1
+  world.step()
+  ball.step({
+    deltaSeconds: 0.1,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0.8,
+    frameAngleEnd: 0.48,
+    trailMode: 'both'
+  })
+
+  expect(ball.trail.visible).toBe(true)
+  expect(ball.inertialTrail.visible).toBe(true)
+  expect(ball.trail.geometry.getAttribute('position').count).toBeGreaterThan(1)
+  expect(ball.inertialTrail.geometry.getAttribute('position').count).toBeGreaterThan(1)
+
+  ball.dispose()
+  world.free()
+})
+
+test('Ball trail visibility follows the selected frame mode', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(8, 0.5, 0),
+    initialVelocity: new THREE.Vector3(0, 0, -4),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0.4,
+    omega: 0.8
+  })
+
+  world.timestep = 0.1
+  world.step()
+  ball.step({
+    deltaSeconds: 0.1,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0.8,
+    frameAngleEnd: 0.48,
+    trailMode: 'rotating'
+  })
+  expect(ball.trail.visible).toBe(true)
+  expect(ball.inertialTrail.visible).toBe(false)
+
+  world.step()
+  ball.step({
+    deltaSeconds: 0.1,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0.8,
+    frameAngleEnd: 0.56,
+    trailMode: 'inertial'
+  })
+  expect(ball.trail.visible).toBe(false)
+  expect(ball.inertialTrail.visible).toBe(true)
+
+  ball.dispose()
   world.free()
 })

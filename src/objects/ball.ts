@@ -12,6 +12,7 @@ import {
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
+import type { TrailMode } from '../app/observerMode'
 
 type BallOptions = {
   physics: BallPhysicsContext
@@ -33,6 +34,7 @@ type BallStepConfig = {
   habitatLength: number
   omega: number
   frameAngleEnd: number
+  trailMode: TrailMode
 }
 
 type BallPhysicsContext = {
@@ -55,11 +57,14 @@ export class Ball {
   readonly radius: number
   readonly mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
   readonly trail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
+  readonly inertialTrail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
   readonly grabTarget: GrabTarget
 
   private readonly lifetimeSeconds: number
   private readonly maxTrailPoints: number
   private readonly trailPoints: THREE.Vector3[] = []
+  private readonly inertialTrailPoints: THREE.Vector3[] = []
+  private readonly inertialTrailDisplayPoints: THREE.Vector3[] = []
   private readonly onReleased?: (
     controller: THREE.XRTargetRaySpace,
     ball: Ball,
@@ -153,8 +158,17 @@ export class Ball {
         opacity: 0.8
       })
     )
+    this.inertialTrail = new THREE.Line(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.72
+      })
+    )
 
     this.resetTrail()
+    this.updateTrails('rotating')
     this.updateAppearance()
 
     this.grabTarget = {
@@ -207,6 +221,14 @@ export class Ball {
     return !this.grabbed && this.ageSeconds > this.lifetimeSeconds
   }
 
+  copyInertialVelocity(target = new THREE.Vector3()) {
+    return target.copy(this.inertialVelocity)
+  }
+
+  copyInertialPosition(target = new THREE.Vector3()) {
+    return target.copy(this.inertialPosition)
+  }
+
   setVelocity(nextVelocity: THREE.Vector3) {
     this.rotatingVelocity.copy(nextVelocity)
     rotatingVelocityToInertial(
@@ -226,6 +248,7 @@ export class Ball {
     if (this.grabbed) {
       this.syncFromWorldPose()
       this.rigidBody.setNextKinematicTranslation(toRapierVector(this.inertialPosition))
+      this.updateTrails(config.trailMode)
       this.updateAppearance()
       return
     }
@@ -235,34 +258,48 @@ export class Ball {
     copyRapierVector(this.rigidBody.linvel(), this.inertialVelocity)
     this.syncRenderState()
     this.applyHabitatCollision(config)
+    this.updateTrails(config.trailMode)
     this.appendTrailPoint()
   }
 
   dispose() {
     this.mesh.parent?.remove(this.mesh)
     this.trail.parent?.remove(this.trail)
+    this.inertialTrail.parent?.remove(this.inertialTrail)
     this.mesh.geometry.dispose()
     this.mesh.material.dispose()
     this.trail.geometry.dispose()
     this.trail.material.dispose()
+    this.inertialTrail.geometry.dispose()
+    this.inertialTrail.material.dispose()
     this.world.removeRigidBody(this.rigidBody)
   }
 
   private resetTrail() {
     this.trailPoints.length = 0
+    this.inertialTrailPoints.length = 0
+    this.inertialTrailDisplayPoints.length = 0
     this.trailPoints.push(this.position.clone())
+    this.inertialTrailPoints.push(this.inertialPosition.clone())
     this.replaceTrailGeometry()
+    this.replaceInertialTrailGeometry()
   }
 
   private appendTrailPoint() {
     this.trailPoints.push(this.position.clone())
+    this.inertialTrailPoints.push(this.inertialPosition.clone())
 
     while (this.trailPoints.length > this.maxTrailPoints) {
       this.trailPoints.shift()
     }
 
+    while (this.inertialTrailPoints.length > this.maxTrailPoints) {
+      this.inertialTrailPoints.shift()
+    }
+
     // Trail sizes stay intentionally small, so rebuilding the geometry avoids buffer resize warnings.
     this.replaceTrailGeometry()
+    this.replaceInertialTrailGeometry()
   }
 
   private syncRenderState() {
@@ -286,6 +323,26 @@ export class Ball {
   private replaceTrailGeometry() {
     this.trail.geometry.dispose()
     this.trail.geometry = new THREE.BufferGeometry().setFromPoints(this.trailPoints)
+  }
+
+  private replaceInertialTrailGeometry() {
+    this.inertialTrailDisplayPoints.length = 0
+
+    for (const sample of this.inertialTrailPoints) {
+      this.inertialTrailDisplayPoints.push(
+        inertialPositionToRotating(sample, this.frameAngle, new THREE.Vector3())
+      )
+    }
+
+    this.inertialTrail.geometry.dispose()
+    this.inertialTrail.geometry = new THREE.BufferGeometry().setFromPoints(
+      this.inertialTrailDisplayPoints
+    )
+  }
+
+  private updateTrails(trailMode: TrailMode) {
+    this.trail.visible = trailMode === 'rotating' || trailMode === 'both'
+    this.inertialTrail.visible = trailMode === 'inertial' || trailMode === 'both'
   }
 
   private applyHabitatCollision(config: BallStepConfig) {

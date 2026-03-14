@@ -22,6 +22,7 @@ type ControllerState = {
 
 type GrabSystemOptions = {
   scene: THREE.Scene
+  releaseRoot?: THREE.Object3D
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
   controllerRoot?: THREE.Object3D
@@ -93,7 +94,7 @@ export class GrabSystem {
       return
     }
 
-    this.options.scene.attach(target.object)
+    ;(this.options.releaseRoot ?? this.options.scene).attach(target.object)
     target.onGrabEnd?.(controller)
     this.grabbedByController.delete(controller)
     this.controllerByTarget.delete(target)

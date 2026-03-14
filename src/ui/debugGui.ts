@@ -1,5 +1,6 @@
 import GUI from 'lil-gui'
 
+import type { ObserverMode, TrailMode } from '../app/observerMode'
 import { surfaceGravityFromConfig, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
 
@@ -7,6 +8,9 @@ export type DebugVisualState = {
   showForceVectors: boolean
   forceVectorScale: number
   showHud: boolean
+  observerMode: ObserverMode
+  trailMode: TrailMode
+  verificationErrorThreshold: number
 }
 
 type DebugGuiOptions = {
@@ -99,6 +103,25 @@ export const createDebugGui = ({
   debugFolder
     .add(debugVisuals, 'showHud')
     .name('show HUD')
+    .onChange(onVisualChange)
+  debugFolder
+    .add(debugVisuals, 'trailMode', {
+      Rotating: 'rotating',
+      Inertial: 'inertial',
+      Both: 'both'
+    })
+    .name('trail mode')
+    .onChange(onVisualChange)
+  debugFolder
+    .add(debugVisuals, 'observerMode', {
+      ColonyFixed: 'colony-fixed',
+      InertialFixed: 'inertial-fixed'
+    })
+    .name('observer')
+    .onChange(onVisualChange)
+  debugFolder
+    .add(debugVisuals, 'verificationErrorThreshold', 0.1, 25, 0.1)
+    .name('frame err')
     .onChange(onVisualChange)
   debugFolder.open()
 

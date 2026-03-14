@@ -1,6 +1,11 @@
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 
+import {
+  computeInertialObserverPose,
+  getDisplayRootRotation,
+  getEffectiveObserverMode
+} from './observerMode'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
@@ -28,6 +33,7 @@ import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { computeFrameVerification } from '../sim/frameVerification'
 import {
   DEFAULT_HABITAT_CONFIG,
   rpmToOmega,
@@ -50,10 +56,15 @@ export const bootstrapApp = async () => {
   const debugVisuals = {
     showForceVectors: true,
     forceVectorScale: 0.08,
-    showHud: true
+    showHud: true,
+    observerMode: 'colony-fixed' as const,
+    trailMode: 'rotating' as const,
+    verificationErrorThreshold: 4
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
+  const worldRoot = new THREE.Group()
+  scene.add(worldRoot)
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
@@ -63,8 +74,8 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: habitatConfig.length
   })
-  scene.add(starfield.group)
-  scene.add(habitat.group)
+  worldRoot.add(starfield.group)
+  worldRoot.add(habitat.group)
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -79,6 +90,12 @@ export const bootstrapApp = async () => {
   playerRig.quaternion.setFromRotationMatrix(rigBasis)
 
   const camera = new THREE.PerspectiveCamera(
+    70,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    4000
+  )
+  const inertialObserverCamera = new THREE.PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
     0.1,
@@ -125,7 +142,14 @@ export const bootstrapApp = async () => {
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
   const worldVelocity = new THREE.Vector3()
+  const rotatingCameraPosition = new THREE.Vector3()
+  const rotatingCameraOrientation = new THREE.Quaternion()
+  const trackedBallInertialVelocity = new THREE.Vector3()
   const spawnOffset = new THREE.Vector3()
+  const observerPose = {
+    position: new THREE.Vector3(),
+    orientation: new THREE.Quaternion()
+  }
   const locomotionIntent = getIdleLocomotionIntent()
   let desktopThrowQueued = false
   let frameAngle = 0
@@ -140,12 +164,15 @@ export const bootstrapApp = async () => {
     }
   )
   let vrLocomotion: VRLocomotion | null = null
+  let verificationBall: Ball | null = null
+  const previousTrackedRotatingVelocity = new THREE.Vector3()
 
-  scene.add(forceVectorArrows.group)
-  scene.add(dockingGuide.group)
+  worldRoot.add(forceVectorArrows.group)
+  worldRoot.add(dockingGuide.group)
 
   const grabSystem = new GrabSystem({
     scene,
+    releaseRoot: worldRoot,
     camera,
     renderer,
     controllerRoot: viewRig,
@@ -182,6 +209,8 @@ export const bootstrapApp = async () => {
     })
     camera.far = Math.max(4000, starfield.getSuggestedCameraFar())
     camera.updateProjectionMatrix()
+    inertialObserverCamera.far = camera.far
+    inertialObserverCamera.updateProjectionMatrix()
     rotatingCylinder.rebuild({
       radius: habitatConfig.radius,
       length: habitatConfig.length
@@ -250,8 +279,9 @@ export const bootstrapApp = async () => {
       ball.setVelocity(worldVelocity)
     }
 
-    scene.add(ball.mesh)
-    scene.add(ball.trail)
+    worldRoot.add(ball.mesh)
+    worldRoot.add(ball.trail)
+    worldRoot.add(ball.inertialTrail)
     grabSystem.registerTarget(ball.grabTarget)
     balls.push(ball)
 
@@ -320,6 +350,10 @@ export const bootstrapApp = async () => {
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
     const omega = rpmToOmega(habitatConfig.rpm)
     const frameAngleStart = frameAngle
+    const effectiveObserverMode = getEffectiveObserverMode(
+      debugVisuals.observerMode,
+      renderer.xr.isPresenting
+    )
 
     const desktopIntent = desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
     const vrIntent = vrLocomotion.update(
@@ -421,12 +455,34 @@ export const bootstrapApp = async () => {
         habitatRadius: habitatConfig.radius,
         habitatLength: habitatConfig.length,
         omega,
-        frameAngleEnd: frameAngle
+        frameAngleEnd: frameAngle,
+        trailMode: debugVisuals.trailMode
       })
     }
 
     removeExpiredBalls()
     const trackedBall = getTrackedBall()
+    const verificationBallTarget =
+      trackedBall !== null && !trackedBall.isGrabbed ? trackedBall : null
+    const verification =
+      verificationBallTarget === null
+        ? null
+        : computeFrameVerification({
+            omega,
+            rotatingPosition: verificationBallTarget.position,
+            rotatingVelocity: verificationBallTarget.velocity,
+            previousRotatingVelocity:
+              verificationBall === verificationBallTarget ? previousTrackedRotatingVelocity : null,
+            deltaSeconds,
+            errorThreshold: debugVisuals.verificationErrorThreshold
+          })
+
+    if (verificationBallTarget === null) {
+      verificationBall = null
+    } else {
+      verificationBall = verificationBallTarget
+      previousTrackedRotatingVelocity.copy(verificationBallTarget.velocity)
+    }
 
     forceVectorArrows.update({
       ball: trackedBall,
@@ -443,8 +499,21 @@ export const bootstrapApp = async () => {
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
       forceVectors: debugVisuals.showForceVectors,
+      observerMode: effectiveObserverMode,
+      trailMode: debugVisuals.trailMode,
       region: getPlayerTraversalRegion(playerTraversal, habitatConfig.length, frameAngle),
       playerMode: playerTraversal.mode,
+      verification:
+        verificationBallTarget === null || verification === null
+          ? null
+          : {
+              inertialVelocity: verificationBallTarget.copyInertialVelocity(trackedBallInertialVelocity),
+              rotatingVelocity: verificationBallTarget.velocity,
+              fictitiousAcceleration: verification.breakdown.total,
+              estimatedAcceleration: verification.estimatedAcceleration,
+              errorMagnitude: verification.errorMagnitude,
+              warning: verification.warning
+            },
       reattach:
         playerTraversal.mode !== 'free-fly' || reattachStatus === null
           ? null
@@ -460,6 +529,25 @@ export const bootstrapApp = async () => {
             }
     })
     debugGui.update()
+    worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
+
+    if (effectiveObserverMode === 'inertial-fixed' && !renderer.xr.isPresenting) {
+      camera.updateWorldMatrix(true, false)
+      camera.getWorldPosition(rotatingCameraPosition)
+      camera.getWorldQuaternion(rotatingCameraOrientation)
+      computeInertialObserverPose(
+        rotatingCameraPosition,
+        rotatingCameraOrientation,
+        frameAngle,
+        observerPose
+      )
+      inertialObserverCamera.position.copy(observerPose.position)
+      inertialObserverCamera.quaternion.copy(observerPose.orientation)
+      inertialObserverCamera.updateMatrixWorld(true)
+      renderer.render(scene, inertialObserverCamera)
+      return
+    }
+
     renderer.render(scene, camera)
   })
 
@@ -468,6 +556,8 @@ export const bootstrapApp = async () => {
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
+    inertialObserverCamera.aspect = window.innerWidth / window.innerHeight
+    inertialObserverCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
   })
 

@@ -1,6 +1,6 @@
 # O’Neill Cylinder Playground
 
-Meta Quest 3S のブラウザで開けるように、`vite + typescript + three.js` で WebXR playground を構成しています。Sprint 1 では、回転座標系の人工重力とコリオリを使って「投げると曲がる」体験を実装しています。
+Meta Quest 3S のブラウザで開けるように、`vite + typescript + three.js` で WebXR playground を構成しています。現在は Sprint 2 段階で、Rapier の慣性系シミュレーションと、回転座標系の表示変換を分けたまま「投げると曲がる」と「慣性系では直線に近い」を見比べられます。
 
 ## セットアップ
 
@@ -53,19 +53,26 @@ bun run preview -- --host 0.0.0.0
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
 - GUI: `radius`, `rpm`, `throw scale`, `surface g`, `reattach` 閾値と弱い landing assist の強さを右上で調整できます。
+- GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
+- GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
+- GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
 - HUD: `free-fly` 中は再アタッチ用の半径誤差、法線速度、壁相対速度、`assist/coast`, `ready/hold` を確認できます。
+- HUD: 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を表示します。誤差がしきい値を超えると `Frame mismatch!` を出します。
 - landing assist は弱く入っているだけなので、壁相対速度が高いままだと再アタッチせず、そのまま滑るか跳ね返ります。
 - `free-fly` 中の左トリガーは jetpack 優先なので、左手の空中トリガーで球は生成しません。右手側の投擲はそのまま使えます。
 
 ## 座標系と式
 
-- この実装ではシリンダーの回転軸を `Y` 軸に固定しています。
+- シリンダー中心軸と長手方向は `+Y`、半径方向は `XZ` 平面です。
 - 角速度ベクトルは `Ω = (0, ω, 0)` です。
-- シリンダー内壁は `XZ` 平面内の半径 `R` を持つ円として扱い、長手方向は `Y` 軸です。
 - 人工重力の目安は `g = ω^2 R` です。
-- 球の内部状態は慣性系で保持し、表示だけを回転座標系へ戻しています。
-- 球の物理積分は Rapier の慣性系 world で進め、回転座標系は表示変換として使っています。
-- プレイヤーも `free-fly` 中だけは Rapier の慣性系 body を使い、`attached` 中は内壁拘束ロジックを使います。
+- Rapier world は慣性系で動かしています。
+- 回転座標系は表示、入力解釈、デバッグ可視化のための変換層です。
+- 球と `free-fly` プレイヤーの内部状態は慣性系で保持し、描画時に回転系へ戻しています。
+- `attached` プレイヤーだけは内壁拘束ロジックを使います。
+- Trail は 2 系統あります。
+- `Rotating`: コロニー観測者基準なので曲がって見えます。
+- `Inertial`: 慣性観測者基準なので、壁接触がなければ直線に近く見えます。
 - 回転座標系で使う見かけの加速度は以下です。
 
 ```text
@@ -73,14 +80,16 @@ a_c  = -2 (Ω × v)
 a_cf = -(Ω × (Ω × r))
 ```
 
-## Sprint 1 で入っているもの
+## 実装済みの主な内容
 
 - シリンダー内壁メッシュと簡易グリッド
 - 内壁のランウェイ風ラインと簡易エアロック表示
 - 開口部の外に見える夜空と、回転感を出すための外部星空の逆回転表示
 - 回転座標系の人工重力とコリオリ
-- 球の投擲、軌跡表示、30秒での自動破棄
-- Rapier による球の慣性系シミュレーションと、回転する内壁 collider との衝突
+- 球の投擲、二重軌跡表示、30秒での自動破棄
+- Rapier による球の慣性系シミュレーションと、回転する内壁への接触処理
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
+- `colony-fixed / inertial-fixed` の observer mode
+- 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト
