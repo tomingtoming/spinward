@@ -1,8 +1,9 @@
 import GUI from 'lil-gui'
 
 import type { ObserverMode, TrailMode } from '../app/observerMode'
-import { getHabitatSpan, surfaceGravityFromConfig, type HabitatConfig } from '../sim/habitatConfig'
+import { getHabitatSpan, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
+import { rpmToOmega, surfaceG } from '../units/units'
 
 export type DebugVisualState = {
   showForceVectors: boolean
@@ -37,14 +38,14 @@ export const createDebugGui = ({
 }: DebugGuiOptions): DebugGuiHandle => {
   const gui = new GUI({ title: 'O’Neill Cylinder' })
   const derivedState = {
-    gTarget: surfaceGravityFromConfig(config),
+    gTarget: surfaceG(rpmToOmega(config.rpm), config.radius),
     spanMeters: getHabitatSpan(config),
     simScale: config.simScale,
     presetId: config.currentPresetId
   }
 
   const syncDerivedState = () => {
-    derivedState.gTarget = surfaceGravityFromConfig(config)
+    derivedState.gTarget = surfaceG(rpmToOmega(config.rpm), config.radius)
     derivedState.spanMeters = getHabitatSpan(config)
     derivedState.simScale = config.simScale
     derivedState.presetId = config.currentPresetId

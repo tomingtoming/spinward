@@ -11,9 +11,12 @@ import {
 } from './surfaceRig'
 import type { RapierModule } from '../physics/rapierContext'
 import {
-  copyRapierVectorScaled,
-  toRapierVectorScaled
-} from '../physics/rapierMath'
+  createRigidBodyAtRealPose,
+  readRigidBodyPoseAsReal,
+  scaleLengthForRapier,
+  setRigidBodyLinvelFromReal,
+  setRigidBodyTranslationFromReal
+} from '../physics/rapierBoundary'
 import {
   inertialPositionToRotating,
   inertialVelocityToRotating,
@@ -142,34 +145,30 @@ export const createPlayerTraversalState = (
 
   if (physics !== undefined) {
     const simScale = physics.simScale ?? 1
-    const freeFlyBody = physics.world.createRigidBody(
+    const freeFlyBody = createRigidBodyAtRealPose(
+      physics.world,
       physics.rapier.RigidBodyDesc.dynamic()
-        .setTranslation(
-          state.inertialPosition.x * simScale,
-          state.inertialPosition.y * simScale,
-          state.inertialPosition.z * simScale
-        )
-        .setLinvel(
-          state.inertialVelocity.x * simScale,
-          state.inertialVelocity.y * simScale,
-          state.inertialVelocity.z * simScale
-        )
         .setGravityScale(0)
         .setLinearDamping(0)
         .lockRotations()
         .setCanSleep(false)
         .setCcdEnabled(true)
-        .setEnabled(false)
+        .setEnabled(false),
+      {
+        position: state.inertialPosition,
+        linearVelocity: state.inertialVelocity
+      },
+      simScale
     )
     physics.world.createCollider(
       physics.rapier.ColliderDesc.capsule(
-        PLAYER_COLLIDER_HALF_HEIGHT * simScale,
-        PLAYER_COLLIDER_RADIUS * simScale
+        scaleLengthForRapier(PLAYER_COLLIDER_HALF_HEIGHT, simScale),
+        scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, simScale)
       )
         .setTranslation(
-          playerColliderOffset.x * simScale,
-          playerColliderOffset.y * simScale,
-          playerColliderOffset.z * simScale
+          scaleLengthForRapier(playerColliderOffset.x, simScale),
+          scaleLengthForRapier(playerColliderOffset.y, simScale),
+          scaleLengthForRapier(playerColliderOffset.z, simScale)
         )
         .setFriction(0.5)
         .setRestitution(0.05),
@@ -262,8 +261,10 @@ export const stepFreeFlyPlayer = (
   }
 
   if (state.physics !== null) {
-    state.physics.freeFlyBody.setLinvel(
-      toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+    setRigidBodyLinvelFromReal(
+      state.physics.freeFlyBody,
+      state.inertialVelocity,
+      state.physics.simScale,
       true
     )
     return
@@ -308,16 +309,10 @@ export const syncPlayerTraversalFromPhysics = (state: PlayerTraversalState) => {
     return
   }
 
-  copyRapierVectorScaled(
-    state.physics.freeFlyBody.translation(),
-    state.physics.simScale,
-    state.inertialPosition
-  )
-  copyRapierVectorScaled(
-    state.physics.freeFlyBody.linvel(),
-    state.physics.simScale,
-    state.inertialVelocity
-  )
+  readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.simScale, {
+    position: state.inertialPosition,
+    linearVelocity: state.inertialVelocity
+  })
 }
 
 export const disposePlayerTraversalState = (state: PlayerTraversalState) => {
@@ -471,8 +466,10 @@ export const applyReattachAssist = (
   )
 
   if (state.physics !== null) {
-    state.physics.freeFlyBody.setLinvel(
-      toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+    setRigidBodyLinvelFromReal(
+      state.physics.freeFlyBody,
+      state.inertialVelocity,
+      state.physics.simScale,
       true
     )
   }
@@ -504,12 +501,16 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, enabled: boolean) =
     return
   }
 
-  state.physics.freeFlyBody.setTranslation(
-    toRapierVectorScaled(state.inertialPosition, state.physics.simScale),
+  setRigidBodyTranslationFromReal(
+    state.physics.freeFlyBody,
+    state.inertialPosition,
+    state.physics.simScale,
     true
   )
-  state.physics.freeFlyBody.setLinvel(
-    toRapierVectorScaled(state.inertialVelocity, state.physics.simScale),
+  setRigidBodyLinvelFromReal(
+    state.physics.freeFlyBody,
+    state.inertialVelocity,
+    state.physics.simScale,
     true
   )
   state.physics.freeFlyBody.setEnabled(enabled)

@@ -26,13 +26,6 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
   maxTrailPoints: 200
 }
 
-export const rpmToOmega = (rpm: number) => (rpm * Math.PI) / 30
-
 export const getHabitatSpan = (
   config: Pick<HabitatConfig, 'type' | 'length' | 'thickness'>
 ) => (config.type === 'ring' ? Math.max(config.thickness, config.length) : config.length)
-
-export const surfaceGravityFromConfig = (config: Pick<HabitatConfig, 'radius' | 'rpm'>) => {
-  const omega = rpmToOmega(config.rpm)
-  return omega * omega * config.radius
-}

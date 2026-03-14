@@ -1,8 +1,9 @@
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
-import { getHabitatSpan, rpmToOmega } from '../../sim/habitatConfig'
+import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
+import { rpmToOmega } from '../../units/units'
 import type { WatchActionId } from './watchLayout'
 
 export type WatchRenderSnapshot = {

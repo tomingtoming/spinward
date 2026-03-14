@@ -1,4 +1,5 @@
 import type { SettingsStore } from '../state/settingsStore'
+import { omegaToRpm, periodToOmega } from '../units/units'
 import { HABITAT_PRESETS, type Preset } from './presets'
 
 const presetsById = new Map(HABITAT_PRESETS.map((preset) => [preset.id, preset]))
@@ -6,9 +7,9 @@ const presetsById = new Map(HABITAT_PRESETS.map((preset) => [preset.id, preset])
 const getPresetRpm = (preset: Preset) =>
   preset.real.rpm ??
   (preset.real.period_s !== undefined
-    ? 60 / preset.real.period_s
+    ? omegaToRpm(periodToOmega(preset.real.period_s))
     : preset.real.omega_rad_s !== undefined
-      ? (preset.real.omega_rad_s * 30) / Math.PI
+      ? omegaToRpm(preset.real.omega_rad_s)
       : 0)
 
 export const getPresetById = (presetId: string) => presetsById.get(presetId) ?? null

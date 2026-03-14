@@ -1,9 +1,9 @@
 import { DEFAULT_REATTACH_TUNING, type ReattachTuning } from '../app/playerTraversal'
 import {
   DEFAULT_HABITAT_CONFIG,
-  surfaceGravityFromConfig,
   type HabitatConfig
 } from '../sim/habitatConfig'
+import { rpmToOmega, surfaceG } from '../units/units'
 
 type SettingsListener = () => void
 
@@ -71,7 +71,7 @@ export const createSettingsStore = (
     },
     notify,
     getSurfaceGravity() {
-      return surfaceGravityFromConfig(habitat)
+      return surfaceG(rpmToOmega(habitat.rpm), habitat.radius)
     },
     setHabitatConfig(nextValues: Partial<Pick<
       HabitatConfig,

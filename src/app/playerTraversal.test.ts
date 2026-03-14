@@ -214,6 +214,60 @@ test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the s
   world.free()
 })
 
+test('stepFreeFlyPlayer keeps the same real-space result across sim scales', async () => {
+  const rapier = await initRapier()
+  const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const buildState = (world: InstanceType<typeof rapier.World>, simScale: number) =>
+    createPlayerTraversalState(
+      { axialPosition: 8.4, azimuth: 0 },
+      10,
+      0,
+      1,
+      { rapier, world, simScale }
+    )
+
+  const izmaState = buildState(izmaWorld, 0.02)
+  const elysiumState = buildState(elysiumWorld, 0.005)
+
+  for (const state of [izmaState, elysiumState]) {
+    stepAttachedPlayer(state, {
+      axisDistanceDelta: 1,
+      tangentDistanceDelta: 0,
+      radius: 10,
+      length: 20,
+      deltaSeconds: 0.5,
+      omega: 1,
+      frameAngleEnd: 0.5
+    })
+    stepFreeFlyPlayer(state, {
+      thrustAcceleration: new THREE.Vector3(0, 0, 2),
+      deltaSeconds: 0.5,
+      frameAngleStart: 0.5,
+      frameAngleEnd: 1,
+      linearDamping: 0,
+      brakeAmount: 0,
+      brakeDamping: 6,
+      maxSpeed: 100
+    })
+  }
+
+  izmaWorld.timestep = 0.5
+  elysiumWorld.timestep = 0.5
+  izmaWorld.step()
+  elysiumWorld.step()
+  syncPlayerTraversalFromPhysics(izmaState)
+  syncPlayerTraversalFromPhysics(elysiumState)
+
+  expectVectorCloseTo(izmaState.inertialPosition, elysiumState.inertialPosition)
+  expectVectorCloseTo(izmaState.inertialVelocity, elysiumState.inertialVelocity)
+
+  disposePlayerTraversalState(izmaState)
+  disposePlayerTraversalState(elysiumState)
+  izmaWorld.free()
+  elysiumWorld.free()
+})
+
 test('stepFreeFlyPlayer brake strongly reduces free-fly linear speed', () => {
   const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1)
 

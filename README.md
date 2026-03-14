@@ -76,7 +76,9 @@ bun run preview -- --host 0.0.0.0
 - 回転座標系は表示、入力解釈、デバッグ可視化のための変換層です。
 - 設定や HUD に出す寸法は `real` メートル系です。
 - Rapier world に渡す位置、速度、collider 寸法は `sim = real * simScale` です。
-- 現在の描画と回転座標系変換は `real` 側で統一し、Rapier 境界だけ `simScale` で変換しています。
+- 描画と回転座標系変換は `real` 側で統一しています。Rapier 境界だけが `sim` を扱います。
+- 単位変換は [src/units/units.ts](/home/toming/xr1/src/units/units.ts) 経由のみです。
+- Rapier との境界は [src/physics/rapierBoundary.ts](/home/toming/xr1/src/physics/rapierBoundary.ts) へ集約しています。
 - 球と `free-fly` プレイヤーの内部状態は慣性系で保持し、描画時に回転系へ戻しています。
 - `attached` プレイヤーだけは内壁拘束ロジックを使います。
 - Trail は 2 系統あります。
@@ -101,6 +103,22 @@ a_cf = -(Ω × (Ω × r))
 - `Inner Wall`: 円筒中央の内壁へ戻り、`attached` で開始します。
 - `Axis End`: 円筒端の回転軸上へ戻り、`free-fly` で開始します。
 - `Axis End` は cylinder preset のみ有効です。ring preset では disabled になります。
+
+## 単位ルール
+
+- `real`: 設定、プリセット、HUD、GUI、wrist UI、描画、回転系/慣性系変換で使うメートル基準
+- `sim`: Rapier world に渡す位置、速度、collider 寸法で使う物理基準
+- 変換は `src/units/units.ts` と `src/physics/rapierBoundary.ts` 以外では行いません。
+- `rpm / omega / period / surface g` の相互変換も `src/units/units.ts` に集約しています。
+
+## よくあるバグ
+
+- `simScale` を変えたら投擲だけ弱くなる/強くなる:
+  throw 合成が `real` でなく `sim` に漏れている可能性があります。`bun test` の throw/units 系を確認してください。
+- preset を変えたら respawn 位置だけずれる:
+  Rapier pose への書き込みが boundary を通っていない可能性があります。respawn 系テストを確認してください。
+- observer mode や trail が崩れる:
+  回転系/慣性系の変換前に `sim` を混ぜている可能性があります。描画と frame transform は常に `real` 前提です。
 
 ## 実装済みの主な内容
 

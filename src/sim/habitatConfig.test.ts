@@ -1,16 +1,23 @@
 import { expect, test } from 'bun:test'
 
-import { rpmToOmega, surfaceGravityFromConfig } from './habitatConfig'
+import { getHabitatSpan } from './habitatConfig'
 
-test('rpmToOmega converts revolutions per minute to radians per second', () => {
-  expect(rpmToOmega(60)).toBeCloseTo(Math.PI * 2, 6)
+test('getHabitatSpan returns length for cylinders', () => {
+  expect(
+    getHabitatSpan({
+      type: 'cylinder',
+      length: 120,
+      thickness: 0
+    })
+  ).toBe(120)
 })
 
-test('surfaceGravityFromConfig computes g = omega^2 * R', () => {
+test('getHabitatSpan prefers thickness for ring-style approximations', () => {
   expect(
-    surfaceGravityFromConfig({
-      radius: 10,
-      rpm: 60
+    getHabitatSpan({
+      type: 'ring',
+      length: 120,
+      thickness: 2000
     })
-  ).toBeCloseTo(Math.pow(Math.PI * 2, 2) * 10, 6)
+  ).toBe(2000)
 })

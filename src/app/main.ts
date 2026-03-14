@@ -32,24 +32,22 @@ import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
+import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
-import {
-  getHabitatSpan,
-  rpmToOmega,
-} from '../sim/habitatConfig'
+import { getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
 import type { WatchActionId } from '../ui/watch/watchLayout'
+import { rpmToOmega } from '../units/units'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
 import { LaserPointer } from '../xr/laserPointer'
-import { computeThrowChargeSpeed } from '../xr/throwCharge'
 import { VRLocomotion } from '../xr/vrLocomotion'
 import { XRInputMap } from '../xr/xrInputMap'
 
@@ -139,9 +137,9 @@ export const bootstrapApp = async () => {
   physicsWorld.maxCcdSubsteps = 2
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {
-    radius: habitatConfig.radius * habitatConfig.simScale,
-    length: getHabitatSpanMeters() * habitatConfig.simScale,
-    wallThickness: Math.max(2 * habitatConfig.simScale, 0.05)
+    radius: habitatConfig.radius,
+    length: getHabitatSpanMeters(),
+    simScale: habitatConfig.simScale
   })
 
   const restitution = 0.55
@@ -316,9 +314,9 @@ export const bootstrapApp = async () => {
     inertialObserverCamera.far = camera.far
     inertialObserverCamera.updateProjectionMatrix()
     rotatingCylinder.rebuild({
-      radius: habitatConfig.radius * habitatConfig.simScale,
-      length: habitatSpan * habitatConfig.simScale,
-      wallThickness: Math.max(2 * habitatConfig.simScale, 0.05)
+      radius: habitatConfig.radius,
+      length: habitatSpan,
+      simScale: habitatConfig.simScale
     })
     starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
@@ -371,11 +369,13 @@ export const bootstrapApp = async () => {
       frameAngle,
       omega,
       onReleased: (controller, releasedBall, heldSeconds) => {
-        worldVelocity.copy(controllerVelocity.getVelocity(controller))
         getForwardDirection(controller, worldForward)
-        worldVelocity.addScaledVector(
+        computeThrowVelocityReal(
+          controllerVelocity.getVelocity(controller),
           worldForward,
-          computeThrowChargeSpeed(heldSeconds, habitatConfig.ballSpeedScale)
+          heldSeconds,
+          habitatConfig.ballSpeedScale,
+          worldVelocity
         )
 
         releasedBall.setVelocity(worldVelocity)

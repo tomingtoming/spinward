@@ -1,4 +1,5 @@
 import type { HabitatType } from '../sim/habitatConfig'
+import { omegaToRpm, periodToOmega } from '../units/units'
 
 export type Preset = {
   id: string
@@ -35,8 +36,8 @@ export const HABITAT_PRESETS: Preset[] = [
       diameter_m: 6400,
       length_m: 40000,
       period_s: 113.5,
-      rpm: 60 / 113.5,
-      omega_rad_s: (Math.PI * 2) / 113.5
+      rpm: omegaToRpm(periodToOmega(113.5)),
+      omega_rad_s: periodToOmega(113.5)
     },
     sim: {
       scale: 0.02,
@@ -62,7 +63,7 @@ export const HABITAT_PRESETS: Preset[] = [
       length_m: 32000,
       rpm: 0.5,
       period_s: 120,
-      omega_rad_s: (Math.PI * 2) / 120
+      omega_rad_s: periodToOmega(120)
     },
     sim: {
       scale: 0.02,
@@ -83,7 +84,7 @@ export const HABITAT_PRESETS: Preset[] = [
       diameter_m: 60000,
       thickness_m: 2000,
       period_s: 348,
-      rpm: 60 / 348,
+      rpm: omegaToRpm(periodToOmega(348)),
       omega_rad_s: 0.01808
     },
     sim: {

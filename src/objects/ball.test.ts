@@ -339,3 +339,86 @@ test('Ball trail visibility follows the selected frame mode', async () => {
   ball.dispose()
   world.free()
 })
+
+test('Ball keeps the same real collision result across sim scales', async () => {
+  const rapier = await initRapier()
+  const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const izmaCylinder = createRotatingCylinderBody(rapier, izmaWorld, {
+    radius: 3200,
+    length: 40000,
+    simScale: 0.02
+  })
+  const elysiumCylinder = createRotatingCylinderBody(rapier, elysiumWorld, {
+    radius: 3200,
+    length: 40000,
+    simScale: 0.005
+  })
+  const initialPosition = new THREE.Vector3(3199.2, 0.5, 0)
+  const initialVelocity = new THREE.Vector3(12, 0, 0)
+
+  const izmaBall = new Ball({
+    physics: {
+      rapier,
+      world: izmaWorld,
+      restitution: 0.4,
+      simScale: 0.02
+    },
+    initialPosition,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+  const elysiumBall = new Ball({
+    physics: {
+      rapier,
+      world: elysiumWorld,
+      restitution: 0.4,
+      simScale: 0.005
+    },
+    initialPosition,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  izmaBall.setVelocity(initialVelocity)
+  elysiumBall.setVelocity(initialVelocity)
+
+  for (let index = 0; index < 24; index += 1) {
+    izmaCylinder.syncToFrame(0)
+    elysiumCylinder.syncToFrame(0)
+    izmaWorld.timestep = 1 / 60
+    elysiumWorld.timestep = 1 / 60
+    izmaWorld.step()
+    elysiumWorld.step()
+    izmaBall.step({
+      deltaSeconds: 1 / 60,
+      habitatRadius: 3200,
+      habitatLength: 40000,
+      omega: 0,
+      frameAngleEnd: 0,
+      trailMode: 'both'
+    })
+    elysiumBall.step({
+      deltaSeconds: 1 / 60,
+      habitatRadius: 3200,
+      habitatLength: 40000,
+      omega: 0,
+      frameAngleEnd: 0,
+      trailMode: 'both'
+    })
+  }
+
+  expect(izmaBall.position.distanceTo(elysiumBall.position)).toBeLessThan(0.05)
+  expect(izmaBall.velocity.distanceTo(elysiumBall.velocity)).toBeLessThan(0.05)
+
+  izmaBall.dispose()
+  elysiumBall.dispose()
+  izmaCylinder.dispose()
+  elysiumCylinder.dispose()
+  izmaWorld.free()
+  elysiumWorld.free()
+})

@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
 import { createPlayerTraversalState } from '../app/playerTraversal'
+import { initRapier } from '../physics/rapierContext'
 import { respawnAxisEnd, respawnInnerWall } from './respawn'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
 
@@ -55,4 +56,85 @@ test('respawnAxisEnd is disabled for ring habitats', () => {
     })
   ).toBe(false)
   expect(state.mode).toBe('attached')
+})
+
+test('respawnInnerWall is defined in real meters while Rapier pose follows sim scale', async () => {
+  const rapier = await initRapier()
+  const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const radius = 3200
+
+  const izmaState = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    0,
+    { rapier, world: izmaWorld, simScale: 0.02 }
+  )
+  const elysiumState = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    0,
+    { rapier, world: elysiumWorld, simScale: 0.005 }
+  )
+
+  respawnInnerWall(izmaState, { radius, frameAngle: 0, omega: 0 })
+  respawnInnerWall(elysiumState, { radius, frameAngle: 0, omega: 0 })
+
+  expect(izmaState.inertialPosition.x).toBeCloseTo(radius, 6)
+  expect(elysiumState.inertialPosition.x).toBeCloseTo(radius, 6)
+  expect(izmaState.physics?.freeFlyBody.translation().x).toBeCloseTo(radius * 0.02, 6)
+  expect(elysiumState.physics?.freeFlyBody.translation().x).toBeCloseTo(radius * 0.005, 6)
+
+  izmaWorld.free()
+  elysiumWorld.free()
+})
+
+test('respawnAxisEnd is defined in real meters while Rapier pose follows sim scale', async () => {
+  const rapier = await initRapier()
+  const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  const length = 40000
+  const expectedAxisEndY = length * 0.5 - 50
+
+  const izmaState = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    3200,
+    0,
+    0,
+    { rapier, world: izmaWorld, simScale: 0.02 }
+  )
+  const elysiumState = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    3200,
+    0,
+    0,
+    { rapier, world: elysiumWorld, simScale: 0.005 }
+  )
+
+  expect(
+    respawnAxisEnd(izmaState, {
+      type: 'cylinder',
+      length,
+      frameAngle: 0,
+      omega: 0
+    })
+  ).toBe(true)
+  expect(
+    respawnAxisEnd(elysiumState, {
+      type: 'cylinder',
+      length,
+      frameAngle: 0,
+      omega: 0
+    })
+  ).toBe(true)
+
+  expect(izmaState.inertialPosition.y).toBeCloseTo(expectedAxisEndY, 6)
+  expect(elysiumState.inertialPosition.y).toBeCloseTo(expectedAxisEndY, 6)
+  expect(izmaState.physics?.freeFlyBody.translation().y).toBeCloseTo(expectedAxisEndY * 0.02, 6)
+  expect(elysiumState.physics?.freeFlyBody.translation().y).toBeCloseTo(expectedAxisEndY * 0.005, 6)
+
+  izmaWorld.free()
+  elysiumWorld.free()
 })
