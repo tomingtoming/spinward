@@ -1,6 +1,7 @@
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
+import { resolveFarFieldMode } from '../../render/farField/farFieldSettings'
 import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
@@ -26,6 +27,12 @@ export type WatchRenderSnapshot = {
   throwScale: number
   landingAssist: number
   reattachThreshold: number
+  farFieldEnabled: boolean
+  farFieldMode: 'night' | 'day' | 'auto'
+  farFieldResolvedMode: 'night' | 'day'
+  farFieldIntensity: number
+  farFieldIntensityFineStep: number
+  farFieldIntensityCoarseStep: number
   axisEndRespawnEnabled: boolean
   radiusFineStep: number
   radiusCoarseStep: number
@@ -69,6 +76,13 @@ export const createWatchRenderSnapshot = (
   throwScale: settingsStore.habitat.ballSpeedScale,
   landingAssist: settingsStore.reattach.assistNormalDamping,
   reattachThreshold: settingsStore.reattach.radialTolerance,
+  farFieldEnabled: settingsStore.farField.enabled,
+  farFieldMode: settingsStore.farField.mode,
+  farFieldResolvedMode: resolveFarFieldMode(
+    settingsStore.farField.mode,
+    settingsStore.habitat.currentPresetId
+  ),
+  farFieldIntensity: settingsStore.farField.intensity,
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
@@ -79,7 +93,9 @@ export const createWatchRenderSnapshot = (
   landingAssistFineStep: settingsStore.getLandingAssistFineStep(),
   landingAssistCoarseStep: settingsStore.getLandingAssistCoarseStep(),
   reattachThresholdFineStep: settingsStore.getReattachThresholdFineStep(),
-  reattachThresholdCoarseStep: settingsStore.getReattachThresholdCoarseStep()
+  reattachThresholdCoarseStep: settingsStore.getReattachThresholdCoarseStep(),
+  farFieldIntensityFineStep: settingsStore.getFarFieldIntensityFineStep(),
+  farFieldIntensityCoarseStep: settingsStore.getFarFieldIntensityCoarseStep()
 })
 
 export const isWatchActionDisabled = (
@@ -127,6 +143,33 @@ export const applyWatchAction = (
       return true
     case 'throw-scale-coarse-increment':
       settingsStore.adjustThrowScale(1, 'coarse')
+      return true
+    case 'far-field-disable':
+      settingsStore.setFarFieldEnabled(false)
+      return true
+    case 'far-field-enable':
+      settingsStore.setFarFieldEnabled(true)
+      return true
+    case 'far-field-mode-auto':
+      settingsStore.setFarFieldMode('auto')
+      return true
+    case 'far-field-mode-day':
+      settingsStore.setFarFieldMode('day')
+      return true
+    case 'far-field-mode-night':
+      settingsStore.setFarFieldMode('night')
+      return true
+    case 'far-field-intensity-coarse-decrement':
+      settingsStore.adjustFarFieldIntensity(-1, 'coarse')
+      return true
+    case 'far-field-intensity-fine-decrement':
+      settingsStore.adjustFarFieldIntensity(-1, 'fine')
+      return true
+    case 'far-field-intensity-fine-increment':
+      settingsStore.adjustFarFieldIntensity(1, 'fine')
+      return true
+    case 'far-field-intensity-coarse-increment':
+      settingsStore.adjustFarFieldIntensity(1, 'coarse')
       return true
     case 'landing-assist-coarse-decrement':
       settingsStore.adjustLandingAssist(-1, 'coarse')

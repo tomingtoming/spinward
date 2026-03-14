@@ -31,6 +31,7 @@ import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
+import { FarFieldRenderer } from '../render/farField/farFieldRenderer'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { initRapier } from '../physics/rapierContext'
@@ -70,7 +71,11 @@ export const bootstrapApp = async () => {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
   const worldRoot = new THREE.Group()
+  const skyLayer = new THREE.Group()
+  const farLayer = new THREE.Group()
+  const nearLayer = new THREE.Group()
   scene.add(worldRoot)
+  worldRoot.add(skyLayer, farLayer, nearLayer)
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
@@ -80,8 +85,8 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
-  worldRoot.add(starfield.group)
-  worldRoot.add(habitat.group)
+  skyLayer.add(starfield.group)
+  nearLayer.add(habitat.group)
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -147,6 +152,15 @@ export const bootstrapApp = async () => {
   const balls: Ball[] = []
   const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
+  const farFieldRenderer = new FarFieldRenderer(
+    farLayer,
+    () => settingsStore.farField,
+    () => ({
+      radius: habitatConfig.radius,
+      span: getHabitatSpanMeters(),
+      presetId: habitatConfig.currentPresetId
+    })
+  )
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
@@ -176,12 +190,12 @@ export const bootstrapApp = async () => {
   let verificationBall: Ball | null = null
   const previousTrackedRotatingVelocity = new THREE.Vector3()
 
-  worldRoot.add(forceVectorArrows.group)
-  worldRoot.add(dockingGuide.group)
+  nearLayer.add(forceVectorArrows.group)
+  nearLayer.add(dockingGuide.group)
 
   const grabSystem = new GrabSystem({
     scene,
-    releaseRoot: worldRoot,
+    releaseRoot: nearLayer,
     camera,
     renderer,
     controllerRoot: viewRig,
@@ -319,6 +333,7 @@ export const bootstrapApp = async () => {
       length: habitatSpan,
       units: getUnits()
     })
+    farFieldRenderer.sync()
     starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
   }
@@ -330,6 +345,7 @@ export const bootstrapApp = async () => {
   const debugGui = createDebugGui({
     config: habitatConfig,
     reattachTuning,
+    farField: settingsStore.farField,
     debugVisuals,
     onHabitatChange: () => {
       syncHabitat()
@@ -390,9 +406,9 @@ export const bootstrapApp = async () => {
       ball.setVelocity(worldVelocity)
     }
 
-    worldRoot.add(ball.mesh)
-    worldRoot.add(ball.trail)
-    worldRoot.add(ball.inertialTrail)
+    nearLayer.add(ball.mesh)
+    nearLayer.add(ball.trail)
+    nearLayer.add(ball.inertialTrail)
     grabSystem.registerTarget(ball.grabTarget)
     balls.push(ball)
 
@@ -633,6 +649,7 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
+    farFieldRenderer.update(deltaSeconds)
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
@@ -738,6 +755,7 @@ export const bootstrapApp = async () => {
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     rotatingCylinder.dispose()
+    farFieldRenderer.dispose()
     physicsWorld.free()
     debugGui.destroy()
   })

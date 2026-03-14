@@ -1,5 +1,10 @@
 import { DEFAULT_REATTACH_TUNING, type ReattachTuning } from '../app/playerTraversal'
 import {
+  DEFAULT_FAR_FIELD_SETTINGS,
+  type FarFieldMode,
+  type FarFieldSettings
+} from '../render/farField/farFieldSettings'
+import {
   DEFAULT_HABITAT_CONFIG,
   type HabitatConfig
 } from '../sim/habitatConfig'
@@ -30,7 +35,8 @@ export type SettingsStore = ReturnType<typeof createSettingsStore>
 
 export const createSettingsStore = (
   habitatOverrides: Partial<HabitatConfig> = {},
-  reattachOverrides: Partial<ReattachTuning> = {}
+  reattachOverrides: Partial<ReattachTuning> = {},
+  farFieldOverrides: Partial<FarFieldSettings> = {}
 ) => {
   const habitat = {
     ...DEFAULT_HABITAT_CONFIG,
@@ -39,6 +45,10 @@ export const createSettingsStore = (
   const reattach = {
     ...DEFAULT_REATTACH_TUNING,
     ...reattachOverrides
+  }
+  const farField = {
+    ...DEFAULT_FAR_FIELD_SETTINGS,
+    ...farFieldOverrides
   }
   const listeners = new Set<SettingsListener>()
   const markHabitatCustom = () => {
@@ -56,6 +66,9 @@ export const createSettingsStore = (
   const getRpmCoarseStep = () => selectStep(getRpmFineStep(), 'coarse')
   const getThrowScaleFineStep = () => getAdaptiveStep(habitat.ballSpeedScale, 3, 0.01)
   const getThrowScaleCoarseStep = () => selectStep(getThrowScaleFineStep(), 'coarse')
+  const getFarFieldIntensityFineStep = () => getAdaptiveStep(farField.intensity, 2, 0.05)
+  const getFarFieldIntensityCoarseStep = () =>
+    selectStep(getFarFieldIntensityFineStep(), 'coarse')
   const getLandingAssistFineStep = () => getAdaptiveStep(reattach.assistNormalDamping, 2, 0.1)
   const getLandingAssistCoarseStep = () => selectStep(getLandingAssistFineStep(), 'coarse')
   const getReattachThresholdFineStep = () => getAdaptiveStep(reattach.radialTolerance, 2, 0.01)
@@ -65,6 +78,7 @@ export const createSettingsStore = (
   return {
     habitat,
     reattach,
+    farField,
     subscribe(listener: SettingsListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -100,12 +114,47 @@ export const createSettingsStore = (
       }
       notify()
     },
+    setFarFieldConfig(nextValues: Partial<FarFieldSettings>) {
+      if (nextValues.enabled !== undefined) {
+        farField.enabled = nextValues.enabled
+      }
+      if (nextValues.mode !== undefined) {
+        farField.mode = nextValues.mode
+      }
+      if (nextValues.intensity !== undefined) {
+        farField.intensity = clamp(nextValues.intensity, 0, 2)
+      }
+      if (nextValues.density !== undefined) {
+        farField.density = clamp(nextValues.density, 0, 1)
+      }
+      if (nextValues.bandHeight_m !== undefined) {
+        farField.bandHeight_m = clamp(nextValues.bandHeight_m, 300, 1500)
+      }
+      if (nextValues.bandArc_deg !== undefined) {
+        farField.bandArc_deg = clamp(nextValues.bandArc_deg, 60, 140)
+      }
+      if (nextValues.parallaxLayers !== undefined) {
+        farField.parallaxLayers = nextValues.parallaxLayers
+      }
+      if (nextValues.parallaxOffset_m !== undefined) {
+        farField.parallaxOffset_m = clamp(nextValues.parallaxOffset_m, 50, 200)
+      }
+      if (nextValues.textureSize !== undefined) {
+        farField.textureSize = nextValues.textureSize
+      }
+      if (nextValues.updateInterval_s !== undefined) {
+        farField.updateInterval_s = clamp(nextValues.updateInterval_s, 0, 30)
+      }
+      notify()
+    },
     getRadiusFineStep,
     getRadiusCoarseStep,
     getRpmFineStep,
     getRpmCoarseStep,
     getThrowScaleFineStep,
     getThrowScaleCoarseStep,
+    getFarFieldIntensityFineStep,
+    getFarFieldIntensityCoarseStep,
     getLandingAssistFineStep,
     getLandingAssistCoarseStep,
     getReattachThresholdFineStep,
@@ -129,6 +178,19 @@ export const createSettingsStore = (
         0.25,
         3
       )
+      notify()
+    },
+    setFarFieldEnabled(enabled: boolean) {
+      farField.enabled = enabled
+      notify()
+    },
+    setFarFieldMode(mode: FarFieldMode) {
+      farField.mode = mode
+      notify()
+    },
+    adjustFarFieldIntensity(ticks: number, mode: StepMode = 'fine') {
+      const step = selectStep(getFarFieldIntensityFineStep(), mode)
+      farField.intensity = clamp(roundToStep(farField.intensity + step * ticks, step), 0, 2)
       notify()
     },
     adjustLandingAssist(ticks: number, mode: StepMode = 'fine') {

@@ -42,6 +42,7 @@ export const applyPresetToSettingsStore = (
     simScale: preset.sim.scale,
     currentPresetId: preset.id
   })
+  settingsStore.setFarFieldConfig(preset.farField ?? {})
 
   return preset
 }

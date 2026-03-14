@@ -71,3 +71,17 @@ test('settingsStore keeps preset assignment explicit and returns to custom on ma
 
   expect(store.habitat.currentPresetId).toBe('custom')
 })
+
+test('settingsStore updates far-field controls through the shared store', () => {
+  const store = createSettingsStore()
+
+  expect(store.getFarFieldIntensityFineStep()).toBeCloseTo(0.1, 6)
+
+  store.setFarFieldEnabled(false)
+  store.setFarFieldMode('day')
+  store.adjustFarFieldIntensity(1, 'fine')
+
+  expect(store.farField.enabled).toBe(false)
+  expect(store.farField.mode).toBe('day')
+  expect(store.farField.intensity).toBeCloseTo(1.1, 6)
+})

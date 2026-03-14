@@ -69,6 +69,13 @@ const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchAction
   (action === 'preset-apply-cooper' && snapshot.currentPresetId === 'cooper') ||
   (action === 'preset-apply-elysium' && snapshot.currentPresetId === 'elysium')
 
+const isActiveFarFieldAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
+  (action === 'far-field-enable' && snapshot.farFieldEnabled) ||
+  (action === 'far-field-disable' && !snapshot.farFieldEnabled) ||
+  (action === 'far-field-mode-auto' && snapshot.farFieldMode === 'auto') ||
+  (action === 'far-field-mode-day' && snapshot.farFieldMode === 'day') ||
+  (action === 'far-field-mode-night' && snapshot.farFieldMode === 'night')
+
 export const renderWatchStatus = (
   ctx: CanvasRenderingContext2D,
   snapshot: WatchRenderSnapshot
@@ -91,7 +98,11 @@ export const renderWatchStatus = (
     22,
     114
   )
-  ctx.fillText(`R ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m`, 22, 140)
+  ctx.fillText(
+    `R ${snapshot.radius.toFixed(0)}m | far ${snapshot.farFieldResolvedMode} ${snapshot.farFieldIntensity.toFixed(1)}`,
+    22,
+    140
+  )
 }
 
 export const renderWatchExpanded = (
@@ -126,7 +137,12 @@ export const renderWatchExpanded = (
     28,
     120
   )
-  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 148)
+  ctx.fillText(
+    `far ${snapshot.farFieldEnabled ? 'on' : 'off'} | mode ${snapshot.farFieldMode} -> ${snapshot.farFieldResolvedMode}`,
+    28,
+    148
+  )
+  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 176)
 
   const valuesByRowKey: Record<string, string> = {
     rpm: snapshot.rpm.toFixed(2),
@@ -162,13 +178,55 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('PRESETS', 42, 652)
+  ctx.fillText('FAR FIELD', 42, 652)
+  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
+  ctx.font = '500 15px "Avenir Next", sans-serif'
+  ctx.fillText(
+    'Draw-only opposite-city band. No collider, no gameplay hits, low-cost parallax layers.',
+    42,
+    678
+  )
+
+  for (const button of layout.farFieldEnabledButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      active: isActiveFarFieldAction(snapshot, button.id)
+    })
+  }
+
+  for (const button of layout.farFieldModeButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      active: isActiveFarFieldAction(snapshot, button.id)
+    })
+  }
+
+  const farFieldRow = layout.farFieldIntensityRow
+  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
+  ctx.fillText(farFieldRow.label.toUpperCase(), farFieldRow.valueX, farFieldRow.valueY - 28)
+  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
+  ctx.font = '500 15px "Avenir Next", sans-serif'
+  ctx.fillText(
+    `fine ${snapshot.farFieldIntensityFineStep.toFixed(2)} / coarse ${snapshot.farFieldIntensityCoarseStep.toFixed(2)}`,
+    farFieldRow.valueX,
+    farFieldRow.valueY + 38
+  )
+  ctx.fillStyle = '#f6fbff'
+  ctx.font = '700 30px "Avenir Next", sans-serif'
+  ctx.fillText(snapshot.farFieldIntensity.toFixed(2), farFieldRow.valueX, farFieldRow.valueY)
+
+  for (const button of farFieldRow.buttons) {
+    drawButton(ctx, button, hoveredAction)
+  }
+
+  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
+  ctx.font = '600 18px "Avenir Next", sans-serif'
+  ctx.fillText('PRESETS', 42, 1032)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
     'Apply clears live balls, rebuilds Rapier scale, and respawns on the inner wall.',
     42,
-    678
+    1058
   )
 
   for (const button of layout.presetButtons) {
@@ -179,7 +237,7 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('RESPAWN', 42, 852)
+  ctx.fillText('RESPAWN', 42, 1232)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
@@ -187,7 +245,7 @@ export const renderWatchExpanded = (
       ? 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.'
       : 'Axis End is disabled for ring presets. Use Inner Wall to respawn safely.',
     42,
-    878
+    1258
   )
 
   for (const button of layout.respawnButtons) {

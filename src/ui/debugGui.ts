@@ -1,6 +1,7 @@
 import GUI from 'lil-gui'
 
 import type { ObserverMode, TrailMode } from '../app/observerMode'
+import type { FarFieldSettings } from '../render/farField/farFieldSettings'
 import { getHabitatSpan, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
 import { rpmToOmega, surfaceG } from '../units/units'
@@ -17,6 +18,7 @@ export type DebugVisualState = {
 type DebugGuiOptions = {
   config: HabitatConfig
   reattachTuning: ReattachTuning
+  farField: FarFieldSettings
   debugVisuals: DebugVisualState
   onHabitatChange: () => void
   onSettingsChange: () => void
@@ -31,6 +33,7 @@ export type DebugGuiHandle = {
 export const createDebugGui = ({
   config,
   reattachTuning,
+  farField,
   debugVisuals,
   onHabitatChange,
   onSettingsChange,
@@ -118,6 +121,70 @@ export const createDebugGui = ({
     .name('assist pull')
     .onChange(onSettingsChange)
   reattachFolder.open()
+
+  const farFieldFolder = gui.addFolder('Far Field')
+  farFieldFolder
+    .add(farField, 'enabled')
+    .name('enabled')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'mode', {
+      Auto: 'auto',
+      Day: 'day',
+      Night: 'night'
+    })
+    .name('mode')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'intensity', 0, 2, 0.05)
+    .name('intensity')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'density', 0, 1, 0.05)
+    .name('density')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'bandHeight_m', 300, 1500, 10)
+    .name('band h (m)')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'bandArc_deg', 60, 140, 1)
+    .name('band arc')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'parallaxLayers', {
+      '1 layer': 1,
+      '2 layers': 2,
+      '3 layers': 3
+    })
+    .name('layers')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'parallaxOffset_m', 50, 200, 5)
+    .name('offset (m)')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'textureSize', {
+      '256': 256,
+      '512': 512,
+      '1024': 1024
+    })
+    .name('tex size')
+    .listen()
+    .onChange(onSettingsChange)
+  farFieldFolder
+    .add(farField, 'updateInterval_s', 0, 10, 0.5)
+    .name('refresh (s)')
+    .listen()
+    .onChange(onSettingsChange)
 
   const debugFolder = gui.addFolder('Debug View')
   debugFolder

@@ -18,6 +18,8 @@ test('applyPresetToSettingsStore updates the shared habitat values for Izma', ()
   expect(settingsStore.habitat.length).toBe(40000)
   expect(settingsStore.habitat.rpm).toBeCloseTo(60 / 113.5, 6)
   expect(settingsStore.habitat.simScale).toBeCloseTo(0.02, 6)
+  expect(settingsStore.farField.mode).toBe('night')
+  expect(settingsStore.farField.intensity).toBeCloseTo(1.2, 6)
 })
 
 test('applyPresetToSettingsStore maps Elysium thickness into the active span and scale', () => {
@@ -29,6 +31,8 @@ test('applyPresetToSettingsStore maps Elysium thickness into the active span and
   expect(settingsStore.habitat.length).toBe(2000)
   expect(settingsStore.habitat.thickness).toBe(2000)
   expect(settingsStore.habitat.simScale).toBeCloseTo(0.005, 6)
+  expect(settingsStore.farField.mode).toBe('day')
+  expect(settingsStore.farField.intensity).toBeCloseTo(0, 6)
 })
 
 test('canRespawnOnAxisEnd is only enabled for cylinder presets', () => {

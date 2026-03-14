@@ -40,6 +40,7 @@ bun run preview -- --host 0.0.0.0
 - VR: `free-fly` 中は左スティック左右でロール角速度、前後でピッチ角速度を与えます。
 - VR: `free-fly` 中は左 grip で回転 brake を掛け、現在の角速度を徐々に落とせます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
+- VR: wrist UI から `FarField` の `on/off`, `day/night/auto`, `intensity` を変更できます。遠景帯は描画専用で、当たり判定や UI hit 対象には入りません。
 - VR: wrist UI から `Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。`Axis End` は cylinder のみで、ring preset では disabled です。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
@@ -57,7 +58,8 @@ bun run preview -- --host 0.0.0.0
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
 - PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定、preset、respawn を操作できます。
-- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `reattach` 閾値と弱い landing assist の強さを右上で確認/調整できます。
+- PC: quick panel でも `FarField` の `on/off`, `mode`, `intensity` を同じ設定ソースで操作できます。
+- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `reattach` 閾値、弱い landing assist、FarField の詳細パラメータを右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
@@ -105,6 +107,14 @@ a_cf = -(Ω × (Ω × r))
 - `Axis End`: 円筒端の回転軸上へ戻り、`free-fly` で開始します。
 - `Axis End` は cylinder preset のみ有効です。ring preset では disabled になります。
 
+## FarField
+
+- FarField は遠景専用の描画レイヤです。`nearLayer` に近景、`farLayer` に反対側の町並み帯、`skyLayer` に星空を分けています。
+- 反対側の町並みは、円筒内面に沿った 1 から 3 枚の低ポリ帯メッシュと `CanvasTexture` で表現しています。大量の建物メッシュや collider は置きません。
+- Night では emissive の窓明かり、Day では低コントラストのシルエットを出します。`Auto` は preset に応じて Izma/Cooper を夜、Elysium を昼へ寄せています。
+- パララックスは帯を半径方向に少しずらした多層構成で出しています。Quest を想定して、遠景は低ドローコール・低ポリ・固定テクスチャ寄りです。
+- FarField は描画専用です。Rapier collider も Raycast UI 対象も持たず、プレイヤーや球の物理には影響しません。
+
 ## 単位ルール
 
 - `real`: 設定、プリセット、HUD、GUI、wrist UI、描画、回転系/慣性系変換で使うメートル基準
@@ -118,6 +128,8 @@ a_cf = -(Ω × (Ω × r))
   throw 合成が `real` でなく `sim` に漏れている可能性があります。`bun test` の throw/units 系を確認してください。
 - preset を変えたら respawn 位置だけずれる:
   Rapier pose への書き込みが boundary を通っていない可能性があります。respawn 系テストを確認してください。
+- FarField の見え方だけ崩れる:
+  preset や settings 更新後に far-field renderer の rebuild が走っていない可能性があります。far-field renderer / preset 系テストを確認してください。
 - observer mode や trail が崩れる:
   回転系/慣性系の変換前に `sim` を混ぜている可能性があります。描画と frame transform は常に `real` 前提です。
 
@@ -132,6 +144,7 @@ a_cf = -(Ω × (Ω × r))
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
+- 反対側の町並み帯と夜景 emissive を持つ FarField レイヤ
 - `Izma / Cooper / Elysium` preset と `real / simScale` 分離
 - 内壁中央 / 軸端の 2 種 respawn
 - `colony-fixed / inertial-fixed` の observer mode

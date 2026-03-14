@@ -21,6 +21,15 @@ export type WatchActionId =
   | 'reattach-threshold-fine-decrement'
   | 'reattach-threshold-fine-increment'
   | 'reattach-threshold-coarse-increment'
+  | 'far-field-enable'
+  | 'far-field-disable'
+  | 'far-field-mode-auto'
+  | 'far-field-mode-day'
+  | 'far-field-mode-night'
+  | 'far-field-intensity-coarse-decrement'
+  | 'far-field-intensity-fine-decrement'
+  | 'far-field-intensity-fine-increment'
+  | 'far-field-intensity-coarse-increment'
   | 'preset-apply-izma'
   | 'preset-apply-cooper'
   | 'preset-apply-elysium'
@@ -48,6 +57,9 @@ export type WatchExpandedLayout = {
   width: number
   height: number
   rows: WatchRow[]
+  farFieldModeButtons: [WatchButton, WatchButton, WatchButton]
+  farFieldEnabledButtons: [WatchButton, WatchButton]
+  farFieldIntensityRow: WatchRow
   presetButtons: [WatchButton, WatchButton, WatchButton]
   respawnButtons: [WatchButton, WatchButton]
   buttons: WatchButton[]
@@ -60,7 +72,7 @@ export const WATCH_STATUS_SIZE = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 1160
+  height: 1490
 } as const
 
 const makeActionButton = (
@@ -151,8 +163,24 @@ export const createWatchExpandedLayout = (
   const wideButtonHeight = 64
   const sectionLeft = 42
   const sectionGap = 18
-  const presetTop = 714
-  const respawnTop = 914
+  const farFieldEnabledButtons: [WatchButton, WatchButton] = [
+    makeActionButton('far-field-disable', 'Far Off', sectionLeft, 720, 140, wideButtonHeight),
+    makeActionButton('far-field-enable', 'Far On', sectionLeft + 158, 720, 140, wideButtonHeight)
+  ]
+  const farFieldModeButtons: [WatchButton, WatchButton, WatchButton] = [
+    makeActionButton('far-field-mode-auto', 'Auto', sectionLeft, 804, 140, wideButtonHeight),
+    makeActionButton('far-field-mode-day', 'Day', sectionLeft + 158, 804, 140, wideButtonHeight),
+    makeActionButton('far-field-mode-night', 'Night', sectionLeft + 316, 804, 140, wideButtonHeight)
+  ]
+  const farFieldIntensityRow = makeRow(
+    'farFieldIntensity',
+    'Far Intensity',
+    'far-field-intensity',
+    874,
+    width
+  )
+  const presetTop = 1094
+  const respawnTop = 1294
   const presetButtons: [WatchButton, WatchButton, WatchButton] = [
     makeActionButton(
       'preset-apply-izma',
@@ -202,9 +230,19 @@ export const createWatchExpandedLayout = (
     width,
     height,
     rows,
+    farFieldModeButtons,
+    farFieldEnabledButtons,
+    farFieldIntensityRow,
     presetButtons,
     respawnButtons,
-    buttons: [...rows.flatMap((row) => row.buttons), ...presetButtons, ...respawnButtons]
+    buttons: [
+      ...rows.flatMap((row) => row.buttons),
+      ...farFieldEnabledButtons,
+      ...farFieldModeButtons,
+      ...farFieldIntensityRow.buttons,
+      ...presetButtons,
+      ...respawnButtons
+    ]
   }
 }
 
