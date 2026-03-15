@@ -15,15 +15,33 @@ import { renderWatchExpanded, renderWatchStatus } from './watchRenderer'
 
 const STATUS_SCALE = new THREE.Vector3(0.14, 0.075, 1)
 const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.32, 1)
-const WRIST_OFFSET = new THREE.Vector3(-0.046, -0.022, -0.072)
-const BASE_PANEL_ROTATION = new THREE.Euler(-1.42, -0.12, -1.28)
-const STATUS_LOCAL_OFFSET = new THREE.Vector3(-0.032, -0.004, 0)
-const EXPANDED_LOCAL_OFFSET = new THREE.Vector3(0.176, 0.012, 0)
+const WRIST_BACK_MARGIN = 0.038
+const WRIST_DORSAL_OFFSET = 0.008
+const WRIST_LATERAL_OFFSET = -0.01
+const WATCH_GAP = 0.028
+const WATCH_FACE_CENTER = new THREE.Vector3(
+  STATUS_SCALE.x * 0.5,
+  STATUS_SCALE.y * 0.5,
+  0
+)
+const EXPANDED_CENTER = new THREE.Vector3(
+  STATUS_SCALE.x + WATCH_GAP + EXPANDED_SCALE.x * 0.5,
+  EXPANDED_SCALE.y * 0.5,
+  0
+)
 
 const anchorPosition = new THREE.Vector3()
 const anchorQuaternion = new THREE.Quaternion()
-const wristOffset = new THREE.Vector3()
-const basePanelQuaternion = new THREE.Quaternion().setFromEuler(BASE_PANEL_ROTATION)
+const wristOrigin = new THREE.Vector3()
+const controllerRight = new THREE.Vector3()
+const controllerUp = new THREE.Vector3()
+const controllerBack = new THREE.Vector3()
+const panelNormal = new THREE.Vector3()
+const panelBasis = new THREE.Matrix4()
+const panelQuaternion = new THREE.Quaternion()
+const panelFrameRotation = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(Math.PI, 0, Math.PI)
+)
 
 const createCanvas = (width: number, height: number) => {
   const canvas = document.createElement('canvas')
@@ -79,8 +97,8 @@ export class WatchPanel {
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
     this.statusMesh.scale.copy(STATUS_SCALE)
     this.expandedMesh.scale.copy(EXPANDED_SCALE)
-    this.statusMesh.position.copy(STATUS_LOCAL_OFFSET)
-    this.expandedMesh.position.copy(EXPANDED_LOCAL_OFFSET)
+    this.statusMesh.position.copy(WATCH_FACE_CENTER)
+    this.expandedMesh.position.copy(EXPANDED_CENTER)
     this.expandedMesh.visible = true
     this.statusMesh.visible = false
     this.group.renderOrder = 30
@@ -117,22 +135,36 @@ export class WatchPanel {
   update(
     snapshot: WatchRenderSnapshot,
     xrActive: boolean,
-    leftGrip: THREE.Object3D | null
+    leftGrip: THREE.Object3D | null,
+    leftController: THREE.Object3D | null
   ) {
     this.snapshot = snapshot
 
-    if (!xrActive || leftGrip === null) {
+    if (!xrActive || leftGrip === null || leftController === null) {
       this.group.visible = false
       return
     }
 
     leftGrip.updateWorldMatrix(true, false)
     leftGrip.getWorldPosition(anchorPosition)
-    leftGrip.getWorldQuaternion(anchorQuaternion)
+    leftController.updateWorldMatrix(true, false)
+    leftController.getWorldQuaternion(anchorQuaternion)
 
-    wristOffset.copy(WRIST_OFFSET).applyQuaternion(anchorQuaternion)
-    this.group.position.copy(anchorPosition).add(wristOffset)
-    this.group.quaternion.copy(anchorQuaternion).multiply(basePanelQuaternion)
+    controllerRight.set(1, 0, 0).applyQuaternion(anchorQuaternion)
+    controllerUp.set(0, 1, 0).applyQuaternion(anchorQuaternion)
+    controllerBack.set(0, 0, 1).applyQuaternion(anchorQuaternion)
+    panelNormal.crossVectors(controllerRight, controllerBack).normalize()
+
+    wristOrigin
+      .copy(anchorPosition)
+      .addScaledVector(controllerBack, WRIST_BACK_MARGIN)
+      .addScaledVector(controllerUp, WRIST_DORSAL_OFFSET)
+      .addScaledVector(controllerRight, WRIST_LATERAL_OFFSET)
+
+    panelBasis.makeBasis(controllerRight, controllerBack, panelNormal)
+    this.group.position.copy(wristOrigin)
+    panelQuaternion.setFromRotationMatrix(panelBasis).multiply(panelFrameRotation)
+    this.group.quaternion.copy(panelQuaternion)
     this.group.visible = true
 
     renderWatchStatus(this.statusCanvas.context, snapshot)

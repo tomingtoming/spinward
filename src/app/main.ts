@@ -779,7 +779,12 @@ export const bootstrapApp = async () => {
       inertialObserverCamera.updateMatrixWorld(true)
       desktopUiCamera = inertialObserverCamera
     }
-    watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
+    watchPanel.update(
+      watchSnapshot,
+      renderer.xr.isPresenting,
+      xrWatchInput.leftGrip,
+      xrWatchInput.leftController
+    )
     laserPointer.setController(renderer.xr.isPresenting ? xrWatchInput.rightController : null)
     watchPanel.updateHover(
       laserPointer.update(
@@ -793,7 +798,12 @@ export const bootstrapApp = async () => {
       watchPanel.clickHovered()
     }
 
-    watchPanel.update(watchSnapshot, renderer.xr.isPresenting, xrWatchInput.leftGrip)
+    watchPanel.update(
+      watchSnapshot,
+      renderer.xr.isPresenting,
+      xrWatchInput.leftGrip,
+      xrWatchInput.leftController
+    )
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
     renderer.render(scene, desktopUiCamera)
   })

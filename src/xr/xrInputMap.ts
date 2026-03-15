@@ -37,6 +37,7 @@ const UI_TRIGGER_THRESHOLD = 0.55
 const WATCH_MENU_HOLD_SECONDS = 0.4
 
 type XrWatchInputFrame = {
+  leftController: THREE.XRTargetRaySpace | null
   leftGrip: THREE.XRGripSpace | null
   rightController: THREE.XRTargetRaySpace | null
   toggleWatchMenu: boolean
@@ -70,6 +71,7 @@ export class XRInputMap {
       this.previousRightTriggerPressed = false
       stepHoldToggleState(this.watchToggleState, false, 0, WATCH_MENU_HOLD_SECONDS)
       return {
+        leftController: null,
         leftGrip: null,
         rightController: null,
         toggleWatchMenu: false,
@@ -77,6 +79,7 @@ export class XRInputMap {
       }
     }
 
+    let leftController: THREE.XRTargetRaySpace | null = null
     let leftGrip: THREE.XRGripSpace | null = null
     let rightController: THREE.XRTargetRaySpace | null = null
     let leftMenuPressed = false
@@ -90,6 +93,7 @@ export class XRInputMap {
       }
 
       if (inputSource.handedness === 'left') {
+        leftController = controller
         leftGrip = this.gripByController.get(controller) ?? null
         leftMenuPressed ||= this.readWatchMenuButton(gamepad) > UI_TRIGGER_THRESHOLD
         continue
@@ -111,6 +115,7 @@ export class XRInputMap {
     this.previousRightTriggerPressed = rightTriggerPressed
 
     return {
+      leftController,
       leftGrip,
       rightController,
       toggleWatchMenu,
