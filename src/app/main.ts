@@ -31,7 +31,6 @@ import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
-import { StreamingWallDebugView } from '../objects/streamingWallDebug'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
@@ -68,7 +67,6 @@ export const bootstrapApp = async () => {
     showForceVectors: true,
     forceVectorScale: 0.08,
     showHud: true,
-    showWallSectors: true,
     observerMode: 'colony-fixed' as const,
     trailMode: 'rotating' as const,
     verificationErrorThreshold: 4
@@ -154,7 +152,6 @@ export const bootstrapApp = async () => {
   const balls: Ball[] = []
   const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
-  const streamingWallDebug = new StreamingWallDebugView()
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
@@ -188,7 +185,6 @@ export const bootstrapApp = async () => {
 
   nearLayer.add(forceVectorArrows.group)
   nearLayer.add(dockingGuide.group)
-  nearLayer.add(streamingWallDebug.group)
 
   const grabSystem = new GrabSystem({
     scene,
@@ -603,12 +599,6 @@ export const bootstrapApp = async () => {
     rotatingCylinder.syncToFrame(frameAngle)
     rotatingCylinder.updateActiveSectors(activeFixedColliderPositions)
     const wallSnapshot = rotatingCylinder.getDebugSnapshot()
-    streamingWallDebug.update({
-      radius: habitatConfig.radius,
-      length: habitatSpan,
-      snapshot: wallSnapshot,
-      visible: debugVisuals.showWallSectors
-    })
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
@@ -727,7 +717,7 @@ export const bootstrapApp = async () => {
       xrActive: renderer.xr.isPresenting,
       forceVectors: debugVisuals.showForceVectors,
       wallSectors: {
-        visible: debugVisuals.showWallSectors,
+        visible: false,
         activeCount: wallSnapshot.activeSectorCount,
         totalCount: wallSnapshot.totalSectorCount
       },
@@ -823,7 +813,6 @@ export const bootstrapApp = async () => {
     disposePlayerTraversalState(playerTraversal)
     rotatingCylinder.dispose()
     fixedColliderManager.dispose()
-    streamingWallDebug.dispose()
     vrLocomotion?.clutchDebug.dispose()
     physicsWorld.free()
     debugGui.destroy()

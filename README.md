@@ -62,10 +62,8 @@ bun run preview -- --host 0.0.0.0
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
-- GUI: `wall sectors` を有効にすると、現在 Rapier の主内壁 collider が active な近傍 sector をシアン帯で可視化できます。
 - HUD: `free-fly` 中は再アタッチ用の半径誤差、法線速度、壁相対速度、`assist/coast`, `ready/hold` を確認できます。
 - HUD: 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を表示します。誤差がしきい値を超えると `Frame mismatch!` を出します。
-- HUD: `wall viz active/total` で、主内壁 streaming collider の現在 active な sector 数を確認できます。
 - landing assist は弱く入っているだけなので、壁相対速度が高いままだと再アタッチせず、そのまま滑るか跳ね返ります。
 - `free-fly` 中は左手が locomotion 専用なので、球生成と投擲は右手側へ寄せています。
 

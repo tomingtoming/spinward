@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 const COMFORT_DEADZONE = 0.18
-const ANGULAR_ACCELERATION = Math.PI * 1.75
+const ANGULAR_ACCELERATION = Math.PI * 1.1
 const ANGULAR_BRAKE_DAMPING = 4.5
 const MAX_ANGULAR_SPEED = Math.PI * 1.5
 const forwardAxis = new THREE.Vector3(0, 0, -1)

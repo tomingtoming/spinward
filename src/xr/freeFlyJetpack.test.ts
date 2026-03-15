@@ -26,7 +26,7 @@ test('stepJetpackAttitude adds roll angular velocity from stick X input', () => 
 
   stepJetpackAttitude(state, 1, 0, 0.5)
 
-  expect(state.angularVelocity.z).toBeLessThan(-2.3)
+  expect(state.angularVelocity.z).toBeLessThan(-1.4)
   expect(state.angularVelocity.x).toBeCloseTo(0, 6)
 })
 
@@ -35,7 +35,7 @@ test('stepJetpackAttitude adds pitch angular velocity from stick Y input', () =>
 
   stepJetpackAttitude(state, 0, -1, 0.5)
 
-  expect(state.angularVelocity.x).toBeLessThan(-2.3)
+  expect(state.angularVelocity.x).toBeLessThan(-1.4)
   expect(state.angularVelocity.z).toBeCloseTo(0, 6)
 })
 
@@ -44,7 +44,7 @@ test('stepJetpackAttitudeAxes adds yaw angular velocity from hand orientation in
 
   stepJetpackAttitudeAxes(state, 0, 1, 0, 0.5)
 
-  expect(state.angularVelocity.y).toBeGreaterThan(2.3)
+  expect(state.angularVelocity.y).toBeGreaterThan(1.4)
   expect(state.angularVelocity.x).toBeCloseTo(0, 6)
   expect(state.angularVelocity.z).toBeCloseTo(0, 6)
 })

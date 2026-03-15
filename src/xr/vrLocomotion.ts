@@ -5,6 +5,7 @@ import { HandClutchDebugView } from '../objects/handClutchDebug'
 import type { PlayerTraversalMode } from '../app/playerTraversal'
 import { inertialOrientationToRotating, rotatingOrientationToInertial } from '../sim/frameTransforms'
 import {
+  applyRotationAxisProfile,
   DEFAULT_ATTACHED_CLUTCH_CONFIG,
   DEFAULT_FREE_FLY_CLUTCH_CONFIG,
   DEFAULT_ROTATION_CLUTCH_CONFIG,
@@ -12,6 +13,7 @@ import {
   createHandClutchSample,
   createHandClutchState,
   createRotationClutchIntent,
+  rebaseHandClutchState,
   resolveAttachedClutchIntent,
   resolveFreeFlyClutchThrust,
   resolveRotationClutchIntent,
@@ -45,7 +47,9 @@ const clutchRotationIntent = createRotationClutchIntent()
 const freeFlyThrust = new THREE.Vector3()
 const FACE_BUTTON_THRESHOLD = 0.55
 const CLUTCH_THRESHOLD = 0.05
-const ATTACHED_YAW_SPEED = Math.PI * 0.95
+const ATTACHED_YAW_SPEED = Math.PI * 0.6
+const FREE_FLY_ROLL_DEADZONE = 0.24
+const FREE_FLY_ROLL_GAIN = 0.55
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
@@ -105,9 +109,7 @@ export class VRLocomotion {
       return intent
     }
 
-    if (playerMode !== this.previousPlayerMode) {
-      resetHandClutchState(this.clutchState)
-    }
+    const modeChanged = playerMode !== this.previousPlayerMode
 
     if (playerMode === 'free-fly' && this.previousPlayerMode !== 'free-fly') {
       this.captureFreeFlyInertialOrientation(frameAngle, omega)
@@ -149,6 +151,14 @@ export class VRLocomotion {
       leftLinearBrake ||= this.readFaceButton(gamepad, 5) > FACE_BUTTON_THRESHOLD
     }
 
+    if (modeChanged) {
+      if (leftClutchActive && leftGripObject !== null) {
+        this.rebaseLeftGripClutch(leftGripObject, playerMode)
+      } else {
+        resetHandClutchState(this.clutchState)
+      }
+    }
+
     const snapIntent = playerMode === 'attached'
       ? consumeSnapTurn(snapAxisX, this.snapTurnState)
       : 0
@@ -170,6 +180,11 @@ export class VRLocomotion {
           clutchInput,
           DEFAULT_ROTATION_CLUTCH_CONFIG,
           clutchRotationIntent
+        )
+        clutchRotationIntent.roll = applyRotationAxisProfile(
+          clutchRotationIntent.roll,
+          FREE_FLY_ROLL_DEADZONE,
+          FREE_FLY_ROLL_GAIN
         )
       } else {
         clutchRotationIntent.pitch = 0
@@ -328,16 +343,7 @@ export class VRLocomotion {
     leftGrip.updateWorldMatrix(true, false)
     leftGrip.getWorldPosition(gripWorldPosition)
     leftGrip.getWorldQuaternion(gripWorldQuaternion)
-
-    if (playerMode === 'attached') {
-      this.playerRig.updateWorldMatrix(true, false)
-      this.playerRig.getWorldPosition(controlFramePosition)
-      this.playerRig.getWorldQuaternion(controlFrameQuaternion)
-    } else {
-      this.viewRig.updateWorldMatrix(true, false)
-      this.viewRig.getWorldPosition(controlFramePosition)
-      this.viewRig.getWorldQuaternion(controlFrameQuaternion)
-    }
+    this.resolveControlFrame(playerMode)
 
     const sample = sampleHandClutch(
       this.clutchState,
@@ -350,5 +356,35 @@ export class VRLocomotion {
       clutchSample
     )
     return sample.active ? sample : null
+  }
+
+  private rebaseLeftGripClutch(
+    leftGrip: THREE.XRGripSpace,
+    playerMode: PlayerTraversalMode
+  ) {
+    leftGrip.updateWorldMatrix(true, false)
+    leftGrip.getWorldPosition(gripWorldPosition)
+    leftGrip.getWorldQuaternion(gripWorldQuaternion)
+    this.resolveControlFrame(playerMode)
+    rebaseHandClutchState(
+      this.clutchState,
+      gripWorldPosition,
+      gripWorldQuaternion,
+      controlFramePosition,
+      controlFrameQuaternion
+    )
+  }
+
+  private resolveControlFrame(playerMode: PlayerTraversalMode) {
+    if (playerMode === 'attached') {
+      this.playerRig.updateWorldMatrix(true, false)
+      this.playerRig.getWorldPosition(controlFramePosition)
+      this.playerRig.getWorldQuaternion(controlFrameQuaternion)
+      return
+    }
+
+    this.viewRig.updateWorldMatrix(true, false)
+    this.viewRig.getWorldPosition(controlFramePosition)
+    this.viewRig.getWorldQuaternion(controlFrameQuaternion)
   }
 }

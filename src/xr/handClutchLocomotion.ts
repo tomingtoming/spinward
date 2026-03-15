@@ -66,8 +66,8 @@ export type RotationClutchIntent = {
 export const DEFAULT_ATTACHED_CLUTCH_CONFIG: AttachedClutchConfig = {
   moveDeadzone: 0.025,
   moveMaxDistance: 0.16,
-  detachLiftDistance: 0.11,
-  detachLiftSpeed: 1.15,
+  detachLiftDistance: 0.3,
+  detachLiftSpeed: 0.5,
   minLaunchSpeed: 2.2,
   maxLaunchSpeed: 6
 }
@@ -78,8 +78,8 @@ export const DEFAULT_FREE_FLY_CLUTCH_CONFIG: FreeFlyClutchConfig = {
 }
 
 export const DEFAULT_ROTATION_CLUTCH_CONFIG: RotationClutchConfig = {
-  angleDeadzoneRadians: THREE.MathUtils.degToRad(4),
-  maxAngleRadians: THREE.MathUtils.degToRad(32)
+  angleDeadzoneRadians: THREE.MathUtils.degToRad(6.5),
+  maxAngleRadians: THREE.MathUtils.degToRad(45)
 }
 
 export const createHandClutchState = (): HandClutchState => ({
@@ -95,6 +95,39 @@ export const createHandClutchState = (): HandClutchState => ({
 export const resetHandClutchState = (state: HandClutchState) => {
   state.active = false
   state.previousLocalDisplacement.set(0, 0, 0)
+  return state
+}
+
+export const rebaseHandClutchState = (
+  state: HandClutchState,
+  handWorldPosition: THREE.Vector3,
+  handWorldQuaternion: THREE.Quaternion,
+  controlFrameWorldPosition: THREE.Vector3,
+  controlFrameWorldQuaternion: THREE.Quaternion
+) => {
+  if (!state.active) {
+    return state
+  }
+
+  state.controlFrameWorldPosition.copy(controlFrameWorldPosition)
+  state.controlFrameWorldQuaternion.copy(controlFrameWorldQuaternion)
+  inverseQuaternion.copy(controlFrameWorldQuaternion).invert()
+
+  localHandPosition
+    .copy(handWorldPosition)
+    .sub(controlFrameWorldPosition)
+    .applyQuaternion(inverseQuaternion)
+  state.anchorLocalPosition.copy(localHandPosition).sub(state.previousLocalDisplacement)
+  state.previousLocalDisplacement.copy(localHandPosition).sub(state.anchorLocalPosition)
+
+  localHandOrientation
+    .copy(inverseQuaternion)
+    .multiply(handWorldQuaternion)
+  state.anchorLocalOrientation.copy(localHandOrientation)
+
+  anchoredLocalPosition.copy(state.anchorLocalPosition).applyQuaternion(controlFrameWorldQuaternion)
+  state.anchorWorldPosition.copy(controlFrameWorldPosition).add(anchoredLocalPosition)
+
   return state
 }
 
@@ -207,16 +240,16 @@ export const resolveAttachedClutchIntent = (
   config = DEFAULT_ATTACHED_CLUTCH_CONFIG,
   target = createAttachedClutchIntent()
 ) => {
-  const outwardLift = Math.max(0, -sample.localDisplacement.y)
-  const outwardSpeed = Math.max(0, -sample.localVelocity.y)
-  const liftRatio = outwardLift / Math.max(config.detachLiftDistance, 1e-6)
-  const speedRatio = outwardSpeed / Math.max(config.detachLiftSpeed, 1e-6)
+  const upwardLift = Math.max(0, sample.localDisplacement.y)
+  const upwardSpeed = Math.max(0, sample.localVelocity.y)
+  const liftRatio = upwardLift / Math.max(config.detachLiftDistance, 1e-6)
+  const speedRatio = upwardSpeed / Math.max(config.detachLiftSpeed, 1e-6)
   const detachRatio = THREE.MathUtils.clamp(Math.max(liftRatio, speedRatio) - 1, 0, 1)
 
   target.axis = normalizeAxis(sample.localDisplacement.x, config.moveDeadzone, config.moveMaxDistance)
   target.tangent = normalizeAxis(sample.localDisplacement.z, config.moveDeadzone, config.moveMaxDistance)
   target.lift = THREE.MathUtils.clamp(Math.max(liftRatio, speedRatio), 0, 1)
-  target.detachRequested = liftRatio >= 1 && speedRatio >= 1
+  target.detachRequested = liftRatio >= 1 && upwardSpeed > 0.05
 
   if (target.detachRequested) {
     const launchSpeed = THREE.MathUtils.lerp(
@@ -224,7 +257,7 @@ export const resolveAttachedClutchIntent = (
       config.maxLaunchSpeed,
       detachRatio
     )
-    launchVector.set(0, -launchSpeed, 0).applyQuaternion(sample.controlFrameWorldQuaternion)
+    launchVector.set(0, launchSpeed, 0).applyQuaternion(sample.controlFrameWorldQuaternion)
     target.detachLaunchVelocity.copy(launchVector)
   } else {
     target.detachLaunchVelocity.set(0, 0, 0)
@@ -273,6 +306,23 @@ export const resolveRotationClutchIntent = (
     config.maxAngleRadians
   )
   return target
+}
+
+export const applyRotationAxisProfile = (
+  value: number,
+  deadzone: number,
+  gain = 1
+) => {
+  const magnitude = Math.abs(value)
+
+  if (magnitude <= deadzone) {
+    return 0
+  }
+
+  const normalized =
+    (magnitude - deadzone) / Math.max(1 - deadzone, 1e-6)
+
+  return THREE.MathUtils.clamp(normalized * gain, 0, 1) * Math.sign(value)
 }
 
 const normalizeAxis = (value: number, deadzone: number, maxDistance: number) => {

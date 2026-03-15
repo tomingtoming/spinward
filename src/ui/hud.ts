@@ -93,7 +93,6 @@ export const createHud = (): HudHandle => {
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
-        `wall ${snapshot.wallSectors.visible ? 'viz' : 'hid'} ${snapshot.wallSectors.activeCount}/${snapshot.wallSectors.totalCount} | ` +
         `night ${snapshot.nightLighting.enabled ? snapshot.nightLighting.mode : 'off'} ` +
         `I${snapshot.nightLighting.intensity.toFixed(2)} D${snapshot.nightLighting.density.toFixed(2)} | ` +
         `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +

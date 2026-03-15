@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
 import {
+  applyRotationAxisProfile,
   createAttachedClutchIntent,
   createHandClutchSample,
   createHandClutchState,
@@ -9,6 +10,7 @@ import {
   DEFAULT_ATTACHED_CLUTCH_CONFIG,
   DEFAULT_FREE_FLY_CLUTCH_CONFIG,
   DEFAULT_ROTATION_CLUTCH_CONFIG,
+  rebaseHandClutchState,
   resolveAttachedClutchIntent,
   resolveFreeFlyClutchThrust,
   resolveRotationClutchIntent,
@@ -98,6 +100,55 @@ test('sampleHandClutch anchor follows the control frame world position', () => {
   expect(sample.localDisplacement.length()).toBeCloseTo(0, 6)
 })
 
+test('rebaseHandClutchState preserves displacement across a control-frame change', () => {
+  const state = createHandClutchState()
+  const sample = createHandClutchSample()
+  const identity = new THREE.Quaternion()
+
+  sampleHandClutch(
+    state,
+    true,
+    new THREE.Vector3(1.3, 0.2, 0),
+    identity,
+    new THREE.Vector3(1, 0, 0),
+    identity,
+    0.1,
+    sample
+  )
+  sampleHandClutch(
+    state,
+    true,
+    new THREE.Vector3(1.3, 0.32, 0),
+    identity,
+    new THREE.Vector3(1, 0, 0),
+    identity,
+    0.1,
+    sample
+  )
+
+  rebaseHandClutchState(
+    state,
+    new THREE.Vector3(1.5, 0.52, 0),
+    identity,
+    new THREE.Vector3(1.2, 0.2, 0),
+    identity
+  )
+  sampleHandClutch(
+    state,
+    true,
+    new THREE.Vector3(1.5, 0.52, 0),
+    identity,
+    new THREE.Vector3(1.2, 0.2, 0),
+    identity,
+    0.1,
+    sample
+  )
+
+  expect(sample.localDisplacement.x).toBeCloseTo(0, 6)
+  expect(sample.localDisplacement.y).toBeCloseTo(0.12, 6)
+  expect(sample.localVelocity.length()).toBeCloseTo(0, 6)
+})
+
 test('resolveAttachedClutchIntent maps lateral hand motion onto wall movement', () => {
   const sample = createHandClutchSample()
   sample.active = true
@@ -129,23 +180,48 @@ test('resolveRotationClutchIntent maps local hand orientation into pitch yaw and
     createRotationClutchIntent()
   )
 
-  expect(intent.pitch).toBeGreaterThan(0.4)
-  expect(intent.yaw).toBeLessThan(-0.25)
-  expect(intent.roll).toBeGreaterThan(0.55)
+  expect(intent.pitch).toBeGreaterThan(0.25)
+  expect(intent.yaw).toBeLessThan(-0.15)
+  expect(intent.roll).toBeGreaterThan(0.35)
 })
 
-test('resolveAttachedClutchIntent requests detach on a strong outward lift', () => {
+test('resolveRotationClutchIntent keeps a small hand twist inside the deadzone', () => {
   const sample = createHandClutchSample()
   sample.active = true
-  sample.localDisplacement.set(0, -0.16, 0)
-  sample.localVelocity.set(0, -1.7, 0)
+  sample.localOrientationDelta.setFromEuler(
+    new THREE.Euler(
+      THREE.MathUtils.degToRad(4),
+      THREE.MathUtils.degToRad(-5),
+      THREE.MathUtils.degToRad(3),
+      'YXZ'
+    )
+  )
+
+  const intent = resolveRotationClutchIntent(sample)
+
+  expect(intent.pitch).toBeCloseTo(0, 6)
+  expect(intent.yaw).toBeCloseTo(0, 6)
+  expect(intent.roll).toBeCloseTo(0, 6)
+})
+
+test('applyRotationAxisProfile gives roll extra play and softer gain', () => {
+  expect(applyRotationAxisProfile(0.2, 0.24, 0.55)).toBeCloseTo(0, 6)
+  expect(applyRotationAxisProfile(0.5, 0.24, 0.55)).toBeGreaterThan(0)
+  expect(applyRotationAxisProfile(0.5, 0.24, 0.55)).toBeLessThan(0.25)
+})
+
+test('resolveAttachedClutchIntent requests detach on an upward lift of about 30cm', () => {
+  const sample = createHandClutchSample()
+  sample.active = true
+  sample.localDisplacement.set(0, 0.31, 0)
+  sample.localVelocity.set(0, 0.55, 0)
   sample.controlFrameWorldQuaternion.identity()
 
   const intent = resolveAttachedClutchIntent(sample, DEFAULT_ATTACHED_CLUTCH_CONFIG, createAttachedClutchIntent())
 
   expect(intent.detachRequested).toBe(true)
   expect(intent.detachLaunchVelocity.x).toBeCloseTo(0, 6)
-  expect(intent.detachLaunchVelocity.y).toBeLessThan(-2)
+  expect(intent.detachLaunchVelocity.y).toBeGreaterThan(2)
   expect(intent.detachLaunchVelocity.z).toBeCloseTo(0, 6)
 })
 
