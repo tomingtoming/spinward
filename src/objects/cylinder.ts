@@ -1,4 +1,8 @@
 import * as THREE from 'three'
+import {
+  createCylinderSurfaceTexture,
+  getCylinderSurfaceRepeat
+} from './cylinderSurface'
 
 type CylinderDimensions = {
   radius: number
@@ -58,9 +62,11 @@ export const quantizeCylinderShellFocus = (
 export class CylinderHabitat {
   readonly group = new THREE.Group()
   readonly shellGroup = new THREE.Group()
+  private readonly shellTexture = createCylinderSurfaceTexture()
 
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x243447,
+    map: this.shellTexture,
     side: THREE.BackSide,
     transparent: true,
     opacity: 0.92,
@@ -70,6 +76,7 @@ export class CylinderHabitat {
 
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x1a2532,
+    map: this.shellTexture,
     side: THREE.BackSide,
     transparent: true,
     opacity: 0.84,
@@ -160,6 +167,13 @@ export class CylinderHabitat {
     if (this.farShell !== null) {
       this.shellGroup.remove(this.farShell)
     }
+
+    const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
+    this.shellTexture.repeat.set(
+      surfaceRepeat.circumferential,
+      surfaceRepeat.axial
+    )
+    this.shellTexture.needsUpdate = true
 
     const shellArcs = splitCylinderShellArcs(this.shellFocusAzimuth)
 

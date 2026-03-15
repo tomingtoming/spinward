@@ -120,6 +120,7 @@ a_cf = -(Ω × (Ω × r))
 - 固定物 collider は別設計です。主内壁は解析接触と Rapier 補助で扱い、airlock などの固定物は「プレーヤーと球の近傍 sector だけ有効化する streaming collider」で扱います。
 - 主内壁の Rapier 補助 wall も全周固定ではなく、プレーヤーと球の近傍 azimuth sector だけ高密度 panel を有効化します。大半径 preset でも接触法線の荒さを抑える意図です。
 - 主内壁の描画も near/far shell に分けています。プレーヤー周辺の内壁は高分割、遠方は低分割の shell にして、近景を優先しつつ遠方コストを抑えています。
+- 内壁 shell には procedural の surface texture を貼っていて、約 10m 級のパネル継ぎ目と 40m 級の大区画を繰り返し表示します。アセットを増やさず、接地面の距離感を出す意図です。
 
 ## 単位ルール
 
