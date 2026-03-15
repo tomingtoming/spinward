@@ -34,8 +34,7 @@ const expectVectorCloseTo = (actual: THREE.Vector3, expected: THREE.Vector3) => 
 
 test('stepAttachedPlayer transitions to free-fly after crossing the opening', () => {
   const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1.2)
-  const bodyRadius = getPlayerBodyRadius(10)
-  const expectedVelocity = new THREE.Vector3(0, 2, -bodyRadius * 1.2).applyAxisAngle(
+  const expectedVelocity = new THREE.Vector3(0, 2, -10 * 1.2).applyAxisAngle(
     new THREE.Vector3(0, 1, 0),
     0.6
   )
@@ -52,6 +51,34 @@ test('stepAttachedPlayer transitions to free-fly after crossing the opening', ()
 
   expect(state.mode).toBe('free-fly')
   expect(state.surface.axialPosition).toBeCloseTo(9.4, 6)
+  expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
+})
+
+test('attached traversal seeds free-fly with the visible wall transport speed', () => {
+  const radius = 3200
+  const omega = 0.05535
+  const frameAngleEnd = 0.45
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, 0, omega)
+  const expectedVelocity = new THREE.Vector3(0, 0, -radius * omega).applyAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    frameAngleEnd
+  )
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 0,
+    tangentDistanceDelta: 0,
+    radius,
+    length: 40000,
+    deltaSeconds: 0.5,
+    omega,
+    frameAngleEnd
+  })
+  detachPlayerToFreeFly(state, {
+    launchVelocity: new THREE.Vector3(0, 0, 0),
+    frameAngle: frameAngleEnd
+  })
+
+  expect(state.mode).toBe('free-fly')
   expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
 })
 

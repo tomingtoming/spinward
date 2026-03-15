@@ -108,6 +108,8 @@ type ReattachAssistConfig = ReattachPlayerConfig & {
 
 const previousRotatingPosition = new THREE.Vector3()
 const nextRotatingPosition = new THREE.Vector3()
+const previousVisibleRotatingPosition = new THREE.Vector3()
+const nextVisibleRotatingPosition = new THREE.Vector3()
 const rotatingVelocity = new THREE.Vector3()
 const inertialAcceleration = new THREE.Vector3()
 const inertialLaunchVelocity = new THREE.Vector3()
@@ -235,6 +237,7 @@ export const stepAttachedPlayer = (
 
   const bodyRadius = getPlayerBodyRadius(config.radius)
   getSurfacePosition(state.surface, bodyRadius, previousRotatingPosition)
+  getSurfacePosition(state.surface, config.radius, previousVisibleRotatingPosition)
   moveSurfaceRigState(
     state.surface,
     config.axisDistanceDelta,
@@ -244,11 +247,12 @@ export const stepAttachedPlayer = (
     { capEnds: false }
   )
   getSurfacePosition(state.surface, bodyRadius, nextRotatingPosition)
+  getSurfacePosition(state.surface, config.radius, nextVisibleRotatingPosition)
 
   if (config.deltaSeconds > 0) {
     rotatingVelocity
-      .copy(nextRotatingPosition)
-      .sub(previousRotatingPosition)
+      .copy(nextVisibleRotatingPosition)
+      .sub(previousVisibleRotatingPosition)
       .divideScalar(config.deltaSeconds)
   } else {
     rotatingVelocity.set(0, 0, 0)
@@ -584,8 +588,9 @@ const syncAttachedInertialState = (
 ) => {
   getSurfacePosition(state.surface, getPlayerBodyRadius(radius), nextRotatingPosition)
   rotatingPositionToInertial(nextRotatingPosition, frameAngle, state.inertialPosition)
+  getSurfacePosition(state.surface, radius, previousVisibleRotatingPosition)
   rotatingVelocityToInertial(
-    nextRotatingPosition,
+    previousVisibleRotatingPosition,
     currentRotatingVelocity,
     omega,
     frameAngle,
