@@ -116,6 +116,7 @@ a_cf = -(Ω × (Ω × r))
 - XR 中は FarField の実効品質を自動で絞ります。layer 数は最大 2、texture は 256 か 512、帯メッシュ分割も desktop より少なくします。見た目よりフレーム維持を優先します。
 - FarField は描画専用です。Rapier collider も Raycast UI 対象も持たず、プレイヤーや球の物理には影響しません。
 - 固定物 collider は別設計です。主内壁は解析接触と Rapier 補助で扱い、airlock などの固定物は「プレーヤーと球の近傍 sector だけ有効化する streaming collider」で扱います。
+- 主内壁の Rapier 補助 wall も全周固定ではなく、プレーヤーと球の近傍 azimuth sector だけ高密度 panel を有効化します。大半径 preset でも接触法線の荒さを抑える意図です。
 
 ## 単位ルール
 
@@ -148,6 +149,7 @@ a_cf = -(Ω × (Ω × r))
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
 - 反対側の町並み帯と夜景 emissive を持つ FarField レイヤ
 - 固定物用の近傍 streaming collider scaffold（現在は airlock 周辺）
+- 主内壁の近傍 streaming wall collider
 - `Izma / Cooper / Elysium` preset と `real / simScale` 分離
 - 内壁中央 / 軸端の 2 種 respawn
 - `colony-fixed / inertial-fixed` の observer mode

@@ -37,7 +37,7 @@ import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { FixedColliderManager } from '../physics/fixedColliderManager'
 import { initRapier } from '../physics/rapierContext'
-import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { StreamingCylinderWall } from '../physics/streamingCylinderWall'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
@@ -145,11 +145,7 @@ export const bootstrapApp = async () => {
   physicsWorld.maxCcdSubsteps = 4
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const getUnits = () => createUnitsContext(habitatConfig.simScale)
-  const rotatingCylinder = createRotatingCylinderBody(rapier, physicsWorld, {
-    radius: habitatConfig.radius,
-    length: getHabitatSpanMeters(),
-    units: getUnits()
-  })
+  const rotatingCylinder = new StreamingCylinderWall(rapier, physicsWorld, getUnits())
   const fixedColliderManager = new FixedColliderManager(rapier, physicsWorld, getUnits())
 
   const restitution = 0.55
@@ -601,6 +597,7 @@ export const bootstrapApp = async () => {
     fixedColliderManager.syncToFrame(frameAngle)
     fixedColliderManager.updateActiveColliders(activeFixedColliderPositions)
     rotatingCylinder.syncToFrame(frameAngle)
+    rotatingCylinder.updateActiveSectors(activeFixedColliderPositions)
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
