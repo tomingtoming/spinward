@@ -15,8 +15,10 @@ import { renderWatchExpanded, renderWatchStatus } from './watchRenderer'
 
 const STATUS_SCALE = new THREE.Vector3(0.14, 0.075, 1)
 const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.32, 1)
-const WRIST_OFFSET = new THREE.Vector3(-0.016, -0.036, -0.014)
+const WRIST_OFFSET = new THREE.Vector3(-0.046, -0.022, -0.072)
 const BASE_PANEL_ROTATION = new THREE.Euler(-1.42, -0.12, -1.28)
+const STATUS_LOCAL_OFFSET = new THREE.Vector3(-0.032, -0.004, 0)
+const EXPANDED_LOCAL_OFFSET = new THREE.Vector3(0.176, 0.012, 0)
 
 const anchorPosition = new THREE.Vector3()
 const anchorQuaternion = new THREE.Quaternion()
@@ -77,7 +79,8 @@ export class WatchPanel {
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
     this.statusMesh.scale.copy(STATUS_SCALE)
     this.expandedMesh.scale.copy(EXPANDED_SCALE)
-    this.expandedMesh.position.set(0, 0, 0)
+    this.statusMesh.position.copy(STATUS_LOCAL_OFFSET)
+    this.expandedMesh.position.copy(EXPANDED_LOCAL_OFFSET)
     this.expandedMesh.visible = true
     this.statusMesh.visible = false
     this.group.renderOrder = 30
