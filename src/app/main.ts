@@ -330,6 +330,7 @@ export const bootstrapApp = async () => {
       radius: habitatConfig.radius,
       length: habitatSpan
     })
+    habitat.setFocusAzimuth(0)
     starfield.setDimensions({
       radius: habitatConfig.radius,
       length: habitatSpan
@@ -591,6 +592,9 @@ export const bootstrapApp = async () => {
     }
 
     activeFixedColliderPositions.push(playerFixedColliderPosition)
+    habitat.setFocusAzimuth(
+      Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
+    )
 
     for (const ball of balls) {
       if (!ball.isGrabbed) {

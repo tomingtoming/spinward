@@ -5,16 +5,76 @@ type CylinderDimensions = {
   length: number
 }
 
+type CylinderShellArc = {
+  thetaStart: number
+  arcRadians: number
+}
+
+const fullTurn = Math.PI * 2
+const defaultNearArcRadians = THREE.MathUtils.degToRad(140)
+const defaultFocusStepRadians = THREE.MathUtils.degToRad(7.5)
+const nearShellSegments = 192
+const farShellSegments = 40
+
+export const normalizeCylinderAzimuth = (azimuth: number) =>
+  THREE.MathUtils.euclideanModulo(azimuth, fullTurn)
+
+const getCylinderThetaStart = (centerAzimuth: number, arcRadians: number) =>
+  THREE.MathUtils.euclideanModulo(
+    Math.PI * 0.5 - centerAzimuth - arcRadians * 0.5,
+    fullTurn
+  )
+
+export const splitCylinderShellArcs = (
+  focusAzimuth: number,
+  nearArcRadians = defaultNearArcRadians
+) => {
+  const normalizedFocus = normalizeCylinderAzimuth(focusAzimuth)
+  const clampedNearArc = THREE.MathUtils.clamp(nearArcRadians, Math.PI / 6, fullTurn - Math.PI / 6)
+  const farArcRadians = fullTurn - clampedNearArc
+
+  return {
+    near: {
+      thetaStart: getCylinderThetaStart(normalizedFocus, clampedNearArc),
+      arcRadians: clampedNearArc
+    } satisfies CylinderShellArc,
+    far: {
+      thetaStart: getCylinderThetaStart(normalizedFocus + Math.PI, farArcRadians),
+      arcRadians: farArcRadians
+    } satisfies CylinderShellArc
+  }
+}
+
+export const quantizeCylinderShellFocus = (
+  focusAzimuth: number,
+  stepRadians = defaultFocusStepRadians
+) => {
+  const normalizedFocus = normalizeCylinderAzimuth(focusAzimuth)
+  return normalizeCylinderAzimuth(
+    Math.round(normalizedFocus / stepRadians) * stepRadians
+  )
+}
+
 export class CylinderHabitat {
   readonly group = new THREE.Group()
+  readonly shellGroup = new THREE.Group()
 
-  private readonly shellMaterial = new THREE.MeshStandardMaterial({
+  private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x243447,
     side: THREE.BackSide,
     transparent: true,
     opacity: 0.92,
     roughness: 0.9,
     metalness: 0.05
+  })
+
+  private readonly farShellMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1a2532,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0.84,
+    roughness: 0.95,
+    metalness: 0.03
   })
 
   private readonly guideMaterial = new THREE.LineBasicMaterial({
@@ -51,32 +111,87 @@ export class CylinderHabitat {
     emissive: 0x78350f
   })
 
-  private shell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
+  private nearShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
+  private farShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
+  private radius = 0
+  private length = 0
+  private shellFocusAzimuth = 0
 
   constructor(dimensions: CylinderDimensions) {
+    this.group.add(this.shellGroup)
     this.group.add(this.guides)
     this.group.add(this.landmarks)
     this.setDimensions(dimensions)
   }
 
   setDimensions({ radius, length }: CylinderDimensions) {
-    this.shell?.geometry.dispose()
-    this.group.remove(this.shell ?? this.guides)
+    this.radius = radius
+    this.length = length
 
-    this.shell = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, length, 96, 1, true),
-      this.shellMaterial
-    )
-    this.group.add(this.shell)
-    this.group.add(this.guides)
-    this.group.add(this.landmarks)
+    this.rebuildShells()
 
     this.rebuildGuides(radius, length)
     this.rebuildStartMarker(radius)
     this.rebuildLandmarks(radius, length)
+  }
+
+  setFocusAzimuth(focusAzimuth: number) {
+    const quantizedFocus = quantizeCylinderShellFocus(focusAzimuth)
+
+    if (quantizedFocus === this.shellFocusAzimuth) {
+      return
+    }
+
+    this.shellFocusAzimuth = quantizedFocus
+    this.rebuildShells()
+  }
+
+  private rebuildShells() {
+    this.nearShell?.geometry.dispose()
+    this.farShell?.geometry.dispose()
+
+    if (this.nearShell !== null) {
+      this.shellGroup.remove(this.nearShell)
+    }
+
+    if (this.farShell !== null) {
+      this.shellGroup.remove(this.farShell)
+    }
+
+    const shellArcs = splitCylinderShellArcs(this.shellFocusAzimuth)
+
+    this.nearShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        this.radius,
+        this.radius,
+        this.length,
+        nearShellSegments,
+        1,
+        true,
+        shellArcs.near.thetaStart,
+        shellArcs.near.arcRadians
+      ),
+      this.nearShellMaterial
+    )
+    this.farShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        this.radius,
+        this.radius,
+        this.length,
+        farShellSegments,
+        1,
+        true,
+        shellArcs.far.thetaStart,
+        shellArcs.far.arcRadians
+      ),
+      this.farShellMaterial
+    )
+
+    this.shellGroup.add(this.farShell)
+    this.shellGroup.add(this.nearShell)
   }
 
   private rebuildGuides(radius: number, length: number) {
