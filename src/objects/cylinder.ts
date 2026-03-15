@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import {
   createCylinderNightLightPlan,
   createCylinderSurfaceTexture,
+  getCylinderNightLightRepeat,
+  getCylinderNightLightVisibilityBoost,
   getCylinderSurfaceRepeat,
   renderCylinderNightLightPlan
 } from './cylinderSurface'
@@ -267,9 +269,10 @@ export class CylinderHabitat {
       surfaceRepeat.axial
     )
     this.shellTexture.needsUpdate = true
+    const nightLightRepeat = getCylinderNightLightRepeat(this.radius, this.length)
     this.shellLightTexture.repeat.set(
-      surfaceRepeat.circumferential,
-      surfaceRepeat.axial
+      nightLightRepeat.circumferential,
+      nightLightRepeat.axial
     )
     this.shellLightTexture.needsUpdate = true
 
@@ -337,8 +340,11 @@ export class CylinderHabitat {
     )
     renderCylinderNightLightPlan(this.shellLightContext, plan)
     this.shellLightTexture.needsUpdate = true
-    this.nearShellMaterial.emissiveIntensity = this.nightLighting.intensity * 0.12
-    this.farShellMaterial.emissiveIntensity = this.nightLighting.intensity * 0.78
+    const visibilityBoost = getCylinderNightLightVisibilityBoost(this.radius)
+    this.nearShellMaterial.emissiveIntensity =
+      this.nightLighting.intensity * 0.08 * Math.min(1.05, visibilityBoost)
+    this.farShellMaterial.emissiveIntensity =
+      this.nightLighting.intensity * 0.82 * visibilityBoost
   }
 
   private computeNightSeed() {

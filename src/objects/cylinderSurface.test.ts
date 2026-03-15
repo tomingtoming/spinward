@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test'
 
 import {
   createCylinderNightLightPlan,
+  getCylinderNightLightRepeat,
+  getCylinderNightLightVisibilityBoost,
   getCylinderSurfaceRepeat
 } from './cylinderSurface'
 
@@ -29,4 +31,20 @@ test('createCylinderNightLightPlan increases lit windows with density', () => {
 
   expect(darkPlan.lights).toHaveLength(0)
   expect(brightPlan.lights.length).toBeGreaterThan(darkPlan.lights.length)
+})
+
+test('getCylinderNightLightRepeat uses larger districts on larger habitats', () => {
+  const compact = getCylinderNightLightRepeat(100, 1000)
+  const massive = getCylinderNightLightRepeat(30000, 2000)
+
+  expect(compact.circumferential).toBeGreaterThanOrEqual(1)
+  expect(massive.circumferential).toBeLessThan(getCylinderSurfaceRepeat(30000, 2000).circumferential)
+  expect(massive.axial).toBeLessThan(getCylinderSurfaceRepeat(30000, 2000).axial)
+})
+
+test('getCylinderNightLightVisibilityBoost grows with radius within a safe clamp', () => {
+  expect(getCylinderNightLightVisibilityBoost(100)).toBeLessThan(
+    getCylinderNightLightVisibilityBoost(30000)
+  )
+  expect(getCylinderNightLightVisibilityBoost(30000)).toBeLessThanOrEqual(1.6)
 })

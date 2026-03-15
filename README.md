@@ -115,6 +115,7 @@ a_cf = -(Ω × (Ω × r))
 - `nearLayer` に近景、`skyLayer` に星空を分け、主内壁は near/far shell として描画します。`farLayer` は将来の遠景表現用 scaffold として残していますが、通常プレイでは使っていません。
 - Night では inner wall の emissive texture が光り、Day では発光を止めます。`Auto` は preset に応じて Izma/Cooper を夜、Elysium を昼へ寄せています。
 - `intensity` と `density` は内壁の窓明かり量に効き、`twinkle (s)` は emissive pattern の更新間隔です。
+- 大きい habitat では opposite wall の夜景が潰れないよう、night emissive だけは地面 texture より粗い district-scale repeat と visibility boost を使っています。
 - 内壁 shell には procedural の surface texture を貼っていて、約 10m 級のパネル継ぎ目と 40m 級の大区画を繰り返し表示します。アセットを増やさず、接地面の距離感を出す意図です。
 - 固定物 collider は別設計です。主内壁は解析接触と Rapier 補助で扱い、airlock などの固定物は「プレーヤーと球の近傍 sector だけ有効化する streaming collider」で扱います。
 - 主内壁の Rapier 補助 wall も全周固定ではなく、プレーヤーと球の近傍 azimuth sector だけ高密度 panel を有効化します。大半径 preset でも接触法線の荒さを抑える意図です。
