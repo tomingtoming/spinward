@@ -76,17 +76,30 @@ export const quantizeCylinderShellFocus = (
   )
 }
 
+export const resolveCylinderShellUvTransform = (
+  totalRepeat: number,
+  shellArc: CylinderShellArc
+) => ({
+  repeatX: totalRepeat * (shellArc.arcRadians / fullTurn),
+  offsetX: THREE.MathUtils.euclideanModulo(
+    totalRepeat * (shellArc.thetaStart / fullTurn),
+    1
+  )
+})
+
 export class CylinderHabitat {
   readonly group = new THREE.Group()
   readonly shellGroup = new THREE.Group()
-  private readonly shellTexture = createCylinderSurfaceTexture()
+  private readonly nearShellTexture = createCylinderSurfaceTexture()
+  private readonly farShellTexture = createCylinderSurfaceTexture()
   private readonly shellLightCanvas = document.createElement('canvas')
   private readonly shellLightContext
-  private readonly shellLightTexture
+  private readonly nearShellLightTexture
+  private readonly farShellLightTexture
 
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x243447,
-    map: this.shellTexture,
+    map: this.nearShellTexture,
     emissiveMap: null,
     emissive: new THREE.Color(0xffffff),
     side: THREE.BackSide,
@@ -98,7 +111,7 @@ export class CylinderHabitat {
 
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x1a2532,
-    map: this.shellTexture,
+    map: this.farShellTexture,
     emissiveMap: null,
     emissive: new THREE.Color(0xffffff),
     side: THREE.BackSide,
@@ -172,13 +185,18 @@ export class CylinderHabitat {
     }
 
     this.shellLightContext = lightContext
-    this.shellLightTexture = new THREE.CanvasTexture(this.shellLightCanvas)
-    this.shellLightTexture.colorSpace = THREE.SRGBColorSpace
-    this.shellLightTexture.wrapS = THREE.RepeatWrapping
-    this.shellLightTexture.wrapT = THREE.RepeatWrapping
-    this.shellLightTexture.anisotropy = 4
-    this.nearShellMaterial.emissiveMap = this.shellLightTexture
-    this.farShellMaterial.emissiveMap = this.shellLightTexture
+    this.nearShellLightTexture = new THREE.CanvasTexture(this.shellLightCanvas)
+    this.farShellLightTexture = new THREE.CanvasTexture(this.shellLightCanvas)
+    this.nearShellLightTexture.colorSpace = THREE.SRGBColorSpace
+    this.nearShellLightTexture.wrapS = THREE.RepeatWrapping
+    this.nearShellLightTexture.wrapT = THREE.RepeatWrapping
+    this.nearShellLightTexture.anisotropy = 4
+    this.farShellLightTexture.colorSpace = THREE.SRGBColorSpace
+    this.farShellLightTexture.wrapS = THREE.RepeatWrapping
+    this.farShellLightTexture.wrapT = THREE.RepeatWrapping
+    this.farShellLightTexture.anisotropy = 4
+    this.nearShellMaterial.emissiveMap = this.nearShellLightTexture
+    this.farShellMaterial.emissiveMap = this.farShellLightTexture
     this.group.add(this.shellGroup)
     this.group.add(this.guides)
     this.group.add(this.landmarks)
@@ -264,19 +282,38 @@ export class CylinderHabitat {
     }
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
-    this.shellTexture.repeat.set(
-      surfaceRepeat.circumferential,
-      surfaceRepeat.axial
-    )
-    this.shellTexture.needsUpdate = true
     const nightLightRepeat = getCylinderNightLightRepeat(this.radius, this.length)
-    this.shellLightTexture.repeat.set(
-      nightLightRepeat.circumferential,
-      nightLightRepeat.axial
-    )
-    this.shellLightTexture.needsUpdate = true
 
     const shellArcs = splitCylinderShellArcs(this.shellFocusAzimuth)
+    const nearSurfaceUv = resolveCylinderShellUvTransform(
+      surfaceRepeat.circumferential,
+      shellArcs.near
+    )
+    const farSurfaceUv = resolveCylinderShellUvTransform(
+      surfaceRepeat.circumferential,
+      shellArcs.far
+    )
+    const nearNightUv = resolveCylinderShellUvTransform(
+      nightLightRepeat.circumferential,
+      shellArcs.near
+    )
+    const farNightUv = resolveCylinderShellUvTransform(
+      nightLightRepeat.circumferential,
+      shellArcs.far
+    )
+
+    this.nearShellTexture.repeat.set(nearSurfaceUv.repeatX, surfaceRepeat.axial)
+    this.nearShellTexture.offset.set(nearSurfaceUv.offsetX, 0)
+    this.nearShellTexture.needsUpdate = true
+    this.farShellTexture.repeat.set(farSurfaceUv.repeatX, surfaceRepeat.axial)
+    this.farShellTexture.offset.set(farSurfaceUv.offsetX, 0)
+    this.farShellTexture.needsUpdate = true
+    this.nearShellLightTexture.repeat.set(nearNightUv.repeatX, nightLightRepeat.axial)
+    this.nearShellLightTexture.offset.set(nearNightUv.offsetX, 0)
+    this.nearShellLightTexture.needsUpdate = true
+    this.farShellLightTexture.repeat.set(farNightUv.repeatX, nightLightRepeat.axial)
+    this.farShellLightTexture.offset.set(farNightUv.offsetX, 0)
+    this.farShellLightTexture.needsUpdate = true
 
     this.nearShell = new THREE.Mesh(
       new THREE.CylinderGeometry(
@@ -325,9 +362,10 @@ export class CylinderHabitat {
         0,
         0,
         this.shellLightCanvas.width,
-        this.shellLightCanvas.height
+      this.shellLightCanvas.height
       )
-      this.shellLightTexture.needsUpdate = true
+      this.nearShellLightTexture.needsUpdate = true
+      this.farShellLightTexture.needsUpdate = true
       this.nearShellMaterial.emissiveIntensity = 0
       this.farShellMaterial.emissiveIntensity = 0
       return
@@ -339,7 +377,8 @@ export class CylinderHabitat {
       this.computeNightSeed()
     )
     renderCylinderNightLightPlan(this.shellLightContext, plan)
-    this.shellLightTexture.needsUpdate = true
+    this.nearShellLightTexture.needsUpdate = true
+    this.farShellLightTexture.needsUpdate = true
     const visibilityBoost = getCylinderNightLightVisibilityBoost(this.radius)
     this.nearShellMaterial.emissiveIntensity =
       this.nightLighting.intensity * 0.08 * Math.min(1.05, visibilityBoost)

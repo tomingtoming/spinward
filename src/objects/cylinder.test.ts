@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import {
   normalizeCylinderAzimuth,
   quantizeCylinderShellFocus,
+  resolveCylinderShellUvTransform,
   splitCylinderShellArcs
 } from './cylinder'
 
@@ -24,4 +25,14 @@ test('quantizeCylinderShellFocus snaps to stable angular buckets', () => {
 test('normalizeCylinderAzimuth wraps angles into the cylinder range', () => {
   expect(normalizeCylinderAzimuth(-Math.PI / 2)).toBeCloseTo(Math.PI * 1.5, 6)
   expect(normalizeCylinderAzimuth(Math.PI * 2.5)).toBeCloseTo(Math.PI * 0.5, 6)
+})
+
+test('resolveCylinderShellUvTransform anchors partial shell textures in world space', () => {
+  const transform = resolveCylinderShellUvTransform(40, {
+    thetaStart: Math.PI / 7,
+    arcRadians: Math.PI
+  })
+
+  expect(transform.repeatX).toBeCloseTo(20, 6)
+  expect(transform.offsetX).toBeCloseTo(40 / 14 - 2, 6)
 })
