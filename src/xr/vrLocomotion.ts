@@ -1,40 +1,60 @@
 import * as THREE from 'three'
 
-import { getForwardDirection } from '../app/forwardDirection'
 import { createLocomotionIntent } from '../app/locomotionIntent'
+import { HandClutchDebugView } from '../objects/handClutchDebug'
 import type { PlayerTraversalMode } from '../app/playerTraversal'
 import { inertialOrientationToRotating, rotatingOrientationToInertial } from '../sim/frameTransforms'
 import {
-  createJetpackAttitudeState,
-  getJetpackThrustDirection,
+  DEFAULT_ATTACHED_CLUTCH_CONFIG,
+  DEFAULT_FREE_FLY_CLUTCH_CONFIG,
+  DEFAULT_ROTATION_CLUTCH_CONFIG,
+  createAttachedClutchIntent,
+  createHandClutchSample,
+  createHandClutchState,
+  createRotationClutchIntent,
+  resolveAttachedClutchIntent,
+  resolveFreeFlyClutchThrust,
+  resolveRotationClutchIntent,
+  resetHandClutchState,
+  sampleHandClutch
+} from './handClutchLocomotion'
+import {
+  createJetpackAttitudeState as createJetpackOrientationState,
   integrateJetpackAttitudeOrientation,
   resetJetpackAttitude,
   seedJetpackAttitudeFromWorldAngularVelocity,
-  stepJetpackAttitude
+  stepJetpackAttitudeAxes
 } from './freeFlyJetpack'
 import type { XRControllerSpaces } from './grabSystem'
 import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
 
-const DEADZONE = 0.18
 const SNAP_TURN_RADIANS = Math.PI / 6
-const headForward = new THREE.Vector3()
-const headRight = new THREE.Vector3()
-const attachedMove = new THREE.Vector3()
-const freeFlyForward = new THREE.Vector3()
 const localUp = new THREE.Vector3(0, 1, 0)
-const inverseRigQuaternion = new THREE.Quaternion()
+const controlFrameQuaternion = new THREE.Quaternion()
+const controlFramePosition = new THREE.Vector3()
+const gripWorldPosition = new THREE.Vector3()
+const gripWorldQuaternion = new THREE.Quaternion()
 const playerRigWorldQuaternion = new THREE.Quaternion()
 const yawQuaternion = new THREE.Quaternion()
 const desiredWorldOrientation = new THREE.Quaternion()
 const worldAngularVelocity = new THREE.Vector3()
 const intent = createLocomotionIntent()
-const DETACH_LAUNCH_SPEED = 6
+const attachedClutchIntent = createAttachedClutchIntent()
+const clutchSample = createHandClutchSample()
+const clutchRotationIntent = createRotationClutchIntent()
+const freeFlyThrust = new THREE.Vector3()
+const FACE_BUTTON_THRESHOLD = 0.55
+const CLUTCH_THRESHOLD = 0.05
+const ATTACHED_YAW_SPEED = Math.PI * 0.95
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
+  private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
   private readonly snapTurnState = createSnapTurnState()
-  private readonly freeFlyAttitude = createJetpackAttitudeState()
+  private readonly freeFlyAttitude = createJetpackOrientationState()
+  private readonly clutchState = createHandClutchState()
   private readonly freeFlyInertialOrientation = new THREE.Quaternion()
+  readonly clutchDebug = new HandClutchDebugView()
   private previousPlayerMode: PlayerTraversalMode = 'attached'
   private snapYaw = 0
 
@@ -42,11 +62,12 @@ export class VRLocomotion {
     controllers: XRControllerSpaces[],
     private readonly playerRig: THREE.Group,
     private readonly viewRig: THREE.Group,
-    private readonly camera: THREE.PerspectiveCamera
+    _camera: THREE.PerspectiveCamera
   ) {
     this.viewRig.rotation.order = 'YXZ'
 
-    for (const { controller } of controllers) {
+    for (const { controller, grip } of controllers) {
+      this.gripByController.set(controller, grip)
       controller.addEventListener('connected', (event) => {
         this.inputSourceByController.set(controller, event.data)
       })
@@ -76,25 +97,26 @@ export class VRLocomotion {
 
     if (!xrActive) {
       resetJetpackAttitude(this.freeFlyAttitude)
+      resetHandClutchState(this.clutchState)
       this.freeFlyInertialOrientation.identity()
       this.previousPlayerMode = 'attached'
       this.applyAttachedView()
+      this.clutchDebug.update(null, 'attached')
       return intent
+    }
+
+    if (playerMode !== this.previousPlayerMode) {
+      resetHandClutchState(this.clutchState)
     }
 
     if (playerMode === 'free-fly' && this.previousPlayerMode !== 'free-fly') {
       this.captureFreeFlyInertialOrientation(frameAngle, omega)
     }
 
-    let moveAxisX = 0
-    let moveAxisY = 0
-    let leftRollAxis = 0
-    let leftPitchAxis = 0
     let leftAngularBrake = false
     let leftLinearBrake = false
-    let leftSqueeze = 0
-    let leftTrigger = 0
-    let leftAimController: THREE.XRTargetRaySpace | null = null
+    let leftClutchActive = false
+    let leftGripObject: THREE.XRGripSpace | null = null
     let snapAxisX = 0
     let snapAxisMagnitudeSq = 0
 
@@ -108,7 +130,11 @@ export class VRLocomotion {
       const [axisX, axisY] = this.readPrimaryStick(gamepad)
       const stickMagnitudeSq = axisX * axisX + axisY * axisY
 
-      if (inputSource.handedness === 'right' && stickMagnitudeSq > snapAxisMagnitudeSq) {
+      if (
+        playerMode === 'attached' &&
+        inputSource.handedness === 'right' &&
+        stickMagnitudeSq > snapAxisMagnitudeSq
+      ) {
         snapAxisMagnitudeSq = stickMagnitudeSq
         snapAxisX = axisX
       }
@@ -117,48 +143,45 @@ export class VRLocomotion {
         continue
       }
 
-      leftAimController = controller
-      leftTrigger = Math.max(leftTrigger, this.readTriggerValue(gamepad))
-      leftSqueeze = Math.max(leftSqueeze, this.readSqueezeValue(gamepad))
-
-      if (playerMode === 'attached') {
-        if (Math.abs(axisX) < DEADZONE && Math.abs(axisY) < DEADZONE) {
-          continue
-        }
-
-        moveAxisX += axisX
-        moveAxisY += axisY
-        continue
-      }
-
-      if (Math.abs(axisX) >= DEADZONE) {
-        leftRollAxis = axisX
-      }
-
-      if (Math.abs(axisY) >= DEADZONE) {
-        leftPitchAxis = axisY
-      }
-
-      leftLinearBrake ||= this.readThumbstickPress(gamepad)
-      leftAngularBrake ||= leftSqueeze > 0.05
+      leftGripObject = this.gripByController.get(controller) ?? null
+      leftClutchActive ||= this.readSqueezeValue(gamepad) > CLUTCH_THRESHOLD
+      leftAngularBrake ||= this.readFaceButton(gamepad, 4) > FACE_BUTTON_THRESHOLD
+      leftLinearBrake ||= this.readFaceButton(gamepad, 5) > FACE_BUTTON_THRESHOLD
     }
 
-    const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
+    const snapIntent = playerMode === 'attached'
+      ? consumeSnapTurn(snapAxisX, this.snapTurnState)
+      : 0
 
     if (snapIntent !== 0) {
       this.snapYaw -= snapIntent * SNAP_TURN_RADIANS
-
-      if (playerMode === 'free-fly') {
-        yawQuaternion.setFromAxisAngle(localUp, -snapIntent * SNAP_TURN_RADIANS)
-        this.freeFlyInertialOrientation.multiply(yawQuaternion).normalize()
-      }
     }
 
+    const clutchInput = this.sampleLeftGripClutch(
+      leftClutchActive,
+      leftGripObject,
+      playerMode,
+      deltaSeconds
+    )
+
     if (playerMode === 'free-fly') {
-      stepJetpackAttitude(
+      if (clutchInput !== null) {
+        resolveRotationClutchIntent(
+          clutchInput,
+          DEFAULT_ROTATION_CLUTCH_CONFIG,
+          clutchRotationIntent
+        )
+      } else {
+        clutchRotationIntent.pitch = 0
+        clutchRotationIntent.yaw = 0
+        clutchRotationIntent.roll = 0
+      }
+
+      stepJetpackAttitudeAxes(
         this.freeFlyAttitude,
-        leftRollAxis,
-        leftPitchAxis,
+        clutchRotationIntent.pitch,
+        clutchRotationIntent.yaw,
+        clutchRotationIntent.roll,
         deltaSeconds,
         leftAngularBrake
       )
@@ -167,15 +190,20 @@ export class VRLocomotion {
       this.previousPlayerMode = playerMode
       intent.freeFlyBrake = leftLinearBrake ? 1 : 0
 
-      if (leftAimController !== null && leftTrigger > 0.05) {
-        leftAimController.updateWorldMatrix(true, false)
-        getJetpackThrustDirection(
-          leftAimController.getWorldQuaternion(new THREE.Quaternion()),
-          freeFlyForward
+      if (clutchInput !== null) {
+        intent.freeFlyThrust.copy(
+          resolveFreeFlyClutchThrust(
+            clutchInput,
+            DEFAULT_FREE_FLY_CLUTCH_CONFIG,
+            freeFlyThrust
+          )
         )
-        intent.freeFlyThrust.copy(freeFlyForward).multiplyScalar(leftTrigger)
       }
 
+      this.clutchDebug.update(clutchInput, 'free-fly', {
+        linearBrake: leftLinearBrake,
+        angularBrake: leftAngularBrake
+      })
       return intent
     }
 
@@ -183,38 +211,38 @@ export class VRLocomotion {
     this.applyAttachedView()
     this.previousPlayerMode = playerMode
 
-    if (leftAimController !== null && leftTrigger > 0.05) {
-      leftAimController.updateWorldMatrix(true, false)
-      getJetpackThrustDirection(
-        leftAimController.getWorldQuaternion(new THREE.Quaternion()),
-        freeFlyForward
+    if (clutchInput !== null) {
+      resolveAttachedClutchIntent(
+        clutchInput,
+        DEFAULT_ATTACHED_CLUTCH_CONFIG,
+        attachedClutchIntent
       )
-      intent.detachRequested = true
-      intent.detachLaunchVelocity.copy(freeFlyForward).multiplyScalar(leftTrigger * DETACH_LAUNCH_SPEED)
-    }
-
-    attachedMove.set(0, 0, 0)
-    inverseRigQuaternion.copy(this.playerRig.getWorldQuaternion(new THREE.Quaternion())).invert()
-    headForward.copy(getForwardDirection(this.camera)).applyQuaternion(inverseRigQuaternion)
-    headForward.y = 0
-
-    if (headForward.lengthSq() < 1e-6) {
-      headForward.set(0, 0, -1)
+      resolveRotationClutchIntent(
+        clutchInput,
+        DEFAULT_ROTATION_CLUTCH_CONFIG,
+        clutchRotationIntent
+      )
+      intent.attachedAxis = attachedClutchIntent.axis
+      intent.attachedTangent = attachedClutchIntent.tangent
+      intent.detachRequested = attachedClutchIntent.detachRequested
+      intent.detachLaunchVelocity.copy(attachedClutchIntent.detachLaunchVelocity)
+      this.snapYaw += clutchRotationIntent.yaw * ATTACHED_YAW_SPEED * deltaSeconds
     } else {
-      headForward.normalize()
+      attachedClutchIntent.axis = 0
+      attachedClutchIntent.tangent = 0
+      attachedClutchIntent.lift = 0
+      attachedClutchIntent.detachRequested = false
+      attachedClutchIntent.detachLaunchVelocity.set(0, 0, 0)
+      clutchRotationIntent.pitch = 0
+      clutchRotationIntent.yaw = 0
+      clutchRotationIntent.roll = 0
     }
 
-    headRight.copy(headForward).cross(localUp).normalize()
-    attachedMove
-      .addScaledVector(headForward, -moveAxisY)
-      .addScaledVector(headRight, moveAxisX)
-
-    if (attachedMove.lengthSq() > 1) {
-      attachedMove.normalize()
-    }
-
-    intent.attachedAxis = attachedMove.x
-    intent.attachedTangent = attachedMove.z
+    this.clutchDebug.update(clutchInput, 'attached', {
+      detachReady: attachedClutchIntent.detachRequested || attachedClutchIntent.lift >= 0.85,
+      linearBrake: leftLinearBrake,
+      angularBrake: leftAngularBrake
+    })
     return intent
   }
 
@@ -228,16 +256,6 @@ export class VRLocomotion {
     return secondMagnitudeSq > firstMagnitudeSq ? secondPair : firstPair
   }
 
-  private readTriggerValue(gamepad: Gamepad) {
-    const trigger = gamepad.buttons[0]
-
-    if (trigger === undefined) {
-      return 0
-    }
-
-    return trigger.value ?? (trigger.pressed ? 1 : 0)
-  }
-
   private readSqueezeValue(gamepad: Gamepad) {
     const squeeze = gamepad.buttons[1]
 
@@ -248,17 +266,14 @@ export class VRLocomotion {
     return squeeze.value ?? (squeeze.pressed ? 1 : 0)
   }
 
-  private readThumbstickPress(gamepad: Gamepad) {
-    // xr-standard commonly exposes thumbstick click at index 3, with index 2 used by some profiles.
-    const thumbstick =
-      gamepad.buttons[3] ??
-      gamepad.buttons[2]
+  private readFaceButton(gamepad: Gamepad, index: number) {
+    const button = gamepad.buttons[index]
 
-    if (thumbstick === undefined) {
-      return false
+    if (button === undefined) {
+      return 0
     }
 
-    return thumbstick.pressed || (thumbstick.value ?? 0) > 0.5
+    return button.value ?? (button.pressed ? 1 : 0)
   }
 
   private applyFreeFlyAttitude(frameAngle: number) {
@@ -288,5 +303,52 @@ export class VRLocomotion {
       this.freeFlyInertialOrientation,
       worldAngularVelocity.set(0, omega, 0)
     )
+  }
+
+  private sampleLeftGripClutch(
+    clutchActive: boolean,
+    leftGrip: THREE.XRGripSpace | null,
+    playerMode: PlayerTraversalMode,
+    deltaSeconds: number
+  ) {
+    if (!clutchActive || leftGrip === null) {
+      const inactiveSample = sampleHandClutch(
+        this.clutchState,
+        false,
+        null,
+        null,
+        null,
+        null,
+        deltaSeconds,
+        clutchSample
+      )
+      return inactiveSample.active ? inactiveSample : null
+    }
+
+    leftGrip.updateWorldMatrix(true, false)
+    leftGrip.getWorldPosition(gripWorldPosition)
+    leftGrip.getWorldQuaternion(gripWorldQuaternion)
+
+    if (playerMode === 'attached') {
+      this.playerRig.updateWorldMatrix(true, false)
+      this.playerRig.getWorldPosition(controlFramePosition)
+      this.playerRig.getWorldQuaternion(controlFrameQuaternion)
+    } else {
+      this.viewRig.updateWorldMatrix(true, false)
+      this.viewRig.getWorldPosition(controlFramePosition)
+      this.viewRig.getWorldQuaternion(controlFrameQuaternion)
+    }
+
+    const sample = sampleHandClutch(
+      this.clutchState,
+      true,
+      gripWorldPosition,
+      gripWorldQuaternion,
+      controlFramePosition,
+      controlFrameQuaternion,
+      deltaSeconds,
+      clutchSample
+    )
+    return sample.active ? sample : null
   }
 }

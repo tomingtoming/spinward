@@ -33,19 +33,17 @@ bun run preview -- --host 0.0.0.0
 
 - VR: 何もない空間でトリガーを引くと手元に球を生成し、そのまま掴みます。
 - VR: 左右の手は独立しているので、同時に別々の球を持って投げられます。
-- VR: 内壁にいる間は左スティックで歩行します。
-- VR: 内壁にいる間でも左トリガーで壁から離陸して `free-fly` に入れます。
-- VR: `free-fly` 中は左トリガーで左手の向きへ加速します。
-- VR: `free-fly` 中は左スティック押し込みで平行移動 brake を掛け、ドッキング前に速度を落とせます。
-- VR: `free-fly` 中は左スティック左右でロール角速度、前後でピッチ角速度を与えます。
-- VR: `free-fly` 中は左 grip で回転 brake を掛け、現在の角速度を徐々に落とせます。
+- VR: 左 grip を押している間が locomotion clutch です。手元に出る小さな軸とラインが、今の相対入力を示します。
+- VR: `attached` 中は、左 grip を握ったまま手を壁面に沿って動かすと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ強く持ち上げると、そのまま `free-fly` へ離陸します。
+- VR: `free-fly` 中は、左 grip を握ったまま手を前後左右上下へずらすと、その方向へ推進します。手首の pitch / yaw / roll 差分はそのまま回転入力になります。
+- VR: `free-fly` 中は左 `X` で回転 brake、左 `Y` で平行移動 brake を掛けられます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
 - VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Night Surface` の `on/off`, `day/night/auto`, `intensity` を変更できます。内壁 shell 自体の発光と twinkle に効きます。
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。cylinder では開口端の回転軸上、ring では中心へ 0g respawn します。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
-- VR: 右スティック左右で `snap turn` できます。
+- VR: 右スティック左右の `snap turn` は `attached` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
 - VR: 球のトリガーを離すと放します。球はその時のコントローラ速度から投げ速度を決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
 - VR: 球を握っている間は、チャージ量に応じて色がオレンジから水色へ変わります。
@@ -69,7 +67,7 @@ bun run preview -- --host 0.0.0.0
 - HUD: 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を表示します。誤差がしきい値を超えると `Frame mismatch!` を出します。
 - HUD: `wall viz active/total` で、主内壁 streaming collider の現在 active な sector 数を確認できます。
 - landing assist は弱く入っているだけなので、壁相対速度が高いままだと再アタッチせず、そのまま滑るか跳ね返ります。
-- `free-fly` 中の左トリガーは jetpack 優先なので、左手の空中トリガーで球は生成しません。右手側の投擲はそのまま使えます。
+- `free-fly` 中は左手が locomotion 専用なので、球生成と投擲は右手側へ寄せています。
 
 ## 座標系と式
 

@@ -218,6 +218,7 @@ export const bootstrapApp = async () => {
     viewRig,
     camera
   )
+  nearLayer.add(vrLocomotion.clutchDebug.group)
   const xrInputMap = new XRInputMap(grabSystem.getControllers())
   const watchPanel = new WatchPanel((action) => handleWatchAction(action))
   const laserPointer = new LaserPointer()
@@ -823,6 +824,7 @@ export const bootstrapApp = async () => {
     rotatingCylinder.dispose()
     fixedColliderManager.dispose()
     streamingWallDebug.dispose()
+    vrLocomotion?.clutchDebug.dispose()
     physicsWorld.free()
     debugGui.destroy()
   })

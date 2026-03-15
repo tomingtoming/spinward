@@ -7,7 +7,8 @@ import {
   integrateJetpackAttitudeOrientation,
   resetJetpackAttitude,
   seedJetpackAttitudeFromWorldAngularVelocity,
-  stepJetpackAttitude
+  stepJetpackAttitude,
+  stepJetpackAttitudeAxes
 } from './freeFlyJetpack'
 
 test('getJetpackThrustDirection follows the hand forward axis', () => {
@@ -35,6 +36,16 @@ test('stepJetpackAttitude adds pitch angular velocity from stick Y input', () =>
   stepJetpackAttitude(state, 0, -1, 0.5)
 
   expect(state.angularVelocity.x).toBeLessThan(-2.3)
+  expect(state.angularVelocity.z).toBeCloseTo(0, 6)
+})
+
+test('stepJetpackAttitudeAxes adds yaw angular velocity from hand orientation input', () => {
+  const state = createJetpackAttitudeState()
+
+  stepJetpackAttitudeAxes(state, 0, 1, 0, 0.5)
+
+  expect(state.angularVelocity.y).toBeGreaterThan(2.3)
+  expect(state.angularVelocity.x).toBeCloseTo(0, 6)
   expect(state.angularVelocity.z).toBeCloseTo(0, 6)
 })
 

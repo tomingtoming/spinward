@@ -29,12 +29,23 @@ export const stepJetpackAttitude = (
   stickY: number,
   deltaSeconds: number,
   brake = false
-) => {
-  const normalizedX = normalizeStick(stickX)
-  const normalizedY = normalizeStick(stickY)
+) => stepJetpackAttitudeAxes(state, stickY, 0, -stickX, deltaSeconds, brake)
 
-  state.angularVelocity.x += normalizedY * ANGULAR_ACCELERATION * deltaSeconds
-  state.angularVelocity.z -= normalizedX * ANGULAR_ACCELERATION * deltaSeconds
+export const stepJetpackAttitudeAxes = (
+  state: JetpackAttitudeState,
+  pitchInput: number,
+  yawInput: number,
+  rollInput: number,
+  deltaSeconds: number,
+  brake = false
+) => {
+  const normalizedPitch = normalizeStick(pitchInput)
+  const normalizedYaw = normalizeStick(yawInput)
+  const normalizedRoll = normalizeStick(rollInput)
+
+  state.angularVelocity.x += normalizedPitch * ANGULAR_ACCELERATION * deltaSeconds
+  state.angularVelocity.y += normalizedYaw * ANGULAR_ACCELERATION * deltaSeconds
+  state.angularVelocity.z += normalizedRoll * ANGULAR_ACCELERATION * deltaSeconds
 
   if (state.angularVelocity.lengthSq() > MAX_ANGULAR_SPEED * MAX_ANGULAR_SPEED) {
     state.angularVelocity.setLength(MAX_ANGULAR_SPEED)

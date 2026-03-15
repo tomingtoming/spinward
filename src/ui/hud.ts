@@ -65,7 +65,7 @@ export const createHud = (): HudHandle => {
   const controls = document.createElement('div')
   controls.className = 'hud__controls'
   controls.textContent =
-    'VR: left wrist watch stays open, right trigger clicks it only while aiming at the panel, otherwise throws; attached=left stick walk, left trigger launch; free-fly=left trigger thrust, left grip attitude brake, left stick click slow, left stick X roll/Y pitch, right stick snap turn | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
+    'VR: left wrist watch stays open, right trigger clicks it only while aiming at the panel, otherwise throws; attached=hold left grip, move the hand to walk, twist left/right to yaw, lift it outward to launch, right stick=snap turn; free-fly=hold left grip, move the hand to thrust, twist it for pitch/yaw/roll, left X=angular brake, left Y=linear brake | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
 
   root.append(stats, controls)
   document.body.append(root)
