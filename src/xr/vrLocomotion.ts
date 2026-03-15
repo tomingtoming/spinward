@@ -9,6 +9,7 @@ import {
   getJetpackThrustDirection,
   integrateJetpackAttitudeOrientation,
   resetJetpackAttitude,
+  seedJetpackAttitudeFromWorldAngularVelocity,
   stepJetpackAttitude
 } from './freeFlyJetpack'
 import type { XRControllerSpaces } from './grabSystem'
@@ -25,6 +26,7 @@ const inverseRigQuaternion = new THREE.Quaternion()
 const playerRigWorldQuaternion = new THREE.Quaternion()
 const yawQuaternion = new THREE.Quaternion()
 const desiredWorldOrientation = new THREE.Quaternion()
+const worldAngularVelocity = new THREE.Vector3()
 const intent = createLocomotionIntent()
 const DETACH_LAUNCH_SPEED = 6
 
@@ -60,7 +62,13 @@ export class VRLocomotion {
     return this.inputSourceByController.get(controller)?.handedness ?? 'none'
   }
 
-  update(deltaSeconds: number, xrActive: boolean, playerMode: PlayerTraversalMode, frameAngle: number) {
+  update(
+    deltaSeconds: number,
+    xrActive: boolean,
+    playerMode: PlayerTraversalMode,
+    frameAngle: number,
+    omega: number
+  ) {
     intent.attachedAxis = 0
     intent.attachedTangent = 0
     intent.freeFlyThrust.set(0, 0, 0)
@@ -77,7 +85,7 @@ export class VRLocomotion {
     }
 
     if (playerMode === 'free-fly' && this.previousPlayerMode !== 'free-fly') {
-      this.captureFreeFlyInertialOrientation(frameAngle)
+      this.captureFreeFlyInertialOrientation(frameAngle, omega)
     }
 
     let moveAxisX = 0
@@ -264,12 +272,17 @@ export class VRLocomotion {
     this.viewRig.quaternion.copy(yawQuaternion)
   }
 
-  private captureFreeFlyInertialOrientation(frameAngle: number) {
+  private captureFreeFlyInertialOrientation(frameAngle: number, omega: number) {
     this.viewRig.updateWorldMatrix(true, false)
     rotatingOrientationToInertial(
       this.viewRig.getWorldQuaternion(desiredWorldOrientation),
       frameAngle,
       this.freeFlyInertialOrientation
+    )
+    seedJetpackAttitudeFromWorldAngularVelocity(
+      this.freeFlyAttitude,
+      this.freeFlyInertialOrientation,
+      worldAngularVelocity.set(0, omega, 0)
     )
   }
 }

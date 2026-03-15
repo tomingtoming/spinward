@@ -6,6 +6,7 @@ import {
   getJetpackThrustDirection,
   integrateJetpackAttitudeOrientation,
   resetJetpackAttitude,
+  seedJetpackAttitudeFromWorldAngularVelocity,
   stepJetpackAttitude
 } from './freeFlyJetpack'
 
@@ -71,6 +72,27 @@ test('resetJetpackAttitude clears accumulated free-fly rotation state', () => {
   expect(state.angularVelocity.x).toBe(0)
   expect(state.angularVelocity.y).toBe(0)
   expect(state.angularVelocity.z).toBe(0)
+})
+
+test('seedJetpackAttitudeFromWorldAngularVelocity matches the attached wall rotation axis', () => {
+  const state = createJetpackAttitudeState()
+  const attachedOrientation = new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 0, 1)
+    )
+  )
+
+  seedJetpackAttitudeFromWorldAngularVelocity(
+    state,
+    attachedOrientation,
+    new THREE.Vector3(0, 0.55, 0)
+  )
+
+  expect(state.angularVelocity.x).toBeCloseTo(0.55, 6)
+  expect(state.angularVelocity.y).toBeCloseTo(0, 6)
+  expect(state.angularVelocity.z).toBeCloseTo(0, 6)
 })
 
 test('integrateJetpackAttitudeOrientation rolls around the current view forward axis', () => {

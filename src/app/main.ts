@@ -528,7 +528,8 @@ export const bootstrapApp = async () => {
       deltaSeconds,
       renderer.xr.isPresenting,
       playerTraversal.mode,
-      frameAngleStart
+      frameAngleStart,
+      omega
     )
     const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)

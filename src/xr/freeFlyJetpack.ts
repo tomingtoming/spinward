@@ -7,6 +7,7 @@ const ANGULAR_BRAKE_DAMPING = 4.5
 const MAX_ANGULAR_SPEED = Math.PI * 1.5
 const forwardAxis = new THREE.Vector3(0, 0, -1)
 const deltaAxis = new THREE.Vector3()
+const inverseOrientation = new THREE.Quaternion()
 
 export type JetpackAttitudeState = {
   angularVelocity: THREE.Vector3
@@ -48,6 +49,21 @@ export const stepJetpackAttitude = (
 
 export const resetJetpackAttitude = (state: JetpackAttitudeState) => {
   state.angularVelocity.set(0, 0, 0)
+  return state
+}
+
+export const seedJetpackAttitudeFromWorldAngularVelocity = (
+  state: JetpackAttitudeState,
+  inertialOrientation: THREE.Quaternion,
+  worldAngularVelocity: THREE.Vector3
+) => {
+  inverseOrientation.copy(inertialOrientation).invert()
+  state.angularVelocity.copy(worldAngularVelocity).applyQuaternion(inverseOrientation)
+
+  if (state.angularVelocity.lengthSq() > MAX_ANGULAR_SPEED * MAX_ANGULAR_SPEED) {
+    state.angularVelocity.setLength(MAX_ANGULAR_SPEED)
+  }
+
   return state
 }
 
