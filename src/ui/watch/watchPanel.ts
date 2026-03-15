@@ -99,6 +99,8 @@ export class WatchPanel {
     this.expandedMesh.scale.copy(EXPANDED_SCALE)
     this.statusMesh.position.copy(WATCH_FACE_CENTER)
     this.expandedMesh.position.copy(EXPANDED_CENTER)
+    this.statusMesh.rotation.z = Math.PI
+    this.expandedMesh.rotation.z = Math.PI
     this.expandedMesh.visible = true
     this.statusMesh.visible = false
     this.group.renderOrder = 30
