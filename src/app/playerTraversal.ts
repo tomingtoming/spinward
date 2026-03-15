@@ -120,10 +120,17 @@ const surfaceRelativeVelocity = new THREE.Vector3()
 const adjustedSurfaceVelocity = new THREE.Vector3()
 const adjustedRotatingVelocity = new THREE.Vector3()
 const playerColliderOffset = new THREE.Vector3(0, 0.87, 0)
+const playerFootPlateOffset = new THREE.Vector3(0, 0.1, 0)
 
 const PLAYER_COLLIDER_HALF_HEIGHT = 0.55
 const PLAYER_COLLIDER_RADIUS = 0.32
+const PLAYER_FOOT_PLATE_HALF_WIDTH = 0.36
+const PLAYER_FOOT_PLATE_HALF_THICKNESS = 0.045
 const PLAYER_WALL_CLEARANCE = 0.08
+const PLAYER_COLLISION_SUPPORT_RADIUS = Math.max(
+  PLAYER_COLLIDER_RADIUS,
+  PLAYER_FOOT_PLATE_HALF_WIDTH * Math.SQRT2
+)
 
 export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   endCapMargin: 1.5,
@@ -137,9 +144,10 @@ export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
 }
 
 export const getPlayerBodyRadius = (habitatRadius: number) =>
-  Math.max(0, habitatRadius - PLAYER_COLLIDER_RADIUS - PLAYER_WALL_CLEARANCE)
+  Math.max(0, habitatRadius - PLAYER_COLLISION_SUPPORT_RADIUS - PLAYER_WALL_CLEARANCE)
 
-const getPlayerCollisionRadius = () => PLAYER_COLLIDER_RADIUS + PLAYER_WALL_CLEARANCE
+const getPlayerCollisionRadius = () =>
+  PLAYER_COLLISION_SUPPORT_RADIUS + PLAYER_WALL_CLEARANCE
 
 export const createPlayerTraversalState = (
   surface: SurfaceRigState,
@@ -186,7 +194,24 @@ export const createPlayerTraversalState = (
           scaleLengthForRapier(playerColliderOffset.z, units)
         )
         .setFriction(0.5)
+        .setDensity(0.35)
         .setRestitution(0.05),
+      freeFlyBody
+    )
+    physics.world.createCollider(
+      physics.rapier.ColliderDesc.cuboid(
+        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_WIDTH, units),
+        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_THICKNESS, units),
+        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_WIDTH, units)
+      )
+        .setTranslation(
+          scaleLengthForRapier(playerFootPlateOffset.x, units),
+          scaleLengthForRapier(playerFootPlateOffset.y, units),
+          scaleLengthForRapier(playerFootPlateOffset.z, units)
+        )
+        .setFriction(0.95)
+        .setDensity(1.15)
+        .setRestitution(0.01),
       freeFlyBody
     )
     state.physics = {

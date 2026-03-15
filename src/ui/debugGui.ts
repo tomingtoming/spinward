@@ -87,6 +87,15 @@ export const createDebugGui = ({
       onSettingsChange()
     })
 
+  gui
+    .add(config, 'jetpackAcceleration', 1, 30, 0.1)
+    .name('jetpack accel')
+    .listen()
+    .onChange(() => {
+      syncDerivedState()
+      onSettingsChange()
+    })
+
   gui.add(derivedState, 'gTarget').name('surface g').listen()
   gui.add(derivedState, 'spanMeters').name('span (m)').listen()
   gui.add(derivedState, 'simScale').name('sim scale').listen()

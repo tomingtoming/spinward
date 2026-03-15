@@ -15,11 +15,13 @@ test('settingsStore adjusts habitat values and notifies listeners', () => {
   store.adjustRpm(1, 'fine')
   store.adjustRadius(10, 'fine')
   store.adjustThrowScale(1, 'fine')
+  store.adjustJetpackAcceleration(1, 'fine')
 
   expect(store.habitat.rpm).toBeCloseTo(5.01, 6)
   expect(store.habitat.radius).toBe(28)
   expect(store.habitat.ballSpeedScale).toBeCloseTo(1.01, 6)
-  expect(notifications).toBe(3)
+  expect(store.habitat.jetpackAcceleration).toBeCloseTo(12.1, 6)
+  expect(notifications).toBe(4)
 })
 
 test('settingsStore clamps grouped assist and reattach adjustments', () => {

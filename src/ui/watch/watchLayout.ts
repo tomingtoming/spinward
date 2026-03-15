@@ -13,6 +13,10 @@ export type WatchActionId =
   | 'throw-scale-fine-decrement'
   | 'throw-scale-fine-increment'
   | 'throw-scale-coarse-increment'
+  | 'jetpack-acceleration-coarse-decrement'
+  | 'jetpack-acceleration-fine-decrement'
+  | 'jetpack-acceleration-fine-increment'
+  | 'jetpack-acceleration-coarse-increment'
   | 'landing-assist-coarse-decrement'
   | 'landing-assist-fine-decrement'
   | 'landing-assist-fine-increment'
@@ -72,7 +76,7 @@ export const WATCH_STATUS_SIZE = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 1490
+  height: 1582
 } as const
 
 const makeActionButton = (
@@ -156,31 +160,32 @@ export const createWatchExpandedLayout = (
     makeRow('rpm', 'RPM', 'rpm', 154, width),
     makeRow('radius', 'Radius', 'radius', 246, width),
     makeRow('throwScale', 'Throw', 'throw-scale', 338, width),
-    makeRow('landingAssist', 'Assist', 'landing-assist', 430, width),
-    makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 522, width)
+    makeRow('jetpackAcceleration', 'Jetpack', 'jetpack-acceleration', 430, width),
+    makeRow('landingAssist', 'Assist', 'landing-assist', 522, width),
+    makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 614, width)
   ]
   const wideButtonWidth = 198
   const wideButtonHeight = 64
   const sectionLeft = 42
   const sectionGap = 18
   const farFieldEnabledButtons: [WatchButton, WatchButton] = [
-    makeActionButton('far-field-disable', 'Night Off', sectionLeft, 720, 140, wideButtonHeight),
-    makeActionButton('far-field-enable', 'Night On', sectionLeft + 158, 720, 140, wideButtonHeight)
+    makeActionButton('far-field-disable', 'Night Off', sectionLeft, 812, 140, wideButtonHeight),
+    makeActionButton('far-field-enable', 'Night On', sectionLeft + 158, 812, 140, wideButtonHeight)
   ]
   const farFieldModeButtons: [WatchButton, WatchButton, WatchButton] = [
-    makeActionButton('far-field-mode-auto', 'Auto', sectionLeft, 804, 140, wideButtonHeight),
-    makeActionButton('far-field-mode-day', 'Day', sectionLeft + 158, 804, 140, wideButtonHeight),
-    makeActionButton('far-field-mode-night', 'Night', sectionLeft + 316, 804, 140, wideButtonHeight)
+    makeActionButton('far-field-mode-auto', 'Auto', sectionLeft, 896, 140, wideButtonHeight),
+    makeActionButton('far-field-mode-day', 'Day', sectionLeft + 158, 896, 140, wideButtonHeight),
+    makeActionButton('far-field-mode-night', 'Night', sectionLeft + 316, 896, 140, wideButtonHeight)
   ]
   const farFieldIntensityRow = makeRow(
     'farFieldIntensity',
     'Night Intensity',
     'far-field-intensity',
-    874,
+    966,
     width
   )
-  const presetTop = 1094
-  const respawnTop = 1294
+  const presetTop = 1186
+  const respawnTop = 1386
   const presetButtons: [WatchButton, WatchButton, WatchButton] = [
     makeActionButton(
       'preset-apply-izma',

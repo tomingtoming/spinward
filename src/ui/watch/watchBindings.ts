@@ -25,6 +25,7 @@ export type WatchRenderSnapshot = {
   simScale: number
   ballCount: number
   throwScale: number
+  jetpackAcceleration: number
   landingAssist: number
   reattachThreshold: number
   farFieldEnabled: boolean
@@ -40,6 +41,8 @@ export type WatchRenderSnapshot = {
   rpmCoarseStep: number
   throwScaleFineStep: number
   throwScaleCoarseStep: number
+  jetpackAccelerationFineStep: number
+  jetpackAccelerationCoarseStep: number
   landingAssistFineStep: number
   landingAssistCoarseStep: number
   reattachThresholdFineStep: number
@@ -74,6 +77,7 @@ export const createWatchRenderSnapshot = (
   simScale: settingsStore.habitat.simScale,
   ballCount: runtime.ballCount,
   throwScale: settingsStore.habitat.ballSpeedScale,
+  jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
   landingAssist: settingsStore.reattach.assistNormalDamping,
   reattachThreshold: settingsStore.reattach.radialTolerance,
   farFieldEnabled: settingsStore.farField.enabled,
@@ -90,6 +94,8 @@ export const createWatchRenderSnapshot = (
   rpmCoarseStep: settingsStore.getRpmCoarseStep(),
   throwScaleFineStep: settingsStore.getThrowScaleFineStep(),
   throwScaleCoarseStep: settingsStore.getThrowScaleCoarseStep(),
+  jetpackAccelerationFineStep: settingsStore.getJetpackAccelerationFineStep(),
+  jetpackAccelerationCoarseStep: settingsStore.getJetpackAccelerationCoarseStep(),
   landingAssistFineStep: settingsStore.getLandingAssistFineStep(),
   landingAssistCoarseStep: settingsStore.getLandingAssistCoarseStep(),
   reattachThresholdFineStep: settingsStore.getReattachThresholdFineStep(),
@@ -143,6 +149,18 @@ export const applyWatchAction = (
       return true
     case 'throw-scale-coarse-increment':
       settingsStore.adjustThrowScale(1, 'coarse')
+      return true
+    case 'jetpack-acceleration-coarse-decrement':
+      settingsStore.adjustJetpackAcceleration(-1, 'coarse')
+      return true
+    case 'jetpack-acceleration-fine-decrement':
+      settingsStore.adjustJetpackAcceleration(-1, 'fine')
+      return true
+    case 'jetpack-acceleration-fine-increment':
+      settingsStore.adjustJetpackAcceleration(1, 'fine')
+      return true
+    case 'jetpack-acceleration-coarse-increment':
+      settingsStore.adjustJetpackAcceleration(1, 'coarse')
       return true
     case 'far-field-disable':
       settingsStore.setFarFieldEnabled(false)

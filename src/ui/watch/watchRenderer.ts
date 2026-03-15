@@ -99,7 +99,7 @@ export const renderWatchStatus = (
     114
   )
   ctx.fillText(
-    `R ${snapshot.radius.toFixed(0)}m | night ${snapshot.farFieldResolvedMode} ${snapshot.farFieldIntensity.toFixed(1)}`,
+    `R ${snapshot.radius.toFixed(0)}m | jet ${snapshot.jetpackAcceleration.toFixed(1)} | night ${snapshot.farFieldResolvedMode}`,
     22,
     140
   )
@@ -133,7 +133,7 @@ export const renderWatchExpanded = (
     92
   )
   ctx.fillText(
-    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | balls ${snapshot.ballCount}`,
+    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | jet ${snapshot.jetpackAcceleration.toFixed(1)}`,
     28,
     120
   )
@@ -148,6 +148,7 @@ export const renderWatchExpanded = (
     rpm: snapshot.rpm.toFixed(2),
     radius: `${snapshot.radius.toFixed(0)} m`,
     throwScale: snapshot.throwScale.toFixed(2),
+    jetpackAcceleration: `${snapshot.jetpackAcceleration.toFixed(1)} m/s²`,
     landingAssist: snapshot.landingAssist.toFixed(1),
     reattachThreshold: snapshot.reattachThreshold.toFixed(2)
   }
@@ -155,6 +156,8 @@ export const renderWatchExpanded = (
     rpm: `fine ${snapshot.rpmFineStep.toFixed(2)} / coarse ${snapshot.rpmCoarseStep.toFixed(2)}`,
     radius: `fine ${snapshot.radiusFineStep.toFixed(0)} / coarse ${snapshot.radiusCoarseStep.toFixed(0)}`,
     throwScale: `fine ${snapshot.throwScaleFineStep.toFixed(2)} / coarse ${snapshot.throwScaleCoarseStep.toFixed(2)}`,
+    jetpackAcceleration:
+      `fine ${snapshot.jetpackAccelerationFineStep.toFixed(1)} / coarse ${snapshot.jetpackAccelerationCoarseStep.toFixed(1)}`,
     landingAssist: `fine ${snapshot.landingAssistFineStep.toFixed(1)} / coarse ${snapshot.landingAssistCoarseStep.toFixed(1)}`,
     reattachThreshold: `fine ${snapshot.reattachThresholdFineStep.toFixed(2)} / coarse ${snapshot.reattachThresholdCoarseStep.toFixed(2)}`
   }
@@ -220,13 +223,13 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('PRESETS', 42, 1032)
+  ctx.fillText('PRESETS', 42, 1124)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
     'Apply clears live balls, rebuilds Rapier scale, and respawns on the inner wall.',
     42,
-    1058
+    1150
   )
 
   for (const button of layout.presetButtons) {
@@ -237,7 +240,7 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('RESPAWN', 42, 1232)
+  ctx.fillText('RESPAWN', 42, 1324)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
@@ -245,7 +248,7 @@ export const renderWatchExpanded = (
       ? 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.'
       : 'Axis End is disabled for ring presets. Use Inner Wall to respawn safely.',
     42,
-    1258
+    1350
   )
 
   for (const button of layout.respawnButtons) {

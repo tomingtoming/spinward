@@ -562,7 +562,9 @@ export const bootstrapApp = async () => {
       })
     } else {
       stepFreeFlyPlayer(playerTraversal, {
-        thrustAcceleration: locomotionIntent.freeFlyThrust.multiplyScalar(9),
+        thrustAcceleration: locomotionIntent.freeFlyThrust.multiplyScalar(
+          habitatConfig.jetpackAcceleration
+        ),
         deltaSeconds,
         frameAngleStart,
         frameAngleEnd: frameAngle,

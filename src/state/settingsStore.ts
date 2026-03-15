@@ -66,6 +66,10 @@ export const createSettingsStore = (
   const getRpmCoarseStep = () => selectStep(getRpmFineStep(), 'coarse')
   const getThrowScaleFineStep = () => getAdaptiveStep(habitat.ballSpeedScale, 3, 0.01)
   const getThrowScaleCoarseStep = () => selectStep(getThrowScaleFineStep(), 'coarse')
+  const getJetpackAccelerationFineStep = () =>
+    getAdaptiveStep(habitat.jetpackAcceleration, 3, 0.1)
+  const getJetpackAccelerationCoarseStep = () =>
+    selectStep(getJetpackAccelerationFineStep(), 'coarse')
   const getFarFieldIntensityFineStep = () => getAdaptiveStep(farField.intensity, 2, 0.05)
   const getFarFieldIntensityCoarseStep = () =>
     selectStep(getFarFieldIntensityFineStep(), 'coarse')
@@ -153,6 +157,8 @@ export const createSettingsStore = (
     getRpmCoarseStep,
     getThrowScaleFineStep,
     getThrowScaleCoarseStep,
+    getJetpackAccelerationFineStep,
+    getJetpackAccelerationCoarseStep,
     getFarFieldIntensityFineStep,
     getFarFieldIntensityCoarseStep,
     getLandingAssistFineStep,
@@ -177,6 +183,15 @@ export const createSettingsStore = (
         roundToStep(habitat.ballSpeedScale + step * ticks, step),
         0.25,
         3
+      )
+      notify()
+    },
+    adjustJetpackAcceleration(ticks: number, mode: StepMode = 'fine') {
+      const step = selectStep(getJetpackAccelerationFineStep(), mode)
+      habitat.jetpackAcceleration = clamp(
+        roundToStep(habitat.jetpackAcceleration + step * ticks, step),
+        1,
+        30
       )
       notify()
     },

@@ -9,6 +9,7 @@ export type HabitatConfig = {
   simScale: number
   currentPresetId: string
   ballSpeedScale: number
+  jetpackAcceleration: number
   ballLifetimeSeconds: number
   maxTrailPoints: number
 }
@@ -22,6 +23,7 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
   simScale: 1,
   currentPresetId: 'custom',
   ballSpeedScale: 1,
+  jetpackAcceleration: 12,
   ballLifetimeSeconds: 30,
   maxTrailPoints: 200
 }

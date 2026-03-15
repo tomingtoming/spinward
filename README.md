@@ -40,6 +40,7 @@ bun run preview -- --host 0.0.0.0
 - VR: `free-fly` 中は左スティック左右でロール角速度、前後でピッチ角速度を与えます。
 - VR: `free-fly` 中は左 grip で回転 brake を掛け、現在の角速度を徐々に落とせます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
+- VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Night Surface` の `on/off`, `day/night/auto`, `intensity` を変更できます。内壁 shell 自体の発光と twinkle に効きます。
 - VR: wrist UI から `Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。`Axis End` は cylinder のみで、ring preset では disabled です。
@@ -149,6 +150,7 @@ a_cf = -(Ω × (Ω × r))
 - Rapier による球の慣性系シミュレーションと、回転する内壁への接触処理
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
+- free-fly プレーヤーの `capsule + foot plate` collider
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
 - 内壁 shell の procedural texture と night surface emissive
 - 固定物用の近傍 streaming collider scaffold（現在は airlock 周辺）
