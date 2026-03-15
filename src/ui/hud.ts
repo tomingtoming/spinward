@@ -13,6 +13,11 @@ type HudSnapshot = {
   trackedBallSpeed: number
   xrActive: boolean
   forceVectors: boolean
+  wallSectors: {
+    visible: boolean
+    activeCount: number
+    totalCount: number
+  }
   observerMode: ObserverMode
   trailMode: TrailMode
   watchMenuOpen: boolean
@@ -88,6 +93,7 @@ export const createHud = (): HudHandle => {
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
+        `wall ${snapshot.wallSectors.visible ? 'viz' : 'hid'} ${snapshot.wallSectors.activeCount}/${snapshot.wallSectors.totalCount} | ` +
         `far ${snapshot.farField.enabled ? 'on' : 'off'} ` +
         `L${snapshot.farField.layerCount} tex ${snapshot.farField.textureSize} seg ${snapshot.farField.radialSegments} | ` +
         `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +

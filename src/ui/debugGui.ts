@@ -10,6 +10,7 @@ export type DebugVisualState = {
   showForceVectors: boolean
   forceVectorScale: number
   showHud: boolean
+  showWallSectors: boolean
   observerMode: ObserverMode
   trailMode: TrailMode
   verificationErrorThreshold: number
@@ -198,6 +199,10 @@ export const createDebugGui = ({
   debugFolder
     .add(debugVisuals, 'showHud')
     .name('show HUD')
+    .onChange(onVisualChange)
+  debugFolder
+    .add(debugVisuals, 'showWallSectors')
+    .name('wall sectors')
     .onChange(onVisualChange)
   debugFolder
     .add(debugVisuals, 'trailMode', {
