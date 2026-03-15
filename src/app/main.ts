@@ -11,6 +11,7 @@ import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import {
   applyReattachAssist,
+  confinePlayerToHabitatInterior,
   applyPlayerTraversalState,
   createPlayerTraversalState,
   detachPlayerToFreeFly,
@@ -571,6 +572,14 @@ export const bootstrapApp = async () => {
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
+    if (playerTraversal.mode === 'free-fly') {
+      confinePlayerToHabitatInterior(playerTraversal, {
+        radius: habitatConfig.radius,
+        length: habitatSpan,
+        omega,
+        frameAngle
+      })
+    }
     const assistActive =
       playerTraversal.mode === 'free-fly'
         ? applyReattachAssist(playerTraversal, {

@@ -23,6 +23,7 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
+import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
 export type PlayerTraversalMode = 'attached' | 'free-fly'
@@ -86,6 +87,13 @@ export type ReattachPlayerConfig = ReattachTuning & {
   frameAngle: number
 }
 
+export type FreeFlyInteriorConstraintConfig = {
+  radius: number
+  length: number
+  omega: number
+  frameAngle: number
+}
+
 export type ReattachStatus = {
   withinAxialWindow: boolean
   radialError: number
@@ -130,6 +138,8 @@ export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
 
 export const getPlayerBodyRadius = (habitatRadius: number) =>
   Math.max(0, habitatRadius - PLAYER_COLLIDER_RADIUS - PLAYER_WALL_CLEARANCE)
+
+const getPlayerCollisionRadius = () => PLAYER_COLLIDER_RADIUS + PLAYER_WALL_CLEARANCE
 
 export const createPlayerTraversalState = (
   surface: SurfaceRigState,
@@ -319,6 +329,63 @@ export const syncPlayerTraversalFromPhysics = (state: PlayerTraversalState) => {
     position: state.inertialPosition,
     linearVelocity: state.inertialVelocity
   })
+}
+
+export const confinePlayerToHabitatInterior = (
+  state: PlayerTraversalState,
+  config: FreeFlyInteriorConstraintConfig
+) => {
+  if (state.mode !== 'free-fly') {
+    return false
+  }
+
+  inertialPositionToRotating(state.inertialPosition, config.frameAngle, reattachPosition)
+  inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    config.omega,
+    config.frameAngle,
+    reattachVelocity
+  )
+
+  const collided = confineSphereToRotatingCylinder(reattachPosition, reattachVelocity, {
+    radius: config.radius,
+    length: config.length,
+    sphereRadius: getPlayerCollisionRadius(),
+    restitution: 0.02,
+    omega: config.omega,
+    capEnds: false
+  })
+
+  if (!collided) {
+    return false
+  }
+
+  rotatingPositionToInertial(reattachPosition, config.frameAngle, state.inertialPosition)
+  rotatingVelocityToInertial(
+    reattachPosition,
+    reattachVelocity,
+    config.omega,
+    config.frameAngle,
+    state.inertialVelocity
+  )
+
+  if (state.physics !== null) {
+    setRigidBodyTranslationFromReal(
+      state.physics.freeFlyBody,
+      state.inertialPosition,
+      state.physics.units,
+      true
+    )
+    setRigidBodyLinvelFromReal(
+      state.physics.freeFlyBody,
+      state.inertialVelocity,
+      state.physics.units,
+      true
+    )
+  }
+
+  return true
 }
 
 export const disposePlayerTraversalState = (state: PlayerTraversalState) => {

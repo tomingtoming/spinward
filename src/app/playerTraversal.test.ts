@@ -3,6 +3,7 @@ import * as THREE from 'three'
 
 import {
   applyReattachAssist,
+  confinePlayerToHabitatInterior,
   detachPlayerToFreeFly,
   DEFAULT_REATTACH_TUNING,
   applyPlayerTraversalState,
@@ -217,6 +218,43 @@ test('detachPlayerToFreeFly seeds the Rapier body slightly inside the wall for l
   cylinder.dispose()
   disposePlayerTraversalState(state)
   world.free()
+})
+
+test('confinePlayerToHabitatInterior keeps a free-fly player inside the cylinder wall', () => {
+  const radius = 3200
+  const frameAngle = 0.4
+  const omega = 0.05535
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
+  const outsideRotatingPosition = new THREE.Vector3(radius + 3, 0, 0)
+  const outwardRotatingVelocity = new THREE.Vector3(2, 0, 0.2)
+
+  state.mode = 'free-fly'
+  state.inertialPosition.copy(rotatingPositionToInertial(outsideRotatingPosition, frameAngle))
+  state.inertialVelocity.copy(
+    rotatingVelocityToInertial(
+      outsideRotatingPosition,
+      outwardRotatingVelocity,
+      omega,
+      frameAngle
+    )
+  )
+
+  const collided = confinePlayerToHabitatInterior(state, {
+    radius,
+    length: 40000,
+    omega,
+    frameAngle
+  })
+  const correctedRotatingPosition = inertialPositionToRotating(
+    state.inertialPosition,
+    frameAngle,
+    new THREE.Vector3()
+  )
+
+  expect(collided).toBe(true)
+  expect(Math.hypot(correctedRotatingPosition.x, correctedRotatingPosition.z)).toBeLessThanOrEqual(
+    getPlayerBodyRadius(radius) + 1e-4
+  )
 })
 
 test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the state', async () => {
