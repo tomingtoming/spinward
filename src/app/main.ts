@@ -33,13 +33,13 @@ import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { StreamingWallDebugView } from '../objects/streamingWallDebug'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
-import { FarFieldRenderer } from '../render/farField/farFieldRenderer'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { FixedColliderManager } from '../physics/fixedColliderManager'
 import { initRapier } from '../physics/rapierContext'
 import { StreamingCylinderWall } from '../physics/streamingCylinderWall'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
+import { resolveFarFieldMode } from '../render/farField/farFieldSettings'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
 import { getHabitatSpan } from '../sim/habitatConfig'
@@ -155,19 +155,6 @@ export const bootstrapApp = async () => {
   const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
   const streamingWallDebug = new StreamingWallDebugView()
-  const farFieldRenderer = new FarFieldRenderer(
-    farLayer,
-    () => settingsStore.farField,
-    () => ({
-      radius: habitatConfig.radius,
-      span: getHabitatSpanMeters(),
-      presetId: habitatConfig.currentPresetId
-    }),
-    () => ({
-      xrActive: renderer.xr.isPresenting,
-      devicePixelRatio: window.devicePixelRatio
-    })
-  )
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
@@ -349,7 +336,14 @@ export const bootstrapApp = async () => {
       length: habitatSpan,
       units: getUnits()
     })
-    farFieldRenderer.sync()
+    habitat.setNightLighting({
+      enabled: settingsStore.farField.enabled,
+      mode: settingsStore.farField.mode,
+      intensity: settingsStore.farField.intensity,
+      density: settingsStore.farField.density,
+      presetId: habitatConfig.currentPresetId,
+      updateInterval_s: settingsStore.farField.updateInterval_s
+    })
     starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
   }
@@ -706,8 +700,7 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
-    farFieldRenderer.sync()
-    farFieldRenderer.update(deltaSeconds)
+    habitat.updateNightLighting(deltaSeconds)
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
@@ -740,7 +733,15 @@ export const bootstrapApp = async () => {
       trailMode: debugVisuals.trailMode,
       region: playerRegion,
       playerMode: playerTraversal.mode,
-      farField: farFieldRenderer.getDebugSnapshot(),
+      nightLighting: {
+        enabled: settingsStore.farField.enabled,
+        mode: resolveFarFieldMode(
+          settingsStore.farField.mode,
+          habitatConfig.currentPresetId
+        ),
+        intensity: settingsStore.farField.intensity,
+        density: settingsStore.farField.density
+      },
       watchMenuOpen,
       verification:
         verificationBallTarget === null || verification === null
@@ -821,7 +822,6 @@ export const bootstrapApp = async () => {
     rotatingCylinder.dispose()
     fixedColliderManager.dispose()
     streamingWallDebug.dispose()
-    farFieldRenderer.dispose()
     physicsWorld.free()
     debugGui.destroy()
   })

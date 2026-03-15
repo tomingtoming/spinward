@@ -7,6 +7,29 @@ type CylinderSurfaceRepeat = {
 
 const minorGridDivisions = 8
 const majorGridStep = 4
+const lightGridDivisions = 24
+
+export type CylinderNightLight = {
+  x: number
+  y: number
+  width: number
+  height: number
+  tone: number
+}
+
+export type CylinderNightLightPlan = {
+  size: number
+  lights: CylinderNightLight[]
+}
+
+const createRandom = (seed: number) => {
+  let state = seed >>> 0
+
+  return () => {
+    state = (1664525 * state + 1013904223) >>> 0
+    return state / 0xffffffff
+  }
+}
 
 export const getCylinderSurfaceRepeat = (
   radius: number,
@@ -39,7 +62,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   for (let column = 0; column <= minorGridDivisions; column += 1) {
     const x = Math.round(column * tileSize) + 0.5
     const major = column % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.22)' : 'rgba(160, 200, 235, 0.08)'
+    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.28)' : 'rgba(160, 200, 235, 0.12)'
     context.lineWidth = major ? 2 : 1
     context.beginPath()
     context.moveTo(x, 0)
@@ -50,7 +73,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   for (let row = 0; row <= minorGridDivisions; row += 1) {
     const y = Math.round(row * tileSize) + 0.5
     const major = row % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.22)' : 'rgba(160, 200, 235, 0.08)'
+    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.28)' : 'rgba(160, 200, 235, 0.12)'
     context.lineWidth = major ? 2 : 1
     context.beginPath()
     context.moveTo(0, y)
@@ -63,7 +86,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
       const x = column * tileSize
       const y = row * tileSize
       const inset = tileSize * 0.16
-      const tint = (row + column) % 2 === 0 ? 0.05 : 0.08
+      const tint = (row + column) % 2 === 0 ? 0.08 : 0.13
       context.fillStyle = `rgba(255, 255, 255, ${tint})`
       context.fillRect(
         x + inset,
@@ -73,7 +96,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
       )
 
       if ((row + column) % majorGridStep === 0) {
-        context.strokeStyle = 'rgba(250, 204, 21, 0.32)'
+        context.strokeStyle = 'rgba(250, 204, 21, 0.42)'
         context.lineWidth = 1.5
         context.strokeRect(
           x + tileSize * 0.28,
@@ -91,4 +114,60 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   texture.wrapT = THREE.RepeatWrapping
   texture.anisotropy = 4
   return texture
+}
+
+export const createCylinderNightLightPlan = (
+  size: number,
+  density: number,
+  seed: number
+): CylinderNightLightPlan => {
+  const random = createRandom(seed)
+  const lights: CylinderNightLight[] = []
+  const clampedDensity = Math.min(1, Math.max(0, density))
+  const cellSize = size / lightGridDivisions
+
+  for (let row = 0; row < lightGridDivisions; row += 1) {
+    for (let column = 0; column < lightGridDivisions; column += 1) {
+      const edgeBias = row > lightGridDivisions * 0.7 ? 0.85 : 1
+      const litChance = clampedDensity * 0.16 * edgeBias
+
+      if (random() > litChance) {
+        continue
+      }
+
+      const insetX = cellSize * (0.16 + random() * 0.18)
+      const insetY = cellSize * (0.16 + random() * 0.18)
+      lights.push({
+        x: column * cellSize + insetX,
+        y: row * cellSize + insetY,
+        width: cellSize * (0.22 + random() * 0.18),
+        height: cellSize * (0.14 + random() * 0.16),
+        tone: random()
+      })
+    }
+  }
+
+  return {
+    size,
+    lights
+  }
+}
+
+export const renderCylinderNightLightPlan = (
+  context: CanvasRenderingContext2D,
+  plan: CylinderNightLightPlan
+) => {
+  context.clearRect(0, 0, plan.size, plan.size)
+  context.fillStyle = '#000000'
+  context.fillRect(0, 0, plan.size, plan.size)
+
+  for (const light of plan.lights) {
+    context.fillStyle =
+      light.tone < 0.33
+        ? '#f8fafc'
+        : light.tone < 0.66
+          ? '#fcd34d'
+          : '#bfdbfe'
+    context.fillRect(light.x, light.y, light.width, light.height)
+  }
 }

@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
 
-import { getCylinderSurfaceRepeat } from './cylinderSurface'
+import {
+  createCylinderNightLightPlan,
+  getCylinderSurfaceRepeat
+} from './cylinderSurface'
 
 test('getCylinderSurfaceRepeat grows with habitat dimensions', () => {
   const compact = getCylinderSurfaceRepeat(50, 200)
@@ -18,4 +21,12 @@ test('getCylinderSurfaceRepeat respects the requested world tile size', () => {
 
   expect(fine.circumferential).toBeGreaterThan(coarse.circumferential)
   expect(fine.axial).toBeGreaterThan(coarse.axial)
+})
+
+test('createCylinderNightLightPlan increases lit windows with density', () => {
+  const darkPlan = createCylinderNightLightPlan(256, 0, 42)
+  const brightPlan = createCylinderNightLightPlan(256, 1, 42)
+
+  expect(darkPlan.lights).toHaveLength(0)
+  expect(brightPlan.lights.length).toBeGreaterThan(darkPlan.lights.length)
 })

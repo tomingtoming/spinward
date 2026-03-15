@@ -99,7 +99,7 @@ export const renderWatchStatus = (
     114
   )
   ctx.fillText(
-    `R ${snapshot.radius.toFixed(0)}m | far ${snapshot.farFieldResolvedMode} ${snapshot.farFieldIntensity.toFixed(1)}`,
+    `R ${snapshot.radius.toFixed(0)}m | night ${snapshot.farFieldResolvedMode} ${snapshot.farFieldIntensity.toFixed(1)}`,
     22,
     140
   )
@@ -138,7 +138,7 @@ export const renderWatchExpanded = (
     120
   )
   ctx.fillText(
-    `far ${snapshot.farFieldEnabled ? 'on' : 'off'} | mode ${snapshot.farFieldMode} -> ${snapshot.farFieldResolvedMode}`,
+    `night ${snapshot.farFieldEnabled ? 'on' : 'off'} | mode ${snapshot.farFieldMode} -> ${snapshot.farFieldResolvedMode}`,
     28,
     148
   )
@@ -178,11 +178,11 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('FAR FIELD', 42, 652)
+  ctx.fillText('NIGHT SURFACE', 42, 652)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
-    'Draw-only opposite-city band. No collider, no gameplay hits, low-cost parallax layers.',
+    'Inner-wall emissive texture. Keeps near-ground readability while the opposite wall glows at night.',
     42,
     678
   )

@@ -164,8 +164,8 @@ export const createWatchExpandedLayout = (
   const sectionLeft = 42
   const sectionGap = 18
   const farFieldEnabledButtons: [WatchButton, WatchButton] = [
-    makeActionButton('far-field-disable', 'Far Off', sectionLeft, 720, 140, wideButtonHeight),
-    makeActionButton('far-field-enable', 'Far On', sectionLeft + 158, 720, 140, wideButtonHeight)
+    makeActionButton('far-field-disable', 'Night Off', sectionLeft, 720, 140, wideButtonHeight),
+    makeActionButton('far-field-enable', 'Night On', sectionLeft + 158, 720, 140, wideButtonHeight)
   ]
   const farFieldModeButtons: [WatchButton, WatchButton, WatchButton] = [
     makeActionButton('far-field-mode-auto', 'Auto', sectionLeft, 804, 140, wideButtonHeight),
@@ -174,7 +174,7 @@ export const createWatchExpandedLayout = (
   ]
   const farFieldIntensityRow = makeRow(
     'farFieldIntensity',
-    'Far Intensity',
+    'Night Intensity',
     'far-field-intensity',
     874,
     width

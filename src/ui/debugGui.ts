@@ -123,7 +123,7 @@ export const createDebugGui = ({
     .onChange(onSettingsChange)
   reattachFolder.open()
 
-  const farFieldFolder = gui.addFolder('Far Field')
+  const farFieldFolder = gui.addFolder('Night Surface')
   farFieldFolder
     .add(farField, 'enabled')
     .name('enabled')
@@ -149,41 +149,8 @@ export const createDebugGui = ({
     .listen()
     .onChange(onSettingsChange)
   farFieldFolder
-    .add(farField, 'bandHeight_m', 300, 1500, 10)
-    .name('band h (m)')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'bandArc_deg', 60, 140, 1)
-    .name('band arc')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'parallaxLayers', {
-      '1 layer': 1,
-      '2 layers': 2,
-      '3 layers': 3
-    })
-    .name('layers')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'parallaxOffset_m', 50, 200, 5)
-    .name('offset (m)')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'textureSize', {
-      '256': 256,
-      '512': 512,
-      '1024': 1024
-    })
-    .name('tex size')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
     .add(farField, 'updateInterval_s', 0, 10, 0.5)
-    .name('refresh (s)')
+    .name('twinkle (s)')
     .listen()
     .onChange(onSettingsChange)
 

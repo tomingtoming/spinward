@@ -23,11 +23,11 @@ type HudSnapshot = {
   watchMenuOpen: boolean
   region: 'inside' | 'outside'
   playerMode: 'attached' | 'free-fly'
-  farField: {
+  nightLighting: {
     enabled: boolean
-    layerCount: number
-    textureSize: number
-    radialSegments: number
+    mode: 'day' | 'night'
+    intensity: number
+    density: number
   }
   verification: {
     inertialVelocity: Vector3
@@ -94,8 +94,8 @@ export const createHud = (): HudHandle => {
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
         `wall ${snapshot.wallSectors.visible ? 'viz' : 'hid'} ${snapshot.wallSectors.activeCount}/${snapshot.wallSectors.totalCount} | ` +
-        `far ${snapshot.farField.enabled ? 'on' : 'off'} ` +
-        `L${snapshot.farField.layerCount} tex ${snapshot.farField.textureSize} seg ${snapshot.farField.radialSegments} | ` +
+        `night ${snapshot.nightLighting.enabled ? snapshot.nightLighting.mode : 'off'} ` +
+        `I${snapshot.nightLighting.intensity.toFixed(2)} D${snapshot.nightLighting.density.toFixed(2)} | ` +
         `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +
         `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | ` +
         `${snapshot.xrActive ? 'XR' : 'desktop'}${reattachText}` +

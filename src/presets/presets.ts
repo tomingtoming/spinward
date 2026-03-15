@@ -55,7 +55,7 @@ export const HABITAT_PRESETS: Preset[] = [
       parallaxLayers: 2,
       parallaxOffset_m: 90,
       textureSize: 512,
-      updateInterval_s: 0
+      updateInterval_s: 4
     },
     flavor: {
       skybox: 'izma',
@@ -93,7 +93,7 @@ export const HABITAT_PRESETS: Preset[] = [
       parallaxLayers: 2,
       parallaxOffset_m: 80,
       textureSize: 512,
-      updateInterval_s: 0
+      updateInterval_s: 5
     },
     sourceQuality: 'derived',
     notes: [

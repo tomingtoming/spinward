@@ -1,8 +1,14 @@
 import * as THREE from 'three'
 import {
+  createCylinderNightLightPlan,
   createCylinderSurfaceTexture,
-  getCylinderSurfaceRepeat
+  getCylinderSurfaceRepeat,
+  renderCylinderNightLightPlan
 } from './cylinderSurface'
+import {
+  resolveFarFieldMode,
+  type FarFieldMode
+} from '../render/farField/farFieldSettings'
 
 type CylinderDimensions = {
   radius: number
@@ -12,6 +18,15 @@ type CylinderDimensions = {
 type CylinderShellArc = {
   thetaStart: number
   arcRadians: number
+}
+
+type CylinderNightLightingConfig = {
+  enabled: boolean
+  mode: FarFieldMode
+  intensity: number
+  density: number
+  presetId: string
+  updateInterval_s: number
 }
 
 const fullTurn = Math.PI * 2
@@ -63,10 +78,15 @@ export class CylinderHabitat {
   readonly group = new THREE.Group()
   readonly shellGroup = new THREE.Group()
   private readonly shellTexture = createCylinderSurfaceTexture()
+  private readonly shellLightCanvas = document.createElement('canvas')
+  private readonly shellLightContext
+  private readonly shellLightTexture
 
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x243447,
     map: this.shellTexture,
+    emissiveMap: null,
+    emissive: new THREE.Color(0xffffff),
     side: THREE.BackSide,
     transparent: true,
     opacity: 0.92,
@@ -77,6 +97,8 @@ export class CylinderHabitat {
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
     color: 0x1a2532,
     map: this.shellTexture,
+    emissiveMap: null,
+    emissive: new THREE.Color(0xffffff),
     side: THREE.BackSide,
     transparent: true,
     opacity: 0.84,
@@ -126,8 +148,35 @@ export class CylinderHabitat {
   private radius = 0
   private length = 0
   private shellFocusAzimuth = 0
+  private readonly nightLighting: CylinderNightLightingConfig = {
+    enabled: true,
+    mode: 'night',
+    intensity: 1,
+    density: 0.5,
+    presetId: 'custom',
+    updateInterval_s: 0
+  }
+  private shellLightEpoch = 0
+  private shellLightElapsed = 0
+  private lastNightLightingSignature: string | null = null
 
   constructor(dimensions: CylinderDimensions) {
+    this.shellLightCanvas.width = 512
+    this.shellLightCanvas.height = 512
+    const lightContext = this.shellLightCanvas.getContext('2d')
+
+    if (lightContext === null) {
+      throw new Error('2D canvas context is required for cylinder night lighting')
+    }
+
+    this.shellLightContext = lightContext
+    this.shellLightTexture = new THREE.CanvasTexture(this.shellLightCanvas)
+    this.shellLightTexture.colorSpace = THREE.SRGBColorSpace
+    this.shellLightTexture.wrapS = THREE.RepeatWrapping
+    this.shellLightTexture.wrapT = THREE.RepeatWrapping
+    this.shellLightTexture.anisotropy = 4
+    this.nearShellMaterial.emissiveMap = this.shellLightTexture
+    this.farShellMaterial.emissiveMap = this.shellLightTexture
     this.group.add(this.shellGroup)
     this.group.add(this.guides)
     this.group.add(this.landmarks)
@@ -156,6 +205,50 @@ export class CylinderHabitat {
     this.rebuildShells()
   }
 
+  setNightLighting(config: CylinderNightLightingConfig) {
+    const nextSignature = JSON.stringify(config)
+
+    if (nextSignature === this.lastNightLightingSignature) {
+      return
+    }
+
+    this.lastNightLightingSignature = nextSignature
+    this.nightLighting.enabled = config.enabled
+    this.nightLighting.mode = config.mode
+    this.nightLighting.intensity = config.intensity
+    this.nightLighting.density = config.density
+    this.nightLighting.presetId = config.presetId
+    this.nightLighting.updateInterval_s = config.updateInterval_s
+    this.shellLightEpoch = 0
+    this.shellLightElapsed = 0
+    this.repaintNightLighting()
+  }
+
+  updateNightLighting(deltaSeconds: number) {
+    const resolvedMode = resolveFarFieldMode(
+      this.nightLighting.mode,
+      this.nightLighting.presetId
+    )
+
+    if (
+      !this.nightLighting.enabled ||
+      resolvedMode !== 'night' ||
+      this.nightLighting.updateInterval_s <= 0
+    ) {
+      return
+    }
+
+    this.shellLightElapsed += Math.max(0, deltaSeconds)
+
+    if (this.shellLightElapsed < this.nightLighting.updateInterval_s) {
+      return
+    }
+
+    this.shellLightElapsed = 0
+    this.shellLightEpoch += 1
+    this.repaintNightLighting()
+  }
+
   private rebuildShells() {
     this.nearShell?.geometry.dispose()
     this.farShell?.geometry.dispose()
@@ -174,6 +267,11 @@ export class CylinderHabitat {
       surfaceRepeat.axial
     )
     this.shellTexture.needsUpdate = true
+    this.shellLightTexture.repeat.set(
+      surfaceRepeat.circumferential,
+      surfaceRepeat.axial
+    )
+    this.shellLightTexture.needsUpdate = true
 
     const shellArcs = splitCylinderShellArcs(this.shellFocusAzimuth)
 
@@ -206,6 +304,51 @@ export class CylinderHabitat {
 
     this.shellGroup.add(this.farShell)
     this.shellGroup.add(this.nearShell)
+    this.repaintNightLighting()
+  }
+
+  private repaintNightLighting() {
+    const resolvedMode = resolveFarFieldMode(
+      this.nightLighting.mode,
+      this.nightLighting.presetId
+    )
+    const activeNight =
+      this.nightLighting.enabled &&
+      resolvedMode === 'night' &&
+      this.nightLighting.intensity > 0.01
+
+    if (!activeNight) {
+      this.shellLightContext.clearRect(
+        0,
+        0,
+        this.shellLightCanvas.width,
+        this.shellLightCanvas.height
+      )
+      this.shellLightTexture.needsUpdate = true
+      this.nearShellMaterial.emissiveIntensity = 0
+      this.farShellMaterial.emissiveIntensity = 0
+      return
+    }
+
+    const plan = createCylinderNightLightPlan(
+      this.shellLightCanvas.width,
+      this.nightLighting.density,
+      this.computeNightSeed()
+    )
+    renderCylinderNightLightPlan(this.shellLightContext, plan)
+    this.shellLightTexture.needsUpdate = true
+    this.nearShellMaterial.emissiveIntensity = this.nightLighting.intensity * 0.12
+    this.farShellMaterial.emissiveIntensity = this.nightLighting.intensity * 0.78
+  }
+
+  private computeNightSeed() {
+    let seed = 0x7f4a7c15 ^ this.shellLightEpoch
+
+    for (const char of this.nightLighting.presetId) {
+      seed = ((seed << 5) - seed + char.charCodeAt(0)) >>> 0
+    }
+
+    return seed
   }
 
   private rebuildGuides(radius: number, length: number) {
