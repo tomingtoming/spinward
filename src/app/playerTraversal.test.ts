@@ -75,6 +75,8 @@ test('attached traversal seeds free-fly with the visible wall transport speed', 
   })
   detachPlayerToFreeFly(state, {
     launchVelocity: new THREE.Vector3(0, 0, 0),
+    radius,
+    omega,
     frameAngle: frameAngleEnd
   })
 
@@ -108,6 +110,8 @@ test('detachPlayerToFreeFly switches mode and adds launch velocity in the rotati
 
   detachPlayerToFreeFly(state, {
     launchVelocity: new THREE.Vector3(0, 1.5, -4),
+    radius: 10,
+    omega,
     frameAngle
   })
 
@@ -116,6 +120,27 @@ test('detachPlayerToFreeFly switches mode and adds launch velocity in the rotati
     state.inertialVelocity,
     previousVelocity.add(new THREE.Vector3(0, 1.5, -4).applyAxisAngle(new THREE.Vector3(0, 1, 0), frameAngle))
   )
+})
+
+test('detachPlayerToFreeFly refreshes wall transport speed at the current frame angle', () => {
+  const radius = 3200
+  const omega = 0.05535
+  const frameAngle = 1.1
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, 0, omega)
+  const expectedVelocity = new THREE.Vector3(0, 0, -radius * omega).applyAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    frameAngle
+  )
+
+  detachPlayerToFreeFly(state, {
+    launchVelocity: new THREE.Vector3(0, 0, 0),
+    radius,
+    omega,
+    frameAngle
+  })
+
+  expect(state.mode).toBe('free-fly')
+  expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
 })
 
 test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', () => {
@@ -223,6 +248,8 @@ test('detachPlayerToFreeFly seeds the Rapier body slightly inside the wall for l
 
   detachPlayerToFreeFly(state, {
     launchVelocity: new THREE.Vector3(0, 0, 0),
+    radius,
+    omega: 0.05535,
     frameAngle: 0
   })
   cylinder.syncToFrame(0)

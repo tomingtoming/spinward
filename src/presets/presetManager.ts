@@ -21,7 +21,7 @@ export const getPresetSpanMeters = (preset: Preset) =>
     ? (preset.real.thickness_m ?? 2000)
     : (preset.real.length_m ?? 32000)
 
-export const canRespawnOnAxisEnd = (type: Preset['type']) => type === 'cylinder'
+export const canRespawnOnAxisEnd = (_type: Preset['type']) => true
 
 export const applyPresetToSettingsStore = (
   settingsStore: SettingsStore,

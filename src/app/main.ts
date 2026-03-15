@@ -280,30 +280,26 @@ export const bootstrapApp = async () => {
     }
 
     switch (action) {
+      case 'preset-apply-playground':
       case 'preset-apply-izma':
-        frameAngle = 0
-        applyPresetToSettingsStore(settingsStore, 'izma')
-        clearBalls()
-        rebuildPlayerTraversal('inner-wall')
-        syncHabitat()
-        settingsDirty = false
-        return true
       case 'preset-apply-cooper':
+      case 'preset-apply-elysium': {
+        const presetId =
+          action === 'preset-apply-playground'
+            ? 'playground'
+            : action === 'preset-apply-izma'
+              ? 'izma'
+              : action === 'preset-apply-cooper'
+                ? 'cooper'
+                : 'elysium'
         frameAngle = 0
-        applyPresetToSettingsStore(settingsStore, 'cooper')
+        applyPresetToSettingsStore(settingsStore, presetId)
         clearBalls()
         rebuildPlayerTraversal('inner-wall')
         syncHabitat()
         settingsDirty = false
         return true
-      case 'preset-apply-elysium':
-        frameAngle = 0
-        applyPresetToSettingsStore(settingsStore, 'elysium')
-        clearBalls()
-        rebuildPlayerTraversal('inner-wall')
-        syncHabitat()
-        settingsDirty = false
-        return true
+      }
       case 'respawn-inner-wall':
         return respawnPlayerInnerWall()
       case 'respawn-axis-end':
@@ -549,6 +545,8 @@ export const bootstrapApp = async () => {
     if (playerTraversal.mode === 'attached' && locomotionIntent.detachRequested) {
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: locomotionIntent.detachLaunchVelocity,
+        radius: habitatConfig.radius,
+        omega,
         frameAngle
       })
     } else if (playerTraversal.mode === 'attached') {

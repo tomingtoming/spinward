@@ -24,3 +24,19 @@ test('getWatchButtonAtUv ignores points outside of interactive buttons', () => {
 
   expect(getWatchButtonAtUv(layout, new THREE.Vector2(0.08, 0.95))).toBeNull()
 })
+
+test('getWatchButtonAtUv reaches the playground preset button', () => {
+  const layout = createWatchExpandedLayout()
+  const playgroundButton = layout.buttons.find((button) => button.id === 'preset-apply-playground')
+
+  if (playgroundButton === undefined) {
+    throw new Error('playground preset button was not created')
+  }
+
+  const uv = new THREE.Vector2(
+    (playgroundButton.x + playgroundButton.width * 0.5) / layout.width,
+    1 - (playgroundButton.y + playgroundButton.height * 0.5) / layout.height
+  )
+
+  expect(getWatchButtonAtUv(layout, uv)?.id).toBe('preset-apply-playground')
+})

@@ -65,6 +65,7 @@ const drawButton = (
 }
 
 const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
+  (action === 'preset-apply-playground' && snapshot.currentPresetId === 'playground') ||
   (action === 'preset-apply-izma' && snapshot.currentPresetId === 'izma') ||
   (action === 'preset-apply-cooper' && snapshot.currentPresetId === 'cooper') ||
   (action === 'preset-apply-elysium' && snapshot.currentPresetId === 'elysium')
@@ -240,15 +241,15 @@ export const renderWatchExpanded = (
 
   ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
   ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('RESPAWN', 42, 1324)
+  ctx.fillText('RESPAWN', 42, 1416)
   ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
   ctx.font = '500 15px "Avenir Next", sans-serif'
   ctx.fillText(
-    snapshot.axisEndRespawnEnabled
-      ? 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.'
-      : 'Axis End is disabled for ring presets. Use Inner Wall to respawn safely.',
+    snapshot.habitatType === 'ring'
+      ? 'Inner Wall = attached. Axis End = free-fly at the ring center for a zero-g reset.'
+      : 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.',
     42,
-    1350
+    1442
   )
 
   for (const button of layout.respawnButtons) {

@@ -21,7 +21,7 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
   thickness: 0,
   rpm: 5,
   simScale: 1,
-  currentPresetId: 'custom',
+  currentPresetId: 'playground',
   ballSpeedScale: 1,
   jetpackAcceleration: 12,
   ballLifetimeSeconds: 30,

@@ -30,6 +30,43 @@ export type Preset = {
 
 export const HABITAT_PRESETS: Preset[] = [
   {
+    id: 'playground',
+    name: 'Playground Colony',
+    type: 'cylinder',
+    real: {
+      radius_m: 18,
+      diameter_m: 36,
+      length_m: 120,
+      rpm: 5,
+      omega_rad_s: periodToOmega(12)
+    },
+    sim: {
+      scale: 1,
+      notes: 'Default close-range playground scale with 1:1 real-to-sim mapping.'
+    },
+    farField: {
+      enabled: true,
+      mode: 'night',
+      intensity: 1,
+      density: 0.5,
+      bandArc_deg: 110,
+      bandHeight_m: 700,
+      parallaxLayers: 2,
+      parallaxOffset_m: 90,
+      textureSize: 512,
+      updateInterval_s: 0
+    },
+    flavor: {
+      skybox: 'default',
+      runwayStyle: 'default'
+    },
+    sourceQuality: 'derived',
+    notes: [
+      'Matches the original playground defaults shipped with the prototype.',
+      'Kept as a preset because the small-radius feel is useful for iteration and comparison.'
+    ]
+  },
+  {
     id: 'izma',
     name: 'Izma Colony',
     type: 'cylinder',

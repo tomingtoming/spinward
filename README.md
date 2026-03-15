@@ -42,8 +42,8 @@ bun run preview -- --host 0.0.0.0
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
 - VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Night Surface` の `on/off`, `day/night/auto`, `intensity` を変更できます。内壁 shell 自体の発光と twinkle に効きます。
-- VR: wrist UI から `Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
-- VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。`Axis End` は cylinder のみで、ring preset では disabled です。
+- VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
+- VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。cylinder では開口端の回転軸上、ring では中心へ 0g respawn します。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
 - VR: 右スティック左右で `snap turn` できます。
 - VR: 球のトリガーを離すと放します。球はその時のコントローラ速度から投げ速度を決めます。
@@ -99,6 +99,7 @@ a_cf = -(Ω × (Ω × r))
 
 ## Presets
 
+- Playground Colony: 半径 `18m`, 全長 `120m`, `5rpm`, `simScale 1`
 - Izma Colony: 半径 `3200m`, 全長 `40000m`, 周期 `113.5s`, `0.5286rpm`, `simScale 0.02`
 - Cooper Station: 半径 `3200m`, 全長 `32000m`, `0.5rpm`, `simScale 0.02`
 - Elysium: 半径 `30000m`, リング厚み `2000m`, 周期 `348s`, `0.1724rpm`, `simScale 0.005`
@@ -107,8 +108,7 @@ a_cf = -(Ω × (Ω × r))
 ## Respawn
 
 - `Inner Wall`: 円筒中央の内壁へ戻り、`attached` で開始します。
-- `Axis End`: 円筒端の回転軸上へ戻り、`free-fly` で開始します。
-- `Axis End` は cylinder preset のみ有効です。ring preset では disabled になります。
+- `Axis End`: cylinder では円筒端の回転軸上、ring ではリング中心へ戻り、`free-fly` で開始します。
 
 ## Night Surface
 
@@ -155,7 +155,7 @@ a_cf = -(Ω × (Ω × r))
 - 内壁 shell の procedural texture と night surface emissive
 - 固定物用の近傍 streaming collider scaffold（現在は airlock 周辺）
 - 主内壁の近傍 streaming wall collider
-- `Izma / Cooper / Elysium` preset と `real / simScale` 分離
+- `Playground / Izma / Cooper / Elysium` preset と `real / simScale` 分離
 - 内壁中央 / 軸端の 2 種 respawn
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD

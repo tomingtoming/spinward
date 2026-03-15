@@ -32,7 +32,6 @@ const DETACH_LAUNCH_SPEED = 6
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
-  private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
   private readonly snapTurnState = createSnapTurnState()
   private readonly freeFlyAttitude = createJetpackAttitudeState()
   private readonly freeFlyInertialOrientation = new THREE.Quaternion()
@@ -47,8 +46,7 @@ export class VRLocomotion {
   ) {
     this.viewRig.rotation.order = 'YXZ'
 
-    for (const { controller, grip } of controllers) {
-      this.gripByController.set(controller, grip)
+    for (const { controller } of controllers) {
       controller.addEventListener('connected', (event) => {
         this.inputSourceByController.set(controller, event.data)
       })
@@ -96,7 +94,7 @@ export class VRLocomotion {
     let leftLinearBrake = false
     let leftSqueeze = 0
     let leftTrigger = 0
-    let leftGrip: THREE.XRGripSpace | null = null
+    let leftAimController: THREE.XRTargetRaySpace | null = null
     let snapAxisX = 0
     let snapAxisMagnitudeSq = 0
 
@@ -119,7 +117,7 @@ export class VRLocomotion {
         continue
       }
 
-      leftGrip = this.gripByController.get(controller) ?? null
+      leftAimController = controller
       leftTrigger = Math.max(leftTrigger, this.readTriggerValue(gamepad))
       leftSqueeze = Math.max(leftSqueeze, this.readSqueezeValue(gamepad))
 
@@ -169,9 +167,12 @@ export class VRLocomotion {
       this.previousPlayerMode = playerMode
       intent.freeFlyBrake = leftLinearBrake ? 1 : 0
 
-      if (leftGrip !== null && leftTrigger > 0.05) {
-        leftGrip.updateWorldMatrix(true, false)
-        getJetpackThrustDirection(leftGrip.getWorldQuaternion(new THREE.Quaternion()), freeFlyForward)
+      if (leftAimController !== null && leftTrigger > 0.05) {
+        leftAimController.updateWorldMatrix(true, false)
+        getJetpackThrustDirection(
+          leftAimController.getWorldQuaternion(new THREE.Quaternion()),
+          freeFlyForward
+        )
         intent.freeFlyThrust.copy(freeFlyForward).multiplyScalar(leftTrigger)
       }
 
@@ -182,9 +183,12 @@ export class VRLocomotion {
     this.applyAttachedView()
     this.previousPlayerMode = playerMode
 
-    if (leftGrip !== null && leftTrigger > 0.05) {
-      leftGrip.updateWorldMatrix(true, false)
-      getJetpackThrustDirection(leftGrip.getWorldQuaternion(new THREE.Quaternion()), freeFlyForward)
+    if (leftAimController !== null && leftTrigger > 0.05) {
+      leftAimController.updateWorldMatrix(true, false)
+      getJetpackThrustDirection(
+        leftAimController.getWorldQuaternion(new THREE.Quaternion()),
+        freeFlyForward
+      )
       intent.detachRequested = true
       intent.detachLaunchVelocity.copy(freeFlyForward).multiplyScalar(leftTrigger * DETACH_LAUNCH_SPEED)
     }

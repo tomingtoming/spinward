@@ -2,7 +2,6 @@ import * as THREE from 'three'
 
 const COMFORT_DEADZONE = 0.18
 const ANGULAR_ACCELERATION = Math.PI * 1.75
-const ANGULAR_DAMPING = 0.35
 const ANGULAR_BRAKE_DAMPING = 4.5
 const MAX_ANGULAR_SPEED = Math.PI * 1.5
 const forwardAxis = new THREE.Vector3(0, 0, -1)
@@ -41,8 +40,10 @@ export const stepJetpackAttitude = (
     state.angularVelocity.setLength(MAX_ANGULAR_SPEED)
   }
 
-  const dampingFactor = Math.exp(-(brake ? ANGULAR_BRAKE_DAMPING : ANGULAR_DAMPING) * deltaSeconds)
-  state.angularVelocity.multiplyScalar(dampingFactor)
+  if (brake) {
+    const dampingFactor = Math.exp(-ANGULAR_BRAKE_DAMPING * deltaSeconds)
+    state.angularVelocity.multiplyScalar(dampingFactor)
+  }
 
   return state
 }

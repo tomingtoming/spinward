@@ -45,18 +45,35 @@ test('respawnAxisEnd places the player on the axis near the cylinder end', () =>
   expect(rotatingPosition.y).toBeCloseTo(48, 6)
 })
 
-test('respawnAxisEnd is disabled for ring habitats', () => {
+test('respawnAxisEnd uses an adaptive end margin for short cylinders', () => {
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 18, 0, 1)
+
+  const didRespawn = respawnAxisEnd(state, {
+    type: 'cylinder',
+    length: 120,
+    frameAngle: 0,
+    omega: 1
+  })
+
+  expect(didRespawn).toBe(true)
+  expect(state.inertialPosition.y).toBeCloseTo(48, 6)
+})
+
+test('respawnAxisEnd uses the ring center for ring habitats', () => {
   const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0, 1)
 
-  expect(
-    respawnAxisEnd(state, {
-      type: 'ring',
-      length: 2000,
-      frameAngle: 0,
-      omega: 1
-    })
-  ).toBe(false)
-  expect(state.mode).toBe('attached')
+  const didRespawn = respawnAxisEnd(state, {
+    type: 'ring',
+    length: 2000,
+    frameAngle: 0,
+    omega: 1
+  })
+
+  expect(didRespawn).toBe(true)
+  expect(state.mode).toBe('free-fly')
+  expect(state.inertialPosition.x).toBeCloseTo(0, 6)
+  expect(state.inertialPosition.y).toBeCloseTo(0, 6)
+  expect(state.inertialPosition.z).toBeCloseTo(0, 6)
 })
 
 test('respawnInnerWall is defined in real meters while Rapier pose follows sim scale', async () => {

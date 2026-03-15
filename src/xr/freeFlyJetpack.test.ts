@@ -47,8 +47,7 @@ test('stepJetpackAttitude keeps rotating after the stick returns to center', () 
   stepJetpackAttitude(state, 0, 0, 0.25)
   integrateJetpackAttitudeOrientation(orientation, state, 0.25)
 
-  expect(state.angularVelocity.z).toBeGreaterThan(previousVelocity)
-  expect(state.angularVelocity.z).toBeLessThan(-1)
+  expect(state.angularVelocity.z).toBeCloseTo(previousVelocity, 6)
   expect(Math.abs(orientation.z)).toBeGreaterThan(0.1)
 })
 

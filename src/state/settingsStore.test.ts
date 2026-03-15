@@ -60,6 +60,8 @@ test('settingsStore computes surface gravity from the shared habitat state', () 
 test('settingsStore keeps preset assignment explicit and returns to custom on manual habitat edits', () => {
   const store = createSettingsStore()
 
+  expect(store.habitat.currentPresetId).toBe('playground')
+
   store.setHabitatConfig({
     radius: 3200,
     rpm: 0.5286,

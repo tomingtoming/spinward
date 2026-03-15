@@ -270,6 +270,8 @@ export const detachPlayerToFreeFly = (
   state: PlayerTraversalState,
   config: {
     launchVelocity: THREE.Vector3
+    radius: number
+    omega: number
     frameAngle: number
   }
 ) => {
@@ -277,6 +279,7 @@ export const detachPlayerToFreeFly = (
     return
   }
 
+  syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
   state.mode = 'free-fly'
   rotatingPositionToInertial(config.launchVelocity, config.frameAngle, inertialLaunchVelocity)
   state.inertialVelocity.add(inertialLaunchVelocity)

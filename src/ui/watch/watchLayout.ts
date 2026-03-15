@@ -34,6 +34,7 @@ export type WatchActionId =
   | 'far-field-intensity-fine-decrement'
   | 'far-field-intensity-fine-increment'
   | 'far-field-intensity-coarse-increment'
+  | 'preset-apply-playground'
   | 'preset-apply-izma'
   | 'preset-apply-cooper'
   | 'preset-apply-elysium'
@@ -64,7 +65,7 @@ export type WatchExpandedLayout = {
   farFieldModeButtons: [WatchButton, WatchButton, WatchButton]
   farFieldEnabledButtons: [WatchButton, WatchButton]
   farFieldIntensityRow: WatchRow
-  presetButtons: [WatchButton, WatchButton, WatchButton]
+  presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton]
   respawnButtons: [WatchButton, WatchButton]
   buttons: WatchButton[]
 }
@@ -76,7 +77,7 @@ export const WATCH_STATUS_SIZE = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 1582
+  height: 1674
 } as const
 
 const makeActionButton = (
@@ -164,10 +165,8 @@ export const createWatchExpandedLayout = (
     makeRow('landingAssist', 'Assist', 'landing-assist', 522, width),
     makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 614, width)
   ]
-  const wideButtonWidth = 198
   const wideButtonHeight = 64
   const sectionLeft = 42
-  const sectionGap = 18
   const farFieldEnabledButtons: [WatchButton, WatchButton] = [
     makeActionButton('far-field-disable', 'Night Off', sectionLeft, 812, 140, wideButtonHeight),
     makeActionButton('far-field-enable', 'Night On', sectionLeft + 158, 812, 140, wideButtonHeight)
@@ -185,30 +184,40 @@ export const createWatchExpandedLayout = (
     width
   )
   const presetTop = 1186
-  const respawnTop = 1386
-  const presetButtons: [WatchButton, WatchButton, WatchButton] = [
+  const presetBottom = 1268
+  const respawnTop = 1478
+  const presetButtonWidth = 300
+  const presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton] = [
+    makeActionButton(
+      'preset-apply-playground',
+      'Playground',
+      sectionLeft,
+      presetTop,
+      presetButtonWidth,
+      wideButtonHeight
+    ),
     makeActionButton(
       'preset-apply-izma',
       'Izma',
-      sectionLeft,
+      sectionLeft + 318,
       presetTop,
-      wideButtonWidth,
+      presetButtonWidth,
       wideButtonHeight
     ),
     makeActionButton(
       'preset-apply-cooper',
       'Cooper',
-      sectionLeft + wideButtonWidth + sectionGap,
-      presetTop,
-      wideButtonWidth,
+      sectionLeft,
+      presetBottom,
+      presetButtonWidth,
       wideButtonHeight
     ),
     makeActionButton(
       'preset-apply-elysium',
       'Elysium',
-      sectionLeft + (wideButtonWidth + sectionGap) * 2,
-      presetTop,
-      wideButtonWidth,
+      sectionLeft + 318,
+      presetBottom,
+      presetButtonWidth,
       wideButtonHeight
     )
   ]
