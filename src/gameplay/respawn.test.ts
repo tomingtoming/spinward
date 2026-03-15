@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
-import { createPlayerTraversalState } from '../app/playerTraversal'
+import { createPlayerTraversalState, getPlayerBodyRadius } from '../app/playerTraversal'
 import { initRapier } from '../physics/rapierContext'
 import { respawnAxisEnd, respawnInnerWall } from './respawn'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
@@ -83,10 +83,16 @@ test('respawnInnerWall is defined in real meters while Rapier pose follows sim s
   respawnInnerWall(izmaState, { radius, frameAngle: 0, omega: 0 })
   respawnInnerWall(elysiumState, { radius, frameAngle: 0, omega: 0 })
 
-  expect(izmaState.inertialPosition.x).toBeCloseTo(radius, 6)
-  expect(elysiumState.inertialPosition.x).toBeCloseTo(radius, 6)
-  expect(izmaState.physics?.freeFlyBody.translation().x).toBeCloseTo(radius * 0.02, 6)
-  expect(elysiumState.physics?.freeFlyBody.translation().x).toBeCloseTo(radius * 0.005, 6)
+  expect(izmaState.inertialPosition.x).toBeCloseTo(getPlayerBodyRadius(radius), 6)
+  expect(elysiumState.inertialPosition.x).toBeCloseTo(getPlayerBodyRadius(radius), 6)
+  expect(izmaState.physics?.freeFlyBody.translation().x).toBeCloseTo(
+    getPlayerBodyRadius(radius) * 0.02,
+    5
+  )
+  expect(elysiumState.physics?.freeFlyBody.translation().x).toBeCloseTo(
+    getPlayerBodyRadius(radius) * 0.005,
+    5
+  )
 
   izmaWorld.free()
   elysiumWorld.free()

@@ -115,6 +115,7 @@ const playerColliderOffset = new THREE.Vector3(0, 0.87, 0)
 
 const PLAYER_COLLIDER_HALF_HEIGHT = 0.55
 const PLAYER_COLLIDER_RADIUS = 0.32
+const PLAYER_WALL_CLEARANCE = 0.08
 
 export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   endCapMargin: 1.5,
@@ -126,6 +127,9 @@ export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   assistSurfaceDamping: 1.6,
   assistRadialPull: 1.3
 }
+
+export const getPlayerBodyRadius = (habitatRadius: number) =>
+  Math.max(0, habitatRadius - PLAYER_COLLIDER_RADIUS - PLAYER_WALL_CLEARANCE)
 
 export const createPlayerTraversalState = (
   surface: SurfaceRigState,
@@ -194,7 +198,8 @@ export const stepAttachedPlayer = (
     return
   }
 
-  getSurfacePosition(state.surface, config.radius, previousRotatingPosition)
+  const bodyRadius = getPlayerBodyRadius(config.radius)
+  getSurfacePosition(state.surface, bodyRadius, previousRotatingPosition)
   moveSurfaceRigState(
     state.surface,
     config.axisDistanceDelta,
@@ -203,7 +208,7 @@ export const stepAttachedPlayer = (
     config.length,
     { capEnds: false }
   )
-  getSurfacePosition(state.surface, config.radius, nextRotatingPosition)
+  getSurfacePosition(state.surface, bodyRadius, nextRotatingPosition)
 
   if (config.deltaSeconds > 0) {
     rotatingVelocity
@@ -340,7 +345,7 @@ export const evaluateReattachPlayer = (
   }
 
   const halfLength = Math.max(0, config.length * 0.5 - config.endCapMargin)
-  const bodyRadius = Math.max(0, config.radius - PLAYER_COLLIDER_RADIUS)
+  const bodyRadius = getPlayerBodyRadius(config.radius)
 
   inertialPositionToRotating(state.inertialPosition, config.frameAngle, reattachPosition)
   const withinAxialWindow = Math.abs(reattachPosition.y) <= halfLength
@@ -445,7 +450,7 @@ export const applyReattachAssist = (
   const assistFactor = 1 - THREE.MathUtils.clamp(status.radialError / config.assistDistance, 0, 1)
   const normalBlend = 1 - Math.exp(-config.assistNormalDamping * assistFactor * config.deltaSeconds)
   const surfaceBlend = 1 - Math.exp(-config.assistSurfaceDamping * assistFactor * config.deltaSeconds)
-  const targetRadius = Math.max(0, config.radius - PLAYER_COLLIDER_RADIUS)
+  const targetRadius = getPlayerBodyRadius(config.radius)
   const targetNormalSpeed = THREE.MathUtils.clamp(
     (targetRadius - radialDistance) * config.assistRadialPull,
     -config.maxNormalSpeed,
@@ -485,7 +490,7 @@ const syncAttachedInertialState = (
   omega: number,
   currentRotatingVelocity: THREE.Vector3
 ) => {
-  getSurfacePosition(state.surface, radius, nextRotatingPosition)
+  getSurfacePosition(state.surface, getPlayerBodyRadius(radius), nextRotatingPosition)
   rotatingPositionToInertial(nextRotatingPosition, frameAngle, state.inertialPosition)
   rotatingVelocityToInertial(
     nextRotatingPosition,
