@@ -25,7 +25,7 @@ import {
   stepAttachedPlayer,
   stepFreeFlyPlayer
 } from './playerTraversal'
-import type { SurfaceRigState } from './surfaceRig'
+import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
@@ -35,10 +35,12 @@ import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { FarFieldRenderer } from '../render/farField/farFieldRenderer'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
+import { FixedColliderManager } from '../physics/fixedColliderManager'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
+import { inertialPositionToRotating } from '../sim/frameTransforms'
 import { getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
@@ -148,6 +150,7 @@ export const bootstrapApp = async () => {
     length: getHabitatSpanMeters(),
     units: getUnits()
   })
+  const fixedColliderManager = new FixedColliderManager(rapier, physicsWorld, getUnits())
 
   const restitution = 0.55
   const balls: Ball[] = []
@@ -178,6 +181,8 @@ export const bootstrapApp = async () => {
     position: new THREE.Vector3(),
     orientation: new THREE.Quaternion()
   }
+  const activeFixedColliderPositions: THREE.Vector3[] = []
+  const playerFixedColliderPosition = new THREE.Vector3()
   const locomotionIntent = getIdleLocomotionIntent()
   let desktopThrowQueued = false
   let frameAngle = 0
@@ -334,6 +339,11 @@ export const bootstrapApp = async () => {
     inertialObserverCamera.far = camera.far
     inertialObserverCamera.updateProjectionMatrix()
     rotatingCylinder.rebuild({
+      radius: habitatConfig.radius,
+      length: habitatSpan,
+      units: getUnits()
+    })
+    fixedColliderManager.rebuild({
       radius: habitatConfig.radius,
       length: habitatSpan,
       units: getUnits()
@@ -568,6 +578,28 @@ export const bootstrapApp = async () => {
       })
     }
 
+    activeFixedColliderPositions.length = 0
+
+    if (playerTraversal.mode === 'attached') {
+      getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
+    } else {
+      inertialPositionToRotating(
+        playerTraversal.inertialPosition,
+        frameAngle,
+        playerFixedColliderPosition
+      )
+    }
+
+    activeFixedColliderPositions.push(playerFixedColliderPosition)
+
+    for (const ball of balls) {
+      if (!ball.isGrabbed) {
+        activeFixedColliderPositions.push(ball.position)
+      }
+    }
+
+    fixedColliderManager.syncToFrame(frameAngle)
+    fixedColliderManager.updateActiveColliders(activeFixedColliderPositions)
     rotatingCylinder.syncToFrame(frameAngle)
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
@@ -770,6 +802,7 @@ export const bootstrapApp = async () => {
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     rotatingCylinder.dispose()
+    fixedColliderManager.dispose()
     farFieldRenderer.dispose()
     physicsWorld.free()
     debugGui.destroy()
