@@ -61,6 +61,16 @@ const GRABBED_EMISSIVE = new THREE.Color(0x5b3410)
 const CHARGED_EMISSIVE = new THREE.Color(0x164e63)
 const displayColor = new THREE.Color()
 const displayEmissive = new THREE.Color()
+const trailDisplayPoint = new THREE.Vector3()
+
+const createTrailGeometry = (positions: Float32Array) => {
+  const geometry = new THREE.BufferGeometry()
+  const attribute = new THREE.BufferAttribute(positions, 3)
+  attribute.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('position', attribute)
+  geometry.setDrawRange(0, 0)
+  return geometry
+}
 
 export class Ball {
   readonly radius: number
@@ -73,7 +83,8 @@ export class Ball {
   private readonly maxTrailPoints: number
   private readonly trailPoints: THREE.Vector3[] = []
   private readonly inertialTrailPoints: THREE.Vector3[] = []
-  private readonly inertialTrailDisplayPoints: THREE.Vector3[] = []
+  private readonly trailPositions: Float32Array
+  private readonly inertialTrailPositions: Float32Array
   private readonly onReleased?: (
     controller: THREE.XRTargetRaySpace,
     ball: Ball,
@@ -109,6 +120,8 @@ export class Ball {
     this.units = options.physics.units ?? createUnitsContext(1)
     this.frameAngle = options.frameAngle
     this.omega = options.omega
+    this.trailPositions = new Float32Array(this.maxTrailPoints * 3)
+    this.inertialTrailPositions = new Float32Array(this.maxTrailPoints * 3)
 
     this.rotatingPosition.copy(options.initialPosition)
     rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
@@ -158,7 +171,7 @@ export class Ball {
     this.mesh.position.copy(this.rotatingPosition)
 
     this.trail = new THREE.Line(
-      new THREE.BufferGeometry(),
+      createTrailGeometry(this.trailPositions),
       new THREE.LineBasicMaterial({
         color: options.color ?? 0xfbbf24,
         transparent: true,
@@ -166,7 +179,7 @@ export class Ball {
       })
     )
     this.inertialTrail = new THREE.Line(
-      new THREE.BufferGeometry(),
+      createTrailGeometry(this.inertialTrailPositions),
       new THREE.LineBasicMaterial({
         color: 0x60a5fa,
         transparent: true,
@@ -203,6 +216,7 @@ export class Ball {
         const heldSeconds = Math.max(0, this.nowSeconds() - this.grabStartedAtSeconds)
         this.releasedChargeRatio = computeThrowChargeRatio(heldSeconds)
         this.syncFromWorldPose()
+        this.resetTrail()
         setRigidBodyTranslationFromReal(this.rigidBody, this.inertialPosition, this.units, true)
         this.rigidBody.setBodyType(options.physics.rapier.RigidBodyType.Dynamic, true)
         this.collider.setEnabled(true)
@@ -287,11 +301,10 @@ export class Ball {
   private resetTrail() {
     this.trailPoints.length = 0
     this.inertialTrailPoints.length = 0
-    this.inertialTrailDisplayPoints.length = 0
     this.trailPoints.push(this.position.clone())
     this.inertialTrailPoints.push(this.inertialPosition.clone())
-    this.replaceTrailGeometry()
-    this.replaceInertialTrailGeometry()
+    this.syncTrailGeometry()
+    this.syncInertialTrailGeometry()
   }
 
   private appendTrailPoint() {
@@ -306,9 +319,8 @@ export class Ball {
       this.inertialTrailPoints.shift()
     }
 
-    // Trail sizes stay intentionally small, so rebuilding the geometry avoids buffer resize warnings.
-    this.replaceTrailGeometry()
-    this.replaceInertialTrailGeometry()
+    this.syncTrailGeometry()
+    this.syncInertialTrailGeometry()
   }
 
   private syncRenderState() {
@@ -329,24 +341,48 @@ export class Ball {
     rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
   }
 
-  private replaceTrailGeometry() {
-    this.trail.geometry.dispose()
-    this.trail.geometry = new THREE.BufferGeometry().setFromPoints(this.trailPoints)
+  private syncTrailGeometry() {
+    this.writeTrailPoints(this.trail.geometry, this.trailPoints, this.trailPositions)
   }
 
-  private replaceInertialTrailGeometry() {
-    this.inertialTrailDisplayPoints.length = 0
+  private syncInertialTrailGeometry() {
+    const attribute = this.inertialTrail.geometry.getAttribute('position') as THREE.BufferAttribute
 
-    for (const sample of this.inertialTrailPoints) {
-      this.inertialTrailDisplayPoints.push(
-        inertialPositionToRotating(sample, this.frameAngle, new THREE.Vector3())
+    for (let index = 0; index < this.inertialTrailPoints.length; index += 1) {
+      const pointIndex = index * 3
+      inertialPositionToRotating(
+        this.inertialTrailPoints[index],
+        this.frameAngle,
+        trailDisplayPoint
       )
+      this.inertialTrailPositions[pointIndex] = trailDisplayPoint.x
+      this.inertialTrailPositions[pointIndex + 1] = trailDisplayPoint.y
+      this.inertialTrailPositions[pointIndex + 2] = trailDisplayPoint.z
     }
 
-    this.inertialTrail.geometry.dispose()
-    this.inertialTrail.geometry = new THREE.BufferGeometry().setFromPoints(
-      this.inertialTrailDisplayPoints
-    )
+    this.inertialTrail.geometry.setDrawRange(0, this.inertialTrailPoints.length)
+    attribute.needsUpdate = true
+    this.inertialTrail.geometry.computeBoundingSphere()
+  }
+
+  private writeTrailPoints(
+    geometry: THREE.BufferGeometry,
+    points: THREE.Vector3[],
+    positions: Float32Array
+  ) {
+    const attribute = geometry.getAttribute('position') as THREE.BufferAttribute
+
+    for (let index = 0; index < points.length; index += 1) {
+      const point = points[index]
+      const pointIndex = index * 3
+      positions[pointIndex] = point.x
+      positions[pointIndex + 1] = point.y
+      positions[pointIndex + 2] = point.z
+    }
+
+    geometry.setDrawRange(0, points.length)
+    attribute.needsUpdate = true
+    geometry.computeBoundingSphere()
   }
 
   private updateTrails(trailMode: TrailMode) {

@@ -6,27 +6,19 @@ import {
 } from './watchBindings'
 import {
   WATCH_EXPANDED_SIZE,
-  WATCH_STATUS_SIZE,
   createWatchExpandedLayout,
   getWatchButtonAtUv,
   type WatchActionId
 } from './watchLayout'
-import { renderWatchExpanded, renderWatchStatus } from './watchRenderer'
+import { renderWatchExpanded } from './watchRenderer'
 
-const STATUS_SCALE = new THREE.Vector3(0.14, 0.075, 1)
-const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.32, 1)
-const WRIST_BACK_MARGIN = 0.038
+const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.34, 1)
+const WRIST_BACK_MARGIN = 0.10
 const WRIST_DORSAL_OFFSET = 0.008
 const WRIST_LATERAL_OFFSET = -0.01
-const WATCH_GAP = 0.028
-const WATCH_FACE_CENTER = new THREE.Vector3(
-  STATUS_SCALE.x * 0.5,
-  STATUS_SCALE.y * 0.5,
-  0
-)
 const EXPANDED_CENTER = new THREE.Vector3(
-  STATUS_SCALE.x + WATCH_GAP + EXPANDED_SCALE.x * 0.5,
-  EXPANDED_SCALE.y * 0.5,
+  EXPANDED_SCALE.x * 0.5 - EXPANDED_SCALE.x,
+  EXPANDED_SCALE.y * 0.5 - EXPANDED_SCALE.y,
   0
 )
 
@@ -40,7 +32,7 @@ const panelNormal = new THREE.Vector3()
 const panelBasis = new THREE.Matrix4()
 const panelQuaternion = new THREE.Quaternion()
 const panelFrameRotation = new THREE.Quaternion().setFromEuler(
-  new THREE.Euler(Math.PI, 0, Math.PI)
+  new THREE.Euler(Math.PI, 0, Math.PI + Math.PI / 2)
 )
 
 const createCanvas = (width: number, height: number) => {
@@ -69,15 +61,6 @@ const createMaterial = (texture: THREE.CanvasTexture) =>
 export class WatchPanel {
   readonly group = new THREE.Group()
 
-  private readonly statusCanvas = createCanvas(
-    WATCH_STATUS_SIZE.width,
-    WATCH_STATUS_SIZE.height
-  )
-  private readonly statusTexture = new THREE.CanvasTexture(this.statusCanvas.canvas)
-  private readonly statusMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    createMaterial(this.statusTexture)
-  )
   private readonly expandedCanvas = createCanvas(
     WATCH_EXPANDED_SIZE.width,
     WATCH_EXPANDED_SIZE.height
@@ -90,48 +73,23 @@ export class WatchPanel {
   private readonly layout = createWatchExpandedLayout()
   private hoveredAction: WatchActionId | null = null
   private snapshot: WatchRenderSnapshot | null = null
-  private expanded = false
 
   constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
-    this.statusTexture.colorSpace = THREE.SRGBColorSpace
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
-    this.statusMesh.scale.copy(STATUS_SCALE)
     this.expandedMesh.scale.copy(EXPANDED_SCALE)
-    this.statusMesh.position.copy(WATCH_FACE_CENTER)
     this.expandedMesh.position.copy(EXPANDED_CENTER)
-    this.statusMesh.rotation.z = Math.PI
     this.expandedMesh.rotation.z = Math.PI
-    this.expandedMesh.visible = true
-    this.statusMesh.visible = false
     this.group.renderOrder = 30
-    this.group.add(this.statusMesh, this.expandedMesh)
+    this.group.add(this.expandedMesh)
     this.group.visible = false
-    this.expanded = true
-  }
-
-  get isExpanded() {
-    return this.expanded
   }
 
   get interactiveObject() {
-    return this.expanded ? this.expandedMesh : null
+    return this.expandedMesh
   }
 
   get hasHover() {
     return this.hoveredAction !== null
-  }
-
-  setExpanded(expanded: boolean) {
-    this.expanded = expanded
-    this.expandedMesh.visible = expanded
-
-    if (!expanded) {
-      this.hoveredAction = null
-    }
-  }
-
-  toggleExpanded() {
-    this.setExpanded(!this.expanded)
   }
 
   update(
@@ -169,22 +127,17 @@ export class WatchPanel {
     this.group.quaternion.copy(panelQuaternion)
     this.group.visible = true
 
-    renderWatchStatus(this.statusCanvas.context, snapshot)
-    this.statusTexture.needsUpdate = true
-
-    if (this.expanded) {
-      renderWatchExpanded(
-        this.expandedCanvas.context,
-        this.layout,
-        snapshot,
-        this.hoveredAction
-      )
-      this.expandedTexture.needsUpdate = true
-    }
+    renderWatchExpanded(
+      this.expandedCanvas.context,
+      this.layout,
+      snapshot,
+      this.hoveredAction
+    )
+    this.expandedTexture.needsUpdate = true
   }
 
   updateHover(uv: THREE.Vector2 | null) {
-    if (!this.expanded || uv === null || this.snapshot === null) {
+    if (uv === null || this.snapshot === null) {
       this.hoveredAction = null
       return
     }

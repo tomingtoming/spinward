@@ -4,6 +4,7 @@ import type { HandClutchSample } from '../xr/handClutchLocomotion'
 
 const lineStart = new THREE.Vector3(0, 0, 0)
 const lineEnd = new THREE.Vector3()
+const parentWorldQuaternion = new THREE.Quaternion()
 
 export class HandClutchDebugView {
   readonly group = new THREE.Group()
@@ -51,6 +52,15 @@ export class HandClutchDebugView {
     this.group.visible = true
     this.group.position.copy(sample.anchorWorldPosition)
     this.group.quaternion.copy(sample.controlFrameWorldQuaternion)
+
+    // Convert world-space pose to parent-local space so the indicator
+    // follows the player rig without a 1-frame lag.
+    if (this.group.parent !== null) {
+      this.group.parent.updateWorldMatrix(true, false)
+      this.group.parent.worldToLocal(this.group.position)
+      this.group.parent.getWorldQuaternion(parentWorldQuaternion).invert()
+      this.group.quaternion.premultiply(parentWorldQuaternion)
+    }
 
     lineEnd.copy(sample.localDisplacement)
     this.deltaLine.geometry.setFromPoints([lineStart, lineEnd])

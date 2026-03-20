@@ -31,6 +31,64 @@ type CylinderNightLightingConfig = {
   updateInterval_s: number
 }
 
+const mergeBufferGeometries = (
+  geometries: THREE.BufferGeometry[]
+): THREE.BufferGeometry | null => {
+  if (geometries.length === 0) return null
+
+  let totalPositions = 0
+  let totalIndices = 0
+
+  for (const g of geometries) {
+    const pos = g.getAttribute('position')
+    if (pos === undefined) return null
+    totalPositions += pos.count
+    totalIndices += g.index !== null ? g.index.count : pos.count
+  }
+
+  const positions = new Float32Array(totalPositions * 3)
+  const normals = new Float32Array(totalPositions * 3)
+  const indices = new Uint32Array(totalIndices)
+  let positionOffset = 0
+  let indexOffset = 0
+  let vertexOffset = 0
+
+  for (const g of geometries) {
+    const pos = g.getAttribute('position') as THREE.BufferAttribute
+    const norm = g.getAttribute('normal') as THREE.BufferAttribute | undefined
+
+    for (let i = 0; i < pos.count * 3; i++) {
+      positions[positionOffset + i] = pos.array[i]
+    }
+    if (norm !== undefined) {
+      for (let i = 0; i < norm.count * 3; i++) {
+        normals[positionOffset + i] = norm.array[i]
+      }
+    }
+
+    if (g.index !== null) {
+      for (let i = 0; i < g.index.count; i++) {
+        indices[indexOffset + i] = g.index.array[i] + vertexOffset
+      }
+      indexOffset += g.index.count
+    } else {
+      for (let i = 0; i < pos.count; i++) {
+        indices[indexOffset + i] = i + vertexOffset
+      }
+      indexOffset += pos.count
+    }
+
+    vertexOffset += pos.count
+    positionOffset += pos.count * 3
+  }
+
+  const merged = new THREE.BufferGeometry()
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+  merged.setIndex(new THREE.BufferAttribute(indices, 1))
+  return merged
+}
+
 const fullTurn = Math.PI * 2
 const defaultNearArcRadians = THREE.MathUtils.degToRad(140)
 const defaultFocusStepRadians = THREE.MathUtils.degToRad(7.5)
@@ -155,14 +213,25 @@ export class CylinderHabitat {
     emissive: 0x78350f
   })
 
+  private readonly ribMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3a556a,
+    emissive: 0x0e1e2d,
+    roughness: 0.8,
+    metalness: 0.3,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.45,
+    depthWrite: false
+  })
+
   private nearShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
   private farShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
+  private readonly ribs = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
   private radius = 0
   private length = 0
-  private shellFocusAzimuth = 0
   private readonly nightLighting: CylinderNightLightingConfig = {
     enabled: true,
     mode: 'night',
@@ -199,6 +268,7 @@ export class CylinderHabitat {
     this.farShellMaterial.emissiveMap = this.farShellLightTexture
     this.group.add(this.shellGroup)
     this.group.add(this.guides)
+    this.group.add(this.ribs)
     this.group.add(this.landmarks)
     this.setDimensions(dimensions)
   }
@@ -210,19 +280,13 @@ export class CylinderHabitat {
     this.rebuildShells()
 
     this.rebuildGuides(radius, length)
+    this.rebuildRibs(radius, length)
     this.rebuildStartMarker(radius)
     this.rebuildLandmarks(radius, length)
   }
 
   setFocusAzimuth(focusAzimuth: number) {
-    const quantizedFocus = quantizeCylinderShellFocus(focusAzimuth)
-
-    if (quantizedFocus === this.shellFocusAzimuth) {
-      return
-    }
-
-    this.shellFocusAzimuth = quantizedFocus
-    this.rebuildShells()
+    this.shellGroup.rotation.y = focusAzimuth
   }
 
   setNightLighting(config: CylinderNightLightingConfig) {
@@ -284,7 +348,7 @@ export class CylinderHabitat {
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
     const nightLightRepeat = getCylinderNightLightRepeat(this.radius, this.length)
 
-    const shellArcs = splitCylinderShellArcs(this.shellFocusAzimuth)
+    const shellArcs = splitCylinderShellArcs(0)
     const nearSurfaceUv = resolveCylinderShellUvTransform(
       surfaceRepeat.circumferential,
       shellArcs.near
@@ -394,6 +458,44 @@ export class CylinderHabitat {
     }
 
     return seed
+  }
+
+  private rebuildRibs(radius: number, length: number) {
+    this.disposeGroupGeometries(this.ribs)
+    this.ribs.clear()
+
+    const ribRadius = Math.max(0.5, radius - 0.06)
+    const ribThickness = Math.min(1.5, Math.max(0.12, radius * 0.003))
+    const ribCount = Math.min(5, Math.max(3, Math.round(length / (radius * 0.8))))
+    const ribSpacing = length / (ribCount + 1)
+
+    // Merge all ribs into a single geometry to avoid per-rib draw calls
+    const singleRib = new THREE.TorusGeometry(ribRadius, ribThickness, 4, 48)
+    singleRib.rotateX(Math.PI * 0.5)
+
+    const matrices: THREE.Matrix4[] = []
+
+    for (let i = 1; i <= ribCount; i++) {
+      const y = -length * 0.5 + ribSpacing * i
+      matrices.push(new THREE.Matrix4().makeTranslation(0, y, 0))
+    }
+
+    const ribGeometries = matrices.map((matrix) => {
+      const clone = singleRib.clone()
+      clone.applyMatrix4(matrix)
+      return clone
+    })
+
+    if (ribGeometries.length > 0) {
+      const mergedGeometry = mergeBufferGeometries(ribGeometries)
+      if (mergedGeometry !== null) {
+        const mesh = new THREE.Mesh(mergedGeometry, this.ribMaterial)
+        this.ribs.add(mesh)
+      }
+    }
+
+    singleRib.dispose()
+    for (const g of ribGeometries) g.dispose()
   }
 
   private rebuildGuides(radius: number, length: number) {

@@ -5,6 +5,7 @@ import { resolveFarFieldMode } from '../../render/farField/farFieldSettings'
 import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
+import type { LocomotionProfileId } from '../../xr/locomotionProfile'
 import type { WatchActionId } from './watchLayout'
 
 export type WatchRenderSnapshot = {
@@ -34,6 +35,7 @@ export type WatchRenderSnapshot = {
   farFieldIntensity: number
   farFieldIntensityFineStep: number
   farFieldIntensityCoarseStep: number
+  locomotionProfileId: LocomotionProfileId
   axisEndRespawnEnabled: boolean
   radiusFineStep: number
   radiusCoarseStep: number
@@ -87,6 +89,7 @@ export const createWatchRenderSnapshot = (
     settingsStore.habitat.currentPresetId
   ),
   farFieldIntensity: settingsStore.farField.intensity,
+  locomotionProfileId: settingsStore.getLocomotionProfileId(),
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
@@ -114,6 +117,15 @@ export const applyWatchAction = (
   action: WatchActionId
 ) => {
   switch (action) {
+    case 'profile-beginner':
+      settingsStore.setLocomotionProfileId('beginner')
+      return true
+    case 'profile-sim':
+      settingsStore.setLocomotionProfileId('sim')
+      return true
+    case 'profile-expert':
+      settingsStore.setLocomotionProfileId('expert')
+      return true
     case 'rpm-coarse-decrement':
       settingsStore.adjustRpm(-1, 'coarse')
       return true

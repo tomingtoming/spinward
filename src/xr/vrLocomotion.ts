@@ -1,14 +1,12 @@
 import * as THREE from 'three'
 
 import { createLocomotionIntent } from '../app/locomotionIntent'
+import { getForwardDirection } from '../app/forwardDirection'
 import { HandClutchDebugView } from '../objects/handClutchDebug'
 import type { PlayerTraversalMode } from '../app/playerTraversal'
 import { inertialOrientationToRotating, rotatingOrientationToInertial } from '../sim/frameTransforms'
 import {
   applyRotationAxisProfile,
-  DEFAULT_ATTACHED_CLUTCH_CONFIG,
-  DEFAULT_FREE_FLY_CLUTCH_CONFIG,
-  DEFAULT_ROTATION_CLUTCH_CONFIG,
   createAttachedClutchIntent,
   createHandClutchSample,
   createHandClutchState,
@@ -28,6 +26,10 @@ import {
   stepJetpackAttitudeAxes
 } from './freeFlyJetpack'
 import type { XRControllerSpaces } from './grabSystem'
+import {
+  SIM_PROFILE,
+  type LocomotionProfile
+} from './locomotionProfile'
 import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
 
 const SNAP_TURN_RADIANS = Math.PI / 6
@@ -40,6 +42,10 @@ const playerRigWorldQuaternion = new THREE.Quaternion()
 const yawQuaternion = new THREE.Quaternion()
 const desiredWorldOrientation = new THREE.Quaternion()
 const worldAngularVelocity = new THREE.Vector3()
+const viewForward = new THREE.Vector3()
+const viewRight = new THREE.Vector3()
+const stickMove = new THREE.Vector3()
+const viewWorldQuaternion = new THREE.Quaternion()
 const intent = createLocomotionIntent()
 const attachedClutchIntent = createAttachedClutchIntent()
 const clutchSample = createHandClutchSample()
@@ -48,8 +54,6 @@ const freeFlyThrust = new THREE.Vector3()
 const FACE_BUTTON_THRESHOLD = 0.55
 const CLUTCH_THRESHOLD = 0.05
 const ATTACHED_YAW_SPEED = Math.PI * 0.6
-const FREE_FLY_ROLL_DEADZONE = 0.24
-const FREE_FLY_ROLL_GAIN = 0.55
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
@@ -61,6 +65,11 @@ export class VRLocomotion {
   readonly clutchDebug = new HandClutchDebugView()
   private previousPlayerMode: PlayerTraversalMode = 'attached'
   private snapYaw = 0
+  private profile: LocomotionProfile = SIM_PROFILE
+
+  setProfile(profile: LocomotionProfile) {
+    this.profile = profile
+  }
 
   constructor(
     controllers: XRControllerSpaces[],
@@ -119,6 +128,9 @@ export class VRLocomotion {
     let leftLinearBrake = false
     let leftClutchActive = false
     let leftGripObject: THREE.XRGripSpace | null = null
+    let leftStickX = 0
+    let leftStickY = 0
+    let leftStickMagnitudeSq = 0
     let snapAxisX = 0
     let snapAxisMagnitudeSq = 0
 
@@ -149,6 +161,12 @@ export class VRLocomotion {
       leftClutchActive ||= this.readSqueezeValue(gamepad) > CLUTCH_THRESHOLD
       leftAngularBrake ||= this.readFaceButton(gamepad, 4) > FACE_BUTTON_THRESHOLD
       leftLinearBrake ||= this.readFaceButton(gamepad, 5) > FACE_BUTTON_THRESHOLD
+
+      if (stickMagnitudeSq > leftStickMagnitudeSq) {
+        leftStickMagnitudeSq = stickMagnitudeSq
+        leftStickX = axisX
+        leftStickY = axisY
+      }
     }
 
     if (modeChanged) {
@@ -173,18 +191,19 @@ export class VRLocomotion {
       playerMode,
       deltaSeconds
     )
+    this.applyLeftStickMovement(leftStickX, leftStickY, playerMode)
 
     if (playerMode === 'free-fly') {
       if (clutchInput !== null) {
         resolveRotationClutchIntent(
           clutchInput,
-          DEFAULT_ROTATION_CLUTCH_CONFIG,
+          this.profile.rotation,
           clutchRotationIntent
         )
         clutchRotationIntent.roll = applyRotationAxisProfile(
           clutchRotationIntent.roll,
-          FREE_FLY_ROLL_DEADZONE,
-          FREE_FLY_ROLL_GAIN
+          this.profile.rollDeadzone,
+          this.profile.rollGain
         )
       } else {
         clutchRotationIntent.pitch = 0
@@ -198,7 +217,9 @@ export class VRLocomotion {
         clutchRotationIntent.yaw,
         clutchRotationIntent.roll,
         deltaSeconds,
-        leftAngularBrake
+        leftAngularBrake,
+        this.profile.angularAcceleration,
+        this.profile.comfortDeadzone
       )
       integrateJetpackAttitudeOrientation(this.freeFlyInertialOrientation, this.freeFlyAttitude, deltaSeconds)
       this.applyFreeFlyAttitude(frameAngle)
@@ -209,7 +230,7 @@ export class VRLocomotion {
         intent.freeFlyThrust.copy(
           resolveFreeFlyClutchThrust(
             clutchInput,
-            DEFAULT_FREE_FLY_CLUTCH_CONFIG,
+            this.profile.freeFly,
             freeFlyThrust
           )
         )
@@ -229,12 +250,12 @@ export class VRLocomotion {
     if (clutchInput !== null) {
       resolveAttachedClutchIntent(
         clutchInput,
-        DEFAULT_ATTACHED_CLUTCH_CONFIG,
+        this.profile.attached,
         attachedClutchIntent
       )
       resolveRotationClutchIntent(
         clutchInput,
-        DEFAULT_ROTATION_CLUTCH_CONFIG,
+        this.profile.rotation,
         clutchRotationIntent
       )
       intent.attachedAxis = attachedClutchIntent.axis
@@ -289,6 +310,46 @@ export class VRLocomotion {
     }
 
     return button.value ?? (button.pressed ? 1 : 0)
+  }
+
+  private applyLeftStickMovement(
+    stickX: number,
+    stickY: number,
+    playerMode: PlayerTraversalMode
+  ) {
+    const deadzone = this.profile.stickDeadzone
+    if (stickX * stickX + stickY * stickY < deadzone * deadzone) {
+      return
+    }
+
+    const forwardInput = -stickY
+    const rightInput = stickX
+    this.viewRig.updateWorldMatrix(true, false)
+    getForwardDirection(this.viewRig, viewForward)
+    viewRight.set(1, 0, 0).applyQuaternion(this.viewRig.getWorldQuaternion(viewWorldQuaternion))
+    stickMove
+      .copy(viewForward)
+      .multiplyScalar(forwardInput)
+      .addScaledVector(viewRight, rightInput)
+
+    if (stickMove.lengthSq() > 1) {
+      stickMove.normalize()
+    }
+
+    if (playerMode === 'free-fly') {
+      intent.freeFlyThrust.add(stickMove)
+      return
+    }
+
+    // Cylinder axis is world Y; tangent is circumferential at the player's azimuth
+    intent.attachedAxis += stickMove.y
+    const px = this.playerRig.position.x
+    const pz = this.playerRig.position.z
+    const r = Math.hypot(px, pz)
+    if (r > 0.001) {
+      // tangent direction = (-sinθ, 0, cosθ) = (-pz/r, 0, px/r)
+      intent.attachedTangent += (-pz * stickMove.x + px * stickMove.z) / r
+    }
   }
 
   private applyFreeFlyAttitude(frameAngle: number) {

@@ -10,7 +10,6 @@ import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import {
-  applyReattachAssist,
   confinePlayerToHabitatInterior,
   applyPlayerTraversalState,
   createPlayerTraversalState,
@@ -34,13 +33,12 @@ import { Starfield } from '../objects/starfield'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
-import { FixedColliderManager } from '../physics/fixedColliderManager'
 import { initRapier } from '../physics/rapierContext'
-import { StreamingCylinderWall } from '../physics/streamingCylinderWall'
+import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
 import { resolveFarFieldMode } from '../render/farField/farFieldSettings'
 import { computeFrameVerification } from '../sim/frameVerification'
-import { inertialPositionToRotating } from '../sim/frameTransforms'
+import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
@@ -145,10 +143,14 @@ export const bootstrapApp = async () => {
   physicsWorld.maxCcdSubsteps = 4
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const getUnits = () => createUnitsContext(habitatConfig.simScale)
-  const rotatingCylinder = new StreamingCylinderWall(rapier, physicsWorld, getUnits())
-  const fixedColliderManager = new FixedColliderManager(rapier, physicsWorld, getUnits())
 
   const restitution = 0.55
+  const cylinderWall = createRotatingCylinderBody(rapier, physicsWorld, {
+    radius: habitatConfig.radius,
+    length: getHabitatSpanMeters(),
+    units: getUnits()
+  })
+  cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
   const balls: Ball[] = []
   const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
@@ -156,6 +158,10 @@ export const bootstrapApp = async () => {
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
   const worldVelocity = new THREE.Vector3()
+  const controllerLocalVelocity = new THREE.Vector3()
+  const controllerCarrierVelocity = new THREE.Vector3()
+  const controllerParentQuaternion = new THREE.Quaternion()
+  const throwDebugDirection = new THREE.Vector3()
   const rotatingCameraPosition = new THREE.Vector3()
   const rotatingCameraOrientation = new THREE.Quaternion()
   const trackedBallInertialVelocity = new THREE.Vector3()
@@ -164,13 +170,14 @@ export const bootstrapApp = async () => {
     position: new THREE.Vector3(),
     orientation: new THREE.Quaternion()
   }
-  const activeFixedColliderPositions: THREE.Vector3[] = []
   const playerFixedColliderPosition = new THREE.Vector3()
   const locomotionIntent = getIdleLocomotionIntent()
   let desktopThrowQueued = false
   let frameAngle = 0
   let settingsDirty = false
   let watchUiHot = false
+  let throwDebugTimer = 0
+  const THROW_DEBUG_DURATION = 1.5
   let desktopUiCamera: THREE.PerspectiveCamera = camera
   const buildPlayerTraversal = () =>
     createPlayerTraversalState(initialSurfaceState, habitatConfig.radius, frameAngle, rpmToOmega(habitatConfig.rpm), {
@@ -183,6 +190,14 @@ export const bootstrapApp = async () => {
   let verificationBall: Ball | null = null
   const previousTrackedRotatingVelocity = new THREE.Vector3()
 
+  const throwDebugArrow = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0, -1),
+    new THREE.Vector3(),
+    1,
+    0x67e8f9
+  )
+  throwDebugArrow.visible = false
+  nearLayer.add(throwDebugArrow)
   nearLayer.add(forceVectorArrows.group)
   nearLayer.add(dockingGuide.group)
 
@@ -192,10 +207,18 @@ export const bootstrapApp = async () => {
     camera,
     renderer,
     controllerRoot: viewRig,
-    shouldBlockSelectStart: (controller) =>
-      (watchUiHot && vrLocomotion?.getHandedness(controller) === 'right') ||
-      (playerTraversal.mode === 'free-fly' && vrLocomotion?.getHandedness(controller) === 'left'),
+    shouldBlockSelectStart: (controller) => {
+      const handedness = vrLocomotion?.getHandedness(controller)
+      return (
+        handedness === 'left' ||
+        (watchUiHot && handedness === 'right')
+      )
+    },
     onEmptySelectStart: (controller) => {
+      if (vrLocomotion?.getHandedness(controller) !== 'right') {
+        return null
+      }
+
       const ball = spawnBall({
         origin: controller,
         releasedByController: controller
@@ -214,15 +237,17 @@ export const bootstrapApp = async () => {
     viewRig,
     camera
   )
-  nearLayer.add(vrLocomotion.clutchDebug.group)
+  playerRig.add(vrLocomotion.clutchDebug.group)
   const xrInputMap = new XRInputMap(grabSystem.getControllers())
   const watchPanel = new WatchPanel((action) => handleWatchAction(action))
   const laserPointer = new LaserPointer()
   const desktopQuickPanel = new PcQuickPanel((action) => handleWatchAction(action))
   scene.add(watchPanel.group)
   scene.add(desktopQuickPanel.mesh)
+  vrLocomotion.setProfile(settingsStore.getLocomotionProfile())
   settingsStore.subscribe(() => {
     settingsDirty = true
+    vrLocomotion.setProfile(settingsStore.getLocomotionProfile())
   })
 
   const clearBalls = () => {
@@ -319,16 +344,6 @@ export const bootstrapApp = async () => {
     camera.updateProjectionMatrix()
     inertialObserverCamera.far = camera.far
     inertialObserverCamera.updateProjectionMatrix()
-    rotatingCylinder.rebuild({
-      radius: habitatConfig.radius,
-      length: habitatSpan,
-      units: getUnits()
-    })
-    fixedColliderManager.rebuild({
-      radius: habitatConfig.radius,
-      length: habitatSpan,
-      units: getUnits()
-    })
     habitat.setNightLighting({
       enabled: settingsStore.farField.enabled,
       mode: settingsStore.farField.mode,
@@ -337,6 +352,12 @@ export const bootstrapApp = async () => {
       presetId: habitatConfig.currentPresetId,
       updateInterval_s: settingsStore.farField.updateInterval_s
     })
+    cylinderWall.rebuild({
+      radius: habitatConfig.radius,
+      length: habitatSpan,
+      units: getUnits()
+    })
+    cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
     starfield.setFrameAngle(frameAngle)
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
   }
@@ -390,8 +411,30 @@ export const bootstrapApp = async () => {
       omega,
       onReleased: (controller, releasedBall, heldSeconds) => {
         getForwardDirection(controller, worldForward)
+        controllerVelocity.getLocalVelocity(controller, controllerLocalVelocity)
+
+        if (controller.parent !== null) {
+          controller.parent.getWorldQuaternion(controllerParentQuaternion)
+          controllerLocalVelocity.applyQuaternion(controllerParentQuaternion)
+        } else {
+          controllerParentQuaternion.identity()
+        }
+
+        if (playerTraversal.mode === 'free-fly') {
+          inertialVelocityToRotating(
+            playerTraversal.inertialPosition,
+            playerTraversal.inertialVelocity,
+            omega,
+            frameAngle,
+            controllerCarrierVelocity
+          )
+        } else {
+          controllerCarrierVelocity.set(0, 0, 0)
+        }
+
         computeThrowVelocityReal(
-          controllerVelocity.getVelocity(controller),
+          controllerCarrierVelocity,
+          controllerLocalVelocity,
           worldForward,
           heldSeconds,
           habitatConfig.ballSpeedScale,
@@ -399,6 +442,20 @@ export const bootstrapApp = async () => {
         )
 
         releasedBall.setVelocity(worldVelocity)
+
+        const throwSpeed = worldVelocity.length()
+        if (throwSpeed > 0.01) {
+          throwDebugDirection.copy(worldVelocity).divideScalar(throwSpeed)
+          throwDebugArrow.position.copy(releasedBall.position)
+          throwDebugArrow.setDirection(throwDebugDirection)
+          throwDebugArrow.setLength(
+            Math.min(throwSpeed * 0.15, 2.5),
+            Math.min(0.4, throwSpeed * 0.04),
+            Math.min(0.2, throwSpeed * 0.025)
+          )
+          throwDebugArrow.visible = true
+          throwDebugTimer = THROW_DEBUG_DURATION
+        }
       }
     })
 
@@ -527,6 +584,13 @@ export const bootstrapApp = async () => {
     const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
 
+    if (throwDebugTimer > 0) {
+      throwDebugTimer -= deltaSeconds
+      if (throwDebugTimer <= 0) {
+        throwDebugArrow.visible = false
+      }
+    }
+
     if (desktopThrowQueued) {
       desktopThrowQueued = false
       throwDesktopBall()
@@ -564,14 +628,13 @@ export const bootstrapApp = async () => {
         deltaSeconds,
         frameAngleStart,
         frameAngleEnd: frameAngle,
-        linearDamping: 0.7,
+        omega,
+        linearDamping: 0,
         brakeAmount: locomotionIntent.freeFlyBrake,
         brakeDamping: 6,
         maxSpeed: 14
       })
     }
-
-    activeFixedColliderPositions.length = 0
 
     if (playerTraversal.mode === 'attached') {
       getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
@@ -583,22 +646,10 @@ export const bootstrapApp = async () => {
       )
     }
 
-    activeFixedColliderPositions.push(playerFixedColliderPosition)
-    habitat.setFocusAzimuth(
-      Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
-    )
+    const playerAzimuth = Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
+    habitat.setFocusAzimuth(playerAzimuth)
+    cylinderWall.updateActiveColliders(playerAzimuth, frameAngle)
 
-    for (const ball of balls) {
-      if (!ball.isGrabbed) {
-        activeFixedColliderPositions.push(ball.position)
-      }
-    }
-
-    fixedColliderManager.syncToFrame(frameAngle)
-    fixedColliderManager.updateActiveColliders(activeFixedColliderPositions)
-    rotatingCylinder.syncToFrame(frameAngle)
-    rotatingCylinder.updateActiveSectors(activeFixedColliderPositions)
-    const wallSnapshot = rotatingCylinder.getDebugSnapshot()
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
@@ -610,17 +661,7 @@ export const bootstrapApp = async () => {
         frameAngle
       })
     }
-    const assistActive =
-      playerTraversal.mode === 'free-fly'
-        ? applyReattachAssist(playerTraversal, {
-            ...reattachTuning,
-            radius: habitatConfig.radius,
-            length: habitatSpan,
-            omega,
-            frameAngle,
-            deltaSeconds
-          })
-        : false
+    const assistActive = false
     const reattachStatus =
       playerTraversal.mode === 'free-fly'
         ? evaluateReattachPlayer(playerTraversal, {
@@ -716,11 +757,6 @@ export const bootstrapApp = async () => {
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
       forceVectors: debugVisuals.showForceVectors,
-      wallSectors: {
-        visible: false,
-        activeCount: wallSnapshot.activeSectorCount,
-        totalCount: wallSnapshot.totalSectorCount
-      },
       observerMode: effectiveObserverMode,
       trailMode: debugVisuals.trailMode,
       region: playerRegion,
@@ -798,12 +834,6 @@ export const bootstrapApp = async () => {
       watchPanel.clickHovered()
     }
 
-    watchPanel.update(
-      watchSnapshot,
-      renderer.xr.isPresenting,
-      xrWatchInput.leftGrip,
-      xrWatchInput.leftController
-    )
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
     renderer.render(scene, desktopUiCamera)
   })
@@ -821,8 +851,7 @@ export const bootstrapApp = async () => {
   window.addEventListener('beforeunload', () => {
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
-    rotatingCylinder.dispose()
-    fixedColliderManager.dispose()
+    cylinderWall.dispose()
     vrLocomotion?.clutchDebug.dispose()
     physicsWorld.free()
     debugGui.destroy()

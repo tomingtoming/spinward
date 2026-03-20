@@ -9,6 +9,11 @@ import {
   type HabitatConfig
 } from '../sim/habitatConfig'
 import { rpmToOmega, surfaceG } from '../units/units'
+import {
+  DEFAULT_LOCOMOTION_PROFILE_ID,
+  getLocomotionProfile,
+  type LocomotionProfileId
+} from '../xr/locomotionProfile'
 
 type SettingsListener = () => void
 
@@ -50,6 +55,7 @@ export const createSettingsStore = (
     ...DEFAULT_FAR_FIELD_SETTINGS,
     ...farFieldOverrides
   }
+  let locomotionProfileId: LocomotionProfileId = DEFAULT_LOCOMOTION_PROFILE_ID
   const listeners = new Set<SettingsListener>()
   const markHabitatCustom = () => {
     habitat.currentPresetId = 'custom'
@@ -244,6 +250,16 @@ export const createSettingsStore = (
         0.1,
         6
       )
+      notify()
+    },
+    getLocomotionProfileId() {
+      return locomotionProfileId
+    },
+    getLocomotionProfile() {
+      return getLocomotionProfile(locomotionProfileId)
+    },
+    setLocomotionProfileId(id: LocomotionProfileId) {
+      locomotionProfileId = id
       notify()
     }
   }

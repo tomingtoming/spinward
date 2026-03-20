@@ -19,7 +19,6 @@ export type CylinderWallPanel = {
 }
 
 const radialAxis = new THREE.Vector3(0, 1, 0)
-const wallRotation = new THREE.Quaternion()
 
 export const resolveCylinderWallSegmentCount = ({
   radius,
@@ -70,16 +69,28 @@ export const buildCylinderWallPanels = ({
   return panels
 }
 
+type PanelEntry = {
+  collider: ReturnType<InstanceType<RapierModule['World']>['createCollider']>
+  localAzimuth: number
+}
+
+const normalizeAngleDiff = (diff: number) => {
+  const wrapped = THREE.MathUtils.euclideanModulo(diff + Math.PI, Math.PI * 2) - Math.PI
+  return Math.abs(wrapped)
+}
+
 export const createRotatingCylinderBody = (
   rapier: RapierModule,
   world: InstanceType<RapierModule['World']>,
   config: RotatingCylinderConfig
 ) => {
-  const body = world.createRigidBody(rapier.RigidBodyDesc.kinematicPositionBased())
-  const colliders: ReturnType<InstanceType<RapierModule['World']>['createCollider']>[] = []
+  const body = world.createRigidBody(rapier.RigidBodyDesc.kinematicVelocityBased())
+  const panels: PanelEntry[] = []
+  let currentRadius = config.radius
 
   const rebuild = (nextConfig: RotatingCylinderConfig) => {
     const units = nextConfig.units ?? createUnitsContext(1)
+    currentRadius = nextConfig.radius
     const scaledConfig: RotatingCylinderConfig = {
       ...nextConfig,
       radius: scaleLengthForRapier(nextConfig.radius, units),
@@ -90,11 +101,15 @@ export const createRotatingCylinderBody = (
       )
     }
 
-    for (const collider of colliders.splice(0)) {
-      world.removeCollider(collider, false)
+    for (const panel of panels.splice(0)) {
+      world.removeCollider(panel.collider, false)
     }
 
-    for (const panel of buildCylinderWallPanels(scaledConfig)) {
+    const builtPanels = buildCylinderWallPanels(scaledConfig)
+
+    for (let index = 0; index < builtPanels.length; index++) {
+      const panel = builtPanels[index]
+      const localAzimuth = (index / builtPanels.length) * Math.PI * 2
       const collider = world.createCollider(
         rapier.ColliderDesc.cuboid(
           panel.halfExtents.x,
@@ -103,11 +118,12 @@ export const createRotatingCylinderBody = (
         )
           .setTranslation(panel.translation.x, panel.translation.y, panel.translation.z)
           .setRotation(panel.rotation)
-          .setFriction(0.8)
-          .setRestitution(0.25),
+          .setFriction(1.8)
+          .setRestitution(0.02),
         body
       )
-      colliders.push(collider)
+      collider.setEnabled(false)
+      panels.push({ collider, localAzimuth })
     }
   }
 
@@ -116,13 +132,32 @@ export const createRotatingCylinderBody = (
   return {
     body,
     rebuild,
+    setAngularVelocity(omega: number) {
+      body.setAngvel({ x: 0, y: omega, z: 0 }, true)
+    },
+    updateActiveColliders(
+      playerAzimuth: number,
+      frameAngle: number,
+      activationRadius = 100
+    ) {
+      const maxAngle = currentRadius > 0.001
+        ? activationRadius / currentRadius
+        : Math.PI
+
+      for (const panel of panels) {
+        const worldAzimuth = panel.localAzimuth + frameAngle
+        const angularDist = normalizeAngleDiff(worldAzimuth - playerAzimuth)
+        panel.collider.setEnabled(angularDist < maxAngle)
+      }
+    },
     syncToFrame(frameAngle: number) {
-      wallRotation.setFromAxisAngle(radialAxis, frameAngle)
-      body.setNextKinematicRotation(wallRotation)
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      const rotation = new THREE.Quaternion().setFromAxisAngle(radialAxis, frameAngle)
+      body.setRotation(rotation, true)
     },
     dispose() {
-      for (const collider of colliders.splice(0)) {
-        world.removeCollider(collider, false)
+      for (const panel of panels.splice(0)) {
+        world.removeCollider(panel.collider, false)
       }
 
       world.removeRigidBody(body)

@@ -34,20 +34,16 @@ export const stepHoldToggleState = (
   return false
 }
 const UI_TRIGGER_THRESHOLD = 0.55
-const WATCH_MENU_HOLD_SECONDS = 0.4
-
 type XrWatchInputFrame = {
   leftController: THREE.XRTargetRaySpace | null
   leftGrip: THREE.XRGripSpace | null
   rightController: THREE.XRTargetRaySpace | null
-  toggleWatchMenu: boolean
   rightTriggerPressed: boolean
 }
 
 export class XRInputMap {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
   private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
-  private readonly watchToggleState = createHoldToggleState()
   private previousRightTriggerPressed = false
 
   constructor(controllers: XRControllerSpaces[]) {
@@ -66,15 +62,13 @@ export class XRInputMap {
     return this.inputSourceByController.get(controller)?.handedness ?? 'none'
   }
 
-  update(deltaSeconds: number, xrActive: boolean): XrWatchInputFrame {
+  update(_deltaSeconds: number, xrActive: boolean): XrWatchInputFrame {
     if (!xrActive) {
       this.previousRightTriggerPressed = false
-      stepHoldToggleState(this.watchToggleState, false, 0, WATCH_MENU_HOLD_SECONDS)
       return {
         leftController: null,
         leftGrip: null,
         rightController: null,
-        toggleWatchMenu: false,
         rightTriggerPressed: false
       }
     }
@@ -82,7 +76,6 @@ export class XRInputMap {
     let leftController: THREE.XRTargetRaySpace | null = null
     let leftGrip: THREE.XRGripSpace | null = null
     let rightController: THREE.XRTargetRaySpace | null = null
-    let leftMenuPressed = false
     let rightTriggerPressed = false
 
     for (const [controller, inputSource] of this.inputSourceByController) {
@@ -95,7 +88,6 @@ export class XRInputMap {
       if (inputSource.handedness === 'left') {
         leftController = controller
         leftGrip = this.gripByController.get(controller) ?? null
-        leftMenuPressed ||= this.readWatchMenuButton(gamepad) > UI_TRIGGER_THRESHOLD
         continue
       }
 
@@ -105,12 +97,6 @@ export class XRInputMap {
       }
     }
 
-    const toggleWatchMenu = stepHoldToggleState(
-      this.watchToggleState,
-      leftMenuPressed,
-      deltaSeconds,
-      WATCH_MENU_HOLD_SECONDS
-    )
     const rightTriggerEdge = rightTriggerPressed && !this.previousRightTriggerPressed
     this.previousRightTriggerPressed = rightTriggerPressed
 
@@ -118,7 +104,6 @@ export class XRInputMap {
       leftController,
       leftGrip,
       rightController,
-      toggleWatchMenu,
       rightTriggerPressed: rightTriggerEdge
     }
   }
@@ -133,16 +118,4 @@ export class XRInputMap {
     return trigger.value ?? (trigger.pressed ? 1 : 0)
   }
 
-  private readWatchMenuButton(gamepad: Gamepad) {
-    const upperFaceButton = gamepad.buttons[5]
-    const lowerFaceButton = gamepad.buttons[4]
-    const upperValue =
-      upperFaceButton?.value ??
-      (upperFaceButton?.pressed === true ? 1 : 0)
-    const lowerValue =
-      lowerFaceButton?.value ??
-      (lowerFaceButton?.pressed === true ? 1 : 0)
-
-    return Math.max(upperValue, lowerValue)
-  }
 }

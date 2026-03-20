@@ -6,20 +6,43 @@ const clearCanvas = (ctx: CanvasRenderingContext2D) => {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 }
 
-const drawPanelShell = (
+const drawPanelBackground = (
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
-  accentColor: string
+  height: number
 ) => {
-  ctx.fillStyle = 'rgba(5, 16, 24, 0.94)'
+  ctx.fillStyle = 'rgba(4, 12, 20, 0.96)'
   ctx.fillRect(0, 0, width, height)
-  ctx.strokeStyle = 'rgba(128, 205, 255, 0.38)'
-  ctx.lineWidth = 4
-  ctx.strokeRect(6, 6, width - 12, height - 12)
 
-  ctx.fillStyle = accentColor
-  ctx.fillRect(0, 0, width, 10)
+  ctx.strokeStyle = 'rgba(100, 180, 230, 0.22)'
+  ctx.lineWidth = 2
+  ctx.strokeRect(4, 4, width - 8, height - 8)
+}
+
+const drawSectionDivider = (
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  width: number
+) => {
+  ctx.strokeStyle = 'rgba(100, 180, 230, 0.14)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(32, y)
+  ctx.lineTo(width - 32, y)
+  ctx.stroke()
+}
+
+const drawSectionHeader = (
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  x: number,
+  y: number
+) => {
+  ctx.fillStyle = 'rgba(103, 232, 249, 0.8)'
+  ctx.font = '700 16px "Avenir Next", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(label, x, y)
 }
 
 const drawButton = (
@@ -33,34 +56,44 @@ const drawButton = (
 ) => {
   const hovered = !state.disabled && hoveredAction === button.id
   const fillStyle = state.disabled
-    ? 'rgba(24, 38, 48, 0.7)'
+    ? 'rgba(24, 38, 48, 0.5)'
     : hovered
       ? '#67e8f9'
       : state.active
-        ? '#0f5c73'
-        : '#183648'
+        ? 'rgba(15, 92, 115, 0.85)'
+        : 'rgba(24, 54, 72, 0.75)'
   const strokeStyle = state.disabled
-    ? 'rgba(148, 163, 184, 0.2)'
+    ? 'rgba(148, 163, 184, 0.15)'
     : hovered
       ? '#d9fbff'
       : state.active
-        ? '#9be7f5'
-        : 'rgba(192, 228, 248, 0.24)'
-  const textStyle = state.disabled ? 'rgba(148, 163, 184, 0.7)' : hovered ? '#02131b' : '#d8ebf4'
+        ? 'rgba(155, 231, 245, 0.7)'
+        : 'rgba(192, 228, 248, 0.18)'
+  const textStyle = state.disabled
+    ? 'rgba(148, 163, 184, 0.5)'
+    : hovered
+      ? '#02131b'
+      : state.active
+        ? '#cdf3fa'
+        : '#d0e4ee'
 
+  const r = 4
+  ctx.beginPath()
+  ctx.roundRect(button.x, button.y, button.width, button.height, r)
   ctx.fillStyle = fillStyle
-  ctx.fillRect(button.x, button.y, button.width, button.height)
+  ctx.fill()
   ctx.strokeStyle = strokeStyle
-  ctx.lineWidth = 2
-  ctx.strokeRect(button.x, button.y, button.width, button.height)
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+
   ctx.fillStyle = textStyle
-  ctx.font = '600 32px "Avenir Next", sans-serif'
+  ctx.font = '600 30px "Avenir Next", sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(
     button.label,
     button.x + button.width * 0.5,
-    button.y + button.height * 0.53
+    button.y + button.height * 0.52
   )
 }
 
@@ -77,34 +110,10 @@ const isActiveFarFieldAction = (snapshot: WatchRenderSnapshot, action: WatchActi
   (action === 'far-field-mode-day' && snapshot.farFieldMode === 'day') ||
   (action === 'far-field-mode-night' && snapshot.farFieldMode === 'night')
 
-export const renderWatchStatus = (
-  ctx: CanvasRenderingContext2D,
-  snapshot: WatchRenderSnapshot
-) => {
-  clearCanvas(ctx)
-  drawPanelShell(ctx, ctx.canvas.width, ctx.canvas.height, snapshot.watchMenuOpen ? '#67e8f9' : '#f59e0b')
-
-  ctx.fillStyle = '#f6fbff'
-  ctx.font = '700 28px "Avenir Next", sans-serif'
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText('WATCH', 22, 18)
-
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.8)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText(`${snapshot.playerMode} | ${snapshot.region}`, 22, 62)
-  ctx.fillText(`${snapshot.currentPresetName} | ${snapshot.habitatType}`, 22, 88)
-  ctx.fillText(
-    `rpm ${snapshot.rpm.toFixed(2)} | g ${snapshot.surfaceGravity.toFixed(2)} | balls ${snapshot.ballCount}`,
-    22,
-    114
-  )
-  ctx.fillText(
-    `R ${snapshot.radius.toFixed(0)}m | jet ${snapshot.jetpackAcceleration.toFixed(1)} | night ${snapshot.farFieldResolvedMode}`,
-    22,
-    140
-  )
-}
+const isActiveProfileAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
+  (action === 'profile-beginner' && snapshot.locomotionProfileId === 'beginner') ||
+  (action === 'profile-sim' && snapshot.locomotionProfileId === 'sim') ||
+  (action === 'profile-expert' && snapshot.locomotionProfileId === 'expert')
 
 export const renderWatchExpanded = (
   ctx: CanvasRenderingContext2D,
@@ -113,66 +122,75 @@ export const renderWatchExpanded = (
   hoveredAction: WatchActionId | null
 ) => {
   clearCanvas(ctx)
-  drawPanelShell(ctx, layout.width, layout.height, '#67e8f9')
+  drawPanelBackground(ctx, layout.width, layout.height)
 
-  ctx.fillStyle = '#f6fbff'
+  // ── Header: status badges ──
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.font = '700 30px "Avenir Next", sans-serif'
-  ctx.fillText('LEFT WRIST / PLAY', 28, 22)
 
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.8)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
+  // Mode / region badge
+  const modeLabel = snapshot.playerMode === 'attached' ? 'ATTACHED' : 'FREE-FLY'
+  const modeColor = snapshot.playerMode === 'attached' ? '#34d399' : '#a78bfa'
+  ctx.fillStyle = modeColor
+  ctx.font = '700 22px "Avenir Next", sans-serif'
+  ctx.fillText(modeLabel, 28, 18)
+
+  const modeWidth = ctx.measureText(modeLabel).width
+  ctx.fillStyle = 'rgba(216, 235, 244, 0.55)'
+  ctx.font = '500 18px "Avenir Next", sans-serif'
+  ctx.fillText(`${snapshot.region}`, 28 + modeWidth + 14, 21)
+
+  // Preset + habitat line
+  ctx.fillStyle = '#e8f4fa'
+  ctx.font = '600 20px "Avenir Next", sans-serif'
+  ctx.fillText(snapshot.currentPresetName, 28, 50)
+
+  const presetWidth = ctx.measureText(snapshot.currentPresetName).width
+  ctx.fillStyle = 'rgba(180, 210, 228, 0.65)'
+  ctx.font = '500 17px "Avenir Next", sans-serif'
   ctx.fillText(
-    `${snapshot.playerMode} | ${snapshot.region} | view ${snapshot.observerMode} | trail ${snapshot.trailMode}`,
-    28,
-    64
+    `${snapshot.habitatType} | R ${snapshot.radius.toFixed(0)}m | g ${snapshot.surfaceGravity.toFixed(2)}`,
+    28 + presetWidth + 14,
+    53
   )
+
+  // Key numbers line
+  ctx.fillStyle = 'rgba(160, 195, 215, 0.6)'
+  ctx.font = '400 16px "Avenir Next", sans-serif'
   ctx.fillText(
-    `preset ${snapshot.currentPresetName} | ${snapshot.habitatType} | R ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m | sim ${snapshot.simScale.toFixed(3)}`,
+    `rpm ${snapshot.rpm.toFixed(2)} | \u03C9 ${snapshot.omega.toFixed(3)} | sim ${snapshot.simScale.toFixed(3)} | balls ${snapshot.ballCount}`,
     28,
-    92
+    80
   )
+
+  // Night mode compact
   ctx.fillText(
-    `g ${snapshot.surfaceGravity.toFixed(2)} | omega ${snapshot.omega.toFixed(3)} | wall ${snapshot.wallSpeed.toFixed(2)} | jet ${snapshot.jetpackAcceleration.toFixed(1)}`,
+    `night ${snapshot.farFieldEnabled ? snapshot.farFieldResolvedMode : 'off'} | jet ${snapshot.jetpackAcceleration.toFixed(1)} | profile ${snapshot.locomotionProfileId}`,
     28,
-    120
+    102
   )
-  ctx.fillText(
-    `night ${snapshot.farFieldEnabled ? 'on' : 'off'} | mode ${snapshot.farFieldMode} -> ${snapshot.farFieldResolvedMode}`,
-    28,
-    148
-  )
-  ctx.fillText('Right trigger clicks the hovered button on the wrist.', 28, 176)
+
+  // ── Adjustment rows ──
+  drawSectionDivider(ctx, 132, layout.width)
+  drawSectionHeader(ctx, 'PARAMETERS', 28, 138)
 
   const valuesByRowKey: Record<string, string> = {
     rpm: snapshot.rpm.toFixed(2),
     radius: `${snapshot.radius.toFixed(0)} m`,
     throwScale: snapshot.throwScale.toFixed(2),
-    jetpackAcceleration: `${snapshot.jetpackAcceleration.toFixed(1)} m/s²`,
+    jetpackAcceleration: `${snapshot.jetpackAcceleration.toFixed(1)} m/s\u00B2`,
     landingAssist: snapshot.landingAssist.toFixed(1),
     reattachThreshold: snapshot.reattachThreshold.toFixed(2)
   }
-  const stepLabelsByRowKey: Record<string, string> = {
-    rpm: `fine ${snapshot.rpmFineStep.toFixed(2)} / coarse ${snapshot.rpmCoarseStep.toFixed(2)}`,
-    radius: `fine ${snapshot.radiusFineStep.toFixed(0)} / coarse ${snapshot.radiusCoarseStep.toFixed(0)}`,
-    throwScale: `fine ${snapshot.throwScaleFineStep.toFixed(2)} / coarse ${snapshot.throwScaleCoarseStep.toFixed(2)}`,
-    jetpackAcceleration:
-      `fine ${snapshot.jetpackAccelerationFineStep.toFixed(1)} / coarse ${snapshot.jetpackAccelerationCoarseStep.toFixed(1)}`,
-    landingAssist: `fine ${snapshot.landingAssistFineStep.toFixed(1)} / coarse ${snapshot.landingAssistCoarseStep.toFixed(1)}`,
-    reattachThreshold: `fine ${snapshot.reattachThresholdFineStep.toFixed(2)} / coarse ${snapshot.reattachThresholdCoarseStep.toFixed(2)}`
-  }
 
   for (const row of layout.rows) {
-    ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-    ctx.font = '600 18px "Avenir Next", sans-serif'
-    ctx.fillText(row.label.toUpperCase(), row.valueX, row.valueY - 28)
-    ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
-    ctx.font = '500 15px "Avenir Next", sans-serif'
-    ctx.fillText(stepLabelsByRowKey[row.key], row.valueX, row.valueY + 38)
+    ctx.fillStyle = 'rgba(200, 220, 235, 0.6)'
+    ctx.font = '500 16px "Avenir Next", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(row.label.toUpperCase(), row.valueX, row.valueY - 26)
 
-    ctx.fillStyle = '#f6fbff'
-    ctx.font = '700 30px "Avenir Next", sans-serif'
+    ctx.fillStyle = '#eef5fa'
+    ctx.font = '700 28px "Avenir Next", sans-serif'
     ctx.fillText(valuesByRowKey[row.key], row.valueX, row.valueY)
 
     for (const button of row.buttons) {
@@ -180,16 +198,23 @@ export const renderWatchExpanded = (
     }
   }
 
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('NIGHT SURFACE', 42, 652)
-  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
-  ctx.font = '500 15px "Avenir Next", sans-serif'
-  ctx.fillText(
-    'Inner-wall emissive texture. Keeps near-ground readability while the opposite wall glows at night.',
-    42,
-    678
-  )
+  // ── Locomotion profile ──
+  drawSectionDivider(ctx, 710, layout.width)
+  drawSectionHeader(ctx, 'LOCOMOTION', 28, 716)
+
+  for (const button of layout.profileButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      active: isActiveProfileAction(snapshot, button.id)
+    })
+  }
+
+  // ── Night surface ──
+  drawSectionDivider(ctx, 820, layout.width)
+  drawSectionHeader(ctx, 'NIGHT SURFACE', 28, 826)
+
+  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
+  ctx.font = '400 14px "Avenir Next", sans-serif'
+  ctx.fillText('Emissive inner-wall texture for low-light readability.', 28, 848)
 
   for (const button of layout.farFieldEnabledButtons) {
     drawButton(ctx, button, hoveredAction, {
@@ -204,34 +229,25 @@ export const renderWatchExpanded = (
   }
 
   const farFieldRow = layout.farFieldIntensityRow
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText(farFieldRow.label.toUpperCase(), farFieldRow.valueX, farFieldRow.valueY - 28)
-  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
-  ctx.font = '500 15px "Avenir Next", sans-serif'
-  ctx.fillText(
-    `fine ${snapshot.farFieldIntensityFineStep.toFixed(2)} / coarse ${snapshot.farFieldIntensityCoarseStep.toFixed(2)}`,
-    farFieldRow.valueX,
-    farFieldRow.valueY + 38
-  )
-  ctx.fillStyle = '#f6fbff'
-  ctx.font = '700 30px "Avenir Next", sans-serif'
+  ctx.fillStyle = 'rgba(200, 220, 235, 0.6)'
+  ctx.font = '500 16px "Avenir Next", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.fillText(farFieldRow.label.toUpperCase(), farFieldRow.valueX, farFieldRow.valueY - 26)
+  ctx.fillStyle = '#eef5fa'
+  ctx.font = '700 28px "Avenir Next", sans-serif'
   ctx.fillText(snapshot.farFieldIntensity.toFixed(2), farFieldRow.valueX, farFieldRow.valueY)
 
   for (const button of farFieldRow.buttons) {
     drawButton(ctx, button, hoveredAction)
   }
 
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('PRESETS', 42, 1124)
-  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
-  ctx.font = '500 15px "Avenir Next", sans-serif'
-  ctx.fillText(
-    'Apply clears live balls, rebuilds Rapier scale, and respawns on the inner wall.',
-    42,
-    1150
-  )
+  // ── Presets ──
+  drawSectionDivider(ctx, 1218, layout.width)
+  drawSectionHeader(ctx, 'PRESETS', 28, 1224)
+
+  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
+  ctx.font = '400 14px "Avenir Next", sans-serif'
+  ctx.fillText('Clears balls, rebuilds physics, respawns on the inner wall.', 28, 1246)
 
   for (const button of layout.presetButtons) {
     drawButton(ctx, button, hoveredAction, {
@@ -239,17 +255,18 @@ export const renderWatchExpanded = (
     })
   }
 
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.74)'
-  ctx.font = '600 18px "Avenir Next", sans-serif'
-  ctx.fillText('RESPAWN', 42, 1416)
-  ctx.fillStyle = 'rgba(146, 190, 214, 0.82)'
-  ctx.font = '500 15px "Avenir Next", sans-serif'
+  // ── Respawn ──
+  drawSectionDivider(ctx, 1510, layout.width)
+  drawSectionHeader(ctx, 'RESPAWN', 28, 1516)
+
+  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
+  ctx.font = '400 14px "Avenir Next", sans-serif'
   ctx.fillText(
     snapshot.habitatType === 'ring'
-      ? 'Inner Wall = attached. Axis End = free-fly at the ring center for a zero-g reset.'
-      : 'Inner Wall = attached. Axis End = free-fly on the cylinder axis near the open end.',
-    42,
-    1442
+      ? 'Inner Wall = attached. Axis End = zero-g at ring center.'
+      : 'Inner Wall = attached. Axis End = free-fly near the open end.',
+    28,
+    1538
   )
 
   for (const button of layout.respawnButtons) {

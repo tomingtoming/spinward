@@ -13,11 +13,6 @@ type HudSnapshot = {
   trackedBallSpeed: number
   xrActive: boolean
   forceVectors: boolean
-  wallSectors: {
-    visible: boolean
-    activeCount: number
-    totalCount: number
-  }
   observerMode: ObserverMode
   trailMode: TrailMode
   watchMenuOpen: boolean
@@ -65,7 +60,7 @@ export const createHud = (): HudHandle => {
   const controls = document.createElement('div')
   controls.className = 'hud__controls'
   controls.textContent =
-    'VR: left wrist watch stays open, right trigger clicks it only while aiming at the panel, otherwise throws; attached=hold left grip, move the hand to walk, twist left/right to yaw, lift it outward to launch, right stick=snap turn; free-fly=hold left grip, move the hand to thrust, twist it for pitch/yaw/roll, left X=angular brake, left Y=linear brake | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
+    'VR: right hand owns ball throw/UI; right trigger clicks the wrist panel only while hovering it, otherwise throws. Attached: hold left grip and move the hand or use left stick to walk, twist left/right to yaw, lift outward to launch, right stick=snap turn. Free-fly: hold left grip and move the hand or use left stick to thrust, twist it for pitch/yaw/roll, left X=angular brake, left Y=linear brake | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
 
   root.append(stats, controls)
   document.body.append(root)

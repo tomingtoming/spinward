@@ -63,6 +63,7 @@ type FreeFlyPlayerStepConfig = {
   deltaSeconds: number
   frameAngleStart: number
   frameAngleEnd: number
+  omega: number
   linearDamping: number
   brakeAmount: number
   brakeDamping: number
@@ -195,7 +196,7 @@ export const createPlayerTraversalState = (
           scaleLengthForRapier(playerColliderOffset.y, units),
           scaleLengthForRapier(playerColliderOffset.z, units)
         )
-        .setFriction(0.5)
+        .setFriction(1.5)
         .setDensity(0.35)
         .setRestitution(0.05),
       freeFlyBody
@@ -211,7 +212,7 @@ export const createPlayerTraversalState = (
           scaleLengthForRapier(playerFootPlateOffset.y, units),
           scaleLengthForRapier(playerFootPlateOffset.z, units)
         )
-        .setFriction(0.95)
+        .setFriction(2.0)
         .setDensity(1.15)
         .setRestitution(0.01),
       freeFlyBody
@@ -299,13 +300,33 @@ export const stepFreeFlyPlayer = (
   rotatingPositionToInertial(config.thrustAcceleration, config.frameAngleStart, inertialAcceleration)
   state.inertialVelocity.addScaledVector(inertialAcceleration, config.deltaSeconds)
 
-  const dampingFactor = Math.exp(
-    -(config.linearDamping + config.brakeAmount * config.brakeDamping) * config.deltaSeconds
-  )
-  state.inertialVelocity.multiplyScalar(dampingFactor)
+  // Brake in inertial frame — brings the player toward absolute rest.
+  if (config.brakeAmount > 0) {
+    const brakeFactor = Math.exp(
+      -config.brakeAmount * config.brakeDamping * config.deltaSeconds
+    )
+    state.inertialVelocity.multiplyScalar(brakeFactor)
+  }
 
-  if (state.inertialVelocity.lengthSq() > config.maxSpeed * config.maxSpeed) {
-    state.inertialVelocity.setLength(config.maxSpeed)
+  // Max speed clamped in rotating frame — prevents unbounded perceived speed
+  // while preserving co-rotation velocity.
+  inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    config.omega,
+    config.frameAngleStart,
+    rotatingVelocity
+  )
+  if (rotatingVelocity.lengthSq() > config.maxSpeed * config.maxSpeed) {
+    rotatingVelocity.setLength(config.maxSpeed)
+    inertialPositionToRotating(state.inertialPosition, config.frameAngleStart, nextRotatingPosition)
+    rotatingVelocityToInertial(
+      nextRotatingPosition,
+      rotatingVelocity,
+      config.omega,
+      config.frameAngleStart,
+      state.inertialVelocity
+    )
   }
 
   if (state.physics !== null) {

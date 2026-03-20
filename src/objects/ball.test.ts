@@ -295,6 +295,43 @@ test('Ball can show rotating and inertial trails at the same time', async () => 
   world.free()
 })
 
+test('Ball reuses trail geometries while updating the trail buffers', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(8, 0.5, 0),
+    initialVelocity: new THREE.Vector3(0, 0, -4),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0.4,
+    omega: 0.8
+  })
+  const rotatingTrailGeometry = ball.trail.geometry
+  const inertialTrailGeometry = ball.inertialTrail.geometry
+
+  world.timestep = 0.1
+  world.step()
+  ball.step({
+    deltaSeconds: 0.1,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0.8,
+    frameAngleEnd: 0.48,
+    trailMode: 'both'
+  })
+
+  expect(ball.trail.geometry).toBe(rotatingTrailGeometry)
+  expect(ball.inertialTrail.geometry).toBe(inertialTrailGeometry)
+
+  ball.dispose()
+  world.free()
+})
+
 test('Ball trail visibility follows the selected frame mode', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })

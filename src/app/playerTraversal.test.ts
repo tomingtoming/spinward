@@ -21,6 +21,7 @@ import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import {
   inertialPositionToRotating,
+  inertialVelocityToRotating,
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
@@ -164,6 +165,7 @@ test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', 
     deltaSeconds: 0.5,
     frameAngleStart: 0.5,
     frameAngleEnd: 1,
+    omega: 1,
     linearDamping: 0,
     brakeAmount: 0,
     brakeDamping: 6,
@@ -341,6 +343,7 @@ test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the s
     deltaSeconds: 0.5,
     frameAngleStart: 0.5,
     frameAngleEnd: 1,
+    omega: 1,
     linearDamping: 0,
     brakeAmount: 0,
     brakeDamping: 6,
@@ -387,6 +390,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
       deltaSeconds: 0.5,
       frameAngleStart: 0.5,
       frameAngleEnd: 1,
+      omega: 1,
       linearDamping: 0,
       brakeAmount: 0,
       brakeDamping: 6,
@@ -410,7 +414,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
   elysiumWorld.free()
 })
 
-test('stepFreeFlyPlayer brake strongly reduces free-fly linear speed', () => {
+test('stepFreeFlyPlayer brake strongly reduces free-fly inertial speed', () => {
   const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1)
 
   stepAttachedPlayer(state, {
@@ -430,7 +434,8 @@ test('stepFreeFlyPlayer brake strongly reduces free-fly linear speed', () => {
     deltaSeconds: 0.5,
     frameAngleStart: 0.5,
     frameAngleEnd: 1,
-    linearDamping: 0.7,
+    omega: 1,
+    linearDamping: 0,
     brakeAmount: 1,
     brakeDamping: 6,
     maxSpeed: 100

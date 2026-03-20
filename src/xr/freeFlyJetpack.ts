@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
-const COMFORT_DEADZONE = 0.18
-const ANGULAR_ACCELERATION = Math.PI * 1.1
+export const DEFAULT_COMFORT_DEADZONE = 0.18
+export const DEFAULT_ANGULAR_ACCELERATION = Math.PI * 1.1
 const ANGULAR_BRAKE_DAMPING = 4.5
 const MAX_ANGULAR_SPEED = Math.PI * 1.5
 const forwardAxis = new THREE.Vector3(0, 0, -1)
@@ -28,8 +28,10 @@ export const stepJetpackAttitude = (
   stickX: number,
   stickY: number,
   deltaSeconds: number,
-  brake = false
-) => stepJetpackAttitudeAxes(state, stickY, 0, -stickX, deltaSeconds, brake)
+  brake = false,
+  angularAcceleration = DEFAULT_ANGULAR_ACCELERATION,
+  comfortDeadzone = DEFAULT_COMFORT_DEADZONE
+) => stepJetpackAttitudeAxes(state, stickY, 0, -stickX, deltaSeconds, brake, angularAcceleration, comfortDeadzone)
 
 export const stepJetpackAttitudeAxes = (
   state: JetpackAttitudeState,
@@ -37,15 +39,17 @@ export const stepJetpackAttitudeAxes = (
   yawInput: number,
   rollInput: number,
   deltaSeconds: number,
-  brake = false
+  brake = false,
+  angularAcceleration = DEFAULT_ANGULAR_ACCELERATION,
+  comfortDeadzone = DEFAULT_COMFORT_DEADZONE
 ) => {
-  const normalizedPitch = normalizeStick(pitchInput)
-  const normalizedYaw = normalizeStick(yawInput)
-  const normalizedRoll = normalizeStick(rollInput)
+  const normalizedPitch = normalizeStick(pitchInput, comfortDeadzone)
+  const normalizedYaw = normalizeStick(yawInput, comfortDeadzone)
+  const normalizedRoll = normalizeStick(rollInput, comfortDeadzone)
 
-  state.angularVelocity.x += normalizedPitch * ANGULAR_ACCELERATION * deltaSeconds
-  state.angularVelocity.y += normalizedYaw * ANGULAR_ACCELERATION * deltaSeconds
-  state.angularVelocity.z += normalizedRoll * ANGULAR_ACCELERATION * deltaSeconds
+  state.angularVelocity.x += normalizedPitch * angularAcceleration * deltaSeconds
+  state.angularVelocity.y += normalizedYaw * angularAcceleration * deltaSeconds
+  state.angularVelocity.z += normalizedRoll * angularAcceleration * deltaSeconds
 
   if (state.angularVelocity.lengthSq() > MAX_ANGULAR_SPEED * MAX_ANGULAR_SPEED) {
     state.angularVelocity.setLength(MAX_ANGULAR_SPEED)
@@ -95,10 +99,10 @@ export const integrateJetpackAttitudeOrientation = (
   return orientation.multiply(deltaRotation).normalize()
 }
 
-const normalizeStick = (value: number) => {
-  if (Math.abs(value) < COMFORT_DEADZONE) {
+const normalizeStick = (value: number, deadzone = DEFAULT_COMFORT_DEADZONE) => {
+  if (Math.abs(value) < deadzone) {
     return 0
   }
 
-  return ((Math.abs(value) - COMFORT_DEADZONE) / (1 - COMFORT_DEADZONE)) * Math.sign(value)
+  return ((Math.abs(value) - deadzone) / (1 - deadzone)) * Math.sign(value)
 }
