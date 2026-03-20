@@ -75,10 +75,6 @@ export type ReattachTuning = {
   radialTolerance: number
   maxNormalSpeed: number
   maxSurfaceSpeed: number
-  assistDistance: number
-  assistNormalDamping: number
-  assistSurfaceDamping: number
-  assistRadialPull: number
 }
 
 export type ReattachPlayerConfig = ReattachTuning & {
@@ -103,10 +99,6 @@ export type ReattachStatus = {
   canAttach: boolean
 }
 
-type ReattachAssistConfig = ReattachPlayerConfig & {
-  deltaSeconds: number
-}
-
 const previousRotatingPosition = new THREE.Vector3()
 const nextRotatingPosition = new THREE.Vector3()
 const previousVisibleRotatingPosition = new THREE.Vector3()
@@ -120,8 +112,6 @@ const reattachPosition = new THREE.Vector3()
 const reattachVelocity = new THREE.Vector3()
 const outwardNormal = new THREE.Vector3()
 const surfaceRelativeVelocity = new THREE.Vector3()
-const adjustedSurfaceVelocity = new THREE.Vector3()
-const adjustedRotatingVelocity = new THREE.Vector3()
 const playerColliderOffset = new THREE.Vector3(0, 0.87, 0)
 const playerFootPlateOffset = new THREE.Vector3(0, 0.1, 0)
 
@@ -139,11 +129,7 @@ export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   endCapMargin: 1.5,
   radialTolerance: 0.2,
   maxNormalSpeed: 0.75,
-  maxSurfaceSpeed: 1.4,
-  assistDistance: 1.2,
-  assistNormalDamping: 4.5,
-  assistSurfaceDamping: 1.6,
-  assistRadialPull: 1.3
+  maxSurfaceSpeed: 1.4
 }
 
 export const getPlayerBodyRadius = (habitatRadius: number) =>
@@ -529,77 +515,6 @@ export const tryReattachPlayer = (
   state.surface.axialPosition = THREE.MathUtils.clamp(reattachPosition.y, -halfLength, halfLength)
   state.surface.azimuth = Math.atan2(reattachPosition.z, reattachPosition.x)
   syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
-  return true
-}
-
-export const applyReattachAssist = (
-  state: PlayerTraversalState,
-  config: ReattachAssistConfig
-) => {
-  const status = evaluateReattachPlayer(state, config)
-
-  if (!status.withinAxialWindow || status.radialError > config.assistDistance) {
-    return false
-  }
-
-  inertialPositionToRotating(state.inertialPosition, config.frameAngle, reattachPosition)
-  const radialDistance = Math.hypot(reattachPosition.x, reattachPosition.z)
-
-  if (radialDistance <= 1e-6) {
-    return false
-  }
-
-  inertialVelocityToRotating(
-    state.inertialPosition,
-    state.inertialVelocity,
-    config.omega,
-    config.frameAngle,
-    reattachVelocity
-  )
-
-  outwardNormal.set(
-    reattachPosition.x / radialDistance,
-    0,
-    reattachPosition.z / radialDistance
-  )
-  const signedNormalSpeed = reattachVelocity.dot(outwardNormal)
-  surfaceRelativeVelocity
-    .copy(reattachVelocity)
-    .addScaledVector(outwardNormal, -signedNormalSpeed)
-
-  const assistFactor = 1 - THREE.MathUtils.clamp(status.radialError / config.assistDistance, 0, 1)
-  const normalBlend = 1 - Math.exp(-config.assistNormalDamping * assistFactor * config.deltaSeconds)
-  const surfaceBlend = 1 - Math.exp(-config.assistSurfaceDamping * assistFactor * config.deltaSeconds)
-  const targetRadius = getPlayerBodyRadius(config.radius)
-  const targetNormalSpeed = THREE.MathUtils.clamp(
-    (targetRadius - radialDistance) * config.assistRadialPull,
-    -config.maxNormalSpeed,
-    config.maxNormalSpeed
-  )
-
-  adjustedSurfaceVelocity.copy(surfaceRelativeVelocity).multiplyScalar(1 - surfaceBlend)
-  adjustedRotatingVelocity
-    .copy(outwardNormal)
-    .multiplyScalar(THREE.MathUtils.lerp(signedNormalSpeed, targetNormalSpeed, normalBlend))
-    .add(adjustedSurfaceVelocity)
-
-  rotatingVelocityToInertial(
-    reattachPosition,
-    adjustedRotatingVelocity,
-    config.omega,
-    config.frameAngle,
-    state.inertialVelocity
-  )
-
-  if (state.physics !== null) {
-    setRigidBodyLinvelFromReal(
-      state.physics.freeFlyBody,
-      state.inertialVelocity,
-      state.physics.units,
-      true
-    )
-  }
-
   return true
 }
 

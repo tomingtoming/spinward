@@ -179,7 +179,6 @@ export const renderWatchExpanded = (
     radius: `${snapshot.radius.toFixed(0)} m`,
     throwScale: snapshot.throwScale.toFixed(2),
     jetpackAcceleration: `${snapshot.jetpackAcceleration.toFixed(1)} m/s\u00B2`,
-    landingAssist: snapshot.landingAssist.toFixed(1),
     reattachThreshold: snapshot.reattachThreshold.toFixed(2)
   }
 

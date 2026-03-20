@@ -20,10 +20,6 @@ export type WatchActionId =
   | 'jetpack-acceleration-fine-decrement'
   | 'jetpack-acceleration-fine-increment'
   | 'jetpack-acceleration-coarse-increment'
-  | 'landing-assist-coarse-decrement'
-  | 'landing-assist-fine-decrement'
-  | 'landing-assist-fine-increment'
-  | 'landing-assist-coarse-increment'
   | 'reattach-threshold-coarse-decrement'
   | 'reattach-threshold-fine-decrement'
   | 'reattach-threshold-fine-increment'
@@ -161,8 +157,7 @@ export const createWatchExpandedLayout = (
     makeRow('radius', 'Radius', 'radius', 246, width),
     makeRow('throwScale', 'Throw', 'throw-scale', 338, width),
     makeRow('jetpackAcceleration', 'Jetpack', 'jetpack-acceleration', 430, width),
-    makeRow('landingAssist', 'Assist', 'landing-assist', 522, width),
-    makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 614, width)
+    makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 522, width)
   ]
   const wideButtonHeight = 64
   const sectionLeft = 42

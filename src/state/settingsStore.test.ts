@@ -24,28 +24,20 @@ test('settingsStore adjusts habitat values and notifies listeners', () => {
   expect(notifications).toBe(4)
 })
 
-test('settingsStore clamps grouped assist and reattach adjustments', () => {
+test('settingsStore clamps grouped reattach adjustments', () => {
   const store = createSettingsStore(
     {},
     {
-      assistNormalDamping: 0.2,
-      assistSurfaceDamping: 0.1,
-      assistRadialPull: 0.1,
       radialTolerance: 0.06,
       maxNormalSpeed: 0.15,
       maxSurfaceSpeed: 0.15
     }
   )
 
-  expect(store.getLandingAssistFineStep()).toBeCloseTo(0.1, 6)
   expect(store.getReattachThresholdFineStep()).toBeCloseTo(0.01, 6)
 
-  store.adjustLandingAssist(-10, 'coarse')
   store.adjustReattachThreshold(-10, 'coarse')
 
-  expect(store.reattach.assistNormalDamping).toBeGreaterThanOrEqual(0)
-  expect(store.reattach.assistSurfaceDamping).toBeGreaterThanOrEqual(0)
-  expect(store.reattach.assistRadialPull).toBeGreaterThanOrEqual(0)
   expect(store.reattach.radialTolerance).toBeCloseTo(0.05, 6)
   expect(store.reattach.maxNormalSpeed).toBeCloseTo(0.1, 6)
   expect(store.reattach.maxSurfaceSpeed).toBeCloseTo(0.1, 6)

@@ -79,8 +79,6 @@ export const createSettingsStore = (
   const getFarFieldIntensityFineStep = () => getAdaptiveStep(farField.intensity, 2, 0.05)
   const getFarFieldIntensityCoarseStep = () =>
     selectStep(getFarFieldIntensityFineStep(), 'coarse')
-  const getLandingAssistFineStep = () => getAdaptiveStep(reattach.assistNormalDamping, 2, 0.1)
-  const getLandingAssistCoarseStep = () => selectStep(getLandingAssistFineStep(), 'coarse')
   const getReattachThresholdFineStep = () => getAdaptiveStep(reattach.radialTolerance, 2, 0.01)
   const getReattachThresholdCoarseStep = () =>
     selectStep(getReattachThresholdFineStep(), 'coarse')
@@ -167,8 +165,6 @@ export const createSettingsStore = (
     getJetpackAccelerationCoarseStep,
     getFarFieldIntensityFineStep,
     getFarFieldIntensityCoarseStep,
-    getLandingAssistFineStep,
-    getLandingAssistCoarseStep,
     getReattachThresholdFineStep,
     getReattachThresholdCoarseStep,
     adjustRadius(ticks: number, mode: StepMode = 'fine') {
@@ -212,25 +208,6 @@ export const createSettingsStore = (
     adjustFarFieldIntensity(ticks: number, mode: StepMode = 'fine') {
       const step = selectStep(getFarFieldIntensityFineStep(), mode)
       farField.intensity = clamp(roundToStep(farField.intensity + step * ticks, step), 0, 2)
-      notify()
-    },
-    adjustLandingAssist(ticks: number, mode: StepMode = 'fine') {
-      const baseStep = selectStep(getLandingAssistFineStep(), mode) * ticks
-      reattach.assistNormalDamping = clamp(
-        roundToStep(reattach.assistNormalDamping + baseStep, 0.1),
-        0,
-        12
-      )
-      reattach.assistSurfaceDamping = clamp(
-        roundToStep(reattach.assistSurfaceDamping + baseStep * 0.58, 0.05),
-        0,
-        8
-      )
-      reattach.assistRadialPull = clamp(
-        roundToStep(reattach.assistRadialPull + baseStep * 0.42, 0.05),
-        0,
-        6
-      )
       notify()
     },
     adjustReattachThreshold(ticks: number, mode: StepMode = 'fine') {

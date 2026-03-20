@@ -113,22 +113,6 @@ export const createDebugGui = ({
     .add(reattachTuning, 'maxSurfaceSpeed', 0.1, 6, 0.05)
     .name('surface speed')
     .onChange(onSettingsChange)
-  reattachFolder
-    .add(reattachTuning, 'assistDistance', 0.1, 3, 0.05)
-    .name('assist dist')
-    .onChange(onSettingsChange)
-  reattachFolder
-    .add(reattachTuning, 'assistNormalDamping', 0, 12, 0.1)
-    .name('assist normal')
-    .onChange(onSettingsChange)
-  reattachFolder
-    .add(reattachTuning, 'assistSurfaceDamping', 0, 8, 0.1)
-    .name('assist surface')
-    .onChange(onSettingsChange)
-  reattachFolder
-    .add(reattachTuning, 'assistRadialPull', 0, 6, 0.1)
-    .name('assist pull')
-    .onChange(onSettingsChange)
   reattachFolder.open()
 
   const farFieldFolder = gui.addFolder('Night Surface')

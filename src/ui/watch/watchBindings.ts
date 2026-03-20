@@ -27,7 +27,6 @@ export type WatchRenderSnapshot = {
   ballCount: number
   throwScale: number
   jetpackAcceleration: number
-  landingAssist: number
   reattachThreshold: number
   farFieldEnabled: boolean
   farFieldMode: 'night' | 'day' | 'auto'
@@ -45,8 +44,6 @@ export type WatchRenderSnapshot = {
   throwScaleCoarseStep: number
   jetpackAccelerationFineStep: number
   jetpackAccelerationCoarseStep: number
-  landingAssistFineStep: number
-  landingAssistCoarseStep: number
   reattachThresholdFineStep: number
   reattachThresholdCoarseStep: number
 }
@@ -80,7 +77,6 @@ export const createWatchRenderSnapshot = (
   ballCount: runtime.ballCount,
   throwScale: settingsStore.habitat.ballSpeedScale,
   jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
-  landingAssist: settingsStore.reattach.assistNormalDamping,
   reattachThreshold: settingsStore.reattach.radialTolerance,
   farFieldEnabled: settingsStore.farField.enabled,
   farFieldMode: settingsStore.farField.mode,
@@ -99,8 +95,6 @@ export const createWatchRenderSnapshot = (
   throwScaleCoarseStep: settingsStore.getThrowScaleCoarseStep(),
   jetpackAccelerationFineStep: settingsStore.getJetpackAccelerationFineStep(),
   jetpackAccelerationCoarseStep: settingsStore.getJetpackAccelerationCoarseStep(),
-  landingAssistFineStep: settingsStore.getLandingAssistFineStep(),
-  landingAssistCoarseStep: settingsStore.getLandingAssistCoarseStep(),
   reattachThresholdFineStep: settingsStore.getReattachThresholdFineStep(),
   reattachThresholdCoarseStep: settingsStore.getReattachThresholdCoarseStep(),
   farFieldIntensityFineStep: settingsStore.getFarFieldIntensityFineStep(),
@@ -200,18 +194,6 @@ export const applyWatchAction = (
       return true
     case 'far-field-intensity-coarse-increment':
       settingsStore.adjustFarFieldIntensity(1, 'coarse')
-      return true
-    case 'landing-assist-coarse-decrement':
-      settingsStore.adjustLandingAssist(-1, 'coarse')
-      return true
-    case 'landing-assist-fine-decrement':
-      settingsStore.adjustLandingAssist(-1, 'fine')
-      return true
-    case 'landing-assist-fine-increment':
-      settingsStore.adjustLandingAssist(1, 'fine')
-      return true
-    case 'landing-assist-coarse-increment':
-      settingsStore.adjustLandingAssist(1, 'coarse')
       return true
     case 'reattach-threshold-coarse-decrement':
       settingsStore.adjustReattachThreshold(-1, 'coarse')

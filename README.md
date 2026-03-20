@@ -31,26 +31,25 @@ bun run preview -- --host 0.0.0.0
 
 ## 操作
 
-- VR: 何もない空間でトリガーを引くと手元に球を生成し、そのまま掴みます。
-- VR: 左右の手は独立しているので、同時に別々の球を持って投げられます。
+- VR: 右手だけが球生成と投擲を担当します。何もない空間で右トリガーを引くと手元に球を生成し、そのまま掴みます。
 - VR: 左 grip を押している間が locomotion clutch です。手元に出る小さな軸とラインが、今の相対入力を示します。
-- VR: `attached` 中は、左 grip を握ったまま手を壁面に沿って動かすと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ強く持ち上げると、そのまま `free-fly` へ離陸します。
-- VR: `free-fly` 中は、左 grip を握ったまま手を前後左右上下へずらすと、その方向へ推進します。手首の pitch / yaw / roll 差分はそのまま回転入力になります。
+- VR: `attached` 中は、左 grip を握ったまま手を壁面に沿って動かすか、左スティックを倒すと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ約 30cm 強く持ち上げると、そのまま `free-fly` へ離陸します。
+- VR: `free-fly` 中は、左 grip を握ったまま手を前後左右上下へずらすか、左スティックを倒すと、その方向へ推進します。手首の pitch / yaw / roll 差分はそのまま回転入力になります。
 - VR: `free-fly` 中は左 `X` で回転 brake、左 `Y` で平行移動 brake を掛けられます。
-- VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / landing assist / reattach` を変更できます。
+- VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / jetpack / reattach` を変更できます。
 - VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Night Surface` の `on/off`, `day/night/auto`, `intensity` を変更できます。内壁 shell 自体の発光と twinkle に効きます。
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。cylinder では開口端の回転軸上、ring では中心へ 0g respawn します。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
 - VR: 右スティック左右の `snap turn` は `attached` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
-- VR: 球のトリガーを離すと放します。球はその時のコントローラ速度から投げ速度を決めます。
+- VR: 球のトリガーを離すと放します。投げ速度は右手の相対運動と前方チャージから決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
 - VR: 球を握っている間は、チャージ量に応じて色がオレンジから水色へ変わります。
 - VR/PC: 球はシリンダー開口部から外へ抜けられます。
 - VR/PC: プレイヤーも端で止まらず、そのまま開口部の外へ出られます。
 - VR/PC: `free-fly` 中でも、内壁へ低速で戻れば自然接触で `attached` に戻ります。
-- VR/PC: `free-fly` 中は、最寄りの内壁ドッキング位置へ伸びる in-world guide が出ます。`ready` で緑、landing assist 中は橙、それ以外は青です。
+- VR/PC: `free-fly` 中は、最寄りの内壁ドッキング位置へ伸びる in-world guide が出ます。`ready` で緑、それ以外は青です。
 - PC: `Space` またはキャンバス左クリックで球を前方へ投げます。
 - PC: `F` で壁から離陸して `free-fly` に入れます。
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
@@ -58,14 +57,13 @@ bun run preview -- --host 0.0.0.0
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
 - PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定、preset、respawn を操作できます。
 - PC: quick panel でも `Night Surface` の `on/off`, `mode`, `intensity` を同じ設定ソースで操作できます。
-- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `reattach` 閾値、弱い landing assist、Night Surface の詳細パラメータを右上で確認/調整できます。
+- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値、Night Surface の詳細パラメータを右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
-- HUD: `free-fly` 中は再アタッチ用の半径誤差、法線速度、壁相対速度、`assist/coast`, `ready/hold` を確認できます。
+- HUD: `free-fly` 中は再アタッチ用の半径誤差、法線速度、壁相対速度、`ready/hold` を確認できます。
 - HUD: 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を表示します。誤差がしきい値を超えると `Frame mismatch!` を出します。
-- landing assist は弱く入っているだけなので、壁相対速度が高いままだと再アタッチせず、そのまま滑るか跳ね返ります。
-- `free-fly` 中は左手が locomotion 専用なので、球生成と投擲は右手側へ寄せています。
+- 左手は locomotion 専用で、球生成と投擲は右手に集約しています。
 
 ## 座標系と式
 
@@ -114,8 +112,7 @@ a_cf = -(Ω × (Ω × r))
 - `intensity` と `density` は内壁の窓明かり量に効き、`twinkle (s)` は emissive pattern の更新間隔です。
 - 大きい habitat では opposite wall の夜景が潰れないよう、night emissive だけは地面 texture より粗い district-scale repeat と visibility boost を使っています。
 - 内壁 shell には procedural の surface texture を貼っていて、約 10m 級のパネル継ぎ目と 40m 級の大区画を繰り返し表示します。アセットを増やさず、接地面の距離感を出す意図です。
-- 固定物 collider は別設計です。主内壁は解析接触と Rapier 補助で扱い、airlock などの固定物は「プレーヤーと球の近傍 sector だけ有効化する streaming collider」で扱います。
-- 主内壁の Rapier 補助 wall も全周固定ではなく、プレーヤーと球の近傍 azimuth sector だけ高密度 panel を有効化します。大半径 preset でも接触法線の荒さを抑える意図です。
+- 固定物 collider は現在ほぼ使っていません。主内壁は球と `free-fly` プレーヤーの解析接触を主に使います。
 - 主内壁の描画も near/far shell に分けています。プレーヤー周辺の内壁は高分割、遠方は低分割の shell にして、近景を優先しつつ遠方コストを抑えています。
 
 ## 単位ルール
@@ -139,7 +136,7 @@ a_cf = -(Ω × (Ω × r))
 ## 実装済みの主な内容
 
 - シリンダー内壁メッシュと簡易グリッド
-- 内壁のランウェイ風ラインと簡易エアロック表示
+- 内壁のランウェイ風ライン
 - 開口部の外に見える夜空と、回転感を出すための外部星空の逆回転表示
 - 回転座標系の人工重力とコリオリ
 - 球の投擲、二重軌跡表示、30秒での自動破棄
@@ -149,8 +146,6 @@ a_cf = -(Ω × (Ω × r))
 - free-fly プレーヤーの `capsule + foot plate` collider
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
 - 内壁 shell の procedural texture と night surface emissive
-- 固定物用の近傍 streaming collider scaffold（現在は airlock 周辺）
-- 主内壁の近傍 streaming wall collider
 - `Playground / Izma / Cooper / Elysium` preset と `real / simScale` 分離
 - 内壁中央 / 軸端の 2 種 respawn
 - `colony-fixed / inertial-fixed` の observer mode

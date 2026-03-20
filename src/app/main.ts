@@ -661,7 +661,6 @@ export const bootstrapApp = async () => {
         frameAngle
       })
     }
-    const assistActive = false
     const reattachStatus =
       playerTraversal.mode === 'free-fly'
         ? evaluateReattachPlayer(playerTraversal, {
@@ -687,8 +686,7 @@ export const bootstrapApp = async () => {
         radius: habitatConfig.radius,
         length: habitatSpan,
         frameAngle,
-        ready: reattachStatus?.canAttach ?? false,
-        assistActive
+        ready: reattachStatus?.canAttach ?? false
       })
     )
 
@@ -792,7 +790,6 @@ export const bootstrapApp = async () => {
               maxNormalSpeed: reattachTuning.maxNormalSpeed,
               surfaceSpeed: reattachStatus.surfaceSpeed,
               maxSurfaceSpeed: reattachTuning.maxSurfaceSpeed,
-              assistActive,
               ready: reattachStatus.canAttach
             }
     })

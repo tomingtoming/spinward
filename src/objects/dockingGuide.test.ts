@@ -22,13 +22,11 @@ test('computeDockingGuideState targets the nearest wall point for a free-flying 
     radius: 12,
     length: 40,
     frameAngle: 0.4,
-    ready: false,
-    assistActive: true
+    ready: false
   })
 
   expect(guide.visible).toBe(true)
   expect(guide.ready).toBe(false)
-  expect(guide.assistActive).toBe(true)
   expectVectorCloseTo(guide.playerPosition, rotatingPosition)
   expectVectorCloseTo(
     guide.targetPosition,
@@ -47,8 +45,7 @@ test('computeDockingGuideState clamps the target to the cylinder opening when ou
     radius: 10,
     length: 20,
     frameAngle: 0.2,
-    ready: true,
-    assistActive: false
+    ready: true
   })
 
   expect(guide.visible).toBe(true)

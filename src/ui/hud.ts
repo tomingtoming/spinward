@@ -39,7 +39,6 @@ type HudSnapshot = {
     maxNormalSpeed: number
     surfaceSpeed: number
     maxSurfaceSpeed: number
-    assistActive: boolean
     ready: boolean
   } | null
 }
@@ -77,7 +76,6 @@ export const createHud = (): HudHandle => {
           : ` | dock dr ${snapshot.reattach.radialError.toFixed(2)}/${snapshot.reattach.radialTolerance.toFixed(2)} ` +
             `vn ${snapshot.reattach.normalSpeed.toFixed(2)}/${snapshot.reattach.maxNormalSpeed.toFixed(2)} ` +
             `vs ${snapshot.reattach.surfaceSpeed.toFixed(2)}/${snapshot.reattach.maxSurfaceSpeed.toFixed(2)} ` +
-            `${snapshot.reattach.assistActive ? 'assist' : 'coast'} ` +
             `${snapshot.reattach.ready ? 'ready' : 'hold'}`
 
       stats.textContent =

@@ -8,7 +8,6 @@ type DockingGuideConfig = {
   length: number
   frameAngle: number
   ready: boolean
-  assistActive: boolean
   endCapMargin?: number
 }
 
@@ -18,7 +17,6 @@ export type DockingGuideState = {
   targetPosition: THREE.Vector3
   normal: THREE.Vector3
   ready: boolean
-  assistActive: boolean
 }
 
 const guidePosition = new THREE.Vector3()
@@ -32,8 +30,7 @@ const createDockingGuideState = (): DockingGuideState => ({
   playerPosition: new THREE.Vector3(),
   targetPosition: new THREE.Vector3(),
   normal: new THREE.Vector3(1, 0, 0),
-  ready: false,
-  assistActive: false
+  ready: false
 })
 
 export const computeDockingGuideState = (
@@ -42,7 +39,6 @@ export const computeDockingGuideState = (
   target = createDockingGuideState()
 ) => {
   target.ready = config.ready
-  target.assistActive = config.assistActive
 
   if (state.mode !== 'free-fly') {
     target.visible = false
@@ -100,7 +96,7 @@ export class DockingGuide {
     }
 
     this.group.visible = true
-    const color = state.ready ? 0x34d399 : state.assistActive ? 0xf59e0b : 0x60a5fa
+    const color = state.ready ? 0x34d399 : 0x60a5fa
 
     this.line.material.color.setHex(color)
     this.ring.material.color.setHex(color)

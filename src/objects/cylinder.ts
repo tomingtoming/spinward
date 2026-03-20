@@ -197,22 +197,6 @@ export class CylinderHabitat {
     opacity: 0.72
   })
 
-  private readonly airlockFrameMaterial = new THREE.MeshStandardMaterial({
-    color: 0xe5e7eb,
-    emissive: 0x111827
-  })
-
-  private readonly airlockDoorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x94a3b8,
-    emissive: 0x0f172a,
-    side: THREE.DoubleSide
-  })
-
-  private readonly beaconMaterial = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    emissive: 0x78350f
-  })
-
   private readonly ribMaterial = new THREE.MeshStandardMaterial({
     color: 0x3a556a,
     emissive: 0x0e1e2d,
@@ -567,49 +551,6 @@ export class CylinderHabitat {
       )
       this.landmarks.add(line)
     }
-
-    const airlock = new THREE.Group()
-    const airlockY = -length * 0.32
-    const frameDepth = 0.28
-    const airlockQuaternion = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(-1, 0, 0)
-    )
-
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 7.5), this.airlockDoorMaterial)
-    door.position.set(radius - 0.08, airlockY, 0)
-    door.quaternion.copy(airlockQuaternion)
-    airlock.add(door)
-
-    const frameParts = [
-      { size: new THREE.Vector3(8.4, 0.26, frameDepth), offset: new THREE.Vector3(radius - 0.04, airlockY + 4, 0) },
-      { size: new THREE.Vector3(8.4, 0.26, frameDepth), offset: new THREE.Vector3(radius - 0.04, airlockY - 4, 0) },
-      { size: new THREE.Vector3(0.26, 8.4, frameDepth), offset: new THREE.Vector3(radius - 0.04, airlockY, 4) },
-      { size: new THREE.Vector3(0.26, 8.4, frameDepth), offset: new THREE.Vector3(radius - 0.04, airlockY, -4) }
-    ]
-
-    for (const framePart of frameParts) {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(framePart.size.x, framePart.size.y, framePart.size.z),
-        this.airlockFrameMaterial
-      )
-      mesh.position.copy(framePart.offset)
-      mesh.quaternion.copy(airlockQuaternion)
-      airlock.add(mesh)
-    }
-
-    const beaconOffsets = [
-      new THREE.Vector3(radius - 0.12, airlockY + 4.4, 4.35),
-      new THREE.Vector3(radius - 0.12, airlockY + 4.4, -4.35)
-    ]
-
-    for (const offset of beaconOffsets) {
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), this.beaconMaterial)
-      beacon.position.copy(offset)
-      airlock.add(beacon)
-    }
-
-    this.landmarks.add(airlock)
   }
 
   private disposeGroupGeometries(group: THREE.Group) {

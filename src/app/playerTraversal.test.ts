@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
 import {
-  applyReattachAssist,
   confinePlayerToHabitatInterior,
   detachPlayerToFreeFly,
   DEFAULT_REATTACH_TUNING,
@@ -503,71 +502,6 @@ test('evaluateReattachPlayer exposes readiness metrics for low-speed wall contac
   expect(status.normalSpeed).toBeLessThan(DEFAULT_REATTACH_TUNING.maxNormalSpeed)
   expect(status.surfaceSpeed).toBeLessThan(DEFAULT_REATTACH_TUNING.maxSurfaceSpeed)
   expect(status.canAttach).toBe(true)
-})
-
-test('applyReattachAssist reduces wall-relative speed near the cylinder wall', () => {
-  const radius = 10
-  const length = 20
-  const frameAngle = 0.4
-  const omega = 1.1
-  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
-  const rotatingPosition = new THREE.Vector3(radius - 0.55, 1.4, 0)
-  const rotatingVelocity = new THREE.Vector3(1.2, 0.4, -1.1)
-  const config = {
-    ...DEFAULT_REATTACH_TUNING,
-    radius,
-    length,
-    omega,
-    frameAngle
-  }
-  const before = evaluateReattachPlayer(state, config)
-
-  state.mode = 'free-fly'
-  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
-  state.inertialVelocity.copy(
-    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
-  )
-
-  const statusBefore = evaluateReattachPlayer(state, config)
-  const assisted = applyReattachAssist(state, {
-    ...config,
-    deltaSeconds: 0.5
-  })
-  const statusAfter = evaluateReattachPlayer(state, config)
-
-  expect(before.canAttach).toBe(false)
-  expect(assisted).toBe(true)
-  expect(statusAfter.normalSpeed).toBeLessThan(statusBefore.normalSpeed)
-  expect(statusAfter.surfaceSpeed).toBeLessThan(statusBefore.surfaceSpeed)
-})
-
-test('applyReattachAssist leaves velocity unchanged away from the wall', () => {
-  const radius = 10
-  const length = 20
-  const frameAngle = 0.4
-  const omega = 1.1
-  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, frameAngle, omega)
-  const rotatingPosition = new THREE.Vector3(6, 1.4, 0)
-  const rotatingVelocity = new THREE.Vector3(0.5, 0.3, -0.4)
-
-  state.mode = 'free-fly'
-  state.inertialPosition.copy(rotatingPositionToInertial(rotatingPosition, frameAngle))
-  state.inertialVelocity.copy(
-    rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
-  )
-  const beforeVelocity = state.inertialVelocity.clone()
-
-  const assisted = applyReattachAssist(state, {
-    ...DEFAULT_REATTACH_TUNING,
-    radius,
-    length,
-    omega,
-    frameAngle,
-    deltaSeconds: 0.5
-  })
-
-  expect(assisted).toBe(false)
-  expectVectorCloseTo(state.inertialVelocity, beforeVelocity)
 })
 
 test('tryReattachPlayer stays in free-fly when wall-relative speed is too high', () => {
