@@ -1,5 +1,7 @@
 import { rpmToOmega } from '../units/units'
 
+const MIN_CAMERA_FAR = 4000
+
 type HabitatLike = {
   setDimensions: (dimensions: { radius: number; length: number }) => void
   setFocusAzimuth: (focusAzimuth: number) => void
@@ -75,7 +77,7 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     radius: config.radius,
     length: config.span
   })
-  dependencies.camera.far = Math.max(4000, dependencies.starfield.getSuggestedCameraFar())
+  dependencies.camera.far = Math.max(MIN_CAMERA_FAR, dependencies.starfield.getSuggestedCameraFar())
   dependencies.camera.updateProjectionMatrix()
   dependencies.inertialObserverCamera.far = dependencies.camera.far
   dependencies.inertialObserverCamera.updateProjectionMatrix()

@@ -187,17 +187,18 @@ export const createSettingsStore = (
       max: 2
     }
   )
+  const reattachThresholdConfig: ScalarStepperConfig = {
+    significantDigits: 2,
+    minStep: 0.01,
+    min: 0.05,
+    max: 1.2
+  }
   const reattachThresholdStepper = createScalarStepper(
     () => reattach.radialTolerance,
     (value) => {
       reattach.radialTolerance = value
     },
-    {
-      significantDigits: 2,
-      minStep: 0.01,
-      min: 0.05,
-      max: 1.2
-    }
+    reattachThresholdConfig
   )
 
   return {
@@ -307,9 +308,9 @@ export const createSettingsStore = (
               reattach.radialTolerance = value
             },
             scale: 1,
-            roundStep: 0.01,
-            min: 0.05,
-            max: 1.2
+            roundStep: reattachThresholdConfig.minStep,
+            min: reattachThresholdConfig.min,
+            max: reattachThresholdConfig.max
           },
           {
             read: () => reattach.maxNormalSpeed,

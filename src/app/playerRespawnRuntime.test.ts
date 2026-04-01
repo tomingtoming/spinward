@@ -157,3 +157,43 @@ test('rebuildPlayerTraversalRuntime disposes the old state, rebuilds, and respaw
   })
   expect(respawnInnerWall).toHaveBeenCalledTimes(1)
 })
+
+test('rebuildPlayerTraversalRuntime falls back to inner-wall when axis-end respawn fails', () => {
+  const previousTraversal = { id: 'previous' }
+  const rebuiltTraversal = { id: 'rebuilt' }
+  const buildPlayerTraversal = mock(() => rebuiltTraversal)
+  const disposePlayerTraversalState = mock(() => {})
+  const respawnInnerWall = mock(() => {})
+  const respawnAxisEnd = mock(() => false)
+  const applyPlayerTraversalState = mock(() => {})
+  const playerRig = { id: 'rig' }
+
+  const result = rebuildPlayerTraversalRuntime(
+    {
+      playerTraversal: previousTraversal,
+      buildPlayerTraversal,
+      disposePlayerTraversalState,
+      respawnInnerWall,
+      respawnAxisEnd,
+      applyPlayerTraversalState,
+      playerRig
+    },
+    {
+      respawnMode: 'axis-end',
+      type: 'ring',
+      radius: 30000,
+      length: 60000,
+      frameAngle: 0,
+      omega: 0.002
+    }
+  )
+
+  expect(result).toBe(rebuiltTraversal)
+  expect(respawnAxisEnd).toHaveBeenCalledTimes(1)
+  expect(respawnInnerWall).toHaveBeenCalledWith(rebuiltTraversal, {
+    radius: 30000,
+    frameAngle: 0,
+    omega: 0.002
+  })
+  expect(applyPlayerTraversalState).toHaveBeenCalledWith(playerRig, rebuiltTraversal, 30000, 0)
+})

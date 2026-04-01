@@ -147,6 +147,10 @@ export const applyWatchAction = (
       case 'far-field-intensity':
         settingsStore.adjustFarFieldIntensity(parameterAction.ticks, parameterAction.mode)
         return true
+      default: {
+        const _: never = parameterAction.prefix
+        return _
+      }
     }
   }
 

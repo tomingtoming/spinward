@@ -113,7 +113,7 @@ export const rebuildPlayerTraversalRuntime = <TPlayerRig, TPlayerTraversal>(
   const nextPlayerTraversal = dependencies.buildPlayerTraversal()
 
   if (config.respawnMode === 'axis-end') {
-    respawnPlayerAxisEndRuntime(
+    const didRespawn = respawnPlayerAxisEndRuntime(
       {
         respawnAxisEnd: dependencies.respawnAxisEnd,
         applyPlayerTraversalState: dependencies.applyPlayerTraversalState
@@ -128,6 +128,21 @@ export const rebuildPlayerTraversalRuntime = <TPlayerRig, TPlayerTraversal>(
         omega: config.omega
       }
     )
+    if (!didRespawn) {
+      respawnPlayerInnerWallRuntime(
+        {
+          respawnInnerWall: dependencies.respawnInnerWall,
+          applyPlayerTraversalState: dependencies.applyPlayerTraversalState
+        },
+        {
+          playerTraversal: nextPlayerTraversal,
+          playerRig: dependencies.playerRig,
+          radius: config.radius,
+          frameAngle: config.frameAngle,
+          omega: config.omega
+        }
+      )
+    }
     return nextPlayerTraversal
   }
 
