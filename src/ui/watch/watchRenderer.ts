@@ -1,5 +1,6 @@
 import { isWatchActionDisabled, type WatchRenderSnapshot } from './watchBindings'
 import type { WatchActionId, WatchExpandedLayout, WatchButton } from './watchLayout'
+import { formatWatchParameterValue } from './watchSchema'
 
 const clearCanvas = (ctx: CanvasRenderingContext2D) => {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -170,17 +171,17 @@ export const renderWatchExpanded = (
     102
   )
 
+  ctx.fillStyle = 'rgba(160, 195, 215, 0.72)'
+  ctx.font = '400 13px "Avenir Next", sans-serif'
+  ctx.fillText(
+    `abs v x ${snapshot.absoluteVelocityX.toFixed(2)} | y ${snapshot.absoluteVelocityY.toFixed(2)} | z ${snapshot.absoluteVelocityZ.toFixed(2)} | |v| ${snapshot.absoluteSpeed.toFixed(2)}`,
+    28,
+    120
+  )
+
   // ── Adjustment rows ──
   drawSectionDivider(ctx, 132, layout.width)
   drawSectionHeader(ctx, 'PARAMETERS', 28, 138)
-
-  const valuesByRowKey: Record<string, string> = {
-    rpm: snapshot.rpm.toFixed(2),
-    radius: `${snapshot.radius.toFixed(0)} m`,
-    throwScale: snapshot.throwScale.toFixed(2),
-    jetpackAcceleration: `${snapshot.jetpackAcceleration.toFixed(1)} m/s\u00B2`,
-    reattachThreshold: snapshot.reattachThreshold.toFixed(2)
-  }
 
   for (const row of layout.rows) {
     ctx.fillStyle = 'rgba(200, 220, 235, 0.6)'
@@ -190,7 +191,7 @@ export const renderWatchExpanded = (
 
     ctx.fillStyle = '#eef5fa'
     ctx.font = '700 28px "Avenir Next", sans-serif'
-    ctx.fillText(valuesByRowKey[row.key], row.valueX, row.valueY)
+    ctx.fillText(formatWatchParameterValue(row.key, snapshot), row.valueX, row.valueY)
 
     for (const button of row.buttons) {
       drawButton(ctx, button, hoveredAction)
@@ -234,7 +235,11 @@ export const renderWatchExpanded = (
   ctx.fillText(farFieldRow.label.toUpperCase(), farFieldRow.valueX, farFieldRow.valueY - 26)
   ctx.fillStyle = '#eef5fa'
   ctx.font = '700 28px "Avenir Next", sans-serif'
-  ctx.fillText(snapshot.farFieldIntensity.toFixed(2), farFieldRow.valueX, farFieldRow.valueY)
+  ctx.fillText(
+    formatWatchParameterValue(farFieldRow.key, snapshot),
+    farFieldRow.valueX,
+    farFieldRow.valueY
+  )
 
   for (const button of farFieldRow.buttons) {
     drawButton(ctx, button, hoveredAction)

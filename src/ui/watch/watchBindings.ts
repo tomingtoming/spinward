@@ -7,6 +7,7 @@ import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
 import type { LocomotionProfileId } from '../../xr/locomotionProfile'
 import type { WatchActionId } from './watchLayout'
+import { parseWatchParameterAction } from './watchSchema'
 
 export type WatchRenderSnapshot = {
   playerMode: PlayerTraversalMode
@@ -14,6 +15,10 @@ export type WatchRenderSnapshot = {
   watchMenuOpen: boolean
   observerMode: ObserverMode
   trailMode: TrailMode
+  absoluteVelocityX: number
+  absoluteVelocityY: number
+  absoluteVelocityZ: number
+  absoluteSpeed: number
   habitatType: 'cylinder' | 'ring'
   currentPresetId: string
   currentPresetName: string
@@ -57,6 +62,12 @@ export const createWatchRenderSnapshot = (
     observerMode: ObserverMode
     trailMode: TrailMode
     ballCount: number
+    absoluteVelocity: {
+      x: number
+      y: number
+      z: number
+      speed: number
+    }
   }
 ): WatchRenderSnapshot => ({
   playerMode: runtime.playerMode,
@@ -64,6 +75,10 @@ export const createWatchRenderSnapshot = (
   watchMenuOpen: runtime.watchMenuOpen,
   observerMode: runtime.observerMode,
   trailMode: runtime.trailMode,
+  absoluteVelocityX: runtime.absoluteVelocity.x,
+  absoluteVelocityY: runtime.absoluteVelocity.y,
+  absoluteVelocityZ: runtime.absoluteVelocity.z,
+  absoluteSpeed: runtime.absoluteVelocity.speed,
   habitatType: settingsStore.habitat.type,
   currentPresetId: settingsStore.habitat.currentPresetId,
   currentPresetName: getPresetName(settingsStore.habitat.currentPresetId),
@@ -110,6 +125,31 @@ export const applyWatchAction = (
   settingsStore: SettingsStore,
   action: WatchActionId
 ) => {
+  const parameterAction = parseWatchParameterAction(action)
+
+  if (parameterAction !== null) {
+    switch (parameterAction.prefix) {
+      case 'rpm':
+        settingsStore.adjustRpm(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'radius':
+        settingsStore.adjustRadius(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'throw-scale':
+        settingsStore.adjustThrowScale(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'jetpack-acceleration':
+        settingsStore.adjustJetpackAcceleration(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'reattach-threshold':
+        settingsStore.adjustReattachThreshold(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'far-field-intensity':
+        settingsStore.adjustFarFieldIntensity(parameterAction.ticks, parameterAction.mode)
+        return true
+    }
+  }
+
   switch (action) {
     case 'profile-beginner':
       settingsStore.setLocomotionProfileId('beginner')
@@ -119,54 +159,6 @@ export const applyWatchAction = (
       return true
     case 'profile-expert':
       settingsStore.setLocomotionProfileId('expert')
-      return true
-    case 'rpm-coarse-decrement':
-      settingsStore.adjustRpm(-1, 'coarse')
-      return true
-    case 'rpm-fine-decrement':
-      settingsStore.adjustRpm(-1, 'fine')
-      return true
-    case 'rpm-fine-increment':
-      settingsStore.adjustRpm(1, 'fine')
-      return true
-    case 'rpm-coarse-increment':
-      settingsStore.adjustRpm(1, 'coarse')
-      return true
-    case 'radius-coarse-decrement':
-      settingsStore.adjustRadius(-1, 'coarse')
-      return true
-    case 'radius-fine-decrement':
-      settingsStore.adjustRadius(-1, 'fine')
-      return true
-    case 'radius-fine-increment':
-      settingsStore.adjustRadius(1, 'fine')
-      return true
-    case 'radius-coarse-increment':
-      settingsStore.adjustRadius(1, 'coarse')
-      return true
-    case 'throw-scale-coarse-decrement':
-      settingsStore.adjustThrowScale(-1, 'coarse')
-      return true
-    case 'throw-scale-fine-decrement':
-      settingsStore.adjustThrowScale(-1, 'fine')
-      return true
-    case 'throw-scale-fine-increment':
-      settingsStore.adjustThrowScale(1, 'fine')
-      return true
-    case 'throw-scale-coarse-increment':
-      settingsStore.adjustThrowScale(1, 'coarse')
-      return true
-    case 'jetpack-acceleration-coarse-decrement':
-      settingsStore.adjustJetpackAcceleration(-1, 'coarse')
-      return true
-    case 'jetpack-acceleration-fine-decrement':
-      settingsStore.adjustJetpackAcceleration(-1, 'fine')
-      return true
-    case 'jetpack-acceleration-fine-increment':
-      settingsStore.adjustJetpackAcceleration(1, 'fine')
-      return true
-    case 'jetpack-acceleration-coarse-increment':
-      settingsStore.adjustJetpackAcceleration(1, 'coarse')
       return true
     case 'far-field-disable':
       settingsStore.setFarFieldEnabled(false)
@@ -182,30 +174,6 @@ export const applyWatchAction = (
       return true
     case 'far-field-mode-night':
       settingsStore.setFarFieldMode('night')
-      return true
-    case 'far-field-intensity-coarse-decrement':
-      settingsStore.adjustFarFieldIntensity(-1, 'coarse')
-      return true
-    case 'far-field-intensity-fine-decrement':
-      settingsStore.adjustFarFieldIntensity(-1, 'fine')
-      return true
-    case 'far-field-intensity-fine-increment':
-      settingsStore.adjustFarFieldIntensity(1, 'fine')
-      return true
-    case 'far-field-intensity-coarse-increment':
-      settingsStore.adjustFarFieldIntensity(1, 'coarse')
-      return true
-    case 'reattach-threshold-coarse-decrement':
-      settingsStore.adjustReattachThreshold(-1, 'coarse')
-      return true
-    case 'reattach-threshold-fine-decrement':
-      settingsStore.adjustReattachThreshold(-1, 'fine')
-      return true
-    case 'reattach-threshold-fine-increment':
-      settingsStore.adjustReattachThreshold(1, 'fine')
-      return true
-    case 'reattach-threshold-coarse-increment':
-      settingsStore.adjustReattachThreshold(1, 'coarse')
       return true
     default:
       return false

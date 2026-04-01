@@ -36,6 +36,29 @@ type StepMode = 'fine' | 'coarse'
 const selectStep = (fineStep: number, mode: StepMode) =>
   mode === 'coarse' ? fineStep * 10 : fineStep
 
+type ScalarStepper = {
+  getFineStep: () => number
+  getCoarseStep: () => number
+  adjust: (ticks: number, mode?: StepMode) => void
+}
+
+type ScalarStepperConfig = {
+  significantDigits: number
+  minStep: number
+  min: number
+  max: number
+  onAdjusted?: () => void
+}
+
+type GroupedNumericField = {
+  read: () => number
+  write: (value: number) => void
+  scale: number
+  roundStep: number
+  min: number
+  max: number
+}
+
 export type SettingsStore = ReturnType<typeof createSettingsStore>
 
 export const createSettingsStore = (
@@ -66,22 +89,116 @@ export const createSettingsStore = (
       listener()
     }
   }
-  const getRadiusFineStep = () => getAdaptiveStep(habitat.radius, 3, 1)
-  const getRadiusCoarseStep = () => selectStep(getRadiusFineStep(), 'coarse')
-  const getRpmFineStep = () => getAdaptiveStep(habitat.rpm, 3, 0.01)
-  const getRpmCoarseStep = () => selectStep(getRpmFineStep(), 'coarse')
-  const getThrowScaleFineStep = () => getAdaptiveStep(habitat.ballSpeedScale, 3, 0.01)
-  const getThrowScaleCoarseStep = () => selectStep(getThrowScaleFineStep(), 'coarse')
-  const getJetpackAccelerationFineStep = () =>
-    getAdaptiveStep(habitat.jetpackAcceleration, 3, 0.1)
-  const getJetpackAccelerationCoarseStep = () =>
-    selectStep(getJetpackAccelerationFineStep(), 'coarse')
-  const getFarFieldIntensityFineStep = () => getAdaptiveStep(farField.intensity, 2, 0.05)
-  const getFarFieldIntensityCoarseStep = () =>
-    selectStep(getFarFieldIntensityFineStep(), 'coarse')
-  const getReattachThresholdFineStep = () => getAdaptiveStep(reattach.radialTolerance, 2, 0.01)
-  const getReattachThresholdCoarseStep = () =>
-    selectStep(getReattachThresholdFineStep(), 'coarse')
+  const createScalarStepper = (
+    read: () => number,
+    write: (value: number) => void,
+    config: ScalarStepperConfig
+  ): ScalarStepper => {
+    const getFineStep = () =>
+      getAdaptiveStep(read(), config.significantDigits, config.minStep)
+    const getCoarseStep = () => selectStep(getFineStep(), 'coarse')
+
+    return {
+      getFineStep,
+      getCoarseStep,
+      adjust: (ticks: number, mode: StepMode = 'fine') => {
+        const step = selectStep(getFineStep(), mode)
+        write(clamp(roundToStep(read() + step * ticks, step), config.min, config.max))
+        config.onAdjusted?.()
+        notify()
+      }
+    }
+  }
+
+  const adjustGroupedFields = (
+    fields: GroupedNumericField[],
+    baseStep: number
+  ) => {
+    for (const field of fields) {
+      field.write(
+        clamp(
+          roundToStep(field.read() + baseStep * field.scale, field.roundStep),
+          field.min,
+          field.max
+        )
+      )
+    }
+  }
+
+  const radiusStepper = createScalarStepper(
+    () => habitat.radius,
+    (value) => {
+      habitat.radius = value
+    },
+    {
+      significantDigits: 3,
+      minStep: 1,
+      min: 10,
+      max: 100000,
+      onAdjusted: markHabitatCustom
+    }
+  )
+  const rpmStepper = createScalarStepper(
+    () => habitat.rpm,
+    (value) => {
+      habitat.rpm = value
+    },
+    {
+      significantDigits: 3,
+      minStep: 0.01,
+      min: 0,
+      max: 12,
+      onAdjusted: markHabitatCustom
+    }
+  )
+  const throwScaleStepper = createScalarStepper(
+    () => habitat.ballSpeedScale,
+    (value) => {
+      habitat.ballSpeedScale = value
+    },
+    {
+      significantDigits: 3,
+      minStep: 0.01,
+      min: 0.25,
+      max: 3
+    }
+  )
+  const jetpackAccelerationStepper = createScalarStepper(
+    () => habitat.jetpackAcceleration,
+    (value) => {
+      habitat.jetpackAcceleration = value
+    },
+    {
+      significantDigits: 3,
+      minStep: 0.1,
+      min: 1,
+      max: 30
+    }
+  )
+  const farFieldIntensityStepper = createScalarStepper(
+    () => farField.intensity,
+    (value) => {
+      farField.intensity = value
+    },
+    {
+      significantDigits: 2,
+      minStep: 0.05,
+      min: 0,
+      max: 2
+    }
+  )
+  const reattachThresholdStepper = createScalarStepper(
+    () => reattach.radialTolerance,
+    (value) => {
+      reattach.radialTolerance = value
+    },
+    {
+      significantDigits: 2,
+      minStep: 0.01,
+      min: 0.05,
+      max: 1.2
+    }
+  )
 
   return {
     habitat,
@@ -155,48 +272,22 @@ export const createSettingsStore = (
       }
       notify()
     },
-    getRadiusFineStep,
-    getRadiusCoarseStep,
-    getRpmFineStep,
-    getRpmCoarseStep,
-    getThrowScaleFineStep,
-    getThrowScaleCoarseStep,
-    getJetpackAccelerationFineStep,
-    getJetpackAccelerationCoarseStep,
-    getFarFieldIntensityFineStep,
-    getFarFieldIntensityCoarseStep,
-    getReattachThresholdFineStep,
-    getReattachThresholdCoarseStep,
-    adjustRadius(ticks: number, mode: StepMode = 'fine') {
-      const step = selectStep(getRadiusFineStep(), mode)
-      habitat.radius = clamp(roundToStep(habitat.radius + step * ticks, step), 10, 100000)
-      markHabitatCustom()
-      notify()
-    },
-    adjustRpm(ticks: number, mode: StepMode = 'fine') {
-      const step = selectStep(getRpmFineStep(), mode)
-      habitat.rpm = clamp(roundToStep(habitat.rpm + step * ticks, step), 0, 12)
-      markHabitatCustom()
-      notify()
-    },
-    adjustThrowScale(ticks: number, mode: StepMode = 'fine') {
-      const step = selectStep(getThrowScaleFineStep(), mode)
-      habitat.ballSpeedScale = clamp(
-        roundToStep(habitat.ballSpeedScale + step * ticks, step),
-        0.25,
-        3
-      )
-      notify()
-    },
-    adjustJetpackAcceleration(ticks: number, mode: StepMode = 'fine') {
-      const step = selectStep(getJetpackAccelerationFineStep(), mode)
-      habitat.jetpackAcceleration = clamp(
-        roundToStep(habitat.jetpackAcceleration + step * ticks, step),
-        1,
-        30
-      )
-      notify()
-    },
+    getRadiusFineStep: radiusStepper.getFineStep,
+    getRadiusCoarseStep: radiusStepper.getCoarseStep,
+    getRpmFineStep: rpmStepper.getFineStep,
+    getRpmCoarseStep: rpmStepper.getCoarseStep,
+    getThrowScaleFineStep: throwScaleStepper.getFineStep,
+    getThrowScaleCoarseStep: throwScaleStepper.getCoarseStep,
+    getJetpackAccelerationFineStep: jetpackAccelerationStepper.getFineStep,
+    getJetpackAccelerationCoarseStep: jetpackAccelerationStepper.getCoarseStep,
+    getFarFieldIntensityFineStep: farFieldIntensityStepper.getFineStep,
+    getFarFieldIntensityCoarseStep: farFieldIntensityStepper.getCoarseStep,
+    getReattachThresholdFineStep: reattachThresholdStepper.getFineStep,
+    getReattachThresholdCoarseStep: reattachThresholdStepper.getCoarseStep,
+    adjustRadius: radiusStepper.adjust,
+    adjustRpm: rpmStepper.adjust,
+    adjustThrowScale: throwScaleStepper.adjust,
+    adjustJetpackAcceleration: jetpackAccelerationStepper.adjust,
     setFarFieldEnabled(enabled: boolean) {
       farField.enabled = enabled
       notify()
@@ -205,27 +296,43 @@ export const createSettingsStore = (
       farField.mode = mode
       notify()
     },
-    adjustFarFieldIntensity(ticks: number, mode: StepMode = 'fine') {
-      const step = selectStep(getFarFieldIntensityFineStep(), mode)
-      farField.intensity = clamp(roundToStep(farField.intensity + step * ticks, step), 0, 2)
-      notify()
-    },
+    adjustFarFieldIntensity: farFieldIntensityStepper.adjust,
     adjustReattachThreshold(ticks: number, mode: StepMode = 'fine') {
-      const baseStep = selectStep(getReattachThresholdFineStep(), mode) * ticks
-      reattach.radialTolerance = clamp(
-        roundToStep(reattach.radialTolerance + baseStep, 0.01),
-        0.05,
-        1.2
-      )
-      reattach.maxNormalSpeed = clamp(
-        roundToStep(reattach.maxNormalSpeed + baseStep * 2, 0.05),
-        0.1,
-        4
-      )
-      reattach.maxSurfaceSpeed = clamp(
-        roundToStep(reattach.maxSurfaceSpeed + baseStep * 3, 0.05),
-        0.1,
-        6
+      const baseStep = selectStep(reattachThresholdStepper.getFineStep(), mode) * ticks
+      adjustGroupedFields(
+        [
+          {
+            read: () => reattach.radialTolerance,
+            write: (value) => {
+              reattach.radialTolerance = value
+            },
+            scale: 1,
+            roundStep: 0.01,
+            min: 0.05,
+            max: 1.2
+          },
+          {
+            read: () => reattach.maxNormalSpeed,
+            write: (value) => {
+              reattach.maxNormalSpeed = value
+            },
+            scale: 2,
+            roundStep: 0.05,
+            min: 0.1,
+            max: 4
+          },
+          {
+            read: () => reattach.maxSurfaceSpeed,
+            write: (value) => {
+              reattach.maxSurfaceSpeed = value
+            },
+            scale: 3,
+            roundStep: 0.05,
+            min: 0.1,
+            max: 6
+          }
+        ],
+        baseStep
       )
       notify()
     },

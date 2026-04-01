@@ -1,38 +1,22 @@
 import * as THREE from 'three'
+import {
+  WATCH_FAR_FIELD_INTENSITY_SPEC,
+  WATCH_PRIMARY_PARAMETER_SPECS,
+  type WatchParameterActionId,
+  type WatchParameterActionPrefix,
+  type WatchParameterRowKey
+} from './watchSchema'
 
 export type WatchActionId =
   | 'profile-beginner'
   | 'profile-sim'
   | 'profile-expert'
-  | 'rpm-coarse-decrement'
-  | 'rpm-fine-decrement'
-  | 'rpm-fine-increment'
-  | 'rpm-coarse-increment'
-  | 'radius-coarse-decrement'
-  | 'radius-fine-decrement'
-  | 'radius-fine-increment'
-  | 'radius-coarse-increment'
-  | 'throw-scale-coarse-decrement'
-  | 'throw-scale-fine-decrement'
-  | 'throw-scale-fine-increment'
-  | 'throw-scale-coarse-increment'
-  | 'jetpack-acceleration-coarse-decrement'
-  | 'jetpack-acceleration-fine-decrement'
-  | 'jetpack-acceleration-fine-increment'
-  | 'jetpack-acceleration-coarse-increment'
-  | 'reattach-threshold-coarse-decrement'
-  | 'reattach-threshold-fine-decrement'
-  | 'reattach-threshold-fine-increment'
-  | 'reattach-threshold-coarse-increment'
+  | WatchParameterActionId
   | 'far-field-enable'
   | 'far-field-disable'
   | 'far-field-mode-auto'
   | 'far-field-mode-day'
   | 'far-field-mode-night'
-  | 'far-field-intensity-coarse-decrement'
-  | 'far-field-intensity-fine-decrement'
-  | 'far-field-intensity-fine-increment'
-  | 'far-field-intensity-coarse-increment'
   | 'preset-apply-playground'
   | 'preset-apply-izma'
   | 'preset-apply-cooper'
@@ -50,7 +34,7 @@ export type WatchButton = {
 }
 
 export type WatchRow = {
-  key: string
+  key: WatchParameterRowKey
   label: string
   valueX: number
   valueY: number
@@ -92,9 +76,9 @@ const makeActionButton = (
 })
 
 const makeRow = (
-  key: string,
+  key: WatchParameterRowKey,
   label: string,
-  actionPrefix: string,
+  actionPrefix: WatchParameterActionPrefix,
   top: number,
   panelWidth: number
 ): WatchRow => {
@@ -153,12 +137,17 @@ export const createWatchExpandedLayout = (
   height = WATCH_EXPANDED_SIZE.height
 ): WatchExpandedLayout => {
   const rows = [
-    makeRow('rpm', 'RPM', 'rpm', 154, width),
-    makeRow('radius', 'Radius', 'radius', 246, width),
-    makeRow('throwScale', 'Throw', 'throw-scale', 338, width),
-    makeRow('jetpackAcceleration', 'Jetpack', 'jetpack-acceleration', 430, width),
-    makeRow('reattachThreshold', 'Reattach', 'reattach-threshold', 522, width)
+    ...WATCH_PRIMARY_PARAMETER_SPECS.map((spec, index) =>
+      makeRow(
+        spec.key,
+        spec.label,
+        spec.actionPrefix,
+        154 + index * 92,
+        width
+      )
+    )
   ]
+  const farFieldIntensitySpec = WATCH_FAR_FIELD_INTENSITY_SPEC!
   const wideButtonHeight = 64
   const sectionLeft = 42
   const profileButtons: [WatchButton, WatchButton, WatchButton] = [
@@ -176,9 +165,9 @@ export const createWatchExpandedLayout = (
     makeActionButton('far-field-mode-night', 'Night', sectionLeft + 316, 1002, 140, wideButtonHeight)
   ]
   const farFieldIntensityRow = makeRow(
-    'farFieldIntensity',
-    'Night Intensity',
-    'far-field-intensity',
+    farFieldIntensitySpec.key,
+    farFieldIntensitySpec.label,
+    farFieldIntensitySpec.actionPrefix,
     1072,
     width
   )

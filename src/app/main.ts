@@ -6,11 +6,12 @@ import {
   getDisplayRootRotation,
   getEffectiveObserverMode
 } from './observerMode'
+import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
+import { syncHabitatRuntime } from './habitatRuntime'
 import {
-  confinePlayerToHabitatInterior,
   applyPlayerTraversalState,
   createPlayerTraversalState,
   detachPlayerToFreeFly,
@@ -20,10 +21,14 @@ import {
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
   syncPlayerTraversalFromPhysics,
-  tryReattachPlayer,
   stepAttachedPlayer,
   stepFreeFlyPlayer
 } from './playerTraversal'
+import {
+  rebuildPlayerTraversalRuntime,
+  respawnPlayerAxisEndRuntime,
+  respawnPlayerInnerWallRuntime
+} from './playerRespawnRuntime'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { CylinderHabitat } from '../objects/cylinder'
@@ -46,6 +51,7 @@ import { createHud } from '../ui/hud'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
 import type { WatchActionId } from '../ui/watch/watchLayout'
+import { resolveRuntimeWatchAction } from './watchActionRouting'
 import { createUnitsContext, rpmToOmega } from '../units/units'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { GrabSystem } from '../xr/grabSystem'
@@ -250,50 +256,67 @@ export const bootstrapApp = async () => {
     vrLocomotion.setProfile(settingsStore.getLocomotionProfile())
   })
 
-  const clearBalls = () => {
-    for (const ball of balls.splice(0)) {
-      grabSystem.unregisterTarget(ball.grabTarget)
-      ball.dispose()
-    }
-
+  const clearAllBalls = () => {
+    clearBalls(balls, (grabTarget) => {
+      grabSystem.unregisterTarget(grabTarget)
+    })
     verificationBall = null
   }
 
   const respawnPlayerInnerWall = () => {
-    respawnInnerWall(playerTraversal, {
-      radius: habitatConfig.radius,
-      frameAngle,
-      omega: rpmToOmega(habitatConfig.rpm)
-    })
-    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
-    return true
+    return respawnPlayerInnerWallRuntime(
+      {
+        respawnInnerWall,
+        applyPlayerTraversalState
+      },
+      {
+        playerTraversal,
+        playerRig,
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
   }
 
   const respawnPlayerAxisEnd = () => {
-    const didRespawn = respawnAxisEnd(playerTraversal, {
-      type: habitatConfig.type,
-      length: getHabitatSpanMeters(),
-      frameAngle,
-      omega: rpmToOmega(habitatConfig.rpm)
-    })
-
-    if (didRespawn) {
-      applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
-    }
-
-    return didRespawn
+    return respawnPlayerAxisEndRuntime(
+      {
+        respawnAxisEnd,
+        applyPlayerTraversalState
+      },
+      {
+        playerTraversal,
+        playerRig,
+        type: habitatConfig.type,
+        length: getHabitatSpanMeters(),
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
   }
 
   const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
-    disposePlayerTraversalState(playerTraversal)
-    playerTraversal = buildPlayerTraversal()
-
-    if (respawnMode === 'axis-end') {
-      respawnPlayerAxisEnd()
-      return
-    }
-
-    respawnPlayerInnerWall()
+    playerTraversal = rebuildPlayerTraversalRuntime(
+      {
+        playerTraversal,
+        buildPlayerTraversal,
+        disposePlayerTraversalState,
+        respawnInnerWall,
+        respawnAxisEnd,
+        applyPlayerTraversalState,
+        playerRig
+      },
+      {
+        respawnMode,
+        type: habitatConfig.type,
+        radius: habitatConfig.radius,
+        length: getHabitatSpanMeters(),
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
   }
 
   function handleWatchAction(action: WatchActionId) {
@@ -301,65 +324,56 @@ export const bootstrapApp = async () => {
       return true
     }
 
-    switch (action) {
-      case 'preset-apply-playground':
-      case 'preset-apply-izma':
-      case 'preset-apply-cooper':
-      case 'preset-apply-elysium': {
-        const presetId =
-          action === 'preset-apply-playground'
-            ? 'playground'
-            : action === 'preset-apply-izma'
-              ? 'izma'
-              : action === 'preset-apply-cooper'
-                ? 'cooper'
-                : 'elysium'
+    const runtimeAction = resolveRuntimeWatchAction(action)
+
+    switch (runtimeAction?.kind) {
+      case 'preset':
         frameAngle = 0
-        applyPresetToSettingsStore(settingsStore, presetId)
-        clearBalls()
+        applyPresetToSettingsStore(settingsStore, runtimeAction.presetId)
+        clearAllBalls()
         rebuildPlayerTraversal('inner-wall')
         syncHabitat()
         settingsDirty = false
         return true
-      }
-      case 'respawn-inner-wall':
-        return respawnPlayerInnerWall()
-      case 'respawn-axis-end':
+      case 'respawn':
+        if (runtimeAction.mode === 'inner-wall') {
+          return respawnPlayerInnerWall()
+        }
         return respawnPlayerAxisEnd()
+      default:
+        return false
     }
   }
 
   const syncHabitat = () => {
-    const habitatSpan = getHabitatSpanMeters()
-    habitat.setDimensions({
-      radius: habitatConfig.radius,
-      length: habitatSpan
-    })
-    habitat.setFocusAzimuth(0)
-    starfield.setDimensions({
-      radius: habitatConfig.radius,
-      length: habitatSpan
-    })
-    camera.far = Math.max(4000, starfield.getSuggestedCameraFar())
-    camera.updateProjectionMatrix()
-    inertialObserverCamera.far = camera.far
-    inertialObserverCamera.updateProjectionMatrix()
-    habitat.setNightLighting({
-      enabled: settingsStore.farField.enabled,
-      mode: settingsStore.farField.mode,
-      intensity: settingsStore.farField.intensity,
-      density: settingsStore.farField.density,
-      presetId: habitatConfig.currentPresetId,
-      updateInterval_s: settingsStore.farField.updateInterval_s
-    })
-    cylinderWall.rebuild({
-      radius: habitatConfig.radius,
-      length: habitatSpan,
-      units: getUnits()
-    })
-    cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
-    starfield.setFrameAngle(frameAngle)
-    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    syncHabitatRuntime(
+      {
+        habitat,
+        starfield,
+        camera,
+        inertialObserverCamera,
+        cylinderWall,
+        applyPlayerTraversalState,
+        playerRig,
+        playerTraversal
+      },
+      {
+        radius: habitatConfig.radius,
+        span: getHabitatSpanMeters(),
+        rpm: habitatConfig.rpm,
+        frameAngle,
+        focusAzimuth: 0,
+        currentPresetId: habitatConfig.currentPresetId,
+        farField: {
+          enabled: settingsStore.farField.enabled,
+          mode: settingsStore.farField.mode,
+          intensity: settingsStore.farField.intensity,
+          density: settingsStore.farField.density,
+          updateInterval_s: settingsStore.farField.updateInterval_s
+        },
+        units: getUnits()
+      }
+    )
   }
 
   syncHabitat()
@@ -475,30 +489,10 @@ export const bootstrapApp = async () => {
     return ball
   }
 
-  const removeExpiredBalls = () => {
-    for (let index = balls.length - 1; index >= 0; index -= 1) {
-      const ball = balls[index]
-
-      if (!ball.isExpired()) {
-        continue
-      }
-
-      grabSystem.unregisterTarget(ball.grabTarget)
-      ball.dispose()
-      balls.splice(index, 1)
-    }
-  }
-
-  const getTrackedBall = () => {
-    for (let index = balls.length - 1; index >= 0; index -= 1) {
-      const ball = balls[index]
-
-      if (!ball.isGrabbed) {
-        return ball
-      }
-    }
-
-    return balls.at(-1) ?? null
+  const removeDisposedBalls = () => {
+    removeExpiredBalls(balls, (grabTarget) => {
+      grabSystem.unregisterTarget(grabTarget)
+    })
   }
 
   const throwDesktopBall = () => {
@@ -653,14 +647,6 @@ export const bootstrapApp = async () => {
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
-    if (playerTraversal.mode === 'free-fly') {
-      confinePlayerToHabitatInterior(playerTraversal, {
-        radius: habitatConfig.radius,
-        length: habitatSpan,
-        omega,
-        frameAngle
-      })
-    }
     const reattachStatus =
       playerTraversal.mode === 'free-fly'
         ? evaluateReattachPlayer(playerTraversal, {
@@ -671,15 +657,6 @@ export const bootstrapApp = async () => {
             frameAngle
           })
         : null
-    if (reattachStatus?.canAttach ?? false) {
-      tryReattachPlayer(playerTraversal, {
-        ...reattachTuning,
-        radius: habitatConfig.radius,
-        length: habitatSpan,
-        omega,
-        frameAngle
-      })
-    }
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
@@ -701,8 +678,8 @@ export const bootstrapApp = async () => {
       })
     }
 
-    removeExpiredBalls()
-    const trackedBall = getTrackedBall()
+    removeDisposedBalls()
+    const trackedBall = getTrackedBall(balls)
     const verificationBallTarget =
       trackedBall !== null && !trackedBall.isGrabbed ? trackedBall : null
     const verification =
@@ -740,7 +717,13 @@ export const bootstrapApp = async () => {
       watchMenuOpen,
       observerMode: effectiveObserverMode,
       trailMode: debugVisuals.trailMode,
-      ballCount: balls.length
+      ballCount: balls.length,
+      absoluteVelocity: {
+        x: playerTraversal.inertialVelocity.x,
+        y: playerTraversal.inertialVelocity.y,
+        z: playerTraversal.inertialVelocity.z,
+        speed: playerTraversal.inertialVelocity.length()
+      }
     })
 
     hud.update({

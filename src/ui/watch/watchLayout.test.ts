@@ -40,3 +40,29 @@ test('getWatchButtonAtUv reaches the playground preset button', () => {
 
   expect(getWatchButtonAtUv(layout, uv)?.id).toBe('preset-apply-playground')
 })
+
+test('createWatchExpandedLayout keeps the current parameter row order and action ids', () => {
+  const layout = createWatchExpandedLayout()
+
+  expect(layout.rows.map((row) => row.key)).toEqual([
+    'rpm',
+    'radius',
+    'throwScale',
+    'jetpackAcceleration',
+    'reattachThreshold'
+  ])
+
+  expect(layout.rows[0]?.buttons.map((button) => button.id)).toEqual([
+    'rpm-coarse-decrement',
+    'rpm-fine-decrement',
+    'rpm-fine-increment',
+    'rpm-coarse-increment'
+  ])
+
+  expect(layout.rows[4]?.buttons.map((button) => button.id)).toEqual([
+    'reattach-threshold-coarse-decrement',
+    'reattach-threshold-fine-decrement',
+    'reattach-threshold-fine-increment',
+    'reattach-threshold-coarse-increment'
+  ])
+})
