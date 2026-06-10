@@ -39,6 +39,13 @@ const instanceColor = new THREE.Color()
 
 const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 
+const MIRROR_DAY = new THREE.Color(0xffffff)
+const MIRROR_NIGHT = new THREE.Color(0x2a3648)
+const LAMP_DAY = new THREE.Color(0x6b5a40)
+const LAMP_NIGHT = new THREE.Color(0xffe2b0)
+const SPINE_DAY = new THREE.Color(0xffeec4)
+const SPINE_NIGHT = new THREE.Color(0x8a7f63)
+
 // Alternating crop stripes for farm blocks; one texture tile is a pair of
 // rows, repeated in world units via baked UVs.
 const createFarmTexture = () => {
@@ -332,6 +339,17 @@ export class Cityscape {
 
   getBuildings(): readonly CityBuilding[] {
     return this.collisionBuildings
+  }
+
+  // Day/night dressing: the mirrors dim to night-side blue, facades and
+  // street lamps take over as the light sources.
+  setDaylight(daylight: number) {
+    this.mirrorMaterial.color.lerpColors(MIRROR_NIGHT, MIRROR_DAY, daylight)
+    this.windowStripMaterial.opacity = 0.05 + daylight * 0.12
+    this.buildingSideMaterial.emissiveIntensity = 0.6 + (1 - daylight) * 0.85
+    this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
+    this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
+    this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
   }
 
   // The tower's walking/ball collision proxy: a slim box around the column.

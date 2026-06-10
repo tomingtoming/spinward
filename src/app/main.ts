@@ -10,6 +10,12 @@ import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
+import {
+  DEFAULT_DAY_NIGHT_CYCLE_SECONDS,
+  INITIAL_DAY_NIGHT_PHASE,
+  getDaylight,
+  stepDayNightPhase
+} from './dayNight'
 import { syncHabitatRuntime } from './habitatRuntime'
 import {
   applyPlayerTraversalState,
@@ -38,6 +44,7 @@ import {
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
+import { Clouds } from '../objects/clouds'
 import { getWindowStripArcs, resolveCitySurfaceCollision } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
@@ -91,7 +98,8 @@ export const bootstrapApp = async () => {
     showHud: true,
     observerMode: 'colony-fixed' as const,
     trailMode: 'rotating' as const,
-    verificationErrorThreshold: 4
+    verificationErrorThreshold: 4,
+    dayNightCycleSeconds: DEFAULT_DAY_NIGHT_CYCLE_SECONDS
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
@@ -99,6 +107,11 @@ export const bootstrapApp = async () => {
   // is rescaled to the habitat radius in syncHabitat.
   const fog = new THREE.FogExp2(0x5f7587, 0.02)
   scene.fog = fog
+  const fogDayColor = new THREE.Color(0x5f7587)
+  const fogNightColor = new THREE.Color(0x1b2530)
+  const backgroundDayColor = new THREE.Color(0x08131d)
+  const backgroundNightColor = new THREE.Color(0x040810)
+  let dayNightPhase = INITIAL_DAY_NIGHT_PHASE
   const worldRoot = new THREE.Group()
   const skyLayer = new THREE.Group()
   const farLayer = new THREE.Group()
@@ -114,6 +127,10 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  const clouds = new Clouds({
+    radius: habitatConfig.radius,
+    length: getHabitatSpan(habitatConfig)
+  })
   const starfield = new Starfield({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
@@ -121,6 +138,7 @@ export const bootstrapApp = async () => {
   skyLayer.add(starfield.group)
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
+  nearLayer.add(clouds.group)
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -190,6 +208,8 @@ export const bootstrapApp = async () => {
   // Sunlight enters through the three window strips: one directional light
   // per strip, pointing inward from the window's center azimuth. They live in
   // nearLayer so they stay colony-fixed under the inertial observer mode.
+  const windowSuns: THREE.DirectionalLight[] = []
+
   for (const arc of getWindowStripArcs()) {
     const windowSun = new THREE.DirectionalLight(0xfff2dd, 1.3)
     windowSun.position.set(
@@ -199,6 +219,7 @@ export const bootstrapApp = async () => {
     )
     nearLayer.add(windowSun)
     nearLayer.add(windowSun.target)
+    windowSuns.push(windowSun)
   }
 
   const rapier = await initRapier()
@@ -449,6 +470,7 @@ export const bootstrapApp = async () => {
       {
         habitat,
         cityscape,
+        clouds,
         starfield,
         camera,
         inertialObserverCamera,
@@ -963,6 +985,28 @@ export const bootstrapApp = async () => {
       watchPanel.clickHovered()
     }
 
+    dayNightPhase = stepDayNightPhase(
+      dayNightPhase,
+      deltaSeconds,
+      debugVisuals.dayNightCycleSeconds
+    )
+    const daylight = getDaylight(dayNightPhase)
+    light.intensity = 0.22 + daylight * 0.9
+
+    for (const windowSun of windowSuns) {
+      windowSun.intensity = 0.06 + daylight * 1.25
+    }
+
+    fog.color.lerpColors(fogNightColor, fogDayColor, daylight)
+    ;(scene.background as THREE.Color).lerpColors(
+      backgroundNightColor,
+      backgroundDayColor,
+      daylight
+    )
+    cityscape.setDaylight(daylight)
+    clouds.setDaylight(daylight)
+    clouds.update(deltaSeconds)
+
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
     mobileControls?.update(renderer.xr.isPresenting)
     tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds), {
@@ -986,6 +1030,7 @@ export const bootstrapApp = async () => {
 
   window.addEventListener('beforeunload', () => {
     cityscape.dispose()
+    clouds.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()
     desktopLookControls.dispose()
