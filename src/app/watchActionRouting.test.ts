@@ -26,6 +26,10 @@ test('resolveRuntimeWatchAction maps respawn watch actions to runtime respawn mo
     kind: 'respawn',
     mode: 'inner-wall'
   })
+  expect(resolveRuntimeWatchAction('respawn-overlook')).toEqual({
+    kind: 'respawn',
+    mode: 'overlook'
+  })
   expect(resolveRuntimeWatchAction('respawn-axis-end')).toEqual({
     kind: 'respawn',
     mode: 'axis-end'

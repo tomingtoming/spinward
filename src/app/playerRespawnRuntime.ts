@@ -45,6 +45,30 @@ export const respawnPlayerInnerWallRuntime = <TPlayerRig, TPlayerTraversal>(
   return true
 }
 
+export const respawnPlayerOverlookRuntime = <TPlayerRig, TPlayerTraversal>(
+  dependencies: {
+    respawnOverlook: (
+      playerTraversal: TPlayerTraversal,
+      config: { radius: number; frameAngle: number; omega: number }
+    ) => void
+    applyPlayerTraversalState: ApplyPlayerTraversalState<TPlayerRig, TPlayerTraversal>
+  },
+  config: RespawnPlayerRuntimeConfig<TPlayerRig, TPlayerTraversal>
+) => {
+  dependencies.respawnOverlook(config.playerTraversal, {
+    radius: config.radius,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+  dependencies.applyPlayerTraversalState(
+    config.playerRig,
+    config.playerTraversal,
+    config.radius,
+    config.frameAngle
+  )
+  return true
+}
+
 export const respawnPlayerAxisEndRuntime = <TPlayerRig, TPlayerTraversal>(
   dependencies: {
     respawnAxisEnd: (

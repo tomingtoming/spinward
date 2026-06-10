@@ -3,7 +3,7 @@ import * as THREE from 'three'
 
 import { createPlayerTraversalState, getPlayerBodyRadius } from '../app/playerTraversal'
 import { initRapier } from '../physics/rapierContext'
-import { respawnAxisEnd, respawnInnerWall } from './respawn'
+import { getOverlookAltitude, respawnAxisEnd, respawnInnerWall, respawnOverlook } from './respawn'
 import { inertialPositionToRotating } from '../sim/frameTransforms'
 import { createUnitsContext } from '../units/units'
 
@@ -19,6 +19,34 @@ test('respawnInnerWall places the player back on the inner wall center', () => {
   expect(state.mode).toBe('attached')
   expect(state.surface.axialPosition).toBeCloseTo(0, 6)
   expect(state.surface.azimuth).toBeCloseTo(0, 6)
+})
+
+test('respawnOverlook places the player co-rotating above the plaza', () => {
+  const radius = 18
+  const state = createPlayerTraversalState({ axialPosition: 5, azimuth: 1 }, radius, 0.2, 0.5)
+
+  respawnOverlook(state, {
+    radius,
+    frameAngle: 0.2,
+    omega: 0.5
+  })
+
+  const rotatingPosition = inertialPositionToRotating(
+    state.inertialPosition,
+    0.2,
+    new THREE.Vector3()
+  )
+
+  expect(state.mode).toBe('free-fly')
+  expect(rotatingPosition.x).toBeCloseTo(radius - getOverlookAltitude(radius), 6)
+  expect(rotatingPosition.y).toBeCloseTo(0, 6)
+  expect(rotatingPosition.z).toBeCloseTo(0, 6)
+})
+
+test('getOverlookAltitude is clamped for tiny and giant habitats', () => {
+  expect(getOverlookAltitude(4)).toBeCloseTo(8)
+  expect(getOverlookAltitude(18)).toBeCloseTo(9)
+  expect(getOverlookAltitude(3200)).toBeCloseTo(60)
 })
 
 test('respawnAxisEnd places the player on the axis near the cylinder end', () => {

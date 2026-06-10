@@ -259,16 +259,16 @@ export const renderWatchExpanded = (
     })
   }
 
-  // ── Respawn ──
+  // ── Travel ──
   drawSectionDivider(ctx, 1510, layout.width)
-  drawSectionHeader(ctx, 'RESPAWN', 28, 1516)
+  drawSectionHeader(ctx, 'TRAVEL', 28, 1516)
 
   ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
   ctx.font = '400 14px "Avenir Next", sans-serif'
   ctx.fillText(
     snapshot.habitatType === 'ring'
-      ? 'Inner Wall = attached. Axis End = zero-g at ring center.'
-      : 'Inner Wall = attached. Axis End = free-fly near the open end.',
+      ? 'Surface = street level. Overlook = above the plaza. Axis = zero-g ring center.'
+      : 'Surface = street level. Overlook = above the plaza. Axis = zero-g near the end.',
     28,
     1538
   )

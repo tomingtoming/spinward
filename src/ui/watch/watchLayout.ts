@@ -22,6 +22,7 @@ export type WatchActionId =
   | 'preset-apply-cooper'
   | 'preset-apply-elysium'
   | 'respawn-inner-wall'
+  | 'respawn-overlook'
   | 'respawn-axis-end'
 
 export type WatchButton = {
@@ -50,7 +51,7 @@ export type WatchExpandedLayout = {
   farFieldEnabledButtons: [WatchButton, WatchButton]
   farFieldIntensityRow: WatchRow
   presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton]
-  respawnButtons: [WatchButton, WatchButton]
+  respawnButtons: [WatchButton, WatchButton, WatchButton]
   buttons: WatchButton[]
 }
 
@@ -209,21 +210,29 @@ export const createWatchExpandedLayout = (
       wideButtonHeight
     )
   ]
-  const respawnButtons: [WatchButton, WatchButton] = [
+  const respawnButtons: [WatchButton, WatchButton, WatchButton] = [
     makeActionButton(
       'respawn-inner-wall',
-      'Inner Wall',
+      'Surface',
       sectionLeft,
       respawnTop,
-      300,
+      190,
+      wideButtonHeight
+    ),
+    makeActionButton(
+      'respawn-overlook',
+      'Overlook',
+      sectionLeft + 208,
+      respawnTop,
+      190,
       wideButtonHeight
     ),
     makeActionButton(
       'respawn-axis-end',
-      'Axis End',
-      sectionLeft + 318,
+      'Axis',
+      sectionLeft + 416,
       respawnTop,
-      300,
+      190,
       wideButtonHeight
     )
   ]

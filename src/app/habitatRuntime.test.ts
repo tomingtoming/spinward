@@ -9,6 +9,9 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
     setFocusAzimuth: mock(() => {}),
     setNightLighting: mock(() => {})
   }
+  const cityscape = {
+    setDimensions: mock(() => {})
+  }
   const starfield = {
     setDimensions: mock(() => {}),
     getSuggestedCameraFar: mock(() => 2800),
@@ -34,6 +37,7 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   syncHabitatRuntime(
     {
       habitat,
+      cityscape,
       starfield,
       camera,
       inertialObserverCamera,
@@ -62,6 +66,7 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
 
   expect(habitat.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(habitat.setFocusAzimuth).toHaveBeenCalledWith(0.5)
+  expect(cityscape.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(starfield.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(starfield.setFrameAngle).toHaveBeenCalledWith(1.25)
   expect(camera.far).toBe(4000)

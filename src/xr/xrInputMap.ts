@@ -34,17 +34,21 @@ export const stepHoldToggleState = (
   return false
 }
 const UI_TRIGGER_THRESHOLD = 0.55
+// xr-standard gamepad mapping: buttons[4] is A on the right controller.
+const PRIMARY_BUTTON_INDEX = 4
 type XrWatchInputFrame = {
   leftController: THREE.XRTargetRaySpace | null
   leftGrip: THREE.XRGripSpace | null
   rightController: THREE.XRTargetRaySpace | null
   rightTriggerPressed: boolean
+  jumpPressed: boolean
 }
 
 export class XRInputMap {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
   private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
   private previousRightTriggerPressed = false
+  private previousJumpPressed = false
 
   constructor(controllers: XRControllerSpaces[]) {
     for (const { controller, grip } of controllers) {
@@ -65,11 +69,13 @@ export class XRInputMap {
   update(_deltaSeconds: number, xrActive: boolean): XrWatchInputFrame {
     if (!xrActive) {
       this.previousRightTriggerPressed = false
+      this.previousJumpPressed = false
       return {
         leftController: null,
         leftGrip: null,
         rightController: null,
-        rightTriggerPressed: false
+        rightTriggerPressed: false,
+        jumpPressed: false
       }
     }
 
@@ -77,6 +83,7 @@ export class XRInputMap {
     let leftGrip: THREE.XRGripSpace | null = null
     let rightController: THREE.XRTargetRaySpace | null = null
     let rightTriggerPressed = false
+    let jumpPressed = false
 
     for (const [controller, inputSource] of this.inputSourceByController) {
       const gamepad = inputSource.gamepad
@@ -94,17 +101,21 @@ export class XRInputMap {
       if (inputSource.handedness === 'right') {
         rightController = controller
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
+        jumpPressed ||= gamepad.buttons[PRIMARY_BUTTON_INDEX]?.pressed ?? false
       }
     }
 
     const rightTriggerEdge = rightTriggerPressed && !this.previousRightTriggerPressed
     this.previousRightTriggerPressed = rightTriggerPressed
+    const jumpEdge = jumpPressed && !this.previousJumpPressed
+    this.previousJumpPressed = jumpPressed
 
     return {
       leftController,
       leftGrip,
       rightController,
-      rightTriggerPressed: rightTriggerEdge
+      rightTriggerPressed: rightTriggerEdge,
+      jumpPressed: jumpEdge
     }
   }
 

@@ -22,21 +22,38 @@ import {
   mergeLocomotionIntent,
   syncPlayerTraversalFromPhysics,
   stepAttachedPlayer,
-  stepFreeFlyPlayer
+  stepFreeFlyPlayer,
+  tryReattachPlayer
 } from './playerTraversal'
 import {
   rebuildPlayerTraversalRuntime,
   respawnPlayerAxisEndRuntime,
-  respawnPlayerInnerWallRuntime
+  respawnPlayerInnerWallRuntime,
+  respawnPlayerOverlookRuntime
 } from './playerRespawnRuntime'
+import {
+  createTourGuideState,
+  notifyTourEvent,
+  stepTourGuide
+} from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
+import { resolveCitySurfaceCollision } from '../objects/cityLayout'
+import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
-import { respawnAxisEnd, respawnInnerWall } from '../gameplay/respawn'
+import {
+  JUMP_SPEED,
+  beginJump,
+  computeJumpLaunchVelocity,
+  createJumpState,
+  resetJumpState,
+  stepJumpState
+} from '../gameplay/jump'
+import { respawnAxisEnd, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
@@ -48,6 +65,7 @@ import { getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
+import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
 import type { WatchActionId } from '../ui/watch/watchLayout'
@@ -88,12 +106,17 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  const cityscape = new Cityscape({
+    radius: habitatConfig.radius,
+    length: getHabitatSpan(habitatConfig)
+  })
   const starfield = new Starfield({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
   skyLayer.add(starfield.group)
   nearLayer.add(habitat.group)
+  nearLayer.add(cityscape.group)
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -107,6 +130,8 @@ export const bootstrapApp = async () => {
   )
   playerRig.quaternion.setFromRotationMatrix(rigBasis)
 
+  const tourGuide = createTourGuideState()
+  const tourCardPanel = new TourCardPanel()
   const camera = new THREE.PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
@@ -121,6 +146,7 @@ export const bootstrapApp = async () => {
   )
   camera.position.set(0, 1.6, 0)
   viewRig.add(camera)
+  camera.add(tourCardPanel.mesh)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -178,7 +204,18 @@ export const bootstrapApp = async () => {
   }
   const playerFixedColliderPosition = new THREE.Vector3()
   const locomotionIntent = getIdleLocomotionIntent()
+  const jumpState = createJumpState()
+  const jumpLaunchVelocity = new THREE.Vector3()
+  // Landing snap after a jump or an overlook drop: position must match the
+  // surface but arrival speed is forgiven (the snap absorbs it).
+  const jumpLandingTuning = {
+    endCapMargin: 1.5,
+    radialTolerance: 0.3,
+    maxNormalSpeed: Number.POSITIVE_INFINITY,
+    maxSurfaceSpeed: Number.POSITIVE_INFINITY
+  }
   let desktopThrowQueued = false
+  let desktopJumpQueued = false
   let frameAngle = 0
   let settingsDirty = false
   let watchUiHot = false
@@ -279,6 +316,26 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const respawnPlayerOverlook = () => {
+    const didRespawn = respawnPlayerOverlookRuntime(
+      {
+        respawnOverlook,
+        applyPlayerTraversalState
+      },
+      {
+        playerTraversal,
+        playerRig,
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
+    // Arm the landing snap so the drop from the overlook ends back on the
+    // surface in attached mode, exactly like a jump landing.
+    beginJump(jumpState)
+    return didRespawn
+  }
+
   const respawnPlayerAxisEnd = () => {
     return respawnPlayerAxisEndRuntime(
       {
@@ -321,6 +378,9 @@ export const bootstrapApp = async () => {
 
   function handleWatchAction(action: WatchActionId) {
     if (applyWatchAction(settingsStore, action)) {
+      if (action.startsWith('rpm-')) {
+        notifyTourEvent(tourGuide, 'spin-change')
+      }
       return true
     }
 
@@ -331,14 +391,21 @@ export const bootstrapApp = async () => {
         frameAngle = 0
         applyPresetToSettingsStore(settingsStore, runtimeAction.presetId)
         clearAllBalls()
+        resetJumpState(jumpState)
         rebuildPlayerTraversal('inner-wall')
         syncHabitat()
         settingsDirty = false
         return true
       case 'respawn':
         if (runtimeAction.mode === 'inner-wall') {
+          notifyTourEvent(tourGuide, 'surface')
           return respawnPlayerInnerWall()
         }
+        if (runtimeAction.mode === 'overlook') {
+          notifyTourEvent(tourGuide, 'overlook')
+          return respawnPlayerOverlook()
+        }
+        notifyTourEvent(tourGuide, 'axis')
         return respawnPlayerAxisEnd()
       default:
         return false
@@ -349,6 +416,7 @@ export const bootstrapApp = async () => {
     syncHabitatRuntime(
       {
         habitat,
+        cityscape,
         starfield,
         camera,
         inertialObserverCamera,
@@ -485,6 +553,7 @@ export const bootstrapApp = async () => {
     nearLayer.add(ball.inertialTrail)
     grabSystem.registerTarget(ball.grabTarget)
     balls.push(ball)
+    notifyTourEvent(tourGuide, 'throw')
 
     return ball
   }
@@ -512,13 +581,36 @@ export const bootstrapApp = async () => {
   }
 
   window.addEventListener('keydown', (event) => {
-    if (event.code === 'Tab' && !renderer.xr.isPresenting) {
+    if (renderer.xr.isPresenting) {
+      return
+    }
+
+    if (event.code === 'Tab') {
       event.preventDefault()
       desktopQuickPanel.toggle()
       return
     }
 
-    if (event.code !== 'Space' || event.repeat) {
+    if (event.repeat) {
+      return
+    }
+
+    if (event.code === 'Digit1') {
+      handleWatchAction('respawn-inner-wall')
+      return
+    }
+
+    if (event.code === 'Digit2') {
+      handleWatchAction('respawn-overlook')
+      return
+    }
+
+    if (event.code === 'Digit3') {
+      handleWatchAction('respawn-axis-end')
+      return
+    }
+
+    if (event.code !== 'Space') {
       return
     }
 
@@ -528,7 +620,7 @@ export const bootstrapApp = async () => {
       return
     }
 
-    requestDesktopThrow()
+    desktopJumpQueued = true
   })
 
   renderer.domElement.addEventListener('pointermove', (event) => {
@@ -597,6 +689,21 @@ export const bootstrapApp = async () => {
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
 
+    const jumpRequested = desktopJumpQueued || xrWatchInput.jumpPressed
+    desktopJumpQueued = false
+
+    if (playerTraversal.mode === 'attached' && jumpRequested) {
+      computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
+      detachPlayerToFreeFly(playerTraversal, {
+        launchVelocity: jumpLaunchVelocity,
+        radius: habitatConfig.radius,
+        omega,
+        frameAngle
+      })
+      beginJump(jumpState)
+      notifyTourEvent(tourGuide, 'jump')
+    }
+
     if (playerTraversal.mode === 'attached' && locomotionIntent.detachRequested) {
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: locomotionIntent.detachLaunchVelocity,
@@ -631,6 +738,11 @@ export const bootstrapApp = async () => {
     }
 
     if (playerTraversal.mode === 'attached') {
+      resolveCitySurfaceCollision(
+        playerTraversal.surface,
+        cityscape.getBuildings(),
+        habitatConfig.radius
+      )
       getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
     } else {
       inertialPositionToRotating(
@@ -657,6 +769,22 @@ export const bootstrapApp = async () => {
             frameAngle
           })
         : null
+
+    const jumpLanded = stepJumpState(jumpState, {
+      mode: playerTraversal.mode,
+      radialError: reattachStatus?.radialError ?? 0
+    })
+
+    if (jumpLanded) {
+      tryReattachPlayer(playerTraversal, {
+        ...jumpLandingTuning,
+        radius: habitatConfig.radius,
+        length: habitatSpan,
+        omega,
+        frameAngle
+      })
+    }
+
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
@@ -815,9 +943,11 @@ export const bootstrapApp = async () => {
     }
 
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
+    tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds))
     renderer.render(scene, desktopUiCamera)
   })
 
+  notifyTourEvent(tourGuide, 'start')
   gameLoop.start()
 
   window.addEventListener('resize', () => {
@@ -829,6 +959,8 @@ export const bootstrapApp = async () => {
   })
 
   window.addEventListener('beforeunload', () => {
+    cityscape.dispose()
+    tourCardPanel.dispose()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cylinderWall.dispose()

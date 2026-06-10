@@ -5,6 +5,7 @@ import { resetPlayerToAttached, resetPlayerToFreeFly } from '../app/playerTraver
 import type { HabitatType } from '../sim/habitatConfig'
 
 const axisEndRotatingPosition = new THREE.Vector3()
+const overlookRotatingPosition = new THREE.Vector3()
 
 const getAxisEndMargin = (length: number, explicitMargin?: number) => {
   if (explicitMargin !== undefined) {
@@ -28,6 +29,28 @@ export const respawnInnerWall = (
     axialPosition: 0,
     azimuth: 0,
     radius: config.radius,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+}
+
+// Overlook altitude above the surface: high enough to feel the weaker spin
+// gravity, short enough that the fall back to the plaza stays comfortable.
+export const getOverlookAltitude = (radius: number) =>
+  THREE.MathUtils.clamp(radius * 0.5, 8, 60)
+
+export const respawnOverlook = (
+  state: PlayerTraversalState,
+  config: {
+    radius: number
+    frameAngle: number
+    omega: number
+  }
+) => {
+  const overlookRadius = Math.max(1, config.radius - getOverlookAltitude(config.radius))
+  overlookRotatingPosition.set(overlookRadius, 0, 0)
+  resetPlayerToFreeFly(state, {
+    rotatingPosition: overlookRotatingPosition,
     frameAngle: config.frameAngle,
     omega: config.omega
   })
