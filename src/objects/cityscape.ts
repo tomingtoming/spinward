@@ -1,10 +1,15 @@
 import * as THREE from 'three'
 
 import {
+  getCityCellSize,
+  getLandStripCenters,
   getWindowStripArcs,
   planCity,
   type CityBuilding,
-  type CityRoad
+  type CityPatch,
+  type CityRoad,
+  type CityTower,
+  type CityTree
 } from './cityLayout'
 import { mergeBufferGeometries } from './cylinder'
 
@@ -31,6 +36,35 @@ const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
 const instanceColor = new THREE.Color()
+
+const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
+
+// Alternating crop stripes for farm blocks; one texture tile is a pair of
+// rows, repeated in world units via baked UVs.
+const createFarmTexture = () => {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+
+  if (context === null) {
+    throw new Error('2D canvas context is required for the farm texture')
+  }
+
+  const rows = ['#5b7a3c', '#c5b05e', '#43653a', '#8a9a4e']
+
+  rows.forEach((color, index) => {
+    context.fillStyle = color
+    context.fillRect(0, (index * size) / rows.length, size, size / rows.length)
+  })
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  return texture
+}
 
 const buildingTone = (tone: number, target: THREE.Color) => {
   // Cool slate blocks with occasional warmer facades.
@@ -193,11 +227,67 @@ export class Cityscape {
     depthWrite: false
   })
 
+  private readonly parkMaterial = new THREE.MeshStandardMaterial({
+    color: 0x33563b,
+    roughness: 1,
+    metalness: 0,
+    side: THREE.BackSide
+  })
+
+  private readonly farmMaterial = new THREE.MeshStandardMaterial({
+    map: createFarmTexture(),
+    roughness: 1,
+    metalness: 0,
+    side: THREE.BackSide
+  })
+
+  private readonly treeMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 1,
+    metalness: 0
+  })
+
+  private readonly lampMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffe2b0,
+    toneMapped: false
+  })
+
+  private readonly towerMaterial = new THREE.MeshStandardMaterial({
+    color: 0x8ea2b6,
+    roughness: 0.5,
+    metalness: 0.35
+  })
+
+  private readonly towerAccentMaterial = new THREE.MeshBasicMaterial({
+    color: 0x67e8f9,
+    toneMapped: false
+  })
+
+  private readonly cableMaterial = new THREE.MeshStandardMaterial({
+    color: 0xaab8c8,
+    roughness: 0.4,
+    metalness: 0.6
+  })
+
+  private readonly spineRingMaterial = new THREE.MeshStandardMaterial({
+    color: 0x55687c,
+    roughness: 0.6,
+    metalness: 0.4,
+    emissive: new THREE.Color(0x131c28),
+    emissiveIntensity: 0.8
+  })
+
   private buildings: THREE.InstancedMesh | null = null
-  private buildingPlan: CityBuilding[] = []
+  private collisionBuildings: CityBuilding[] = []
   private windowStrips: THREE.Mesh[] = []
   private mirrors: THREE.Mesh[] = []
   private roads: THREE.Mesh | null = null
+  private patchMeshes: THREE.Mesh[] = []
+  private trees: THREE.InstancedMesh | null = null
+  private lamps: THREE.InstancedMesh | null = null
+  private towerGroup: THREE.Group | null = null
+  private cables: THREE.Mesh | null = null
+  private spineRings: THREE.Mesh | null = null
   private axisSpine: THREE.Mesh | null = null
   private radius = 0
   private length = 0
@@ -220,16 +310,41 @@ export class Cityscape {
     }
 
     const plan = planCity({ radius, length })
-    this.buildingPlan = plan.buildings
+    this.collisionBuildings =
+      plan.tower !== null
+        ? [...plan.buildings, this.getTowerFootprint(plan.tower)]
+        : plan.buildings
     this.buildBuildings(plan.buildings)
     this.buildRoads(plan.roads, radius)
+    this.buildPatches(plan.patches, radius)
+    this.buildTrees(plan.trees, radius)
+    this.buildLamps(plan.roads, radius)
     this.buildWindowStrips(radius, length)
     this.buildMirrors(radius, length)
+    this.buildCables(radius, length)
+    this.buildSpineRings(radius, length)
     this.buildAxisSpine(radius, length)
+
+    if (plan.tower !== null) {
+      this.buildTower(plan.tower, radius)
+    }
   }
 
   getBuildings(): readonly CityBuilding[] {
-    return this.buildingPlan
+    return this.collisionBuildings
+  }
+
+  // The tower's walking/ball collision proxy: a slim box around the column.
+  private getTowerFootprint(tower: CityTower): CityBuilding {
+    const footprint = Math.max(1.2, tower.deckRadius * 0.35)
+    return {
+      azimuth: tower.azimuth,
+      axial: tower.axial,
+      width: footprint,
+      depth: footprint,
+      height: tower.height,
+      tone: 0.5
+    }
   }
 
   dispose() {
@@ -242,15 +357,51 @@ export class Cityscape {
     this.mirrorMaterial.dispose()
     this.axisSpineMaterial.dispose()
     this.roadMaterial.dispose()
+    this.parkMaterial.dispose()
+    this.farmMaterial.map?.dispose()
+    this.farmMaterial.dispose()
+    this.treeMaterial.dispose()
+    this.lampMaterial.dispose()
+    this.towerMaterial.dispose()
+    this.towerAccentMaterial.dispose()
+    this.cableMaterial.dispose()
+    this.spineRingMaterial.dispose()
   }
 
   private clear() {
-    this.buildingPlan = []
+    this.collisionBuildings = []
 
     if (this.buildings !== null) {
       this.buildings.geometry.dispose()
       this.group.remove(this.buildings)
       this.buildings = null
+    }
+
+    for (const patch of this.patchMeshes) {
+      patch.geometry.dispose()
+      this.group.remove(patch)
+    }
+
+    this.patchMeshes = []
+
+    for (const single of [this.trees, this.lamps, this.cables, this.spineRings]) {
+      if (single !== null) {
+        single.geometry.dispose()
+        this.group.remove(single)
+      }
+    }
+
+    this.trees = null
+    this.lamps = null
+    this.cables = null
+    this.spineRings = null
+
+    if (this.towerGroup !== null) {
+      for (const child of this.towerGroup.children) {
+        ;(child as THREE.Mesh).geometry?.dispose()
+      }
+      this.group.remove(this.towerGroup)
+      this.towerGroup = null
     }
 
     for (const strip of this.windowStrips) {
@@ -375,6 +526,296 @@ export class Cityscape {
     this.group.add(mesh)
   }
 
+  // Curved arc band hugging the inner wall, used for patches.
+  private buildArcBandGeometry(
+    azimuth: number,
+    axial: number,
+    tangentExtent: number,
+    axialExtent: number,
+    radius: number,
+    bandRadius: number
+  ) {
+    const arcRadians = tangentExtent / radius
+    const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
+    const geometry = new THREE.CylinderGeometry(
+      bandRadius,
+      bandRadius,
+      axialExtent,
+      segments,
+      1,
+      true,
+      getThetaStart(azimuth, arcRadians),
+      arcRadians
+    )
+    geometry.translate(0, axial, 0)
+    return geometry
+  }
+
+  private buildPatches(patches: CityPatch[], radius: number) {
+    const bandRadius = radius * 0.9988
+    const stripeWorld = getCityCellSize(radius) * 0.8
+
+    for (const kind of ['park', 'farm'] as const) {
+      const geometries: THREE.BufferGeometry[] = []
+
+      for (const patch of patches) {
+        if (patch.kind !== kind) {
+          continue
+        }
+
+        const geometry = this.buildArcBandGeometry(
+          patch.azimuth,
+          patch.axial,
+          patch.tangentExtent,
+          patch.axialExtent,
+          radius,
+          bandRadius
+        )
+
+        if (kind === 'farm') {
+          // Constant world-size crop rows regardless of patch size.
+          const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
+
+          for (let i = 0; i < uv.count; i += 1) {
+            uv.setXY(
+              i,
+              uv.getX(i) * (patch.tangentExtent / stripeWorld),
+              uv.getY(i) * (patch.axialExtent / stripeWorld)
+            )
+          }
+        }
+
+        geometries.push(geometry)
+      }
+
+      const merged = mergeBufferGeometries(geometries)
+
+      for (const geometry of geometries) {
+        geometry.dispose()
+      }
+
+      if (merged === null) {
+        continue
+      }
+
+      const mesh = new THREE.Mesh(
+        merged,
+        kind === 'park' ? this.parkMaterial : this.farmMaterial
+      )
+      this.patchMeshes.push(mesh)
+      this.group.add(mesh)
+    }
+  }
+
+  private buildTrees(treePlan: CityTree[], radius: number) {
+    if (treePlan.length === 0) {
+      return
+    }
+
+    const geometry = new THREE.ConeGeometry(0.5, 1, 6)
+    geometry.translate(0, 0.5, 0)
+    const mesh = new THREE.InstancedMesh(geometry, this.treeMaterial, treePlan.length)
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+
+    for (let index = 0; index < treePlan.length; index += 1) {
+      const tree = treePlan[index]
+      const cos = Math.cos(tree.azimuth)
+      const sin = Math.sin(tree.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition.set(cos, 0, sin).multiplyScalar(radius - 0.02).setY(tree.axial)
+      instanceScale.set(tree.height * 0.45, tree.height, tree.height * 0.45)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+      mesh.setColorAt(
+        index,
+        instanceColor.setHSL(0.3 + tree.tone * 0.06, 0.42, 0.2 + tree.tone * 0.16)
+      )
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+
+    this.trees = mesh
+    this.group.add(mesh)
+  }
+
+  // Warm dots floating above the avenues: enough to read as street lighting.
+  private buildLamps(roads: CityRoad[], radius: number) {
+    const cell = getCityCellSize(radius)
+    const spacing = cell * 2.2
+    const lampHeight = THREE.MathUtils.clamp(cell * 0.55, 3, 12)
+    const lampRadius = THREE.MathUtils.clamp(cell * 0.02, 0.12, 0.5)
+    const positions: Array<{ azimuth: number; axial: number }> = []
+
+    for (const road of roads) {
+      // Avenues run along the axis; cross streets are wider than long.
+      if (road.axialLength <= road.tangentWidth) {
+        continue
+      }
+
+      const count = Math.floor(road.axialLength / spacing)
+
+      for (let index = 0; index < count; index += 1) {
+        positions.push({
+          azimuth: road.azimuth,
+          axial: road.axial - road.axialLength * 0.5 + (index + 0.5) * spacing
+        })
+      }
+    }
+
+    const stride = Math.max(1, Math.ceil(positions.length / 1200))
+    const kept = positions.filter((_, index) => index % stride === 0)
+
+    if (kept.length === 0) {
+      return
+    }
+
+    const mesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 6, 4),
+      this.lampMaterial,
+      kept.length
+    )
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+    instanceQuaternion.identity()
+    instanceScale.setScalar(lampRadius)
+
+    for (let index = 0; index < kept.length; index += 1) {
+      const lamp = kept[index]
+      instancePosition
+        .set(Math.cos(lamp.azimuth), 0, Math.sin(lamp.azimuth))
+        .multiplyScalar(radius - lampHeight)
+        .setY(lamp.axial)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+    this.lamps = mesh
+    this.group.add(mesh)
+  }
+
+  private buildTower(tower: CityTower, radius: number) {
+    const group = new THREE.Group()
+    const cos = Math.cos(tower.azimuth)
+    const sin = Math.sin(tower.azimuth)
+    tangent.set(-sin, 0, cos)
+    inward.set(-cos, 0, -sin)
+    binormal.copy(tangent).cross(inward)
+    basis.makeBasis(tangent, inward, binormal)
+
+    const columnRadius = Math.max(0.3, tower.deckRadius * 0.16)
+    const deckThickness = Math.max(0.3, tower.height * 0.04)
+
+    const column = new THREE.Mesh(
+      new THREE.CylinderGeometry(columnRadius, columnRadius * 1.6, tower.height, 8),
+      this.towerMaterial
+    )
+    column.position.set(0, tower.height * 0.5, 0)
+
+    const deck = new THREE.Mesh(
+      new THREE.CylinderGeometry(tower.deckRadius, tower.deckRadius * 0.72, deckThickness, 14),
+      this.towerMaterial
+    )
+    deck.position.set(0, tower.height - deckThickness * 0.5, 0)
+
+    const accent = new THREE.Mesh(
+      new THREE.TorusGeometry(tower.deckRadius * 0.96, Math.max(0.06, deckThickness * 0.16), 6, 28),
+      this.towerAccentMaterial
+    )
+    accent.rotation.x = Math.PI * 0.5
+    accent.position.set(0, tower.height - deckThickness, 0)
+
+    group.add(column, deck, accent)
+    group.quaternion.setFromRotationMatrix(basis)
+    group.position.set(cos, 0, sin).multiplyScalar(radius).setY(tower.axial)
+    this.towerGroup = group
+    this.group.add(group)
+  }
+
+  // Elevator cables from each land strip up to the axis spine: the cue that
+  // ties the ground to the hub and sells the scale.
+  private buildCables(radius: number, length: number) {
+    const spineRadius = getSpineRadius(radius)
+    const cableRadius = Math.max(0.05, radius * 0.004)
+    const cableLength = Math.max(0, radius - spineRadius)
+
+    if (cableLength <= 0) {
+      return
+    }
+
+    const geometries: THREE.BufferGeometry[] = []
+    const transform = new THREE.Matrix4()
+
+    for (const stripCenter of getLandStripCenters()) {
+      for (const axialFraction of [-0.28, 0.28]) {
+        const cos = Math.cos(stripCenter)
+        const sin = Math.sin(stripCenter)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        const geometry = new THREE.CylinderGeometry(cableRadius, cableRadius, cableLength, 6)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(spineRadius + cableLength * 0.5)
+          .setY(length * axialFraction)
+        transform.copy(basis).setPosition(instancePosition)
+        geometry.applyMatrix4(transform)
+        geometries.push(geometry)
+      }
+    }
+
+    const merged = mergeBufferGeometries(geometries)
+
+    for (const geometry of geometries) {
+      geometry.dispose()
+    }
+
+    if (merged === null) {
+      return
+    }
+
+    const mesh = new THREE.Mesh(merged, this.cableMaterial)
+    this.cables = mesh
+    this.group.add(mesh)
+  }
+
+  private buildSpineRings(radius: number, length: number) {
+    const spineRadius = getSpineRadius(radius)
+    const ringCount = 7
+    const geometries: THREE.BufferGeometry[] = []
+
+    for (let index = 0; index < ringCount; index += 1) {
+      const geometry = new THREE.TorusGeometry(spineRadius * 2.4, spineRadius * 0.45, 6, 18)
+      geometry.rotateX(Math.PI * 0.5)
+      geometry.translate(0, (index / (ringCount - 1) - 0.5) * length * 0.84, 0)
+      geometries.push(geometry)
+    }
+
+    const merged = mergeBufferGeometries(geometries)
+
+    for (const geometry of geometries) {
+      geometry.dispose()
+    }
+
+    if (merged === null) {
+      return
+    }
+
+    const mesh = new THREE.Mesh(merged, this.spineRingMaterial)
+    this.spineRings = mesh
+    this.group.add(mesh)
+  }
+
   private buildWindowStrips(radius: number, length: number) {
     // Slightly inside the shell so the glow does not z-fight with it.
     const stripRadius = radius * 0.996
@@ -435,7 +876,7 @@ export class Cityscape {
   }
 
   private buildAxisSpine(radius: number, length: number) {
-    const spineRadius = Math.max(0.35, radius * 0.012)
+    const spineRadius = getSpineRadius(radius)
     const spine = new THREE.Mesh(
       new THREE.CylinderGeometry(spineRadius, spineRadius, length * 0.92, 12, 1),
       this.axisSpineMaterial

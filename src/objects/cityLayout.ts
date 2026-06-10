@@ -16,9 +16,36 @@ export type CityRoad = {
   axialLength: number
 }
 
+export type CityPatchKind = 'park' | 'farm'
+
+export type CityPatch = {
+  azimuth: number
+  axial: number
+  tangentExtent: number
+  axialExtent: number
+  kind: CityPatchKind
+}
+
+export type CityTree = {
+  azimuth: number
+  axial: number
+  height: number
+  tone: number
+}
+
+export type CityTower = {
+  azimuth: number
+  axial: number
+  height: number
+  deckRadius: number
+}
+
 export type CityPlan = {
   roads: CityRoad[]
   buildings: CityBuilding[]
+  patches: CityPatch[]
+  trees: CityTree[]
+  tower: CityTower | null
 }
 
 export type CityPlanConfig = {
@@ -46,6 +73,9 @@ const BLOCK_AXIAL_CELLS = 4
 const SIDEWALK_FRACTION = 0.15
 const LOT_FRACTION = 1.1
 const MAX_KEEP_PROBABILITY = 0.85
+const PARK_BLOCK_PROBABILITY = 0.12
+const FARM_BLOCK_PROBABILITY = 0.18
+const MAX_TREES = 1500
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0
@@ -81,6 +111,20 @@ export const getCityCellSize = (radius: number) => Math.max(6, radius * 0.045)
 // start marker and respawn point stay walkable.
 export const getPlazaTangentHalfWidth = (radius: number) => Math.max(10, radius * 0.3)
 export const getPlazaAxialHalfLength = (radius: number) => Math.max(12, radius * 0.15)
+
+// Overlook travel altitude above the surface — shared with the respawn logic
+// so the observation tower tops out just below the spawn point.
+export const getOverlookAltitude = (radius: number) =>
+  Math.min(60, Math.max(8, radius * 0.5))
+
+export const getOverlookTower = (radius: number): CityTower => ({
+  // Beside the plaza, trailing the Coriolis drift of the overlook drop so
+  // the falling player slides past the tower instead of through it.
+  azimuth: -Math.min(6, getPlazaTangentHalfWidth(radius) * 0.5) / radius,
+  axial: 0,
+  height: Math.max(4, getOverlookAltitude(radius) - 1.5),
+  deckRadius: Math.min(12, Math.max(2, radius * 0.12))
+})
 
 export const isInsidePlaza = (
   azimuth: number,
@@ -142,7 +186,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const { radius, length } = config
 
   if (radius <= 0 || length <= 0) {
-    return { roads: [], buildings: [] }
+    return { roads: [], buildings: [], patches: [], trees: [], tower: null }
   }
 
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
@@ -176,6 +220,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
   const roads: CityRoad[] = []
   const buildings: CityBuilding[] = []
+  const patches: CityPatch[] = []
+  const trees: CityTree[] = []
 
   const placeBuilding = (
     stripCenter: number,
@@ -280,6 +326,58 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           continue
         }
 
+        // Block zoning: most blocks are residential, the rest become parks
+        // (green + trees) or farm fields.
+        const zoneRoll = random()
+
+        if (zoneRoll < PARK_BLOCK_PROBABILITY + FARM_BLOCK_PROBABILITY) {
+          const kind: CityPatchKind =
+            zoneRoll < PARK_BLOCK_PROBABILITY ? 'park' : 'farm'
+          patches.push({
+            azimuth: stripCenter + ((tangent0 + tangent1) * 0.5) / radius,
+            axial: (axial0 + axial1) * 0.5,
+            tangentExtent: innerWidth,
+            axialExtent: innerLength,
+            kind
+          })
+
+          if (kind === 'park') {
+            const treeTarget = Math.min(
+              12,
+              Math.floor((innerWidth * innerLength) / (cell * cell * 1.4))
+            )
+
+            for (let tree = 0; tree < treeTarget; tree += 1) {
+              const tangentRoll = random()
+              const axialRoll = random()
+              const heightRoll = random()
+              const toneRoll = random()
+
+              if (trees.length >= MAX_TREES) {
+                continue
+              }
+
+              const treeAzimuth =
+                stripCenter +
+                (tangent0 + cell * 0.3 + tangentRoll * (innerWidth - cell * 0.6)) / radius
+              const treeAxial = axial0 + cell * 0.3 + axialRoll * (innerLength - cell * 0.6)
+
+              if (isInsidePlaza(treeAzimuth, treeAxial, radius)) {
+                continue
+              }
+
+              trees.push({
+                azimuth: treeAzimuth,
+                axial: treeAxial,
+                height: cell * (0.55 + heightRoll * 0.5),
+                tone: toneRoll
+              })
+            }
+          }
+
+          continue
+        }
+
         const depthMax = Math.min(cell * 0.9, innerWidth * 0.35, innerLength * 0.35)
 
         // Rows fronting the avenues (block's tangent edges)...
@@ -308,5 +406,5 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
   }
 
-  return { roads, buildings }
+  return { roads, buildings, patches, trees, tower: getOverlookTower(radius) }
 }

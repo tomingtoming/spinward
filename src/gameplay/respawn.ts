@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import type { PlayerTraversalState } from '../app/playerTraversal'
 import { resetPlayerToAttached, resetPlayerToFreeFly } from '../app/playerTraversal'
+import { getOverlookAltitude } from '../objects/cityLayout'
 import type { HabitatType } from '../sim/habitatConfig'
 
 const axisEndRotatingPosition = new THREE.Vector3()
@@ -36,8 +37,8 @@ export const respawnInnerWall = (
 
 // Overlook altitude above the surface: high enough to feel the weaker spin
 // gravity, short enough that the fall back to the plaza stays comfortable.
-export const getOverlookAltitude = (radius: number) =>
-  THREE.MathUtils.clamp(radius * 0.5, 8, 60)
+// Defined in cityLayout so the observation tower tops out just below it.
+export { getOverlookAltitude }
 
 export const respawnOverlook = (
   state: PlayerTraversalState,

@@ -4,6 +4,7 @@ import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
   getCityCellSize,
+  getOverlookAltitude,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
   getWindowStripArcs,
@@ -212,8 +213,55 @@ describe('planCity', () => {
   })
 
   test('returns an empty plan for degenerate dimensions', () => {
-    expect(planCity({ radius: 0, length: 120 })).toEqual({ roads: [], buildings: [] })
-    expect(planCity({ radius: 18, length: 0 })).toEqual({ roads: [], buildings: [] })
+    const empty = { roads: [], buildings: [], patches: [], trees: [], tower: null }
+    expect(planCity({ radius: 0, length: 120 })).toEqual(empty)
+    expect(planCity({ radius: 18, length: 0 })).toEqual(empty)
+  })
+
+  test('zones some blocks as parks or farms with trees on land strips', () => {
+    const radius = 18
+    const { patches, trees, buildings } = planCity({ radius, length: 360 })
+
+    expect(patches.length).toBeGreaterThan(0)
+    expect(trees.length).toBeGreaterThan(0)
+
+    for (const patch of patches) {
+      expect(isAzimuthOnLandStrip(patch.azimuth)).toBe(true)
+      expect(patch.tangentExtent).toBeGreaterThan(0)
+      expect(patch.axialExtent).toBeGreaterThan(0)
+      expect(['park', 'farm']).toContain(patch.kind)
+    }
+
+    for (const tree of trees) {
+      expect(isAzimuthOnLandStrip(tree.azimuth)).toBe(true)
+      expect(tree.height).toBeGreaterThan(0)
+      expect(isInsidePlaza(tree.azimuth, tree.axial, radius)).toBe(false)
+    }
+
+    // Zoned blocks hold no buildings: no building center falls inside a patch.
+    for (const building of buildings) {
+      for (const patch of patches) {
+        const tangentDelta = Math.abs(wrapToPi(building.azimuth - patch.azimuth)) * radius
+        const axialDelta = Math.abs(building.axial - patch.axial)
+        const inside =
+          tangentDelta < patch.tangentExtent * 0.5 && axialDelta < patch.axialExtent * 0.5
+        expect(inside).toBe(false)
+      }
+    }
+  })
+
+  test('plans the overlook tower just below the overlook altitude', () => {
+    const radius = 18
+    const { tower } = planCity({ radius, length: 120 })
+
+    expect(tower).not.toBeNull()
+    expect(tower?.height).toBeCloseTo(getOverlookAltitude(radius) - 1.5, 6)
+    expect(tower?.deckRadius).toBeGreaterThan(0)
+    // Beside the plaza, on the trailing side of the Coriolis drift.
+    expect(tower!.azimuth).toBeLessThan(0)
+    expect(Math.abs(tower!.azimuth) * radius).toBeLessThanOrEqual(
+      getPlazaTangentHalfWidth(radius)
+    )
   })
 
   test('opposite side of the cylinder is also populated', () => {

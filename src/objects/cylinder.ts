@@ -243,12 +243,21 @@ export class CylinderHabitat {
     depthWrite: false
   })
 
+  private readonly endCapMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4a6478,
+    emissive: 0x101a26,
+    emissiveIntensity: 0.8,
+    roughness: 0.55,
+    metalness: 0.4
+  })
+
   private nearShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
+  private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private radius = 0
   private length = 0
   private focusAzimuth = 0
@@ -271,6 +280,61 @@ export class CylinderHabitat {
     this.rebuildRibs(radius, length)
     this.rebuildStartMarker(radius)
     this.rebuildLandmarks(radius, length)
+    this.rebuildEndCaps(radius, length)
+  }
+
+  // Open docking structure at both ends: rim ring, central hub ring, and
+  // radial spokes. The center stays clear so players and balls can still
+  // drift out through the openings.
+  private rebuildEndCaps(radius: number, length: number) {
+    if (this.endCaps !== null) {
+      this.endCaps.geometry.dispose()
+      this.group.remove(this.endCaps)
+      this.endCaps = null
+    }
+
+    const tube = Math.max(0.15, radius * 0.012)
+    const rimRadius = radius * 0.97
+    const hubRadius = radius * 0.26
+    const spokeLength = rimRadius - hubRadius
+    const spokeCount = 8
+    const geometries: THREE.BufferGeometry[] = []
+
+    for (const endSign of [-1, 1]) {
+      const y = endSign * length * 0.5
+
+      const rim = new THREE.TorusGeometry(rimRadius, tube, 6, 48)
+      rim.rotateX(Math.PI * 0.5)
+      rim.translate(0, y, 0)
+      geometries.push(rim)
+
+      const hub = new THREE.TorusGeometry(hubRadius, tube, 6, 20)
+      hub.rotateX(Math.PI * 0.5)
+      hub.translate(0, y, 0)
+      geometries.push(hub)
+
+      for (let index = 0; index < spokeCount; index += 1) {
+        const angle = (index / spokeCount) * fullTurn
+        const spoke = new THREE.BoxGeometry(spokeLength, tube * 1.6, tube * 1.6)
+        spoke.translate(hubRadius + spokeLength * 0.5, 0, 0)
+        spoke.rotateY(-angle)
+        spoke.translate(0, y, 0)
+        geometries.push(spoke)
+      }
+    }
+
+    const merged = mergeBufferGeometries(geometries)
+
+    for (const geometry of geometries) {
+      geometry.dispose()
+    }
+
+    if (merged === null) {
+      return
+    }
+
+    this.endCaps = new THREE.Mesh(merged, this.endCapMaterial)
+    this.group.add(this.endCaps)
   }
 
   setFocusAzimuth(focusAzimuth: number) {
