@@ -13,15 +13,11 @@ import {
 import { renderWatchExpanded } from '../ui/watch/watchRenderer'
 
 const PANEL_OFFSET = new THREE.Vector3(-0.48, -0.28, -0.92)
-const PANEL_SCALE = new THREE.Vector3(0.44, 0.52, 1)
+const PANEL_SCALE = new THREE.Vector3(0.44, 0.39, 1)
 const panelWorldPosition = new THREE.Vector3()
 const panelWorldQuaternion = new THREE.Quaternion()
 const cameraPosition = new THREE.Vector3()
 const cameraQuaternion = new THREE.Quaternion()
-const panelFacingCorrection = new THREE.Quaternion().setFromAxisAngle(
-  new THREE.Vector3(0, 1, 0),
-  Math.PI
-)
 const pointerNdc = new THREE.Vector2()
 
 const createCanvas = () => {
@@ -94,7 +90,8 @@ export class PcQuickPanel {
     camera.getWorldPosition(cameraPosition)
     camera.getWorldQuaternion(cameraQuaternion)
     panelWorldPosition.copy(PANEL_OFFSET).applyQuaternion(cameraQuaternion).add(cameraPosition)
-    panelWorldQuaternion.copy(cameraQuaternion).multiply(panelFacingCorrection)
+    // The plane's +Z must point back at the camera, or backface culling hides it.
+    panelWorldQuaternion.copy(cameraQuaternion)
     this.mesh.position.copy(panelWorldPosition)
     this.mesh.quaternion.copy(panelWorldQuaternion)
     this.mesh.visible = true

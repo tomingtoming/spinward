@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import {
-  WATCH_FAR_FIELD_INTENSITY_SPEC,
   WATCH_PRIMARY_PARAMETER_SPECS,
   type WatchParameterActionId,
   type WatchParameterActionPrefix,
@@ -12,11 +11,6 @@ export type WatchActionId =
   | 'profile-sim'
   | 'profile-expert'
   | WatchParameterActionId
-  | 'far-field-enable'
-  | 'far-field-disable'
-  | 'far-field-mode-auto'
-  | 'far-field-mode-day'
-  | 'far-field-mode-night'
   | 'preset-apply-playground'
   | 'preset-apply-izma'
   | 'preset-apply-cooper'
@@ -47,9 +41,6 @@ export type WatchExpandedLayout = {
   height: number
   rows: WatchRow[]
   profileButtons: [WatchButton, WatchButton, WatchButton]
-  farFieldModeButtons: [WatchButton, WatchButton, WatchButton]
-  farFieldEnabledButtons: [WatchButton, WatchButton]
-  farFieldIntensityRow: WatchRow
   presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton]
   respawnButtons: [WatchButton, WatchButton, WatchButton]
   buttons: WatchButton[]
@@ -57,7 +48,7 @@ export type WatchExpandedLayout = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 1780
+  height: 1340
 } as const
 
 const makeActionButton = (
@@ -148,7 +139,6 @@ export const createWatchExpandedLayout = (
       )
     )
   ]
-  const farFieldIntensitySpec = WATCH_FAR_FIELD_INTENSITY_SPEC!
   const wideButtonHeight = 64
   const sectionLeft = 42
   const profileButtons: [WatchButton, WatchButton, WatchButton] = [
@@ -156,25 +146,9 @@ export const createWatchExpandedLayout = (
     makeActionButton('profile-sim', 'Sim', sectionLeft + 208, 738, 190, wideButtonHeight),
     makeActionButton('profile-expert', 'Expert', sectionLeft + 416, 738, 190, wideButtonHeight)
   ]
-  const farFieldEnabledButtons: [WatchButton, WatchButton] = [
-    makeActionButton('far-field-disable', 'Night Off', sectionLeft, 918, 140, wideButtonHeight),
-    makeActionButton('far-field-enable', 'Night On', sectionLeft + 158, 918, 140, wideButtonHeight)
-  ]
-  const farFieldModeButtons: [WatchButton, WatchButton, WatchButton] = [
-    makeActionButton('far-field-mode-auto', 'Auto', sectionLeft, 1002, 140, wideButtonHeight),
-    makeActionButton('far-field-mode-day', 'Day', sectionLeft + 158, 1002, 140, wideButtonHeight),
-    makeActionButton('far-field-mode-night', 'Night', sectionLeft + 316, 1002, 140, wideButtonHeight)
-  ]
-  const farFieldIntensityRow = makeRow(
-    farFieldIntensitySpec.key,
-    farFieldIntensitySpec.label,
-    farFieldIntensitySpec.actionPrefix,
-    1072,
-    width
-  )
-  const presetTop = 1292
-  const presetBottom = 1374
-  const respawnTop = 1584
+  const presetTop = 904
+  const presetBottom = 986
+  const respawnTop = 1196
   const presetButtonWidth = 300
   const presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton] = [
     makeActionButton(
@@ -242,17 +216,11 @@ export const createWatchExpandedLayout = (
     height,
     rows,
     profileButtons,
-    farFieldModeButtons,
-    farFieldEnabledButtons,
-    farFieldIntensityRow,
     presetButtons,
     respawnButtons,
     buttons: [
       ...rows.flatMap((row) => row.buttons),
       ...profileButtons,
-      ...farFieldEnabledButtons,
-      ...farFieldModeButtons,
-      ...farFieldIntensityRow.buttons,
       ...presetButtons,
       ...respawnButtons
     ]

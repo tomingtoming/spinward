@@ -58,7 +58,6 @@ import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
-import { resolveFarFieldMode } from '../render/farField/farFieldSettings'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { getHabitatSpan } from '../sim/habitatConfig'
@@ -431,14 +430,6 @@ export const bootstrapApp = async () => {
         rpm: habitatConfig.rpm,
         frameAngle,
         focusAzimuth: 0,
-        currentPresetId: habitatConfig.currentPresetId,
-        farField: {
-          enabled: settingsStore.farField.enabled,
-          mode: settingsStore.farField.mode,
-          intensity: settingsStore.farField.intensity,
-          density: settingsStore.farField.density,
-          updateInterval_s: settingsStore.farField.updateInterval_s
-        },
         units: getUnits()
       }
     )
@@ -451,7 +442,6 @@ export const bootstrapApp = async () => {
   const debugGui = createDebugGui({
     config: habitatConfig,
     reattachTuning,
-    farField: settingsStore.farField,
     debugVisuals,
     onHabitatChange: () => {
       syncHabitat()
@@ -836,7 +826,6 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
-    habitat.updateNightLighting(deltaSeconds)
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
@@ -870,15 +859,6 @@ export const bootstrapApp = async () => {
       trailMode: debugVisuals.trailMode,
       region: playerRegion,
       playerMode: playerTraversal.mode,
-      nightLighting: {
-        enabled: settingsStore.farField.enabled,
-        mode: resolveFarFieldMode(
-          settingsStore.farField.mode,
-          habitatConfig.currentPresetId
-        ),
-        intensity: settingsStore.farField.intensity,
-        density: settingsStore.farField.density
-      },
       watchMenuOpen,
       verification:
         verificationBallTarget === null || verification === null

@@ -7,29 +7,6 @@ type CylinderSurfaceRepeat = {
 
 const minorGridDivisions = 8
 const majorGridStep = 4
-const lightGridDivisions = 18
-
-export type CylinderNightLight = {
-  x: number
-  y: number
-  width: number
-  height: number
-  tone: number
-}
-
-export type CylinderNightLightPlan = {
-  size: number
-  lights: CylinderNightLight[]
-}
-
-const createRandom = (seed: number) => {
-  let state = seed >>> 0
-
-  return () => {
-    state = (1664525 * state + 1013904223) >>> 0
-    return state / 0xffffffff
-  }
-}
 
 export const getCylinderSurfaceRepeat = (
   radius: number,
@@ -43,22 +20,6 @@ export const getCylinderSurfaceRepeat = (
   ),
   axial: Math.max(1, Math.max(length, 1) / axialTileMeters)
 })
-
-export const getCylinderNightLightRepeat = (
-  radius: number,
-  length: number,
-  circumferentialDistrictMeters = THREE.MathUtils.clamp(radius * 0.35, 240, 4000),
-  axialDistrictMeters = THREE.MathUtils.clamp(length * 0.08, 180, 3200)
-): CylinderSurfaceRepeat => ({
-  circumferential: Math.max(
-    1,
-    (Math.PI * 2 * Math.max(radius, 1)) / circumferentialDistrictMeters
-  ),
-  axial: Math.max(1, Math.max(length, 1) / axialDistrictMeters)
-})
-
-export const getCylinderNightLightVisibilityBoost = (radius: number) =>
-  THREE.MathUtils.clamp(0.9 + Math.log10(Math.max(radius, 10) / 800) * 0.45, 0.7, 1.6)
 
 export const createCylinderSurfaceTexture = (size = 512) => {
   const canvas = document.createElement('canvas')
@@ -130,60 +91,4 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   texture.wrapT = THREE.RepeatWrapping
   texture.anisotropy = 4
   return texture
-}
-
-export const createCylinderNightLightPlan = (
-  size: number,
-  density: number,
-  seed: number
-): CylinderNightLightPlan => {
-  const random = createRandom(seed)
-  const lights: CylinderNightLight[] = []
-  const clampedDensity = Math.min(1, Math.max(0, density))
-  const cellSize = size / lightGridDivisions
-
-  for (let row = 0; row < lightGridDivisions; row += 1) {
-    for (let column = 0; column < lightGridDivisions; column += 1) {
-      const edgeBias = row > lightGridDivisions * 0.7 ? 0.85 : 1
-      const litChance = clampedDensity * 0.2 * edgeBias
-
-      if (random() > litChance) {
-        continue
-      }
-
-      const insetX = cellSize * (0.16 + random() * 0.18)
-      const insetY = cellSize * (0.16 + random() * 0.18)
-      lights.push({
-        x: column * cellSize + insetX,
-        y: row * cellSize + insetY,
-        width: cellSize * (0.34 + random() * 0.28),
-        height: cellSize * (0.22 + random() * 0.2),
-        tone: random()
-      })
-    }
-  }
-
-  return {
-    size,
-    lights
-  }
-}
-
-export const renderCylinderNightLightPlan = (
-  context: CanvasRenderingContext2D,
-  plan: CylinderNightLightPlan
-) => {
-  context.clearRect(0, 0, plan.size, plan.size)
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, plan.size, plan.size)
-
-  for (const light of plan.lights) {
-    context.fillStyle =
-      light.tone < 0.33
-        ? '#f8fafc'
-        : light.tone < 0.66
-          ? '#fcd34d'
-          : '#bfdbfe'
-    context.fillRect(light.x, light.y, light.width, light.height)
-  }
 }

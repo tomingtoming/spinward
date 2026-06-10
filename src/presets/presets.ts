@@ -1,5 +1,4 @@
 import type { HabitatType } from '../sim/habitatConfig'
-import type { FarFieldSettings } from '../render/farField/farFieldSettings'
 import { omegaToRpm, periodToOmega } from '../units/units'
 
 export type Preset = {
@@ -19,7 +18,6 @@ export type Preset = {
     scale: number
     notes?: string
   }
-  farField?: Partial<FarFieldSettings>
   flavor?: {
     skybox?: 'izma' | 'elysium' | 'default'
     runwayStyle?: 'izma' | 'default'
@@ -43,18 +41,6 @@ export const HABITAT_PRESETS: Preset[] = [
     sim: {
       scale: 1,
       notes: 'Default close-range playground scale with 1:1 real-to-sim mapping.'
-    },
-    farField: {
-      enabled: true,
-      mode: 'night',
-      intensity: 1,
-      density: 0.5,
-      bandArc_deg: 110,
-      bandHeight_m: 700,
-      parallaxLayers: 2,
-      parallaxOffset_m: 90,
-      textureSize: 512,
-      updateInterval_s: 0
     },
     flavor: {
       skybox: 'default',
@@ -82,18 +68,6 @@ export const HABITAT_PRESETS: Preset[] = [
       scale: 0.02,
       notes: 'Scaled down for Rapier while keeping the scene in real meters.'
     },
-    farField: {
-      enabled: true,
-      mode: 'night',
-      intensity: 1.2,
-      density: 0.7,
-      bandArc_deg: 120,
-      bandHeight_m: 800,
-      parallaxLayers: 2,
-      parallaxOffset_m: 90,
-      textureSize: 512,
-      updateInterval_s: 4
-    },
     flavor: {
       skybox: 'izma',
       runwayStyle: 'izma'
@@ -120,18 +94,6 @@ export const HABITAT_PRESETS: Preset[] = [
       scale: 0.02,
       notes: 'Representative O’Neill cylinder sizing for a Cooper-like experience.'
     },
-    farField: {
-      enabled: true,
-      mode: 'night',
-      intensity: 0.6,
-      density: 0.35,
-      bandArc_deg: 90,
-      bandHeight_m: 600,
-      parallaxLayers: 2,
-      parallaxOffset_m: 80,
-      textureSize: 512,
-      updateInterval_s: 5
-    },
     sourceQuality: 'derived',
     notes: [
       'Representative O’Neill cylinder dimensions are used because the film does not publish a strict canonical size.',
@@ -153,18 +115,6 @@ export const HABITAT_PRESETS: Preset[] = [
     sim: {
       scale: 0.005,
       notes: 'Very small Rapier scale because the canonical ring is much larger.'
-    },
-    farField: {
-      enabled: true,
-      mode: 'day',
-      intensity: 0,
-      density: 0.1,
-      bandArc_deg: 100,
-      bandHeight_m: 800,
-      parallaxLayers: 2,
-      parallaxOffset_m: 120,
-      textureSize: 512,
-      updateInterval_s: 0
     },
     flavor: {
       skybox: 'elysium',

@@ -1,7 +1,6 @@
 import GUI from 'lil-gui'
 
 import type { ObserverMode, TrailMode } from '../app/observerMode'
-import type { FarFieldSettings } from '../render/farField/farFieldSettings'
 import { getHabitatSpan, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
 import { rpmToOmega, surfaceG } from '../units/units'
@@ -18,7 +17,6 @@ export type DebugVisualState = {
 type DebugGuiOptions = {
   config: HabitatConfig
   reattachTuning: ReattachTuning
-  farField: FarFieldSettings
   debugVisuals: DebugVisualState
   onHabitatChange: () => void
   onSettingsChange: () => void
@@ -33,7 +31,6 @@ export type DebugGuiHandle = {
 export const createDebugGui = ({
   config,
   reattachTuning,
-  farField,
   debugVisuals,
   onHabitatChange,
   onSettingsChange,
@@ -114,37 +111,6 @@ export const createDebugGui = ({
     .name('surface speed')
     .onChange(onSettingsChange)
   reattachFolder.open()
-
-  const farFieldFolder = gui.addFolder('Night Surface')
-  farFieldFolder
-    .add(farField, 'enabled')
-    .name('enabled')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'mode', {
-      Auto: 'auto',
-      Day: 'day',
-      Night: 'night'
-    })
-    .name('mode')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'intensity', 0, 2, 0.05)
-    .name('intensity')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'density', 0, 1, 0.05)
-    .name('density')
-    .listen()
-    .onChange(onSettingsChange)
-  farFieldFolder
-    .add(farField, 'updateInterval_s', 0, 10, 0.5)
-    .name('twinkle (s)')
-    .listen()
-    .onChange(onSettingsChange)
 
   const debugFolder = gui.addFolder('Debug View')
   debugFolder

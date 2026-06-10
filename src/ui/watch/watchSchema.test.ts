@@ -28,15 +28,11 @@ test('parseWatchParameterAction parses valid action strings', () => {
     mode: 'fine',
     ticks: -1
   })
-  expect(parseWatchParameterAction('far-field-intensity-coarse-increment')).toEqual({
-    prefix: 'far-field-intensity',
-    mode: 'coarse',
-    ticks: 1
-  })
 })
 
 test('parseWatchParameterAction returns null for unknown prefixes', () => {
   expect(parseWatchParameterAction('unknown-fine-increment')).toBeNull()
+  expect(parseWatchParameterAction('far-field-intensity-coarse-increment')).toBeNull()
   expect(parseWatchParameterAction('gravity-coarse-decrement')).toBeNull()
 })
 
@@ -55,8 +51,7 @@ test('formatWatchParameterValue formats each parameter correctly', () => {
     radius: 18,
     throwScale: 1.5,
     jetpackAcceleration: 12.3,
-    reattachThreshold: 0.2,
-    farFieldIntensity: 1.05
+    reattachThreshold: 0.2
   }
 
   expect(formatWatchParameterValue('rpm', source)).toBe('5.23')
@@ -64,5 +59,4 @@ test('formatWatchParameterValue formats each parameter correctly', () => {
   expect(formatWatchParameterValue('throwScale', source)).toBe('1.50')
   expect(formatWatchParameterValue('jetpackAcceleration', source)).toBe('12.3 m/s\u00B2')
   expect(formatWatchParameterValue('reattachThreshold', source)).toBe('0.20')
-  expect(formatWatchParameterValue('farFieldIntensity', source)).toBe('1.05')
 })

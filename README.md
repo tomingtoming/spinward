@@ -63,9 +63,8 @@ bun run preview -- --host 0.0.0.0
 - VR: `free-fly` 中は左 `X` で回転 brake、左 `Y` で平行移動 brake を掛けられます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / jetpack / reattach` を変更できます。
 - VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
-- VR: wrist UI から `Night Surface` の `on/off`, `day/night/auto`, `intensity` を変更できます。内壁 shell 自体の発光と twinkle に効きます。
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
-- VR: wrist UI から `Respawn: Inner Wall` と `Respawn: Axis End` を呼べます。cylinder では開口端の回転軸上、ring では中心へ 0g respawn します。
+- VR: wrist UI の Travel から `Surface / Overlook / Axis` の 3 地点へワープできます。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
 - VR: 右スティック左右の `snap turn` は `attached` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
 - VR: 球のトリガーを離すと放します。投げ速度は右手の相対運動と前方チャージから決めます。
@@ -83,8 +82,7 @@ bun run preview -- --host 0.0.0.0
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
 - PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定、preset、respawn を操作できます。
-- PC: quick panel でも `Night Surface` の `on/off`, `mode`, `intensity` を同じ設定ソースで操作できます。
-- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値、Night Surface の詳細パラメータを右上で確認/調整できます。
+- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
@@ -134,20 +132,20 @@ a_cf = -(Ω × (Ω × r))
 
 ## Cityscape(円筒都市)
 
-- 内壁には手続き生成の街区(InstancedMesh 1 draw call)が並びます。O'Neill 型に 3 本の地表ストリップと 3 本の採光窓ストリップを交互配置し、スポーン地点周辺はプラザとして空けています。
+- O'Neill 型に 3 本の地表ストリップと 3 本の採光窓ストリップを交互配置し、スポーン地点周辺はプラザとして空けています。
+- 各地表ストリップには **道路網を手続き生成** します。軸方向のアベニューと周方向のクロスストリートが街区(ブロック)を区切り、建物は各ブロックの外周に「道路に面して」並びます(ペリメーターブロック方式)。道路グリッドは構造的に決まり、建物配置だけが seed 依存です。
+- 建物は単一の InstancedMesh(1 draw call、上限 2400 棟)、道路はマージ済みの円弧バンド 1 メッシュで描画します。クロスストリートは円筒に沿って曲がるため、平面ではなく円弧ジオメトリを使っています。
 - 中心軸には発光スパイン(軸構造物)が走り、「上を見ると反対側の街」を強調します。
-- 建物は見た目専用で collider を持ちません(主内壁の解析衝突と Rapier パネルが接触を担当)。
+- 歩行中の建物衝突は表面2D空間の解析判定(`resolveCitySurfaceCollision`)で処理し、道路は歩行可能です。ボールに対しては建物は見た目専用です。
+- 旧・夜景エミッシブテクスチャ(Night Surface / far-field)は実建物の街に置き換えられ、撤去済みです。
 
-## Night Surface
+## 内壁シェル描画
 
-- 現在の runtime では、上空の別帯 night city は使わず、内壁 shell 自体に夜景発光を持たせています。
 - `nearLayer` に近景、`skyLayer` に星空を分け、主内壁は near/far shell として描画します。`farLayer` は将来の遠景表現用 scaffold として残していますが、通常プレイでは使っていません。
-- Night では inner wall の emissive texture が光り、Day では発光を止めます。`Auto` は preset に応じて Izma/Cooper を夜、Elysium を昼へ寄せています。
-- `intensity` と `density` は内壁の窓明かり量に効き、`twinkle (s)` は emissive pattern の更新間隔です。
-- 大きい habitat では opposite wall の夜景が潰れないよう、night emissive だけは地面 texture より粗い district-scale repeat と visibility boost を使っています。
 - 内壁 shell には procedural の surface texture を貼っていて、約 10m 級のパネル継ぎ目と 40m 級の大区画を繰り返し表示します。アセットを増やさず、接地面の距離感を出す意図です。
+- 主内壁の描画は near/far shell に分けています。プレーヤー周辺の内壁は高分割、遠方は低分割の shell にして、近景を優先しつつ遠方コストを抑えています。
 - 固定物 collider は現在ほぼ使っていません。主内壁は球と `free-fly` プレーヤーの解析接触を主に使います。
-- 主内壁の描画も near/far shell に分けています。プレーヤー周辺の内壁は高分割、遠方は低分割の shell にして、近景を優先しつつ遠方コストを抑えています。
+
 
 ## 単位ルール
 
@@ -162,8 +160,6 @@ a_cf = -(Ω × (Ω × r))
   throw 合成が `real` でなく `sim` に漏れている可能性があります。`bun test` の throw/units 系を確認してください。
 - preset を変えたら respawn 位置だけずれる:
   Rapier pose への書き込みが boundary を通っていない可能性があります。respawn 系テストを確認してください。
-- Night Surface の見え方だけ崩れる:
-  shell lighting の repaint が走っていない可能性があります。cylinder surface / preset 系テストを確認してください。
 - observer mode や trail が崩れる:
   回転系/慣性系の変換前に `sim` を混ぜている可能性があります。描画と frame transform は常に `real` 前提です。
 
@@ -179,9 +175,10 @@ a_cf = -(Ω × (Ω × r))
 - プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
 - free-fly プレーヤーの `capsule + foot plate` collider
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
-- 内壁 shell の procedural texture と night surface emissive
+- 内壁 shell の procedural texture
+- 手続き生成の円筒都市(道路網+道路に面した建物、採光窓ストリップ、軸スパイン)
 - `Playground / Izma / Cooper / Elysium` preset と `real / simScale` 分離
-- 内壁中央 / 軸端の 2 種 respawn
+- `Surface / Overlook / Axis` の 3 地点ワープ
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト

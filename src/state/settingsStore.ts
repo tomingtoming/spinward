@@ -1,10 +1,5 @@
 import { DEFAULT_REATTACH_TUNING, type ReattachTuning } from '../app/playerTraversal'
 import {
-  DEFAULT_FAR_FIELD_SETTINGS,
-  type FarFieldMode,
-  type FarFieldSettings
-} from '../render/farField/farFieldSettings'
-import {
   DEFAULT_HABITAT_CONFIG,
   type HabitatConfig
 } from '../sim/habitatConfig'
@@ -63,8 +58,7 @@ export type SettingsStore = ReturnType<typeof createSettingsStore>
 
 export const createSettingsStore = (
   habitatOverrides: Partial<HabitatConfig> = {},
-  reattachOverrides: Partial<ReattachTuning> = {},
-  farFieldOverrides: Partial<FarFieldSettings> = {}
+  reattachOverrides: Partial<ReattachTuning> = {}
 ) => {
   const habitat = {
     ...DEFAULT_HABITAT_CONFIG,
@@ -73,10 +67,6 @@ export const createSettingsStore = (
   const reattach = {
     ...DEFAULT_REATTACH_TUNING,
     ...reattachOverrides
-  }
-  const farField = {
-    ...DEFAULT_FAR_FIELD_SETTINGS,
-    ...farFieldOverrides
   }
   let locomotionProfileId: LocomotionProfileId = DEFAULT_LOCOMOTION_PROFILE_ID
   const listeners = new Set<SettingsListener>()
@@ -175,18 +165,6 @@ export const createSettingsStore = (
       max: 30
     }
   )
-  const farFieldIntensityStepper = createScalarStepper(
-    () => farField.intensity,
-    (value) => {
-      farField.intensity = value
-    },
-    {
-      significantDigits: 2,
-      minStep: 0.05,
-      min: 0,
-      max: 2
-    }
-  )
   const reattachThresholdConfig: ScalarStepperConfig = {
     significantDigits: 2,
     minStep: 0.01,
@@ -204,7 +182,6 @@ export const createSettingsStore = (
   return {
     habitat,
     reattach,
-    farField,
     subscribe(listener: SettingsListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -240,39 +217,6 @@ export const createSettingsStore = (
       }
       notify()
     },
-    setFarFieldConfig(nextValues: Partial<FarFieldSettings>) {
-      if (nextValues.enabled !== undefined) {
-        farField.enabled = nextValues.enabled
-      }
-      if (nextValues.mode !== undefined) {
-        farField.mode = nextValues.mode
-      }
-      if (nextValues.intensity !== undefined) {
-        farField.intensity = clamp(nextValues.intensity, 0, 2)
-      }
-      if (nextValues.density !== undefined) {
-        farField.density = clamp(nextValues.density, 0, 1)
-      }
-      if (nextValues.bandHeight_m !== undefined) {
-        farField.bandHeight_m = clamp(nextValues.bandHeight_m, 300, 1500)
-      }
-      if (nextValues.bandArc_deg !== undefined) {
-        farField.bandArc_deg = clamp(nextValues.bandArc_deg, 60, 140)
-      }
-      if (nextValues.parallaxLayers !== undefined) {
-        farField.parallaxLayers = nextValues.parallaxLayers
-      }
-      if (nextValues.parallaxOffset_m !== undefined) {
-        farField.parallaxOffset_m = clamp(nextValues.parallaxOffset_m, 50, 200)
-      }
-      if (nextValues.textureSize !== undefined) {
-        farField.textureSize = nextValues.textureSize
-      }
-      if (nextValues.updateInterval_s !== undefined) {
-        farField.updateInterval_s = clamp(nextValues.updateInterval_s, 0, 30)
-      }
-      notify()
-    },
     getRadiusFineStep: radiusStepper.getFineStep,
     getRadiusCoarseStep: radiusStepper.getCoarseStep,
     getRpmFineStep: rpmStepper.getFineStep,
@@ -281,23 +225,12 @@ export const createSettingsStore = (
     getThrowScaleCoarseStep: throwScaleStepper.getCoarseStep,
     getJetpackAccelerationFineStep: jetpackAccelerationStepper.getFineStep,
     getJetpackAccelerationCoarseStep: jetpackAccelerationStepper.getCoarseStep,
-    getFarFieldIntensityFineStep: farFieldIntensityStepper.getFineStep,
-    getFarFieldIntensityCoarseStep: farFieldIntensityStepper.getCoarseStep,
     getReattachThresholdFineStep: reattachThresholdStepper.getFineStep,
     getReattachThresholdCoarseStep: reattachThresholdStepper.getCoarseStep,
     adjustRadius: radiusStepper.adjust,
     adjustRpm: rpmStepper.adjust,
     adjustThrowScale: throwScaleStepper.adjust,
     adjustJetpackAcceleration: jetpackAccelerationStepper.adjust,
-    setFarFieldEnabled(enabled: boolean) {
-      farField.enabled = enabled
-      notify()
-    },
-    setFarFieldMode(mode: FarFieldMode) {
-      farField.mode = mode
-      notify()
-    },
-    adjustFarFieldIntensity: farFieldIntensityStepper.adjust,
     adjustReattachThreshold(ticks: number, mode: StepMode = 'fine') {
       const baseStep = selectStep(reattachThresholdStepper.getFineStep(), mode) * ticks
       adjustGroupedFields(

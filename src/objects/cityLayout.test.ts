@@ -3,13 +3,16 @@ import { describe, expect, test } from 'bun:test'
 import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
+  getCityCellSize,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
   getWindowStripArcs,
   isAzimuthOnLandStrip,
   isInsidePlaza,
-  planCityBuildings,
-  resolveCitySurfaceCollision
+  planCity,
+  resolveCitySurfaceCollision,
+  type CityBuilding,
+  type CityRoad
 } from './cityLayout'
 
 const TWO_PI = Math.PI * 2
@@ -17,6 +20,17 @@ const TWO_PI = Math.PI * 2
 const wrapToPi = (angle: number) => {
   const wrapped = ((angle % TWO_PI) + TWO_PI) % TWO_PI
   return wrapped > Math.PI ? wrapped - TWO_PI : wrapped
+}
+
+// Gap between a building footprint and a road rectangle in surface meters.
+// Negative values mean the rectangles overlap on that axis.
+const buildingRoadGaps = (building: CityBuilding, road: CityRoad, radius: number) => {
+  const tangentDelta = Math.abs(wrapToPi(building.azimuth - road.azimuth)) * radius
+  const axialDelta = Math.abs(building.axial - road.axial)
+  return {
+    tangentGap: tangentDelta - (building.width + road.tangentWidth) * 0.5,
+    axialGap: axialDelta - (building.depth + road.axialLength) * 0.5
+  }
 }
 
 describe('isAzimuthOnLandStrip', () => {
@@ -100,27 +114,67 @@ describe('resolveCitySurfaceCollision', () => {
   })
 })
 
-describe('planCityBuildings', () => {
+describe('planCity', () => {
   test('is deterministic for the same seed', () => {
-    const a = planCityBuildings({ radius: 18, length: 120, seed: 42 })
-    const b = planCityBuildings({ radius: 18, length: 120, seed: 42 })
+    const a = planCity({ radius: 18, length: 120, seed: 42 })
+    const b = planCity({ radius: 18, length: 120, seed: 42 })
     expect(a).toEqual(b)
-    expect(a.length).toBeGreaterThan(0)
+    expect(a.buildings.length).toBeGreaterThan(0)
+    expect(a.roads.length).toBeGreaterThan(0)
   })
 
-  test('different seeds produce different layouts', () => {
-    const a = planCityBuildings({ radius: 18, length: 120, seed: 1 })
-    const b = planCityBuildings({ radius: 18, length: 120, seed: 2 })
-    expect(a).not.toEqual(b)
+  test('different seeds produce different building layouts', () => {
+    const a = planCity({ radius: 18, length: 120, seed: 1 })
+    const b = planCity({ radius: 18, length: 120, seed: 2 })
+    expect(a.buildings).not.toEqual(b.buildings)
+    // The road grid is structural and independent of the seed.
+    expect(a.roads).toEqual(b.roads)
   })
 
   test('all buildings sit on land strips and outside the plaza', () => {
     const radius = 18
-    const buildings = planCityBuildings({ radius, length: 120 })
+    const { buildings } = planCity({ radius, length: 120 })
 
     for (const building of buildings) {
       expect(isAzimuthOnLandStrip(building.azimuth)).toBe(true)
       expect(isInsidePlaza(building.azimuth, building.axial, radius)).toBe(false)
+    }
+  })
+
+  test('roads are centered on land strips', () => {
+    const { roads } = planCity({ radius: 18, length: 120 })
+    expect(roads.length).toBeGreaterThan(0)
+
+    for (const road of roads) {
+      expect(isAzimuthOnLandStrip(road.azimuth)).toBe(true)
+    }
+  })
+
+  test('no building overlaps a road', () => {
+    const radius = 18
+    const { roads, buildings } = planCity({ radius, length: 120 })
+
+    for (const building of buildings) {
+      for (const road of roads) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+        expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
+      }
+    }
+  })
+
+  test('every building faces a nearby road', () => {
+    const radius = 18
+    const cell = getCityCellSize(radius)
+    const { roads, buildings } = planCity({ radius, length: 120 })
+
+    for (const building of buildings) {
+      const nearestFrontage = Math.min(
+        ...roads.map((road) => {
+          const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+          return Math.max(tangentGap, axialGap, 0)
+        })
+      )
+      expect(nearestFrontage).toBeLessThanOrEqual(cell * 0.25)
     }
   })
 
@@ -138,14 +192,14 @@ describe('planCityBuildings', () => {
   })
 
   test('respects the instance cap at large scales', () => {
-    const buildings = planCityBuildings({ radius: 3200, length: 40000 })
+    const { buildings } = planCity({ radius: 3200, length: 40000 })
     expect(buildings.length).toBeLessThanOrEqual(2400)
     expect(buildings.length).toBeGreaterThan(500)
   })
 
   test('buildings stay within the axial extent and have positive dimensions', () => {
     const length = 120
-    const buildings = planCityBuildings({ radius: 18, length })
+    const { buildings } = planCity({ radius: 18, length })
 
     for (const building of buildings) {
       expect(Math.abs(building.axial)).toBeLessThanOrEqual(length * 0.5)
@@ -158,12 +212,12 @@ describe('planCityBuildings', () => {
   })
 
   test('returns an empty plan for degenerate dimensions', () => {
-    expect(planCityBuildings({ radius: 0, length: 120 })).toEqual([])
-    expect(planCityBuildings({ radius: 18, length: 0 })).toEqual([])
+    expect(planCity({ radius: 0, length: 120 })).toEqual({ roads: [], buildings: [] })
+    expect(planCity({ radius: 18, length: 0 })).toEqual({ roads: [], buildings: [] })
   })
 
   test('opposite side of the cylinder is also populated', () => {
-    const buildings = planCityBuildings({ radius: 18, length: 120 })
+    const { buildings } = planCity({ radius: 18, length: 120 })
     const oppositeStrip = buildings.filter(
       (building) => Math.abs(wrapToPi(building.azimuth - (TWO_PI * 2) / 3)) < STRIP_ARC_RADIANS
     )

@@ -5,14 +5,6 @@ const MIN_CAMERA_FAR = 4000
 type HabitatLike = {
   setDimensions: (dimensions: { radius: number; length: number }) => void
   setFocusAzimuth: (focusAzimuth: number) => void
-  setNightLighting: (config: {
-    enabled: boolean
-    mode: 'night' | 'day' | 'auto'
-    intensity: number
-    density: number
-    presetId: string
-    updateInterval_s: number
-  }) => void
 }
 
 type CityscapeLike = {
@@ -58,14 +50,6 @@ type SyncHabitatRuntimeConfig<TUnits> = {
   rpm: number
   frameAngle: number
   focusAzimuth: number
-  currentPresetId: string
-  farField: {
-    enabled: boolean
-    mode: 'night' | 'day' | 'auto'
-    intensity: number
-    density: number
-    updateInterval_s: number
-  }
   units: TUnits
 }
 
@@ -90,14 +74,6 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
   dependencies.camera.updateProjectionMatrix()
   dependencies.inertialObserverCamera.far = dependencies.camera.far
   dependencies.inertialObserverCamera.updateProjectionMatrix()
-  dependencies.habitat.setNightLighting({
-    enabled: config.farField.enabled,
-    mode: config.farField.mode,
-    intensity: config.farField.intensity,
-    density: config.farField.density,
-    presetId: config.currentPresetId,
-    updateInterval_s: config.farField.updateInterval_s
-  })
   dependencies.cylinderWall.rebuild({
     radius: config.radius,
     length: config.span,

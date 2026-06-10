@@ -1,7 +1,6 @@
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
-import { resolveFarFieldMode } from '../../render/farField/farFieldSettings'
 import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
@@ -33,12 +32,6 @@ export type WatchRenderSnapshot = {
   throwScale: number
   jetpackAcceleration: number
   reattachThreshold: number
-  farFieldEnabled: boolean
-  farFieldMode: 'night' | 'day' | 'auto'
-  farFieldResolvedMode: 'night' | 'day'
-  farFieldIntensity: number
-  farFieldIntensityFineStep: number
-  farFieldIntensityCoarseStep: number
   locomotionProfileId: LocomotionProfileId
   axisEndRespawnEnabled: boolean
   radiusFineStep: number
@@ -93,13 +86,6 @@ export const createWatchRenderSnapshot = (
   throwScale: settingsStore.habitat.ballSpeedScale,
   jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
   reattachThreshold: settingsStore.reattach.radialTolerance,
-  farFieldEnabled: settingsStore.farField.enabled,
-  farFieldMode: settingsStore.farField.mode,
-  farFieldResolvedMode: resolveFarFieldMode(
-    settingsStore.farField.mode,
-    settingsStore.habitat.currentPresetId
-  ),
-  farFieldIntensity: settingsStore.farField.intensity,
   locomotionProfileId: settingsStore.getLocomotionProfileId(),
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
   radiusFineStep: settingsStore.getRadiusFineStep(),
@@ -111,9 +97,7 @@ export const createWatchRenderSnapshot = (
   jetpackAccelerationFineStep: settingsStore.getJetpackAccelerationFineStep(),
   jetpackAccelerationCoarseStep: settingsStore.getJetpackAccelerationCoarseStep(),
   reattachThresholdFineStep: settingsStore.getReattachThresholdFineStep(),
-  reattachThresholdCoarseStep: settingsStore.getReattachThresholdCoarseStep(),
-  farFieldIntensityFineStep: settingsStore.getFarFieldIntensityFineStep(),
-  farFieldIntensityCoarseStep: settingsStore.getFarFieldIntensityCoarseStep()
+  reattachThresholdCoarseStep: settingsStore.getReattachThresholdCoarseStep()
 })
 
 export const isWatchActionDisabled = (
@@ -144,9 +128,6 @@ export const applyWatchAction = (
       case 'reattach-threshold':
         settingsStore.adjustReattachThreshold(parameterAction.ticks, parameterAction.mode)
         return true
-      case 'far-field-intensity':
-        settingsStore.adjustFarFieldIntensity(parameterAction.ticks, parameterAction.mode)
-        return true
       default: {
         const _: never = parameterAction.prefix
         return _
@@ -163,21 +144,6 @@ export const applyWatchAction = (
       return true
     case 'profile-expert':
       settingsStore.setLocomotionProfileId('expert')
-      return true
-    case 'far-field-disable':
-      settingsStore.setFarFieldEnabled(false)
-      return true
-    case 'far-field-enable':
-      settingsStore.setFarFieldEnabled(true)
-      return true
-    case 'far-field-mode-auto':
-      settingsStore.setFarFieldMode('auto')
-      return true
-    case 'far-field-mode-day':
-      settingsStore.setFarFieldMode('day')
-      return true
-    case 'far-field-mode-night':
-      settingsStore.setFarFieldMode('night')
       return true
     default:
       return false

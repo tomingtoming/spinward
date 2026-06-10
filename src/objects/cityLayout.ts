@@ -9,6 +9,18 @@ export type CityBuilding = {
   tone: number
 }
 
+export type CityRoad = {
+  azimuth: number
+  axial: number
+  tangentWidth: number
+  axialLength: number
+}
+
+export type CityPlan = {
+  roads: CityRoad[]
+  buildings: CityBuilding[]
+}
+
 export type CityPlanConfig = {
   radius: number
   length: number
@@ -28,7 +40,12 @@ export const STRIP_ARC_RADIANS = TWO_PI / (LAND_STRIP_COUNT * 2)
 const LAND_STRIP_USABLE_FRACTION = 0.86
 const DEFAULT_SEED = 0x1f2e3d4c
 const DEFAULT_MAX_BUILDINGS = 2400
-const BASE_OCCUPANCY = 0.5
+// Blocks are sized in surface meters relative to the city cell.
+const BLOCK_TANGENT_CELLS = 3
+const BLOCK_AXIAL_CELLS = 4
+const SIDEWALK_FRACTION = 0.15
+const LOT_FRACTION = 1.1
+const MAX_KEEP_PROBABILITY = 0.85
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0
@@ -119,62 +136,177 @@ export const resolveCitySurfaceCollision = (
   return moved
 }
 
-export const planCityBuildings = (config: CityPlanConfig): CityBuilding[] => {
+// Generates a street grid per land strip and lines the resulting blocks with
+// buildings that face the surrounding roads (perimeter-block city pattern).
+export const planCity = (config: CityPlanConfig): CityPlan => {
   const { radius, length } = config
 
   if (radius <= 0 || length <= 0) {
-    return []
+    return { roads: [], buildings: [] }
   }
 
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
   const random = createRandom(config.seed ?? DEFAULT_SEED)
   const cell = getCityCellSize(radius)
-  const axialHalf = Math.max(0, length * 0.5 - cell)
+  const avenueWidth = cell * 0.55
+  const streetWidth = cell * 0.45
+  const sidewalk = cell * SIDEWALK_FRACTION
+  const lot = cell * LOT_FRACTION
+  const heightBase = Math.min(radius * 0.22, cell * 2.4)
   const usableArc = STRIP_ARC_RADIANS * LAND_STRIP_USABLE_FRACTION
   const tangentExtent = usableArc * radius
-  const columns = Math.max(1, Math.floor(tangentExtent / cell))
-  const rows = Math.max(1, Math.floor((axialHalf * 2) / cell))
-  const candidates = columns * rows * LAND_STRIP_COUNT
+  const axialHalf = Math.max(0, length * 0.5 - cell)
+  const axialExtent = axialHalf * 2
+  const blocksTangent = Math.max(1, Math.round(tangentExtent / (cell * BLOCK_TANGENT_CELLS)))
+  const blocksAxial = Math.max(1, Math.round(axialExtent / (cell * BLOCK_AXIAL_CELLS)))
+  const blockWidth = tangentExtent / blocksTangent
+  const blockLength = axialExtent / blocksAxial
+
+  const innerWidthEstimate = blockWidth - avenueWidth - sidewalk * 2
+  const innerLengthEstimate = blockLength - streetWidth - sidewalk * 2
+  const lotsPerBlockEstimate =
+    2 * Math.max(0, Math.floor(innerLengthEstimate / lot)) +
+    2 * Math.max(0, Math.floor(innerWidthEstimate / lot))
+  const candidateEstimate =
+    lotsPerBlockEstimate * blocksTangent * blocksAxial * LAND_STRIP_COUNT
   const keepProbability = Math.min(
-    BASE_OCCUPANCY,
-    candidates > 0 ? maxBuildings / candidates : 0
+    MAX_KEEP_PROBABILITY,
+    candidateEstimate > 0 ? maxBuildings / candidateEstimate : 0
   )
-  const heightBase = Math.min(radius * 0.22, cell * 2.4)
+
+  const roads: CityRoad[] = []
   const buildings: CityBuilding[] = []
 
-  for (const stripCenter of getLandStripCenters()) {
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        if (random() > keepProbability) {
-          continue
-        }
+  const placeBuilding = (
+    stripCenter: number,
+    tangentCenter: number,
+    axialCenter: number,
+    width: number,
+    depth: number,
+    height: number,
+    tone: number
+  ) => {
+    if (buildings.length >= maxBuildings) {
+      return
+    }
 
-        const jitterAzimuth = ((random() - 0.5) * cell * 0.3) / radius
-        const jitterAxial = (random() - 0.5) * cell * 0.3
-        const azimuth =
-          stripCenter -
-          usableArc * 0.5 +
-          ((column + 0.5) / columns) * usableArc +
-          jitterAzimuth
-        const axial = -axialHalf + ((row + 0.5) / rows) * axialHalf * 2 + jitterAxial
-        const width = cell * (0.35 + random() * 0.4)
-        const depth = cell * (0.35 + random() * 0.4)
-        const towerness = random()
-        const height = heightBase * (0.25 + towerness * towerness * 1.1)
-        const tone = random()
+    const azimuth = stripCenter + tangentCenter / radius
 
-        if (isInsidePlaza(azimuth, axial, radius)) {
-          continue
-        }
+    if (isInsidePlaza(azimuth, axialCenter, radius)) {
+      return
+    }
 
-        buildings.push({ azimuth, axial, width, depth, height, tone })
+    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone })
+  }
 
-        if (buildings.length >= maxBuildings) {
-          return buildings
-        }
+  // A row of buildings along one block edge, all fronting the same road.
+  // `edge` is the inner block boundary the building backs away from.
+  const placeEdgeRow = (
+    stripCenter: number,
+    facing: 'avenue' | 'street',
+    edgeCoordinate: number,
+    edgeSide: 1 | -1,
+    rowStart: number,
+    rowEnd: number,
+    depthMax: number
+  ) => {
+    const span = rowEnd - rowStart
+    const count = Math.floor(span / lot)
+
+    if (count < 1 || depthMax <= 0) {
+      return
+    }
+
+    const pitch = span / count
+
+    for (let index = 0; index < count; index += 1) {
+      // Consume the RNG in a fixed pattern so layouts stay deterministic
+      // regardless of which lots are kept.
+      const keepRoll = random()
+      const alongRoll = random()
+      const depthRoll = random()
+      const heightRoll = random()
+      const toneRoll = random()
+      const jitterRoll = random()
+
+      if (keepRoll > keepProbability) {
+        continue
+      }
+
+      const along = lot * (0.55 + alongRoll * 0.35)
+      const depth = depthMax * (0.55 + depthRoll * 0.45)
+      const alongCenter =
+        rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
+      const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
+      const height = heightBase * (0.25 + heightRoll * heightRoll * 1.1)
+
+      if (facing === 'avenue') {
+        placeBuilding(stripCenter, frontCenter, alongCenter, depth, along, height, toneRoll)
+      } else {
+        placeBuilding(stripCenter, alongCenter, frontCenter, along, depth, height, toneRoll)
       }
     }
   }
 
-  return buildings
+  for (const stripCenter of getLandStripCenters()) {
+    for (let i = 0; i <= blocksTangent; i += 1) {
+      roads.push({
+        azimuth: stripCenter + (-tangentExtent * 0.5 + i * blockWidth) / radius,
+        axial: 0,
+        tangentWidth: avenueWidth,
+        axialLength: axialExtent + streetWidth
+      })
+    }
+
+    for (let j = 0; j <= blocksAxial; j += 1) {
+      roads.push({
+        azimuth: stripCenter,
+        axial: -axialHalf + j * blockLength,
+        tangentWidth: tangentExtent + avenueWidth,
+        axialLength: streetWidth
+      })
+    }
+
+    for (let i = 0; i < blocksTangent; i += 1) {
+      for (let j = 0; j < blocksAxial; j += 1) {
+        const tangent0 = -tangentExtent * 0.5 + i * blockWidth + avenueWidth * 0.5 + sidewalk
+        const tangent1 = -tangentExtent * 0.5 + (i + 1) * blockWidth - avenueWidth * 0.5 - sidewalk
+        const axial0 = -axialHalf + j * blockLength + streetWidth * 0.5 + sidewalk
+        const axial1 = -axialHalf + (j + 1) * blockLength - streetWidth * 0.5 - sidewalk
+        const innerWidth = tangent1 - tangent0
+        const innerLength = axial1 - axial0
+
+        if (innerWidth < cell * 0.6 || innerLength < cell * 0.6) {
+          continue
+        }
+
+        const depthMax = Math.min(cell * 0.9, innerWidth * 0.35, innerLength * 0.35)
+
+        // Rows fronting the avenues (block's tangent edges)...
+        placeEdgeRow(stripCenter, 'avenue', tangent0, 1, axial0, axial1, depthMax)
+        placeEdgeRow(stripCenter, 'avenue', tangent1, -1, axial0, axial1, depthMax)
+        // ...and rows fronting the cross streets, inset past the corner lots.
+        placeEdgeRow(
+          stripCenter,
+          'street',
+          axial0,
+          1,
+          tangent0 + depthMax + sidewalk,
+          tangent1 - depthMax - sidewalk,
+          depthMax
+        )
+        placeEdgeRow(
+          stripCenter,
+          'street',
+          axial1,
+          -1,
+          tangent0 + depthMax + sidewalk,
+          tangent1 - depthMax - sidewalk,
+          depthMax
+        )
+      }
+    }
+  }
+
+  return { roads, buildings }
 }

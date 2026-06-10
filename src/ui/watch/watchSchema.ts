@@ -10,7 +10,6 @@ export type WatchParameterValueSource = {
   throwScale: number
   jetpackAcceleration: number
   reattachThreshold: number
-  farFieldIntensity: number
 }
 
 export const WATCH_PARAMETER_SPECS = [
@@ -43,12 +42,6 @@ export const WATCH_PARAMETER_SPECS = [
     label: 'Reattach',
     actionPrefix: 'reattach-threshold',
     format: (source: WatchParameterValueSource) => source.reattachThreshold.toFixed(2)
-  },
-  {
-    key: 'farFieldIntensity',
-    label: 'Night Intensity',
-    actionPrefix: 'far-field-intensity',
-    format: (source: WatchParameterValueSource) => source.farFieldIntensity.toFixed(2)
   }
 ] as const
 
@@ -65,17 +58,7 @@ const watchParameterSpecByActionPrefix = new Map(
   WATCH_PARAMETER_SPECS.map((spec) => [spec.actionPrefix, spec])
 )
 
-export const WATCH_PRIMARY_PARAMETER_SPECS = WATCH_PARAMETER_SPECS.filter(
-  (spec) => spec.key !== 'farFieldIntensity'
-)
-
-export const WATCH_FAR_FIELD_INTENSITY_SPEC = WATCH_PARAMETER_SPECS.find(
-  (spec) => spec.key === 'farFieldIntensity'
-)
-
-if (WATCH_FAR_FIELD_INTENSITY_SPEC === undefined) {
-  throw new Error('far field intensity watch parameter spec is required')
-}
+export const WATCH_PRIMARY_PARAMETER_SPECS = WATCH_PARAMETER_SPECS
 
 export const formatWatchParameterValue = (
   key: WatchParameterRowKey,

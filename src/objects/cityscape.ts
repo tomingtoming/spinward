@@ -2,9 +2,11 @@ import * as THREE from 'three'
 
 import {
   getWindowStripArcs,
-  planCityBuildings,
-  type CityBuilding
+  planCity,
+  type CityBuilding,
+  type CityRoad
 } from './cityLayout'
+import { mergeBufferGeometries } from './cylinder'
 
 type CityscapeDimensions = {
   radius: number
@@ -64,9 +66,18 @@ export class Cityscape {
     toneMapped: false
   })
 
+  private readonly roadMaterial = new THREE.MeshBasicMaterial({
+    color: 0x141a21,
+    transparent: true,
+    opacity: 0.88,
+    side: THREE.BackSide,
+    depthWrite: false
+  })
+
   private buildings: THREE.InstancedMesh | null = null
   private buildingPlan: CityBuilding[] = []
   private windowStrips: THREE.Mesh[] = []
+  private roads: THREE.Mesh | null = null
   private axisSpine: THREE.Mesh | null = null
   private radius = 0
   private length = 0
@@ -88,8 +99,10 @@ export class Cityscape {
       return
     }
 
-    this.buildingPlan = planCityBuildings({ radius, length })
-    this.buildBuildings(this.buildingPlan)
+    const plan = planCity({ radius, length })
+    this.buildingPlan = plan.buildings
+    this.buildBuildings(plan.buildings)
+    this.buildRoads(plan.roads, radius)
     this.buildWindowStrips(radius, length)
     this.buildAxisSpine(radius, length)
   }
@@ -103,6 +116,7 @@ export class Cityscape {
     this.buildingMaterial.dispose()
     this.windowStripMaterial.dispose()
     this.axisSpineMaterial.dispose()
+    this.roadMaterial.dispose()
   }
 
   private clear() {
@@ -120,6 +134,12 @@ export class Cityscape {
     }
 
     this.windowStrips = []
+
+    if (this.roads !== null) {
+      this.roads.geometry.dispose()
+      this.group.remove(this.roads)
+      this.roads = null
+    }
 
     if (this.axisSpine !== null) {
       this.axisSpine.geometry.dispose()
@@ -167,6 +187,49 @@ export class Cityscape {
     }
 
     this.buildings = mesh
+    this.group.add(mesh)
+  }
+
+  private buildRoads(roads: CityRoad[], radius: number) {
+    if (roads.length === 0) {
+      return
+    }
+
+    // Each road is a thin arc band hugging the inner wall; cross streets
+    // curve with the cylinder, so flat planes would visibly chord.
+    const roadRadius = radius * 0.998
+    const geometries: THREE.BufferGeometry[] = []
+
+    for (const road of roads) {
+      const arcRadians = road.tangentWidth / radius
+      const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
+      const geometry = new THREE.CylinderGeometry(
+        roadRadius,
+        roadRadius,
+        road.axialLength,
+        segments,
+        1,
+        true,
+        getThetaStart(road.azimuth, arcRadians),
+        arcRadians
+      )
+      geometry.translate(0, road.axial, 0)
+      geometries.push(geometry)
+    }
+
+    const merged = mergeBufferGeometries(geometries)
+
+    for (const geometry of geometries) {
+      geometry.dispose()
+    }
+
+    if (merged === null) {
+      return
+    }
+
+    const mesh = new THREE.Mesh(merged, this.roadMaterial)
+    mesh.renderOrder = 1
+    this.roads = mesh
     this.group.add(mesh)
   }
 

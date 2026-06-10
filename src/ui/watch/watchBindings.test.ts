@@ -55,7 +55,6 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
   expect(snapshot.throwScale).toBeCloseTo(1.4, 6)
   expect(snapshot.jetpackAcceleration).toBeCloseTo(13.5, 6)
   expect(snapshot.reattachThreshold).toBeCloseTo(0.35, 6)
-  expect(snapshot.farFieldResolvedMode).toBe('day')
   expect(snapshot.locomotionProfileId).toBe('expert')
   expect(snapshot.ballCount).toBe(3)
   expect(snapshot.absoluteVelocityX).toBeCloseTo(1.25, 6)
@@ -83,12 +82,6 @@ test('applyWatchAction routes parameter, mode, and profile actions through the s
   expect(store.reattach.radialTolerance).toBeCloseTo(0.21, 6)
   expect(store.reattach.maxNormalSpeed).toBeCloseTo(0.75, 6)
   expect(store.reattach.maxSurfaceSpeed).toBeCloseTo(1.45, 6)
-
-  expect(applyWatchAction(store, 'far-field-mode-day')).toBe(true)
-  expect(store.farField.mode).toBe('day')
-
-  expect(applyWatchAction(store, 'far-field-intensity-fine-increment')).toBe(true)
-  expect(store.farField.intensity).toBeCloseTo(1.1, 6)
 
   expect(applyWatchAction(store, 'profile-beginner')).toBe(true)
   expect(store.getLocomotionProfileId()).toBe('beginner')

@@ -104,13 +104,6 @@ const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchAction
   (action === 'preset-apply-cooper' && snapshot.currentPresetId === 'cooper') ||
   (action === 'preset-apply-elysium' && snapshot.currentPresetId === 'elysium')
 
-const isActiveFarFieldAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
-  (action === 'far-field-enable' && snapshot.farFieldEnabled) ||
-  (action === 'far-field-disable' && !snapshot.farFieldEnabled) ||
-  (action === 'far-field-mode-auto' && snapshot.farFieldMode === 'auto') ||
-  (action === 'far-field-mode-day' && snapshot.farFieldMode === 'day') ||
-  (action === 'far-field-mode-night' && snapshot.farFieldMode === 'night')
-
 const isActiveProfileAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
   (action === 'profile-beginner' && snapshot.locomotionProfileId === 'beginner') ||
   (action === 'profile-sim' && snapshot.locomotionProfileId === 'sim') ||
@@ -164,9 +157,8 @@ export const renderWatchExpanded = (
     80
   )
 
-  // Night mode compact
   ctx.fillText(
-    `night ${snapshot.farFieldEnabled ? snapshot.farFieldResolvedMode : 'off'} | jet ${snapshot.jetpackAcceleration.toFixed(1)} | profile ${snapshot.locomotionProfileId}`,
+    `jet ${snapshot.jetpackAcceleration.toFixed(1)} | profile ${snapshot.locomotionProfileId}`,
     28,
     102
   )
@@ -208,50 +200,13 @@ export const renderWatchExpanded = (
     })
   }
 
-  // ── Night surface ──
-  drawSectionDivider(ctx, 820, layout.width)
-  drawSectionHeader(ctx, 'NIGHT SURFACE', 28, 826)
-
-  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
-  ctx.font = '400 14px "Avenir Next", sans-serif'
-  ctx.fillText('Emissive inner-wall texture for low-light readability.', 28, 848)
-
-  for (const button of layout.farFieldEnabledButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      active: isActiveFarFieldAction(snapshot, button.id)
-    })
-  }
-
-  for (const button of layout.farFieldModeButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      active: isActiveFarFieldAction(snapshot, button.id)
-    })
-  }
-
-  const farFieldRow = layout.farFieldIntensityRow
-  ctx.fillStyle = 'rgba(200, 220, 235, 0.6)'
-  ctx.font = '500 16px "Avenir Next", sans-serif'
-  ctx.textAlign = 'left'
-  ctx.fillText(farFieldRow.label.toUpperCase(), farFieldRow.valueX, farFieldRow.valueY - 26)
-  ctx.fillStyle = '#eef5fa'
-  ctx.font = '700 28px "Avenir Next", sans-serif'
-  ctx.fillText(
-    formatWatchParameterValue(farFieldRow.key, snapshot),
-    farFieldRow.valueX,
-    farFieldRow.valueY
-  )
-
-  for (const button of farFieldRow.buttons) {
-    drawButton(ctx, button, hoveredAction)
-  }
-
   // ── Presets ──
-  drawSectionDivider(ctx, 1218, layout.width)
-  drawSectionHeader(ctx, 'PRESETS', 28, 1224)
+  drawSectionDivider(ctx, 830, layout.width)
+  drawSectionHeader(ctx, 'PRESETS', 28, 836)
 
   ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
   ctx.font = '400 14px "Avenir Next", sans-serif'
-  ctx.fillText('Clears balls, rebuilds physics, respawns on the inner wall.', 28, 1246)
+  ctx.fillText('Clears balls, rebuilds physics, respawns on the inner wall.', 28, 858)
 
   for (const button of layout.presetButtons) {
     drawButton(ctx, button, hoveredAction, {
@@ -260,8 +215,8 @@ export const renderWatchExpanded = (
   }
 
   // ── Travel ──
-  drawSectionDivider(ctx, 1510, layout.width)
-  drawSectionHeader(ctx, 'TRAVEL', 28, 1516)
+  drawSectionDivider(ctx, 1122, layout.width)
+  drawSectionHeader(ctx, 'TRAVEL', 28, 1128)
 
   ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
   ctx.font = '400 14px "Avenir Next", sans-serif'
@@ -270,7 +225,7 @@ export const renderWatchExpanded = (
       ? 'Surface = street level. Overlook = above the plaza. Axis = zero-g ring center.'
       : 'Surface = street level. Overlook = above the plaza. Axis = zero-g near the end.',
     28,
-    1538
+    1150
   )
 
   for (const button of layout.respawnButtons) {

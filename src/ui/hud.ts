@@ -18,12 +18,6 @@ type HudSnapshot = {
   watchMenuOpen: boolean
   region: 'inside' | 'outside'
   playerMode: 'attached' | 'free-fly'
-  nightLighting: {
-    enabled: boolean
-    mode: 'day' | 'night'
-    intensity: number
-    density: number
-  }
   verification: {
     inertialVelocity: Vector3
     rotatingVelocity: Vector3
@@ -86,8 +80,6 @@ export const createHud = (): HudHandle => {
         `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
         `${snapshot.region} | ${snapshot.playerMode} | ` +
         `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
-        `night ${snapshot.nightLighting.enabled ? snapshot.nightLighting.mode : 'off'} ` +
-        `I${snapshot.nightLighting.intensity.toFixed(2)} D${snapshot.nightLighting.density.toFixed(2)} | ` +
         `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +
         `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | ` +
         `${snapshot.xrActive ? 'XR' : 'desktop'}${reattachText}` +

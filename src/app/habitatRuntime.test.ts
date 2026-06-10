@@ -6,8 +6,7 @@ import { syncHabitatRuntime } from './habitatRuntime'
 test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in sync', () => {
   const habitat = {
     setDimensions: mock(() => {}),
-    setFocusAzimuth: mock(() => {}),
-    setNightLighting: mock(() => {})
+    setFocusAzimuth: mock(() => {})
   }
   const cityscape = {
     setDimensions: mock(() => {})
@@ -52,14 +51,6 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
       rpm: 5,
       frameAngle: 1.25,
       focusAzimuth: 0.5,
-      currentPresetId: 'playground',
-      farField: {
-        enabled: true,
-        mode: 'night',
-        intensity: 1.2,
-        density: 0.7,
-        updateInterval_s: 0
-      },
       units
     }
   )
@@ -73,14 +64,6 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   expect(camera.updateProjectionMatrix).toHaveBeenCalledTimes(1)
   expect(inertialObserverCamera.far).toBe(4000)
   expect(inertialObserverCamera.updateProjectionMatrix).toHaveBeenCalledTimes(1)
-  expect(habitat.setNightLighting).toHaveBeenCalledWith({
-    enabled: true,
-    mode: 'night',
-    intensity: 1.2,
-    density: 0.7,
-    presetId: 'playground',
-    updateInterval_s: 0
-  })
   expect(cylinderWall.rebuild).toHaveBeenCalledWith({
     radius: 18,
     length: 120,
