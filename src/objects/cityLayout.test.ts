@@ -194,8 +194,8 @@ describe('planCity', () => {
 
   test('respects the instance cap at large scales', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
-    expect(buildings.length).toBeLessThanOrEqual(2400)
-    expect(buildings.length).toBeGreaterThan(500)
+    expect(buildings.length).toBeLessThanOrEqual(4500)
+    expect(buildings.length).toBeGreaterThan(1000)
   })
 
   test('buildings stay within the axial extent and have positive dimensions', () => {

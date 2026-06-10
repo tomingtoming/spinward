@@ -16,18 +16,31 @@ describe('planClouds', () => {
     )
   })
 
-  test('puffs float in the low-gravity band near the axis', () => {
+  test('small habitats keep a proportional cloud deck', () => {
     const radius = 18
     const length = 120
     const puffs = planClouds({ radius, length })
 
     for (const puff of puffs) {
-      // Cluster radial band plus per-puff jitter stays well below the ground
-      // and above the axis spine.
-      expect(puff.radial).toBeGreaterThan(radius * 0.25)
-      expect(puff.radial).toBeLessThan(radius * 0.7)
+      const altitude = radius - puff.radial
+      expect(altitude).toBeGreaterThan(radius * 0.2)
+      expect(altitude).toBeLessThan(radius * 0.85)
       expect(Math.abs(puff.axial)).toBeLessThan(length * 0.5)
       expect(puff.scale).toBeGreaterThan(0)
+    }
+  })
+
+  test('huge habitats clamp the cloud layer to a realistic altitude', () => {
+    const radius = 30000
+    const puffs = planClouds({ radius, length: 2000 })
+    expect(puffs.length).toBeGreaterThan(0)
+
+    for (const puff of puffs) {
+      const altitude = radius - puff.radial
+      // Clamped band: ~1500m center, ~400m spread, plus per-puff jitter
+      // bounded by the (also clamped) cluster size.
+      expect(altitude).toBeGreaterThan(800)
+      expect(altitude).toBeLessThan(2300)
     }
   })
 

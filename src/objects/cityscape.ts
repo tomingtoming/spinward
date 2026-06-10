@@ -80,8 +80,8 @@ const buildingTone = (tone: number, target: THREE.Color) => {
   return target.setHSL(hue, 0.16, lightness)
 }
 
-// Sun reflection gradient for the exterior mirrors: hot near the hinge edge,
-// fading to deep space blue at the free edge.
+// Sun reflection gradient for the exterior mirrors: hot near the hinge end
+// (closest to the habitat), fading to deep space blue at the free end.
 const createMirrorTexture = () => {
   const size = 256
   const canvas = document.createElement('canvas')
@@ -93,11 +93,15 @@ const createMirrorTexture = () => {
     throw new Error('2D canvas context is required for the mirror texture')
   }
 
-  const gradient = context.createLinearGradient(0, 0, size, 0)
-  gradient.addColorStop(0, '#f3e3b4')
-  gradient.addColorStop(0.35, '#dcc28b')
-  gradient.addColorStop(0.7, '#7e98ba')
-  gradient.addColorStop(1, '#27374c')
+  // CanvasTexture flips Y, so v=0 (the hinge end of the plane) samples the
+  // bottom of the canvas — start the bright end there.
+  // The whole panel reflects the sun, so it stays warm for most of its
+  // length and only cools toward the far free end.
+  const gradient = context.createLinearGradient(0, size, 0, 0)
+  gradient.addColorStop(0, '#f7ead0')
+  gradient.addColorStop(0.55, '#ecd7a4')
+  gradient.addColorStop(0.85, '#a8bcd4')
+  gradient.addColorStop(1, '#3a4c64')
   context.fillStyle = gradient
   context.fillRect(0, 0, size, size)
 
@@ -105,22 +109,22 @@ const createMirrorTexture = () => {
   context.strokeStyle = 'rgba(10, 18, 28, 0.35)'
   context.lineWidth = 2
 
-  for (let offset = 0; offset <= size; offset += 32) {
-    context.beginPath()
-    context.moveTo(offset + 0.5, 0)
-    context.lineTo(offset + 0.5, size)
-    context.stroke()
+  for (let offset = 0; offset <= size; offset += 16) {
     context.beginPath()
     context.moveTo(0, offset + 0.5)
     context.lineTo(size, offset + 0.5)
     context.stroke()
   }
 
+  for (let offset = 0; offset <= size; offset += 32) {
+    context.beginPath()
+    context.moveTo(offset + 0.5, 0)
+    context.lineTo(offset + 0.5, size)
+    context.stroke()
+  }
+
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.wrapT = THREE.RepeatWrapping
-  // Seams repeat along the mirror's long axis; the gradient spans its width.
-  texture.repeat.set(1, 6)
   return texture
 }
 
@@ -231,21 +235,30 @@ export class Cityscape {
     transparent: true,
     opacity: 0.88,
     side: THREE.BackSide,
-    depthWrite: false
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
   })
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x33563b,
     roughness: 1,
     metalness: 0,
-    side: THREE.BackSide
+    side: THREE.BackSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
   })
 
   private readonly farmMaterial = new THREE.MeshStandardMaterial({
     map: createFarmTexture(),
     roughness: 1,
     metalness: 0,
-    side: THREE.BackSide
+    side: THREE.BackSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
   })
 
   private readonly treeMaterial = new THREE.MeshStandardMaterial({
@@ -507,8 +520,10 @@ export class Cityscape {
     }
 
     // Each road is a thin arc band hugging the inner wall; cross streets
-    // curve with the cylinder, so flat planes would visibly chord.
-    const roadRadius = radius * 0.998
+    // curve with the cylinder, so flat planes would visibly chord. The
+    // clearance is absolute meters: proportional offsets float at head
+    // height on multi-kilometer habitats.
+    const roadRadius = radius - 0.05
     const geometries: THREE.BufferGeometry[] = []
 
     for (const road of roads) {
@@ -570,7 +585,7 @@ export class Cityscape {
   }
 
   private buildPatches(patches: CityPatch[], radius: number) {
-    const bandRadius = radius * 0.9988
+    const bandRadius = radius - 0.04
     const stripeWorld = getCityCellSize(radius) * 0.8
 
     for (const kind of ['park', 'farm'] as const) {
@@ -835,8 +850,9 @@ export class Cityscape {
   }
 
   private buildWindowStrips(radius: number, length: number) {
-    // Slightly inside the shell so the glow does not z-fight with it.
-    const stripRadius = radius * 0.996
+    // Slightly inside the shell so the glow does not z-fight with it
+    // (absolute clearance — there is no ground under the windows).
+    const stripRadius = radius - 0.3
 
     for (const arc of getWindowStripArcs()) {
       const geometry = new THREE.CylinderGeometry(
@@ -856,38 +872,43 @@ export class Cityscape {
     }
   }
 
-  // The three exterior sun mirrors, hinged along one edge of each window
-  // strip and opened outward like petals — the classic O'Neill silhouette.
+  // The three exterior sun mirrors, Island Three style: each is a long petal
+  // hinged at one end of the cylinder, spanning a window strip in width and
+  // tilted 45 degrees off the axis. Sunlight arriving parallel to the axis
+  // bounces 90 degrees off the petal and falls radially inward through the
+  // window — which is exactly the direction our per-window sun lights point.
   private buildMirrors(radius: number, length: number) {
-    const openAngle = THREE.MathUtils.degToRad(58)
     const mirrorWidth = radius * 1.05
-    const mirrorLength = length * 1.02
+    // Covers the full cylinder length when projected along the axis.
+    const mirrorLength = length * Math.SQRT2 * 1.02
     const basis = new THREE.Matrix4()
     const along = new THREE.Vector3()
     const axis = new THREE.Vector3(0, 1, 0)
+    const tangentDir = new THREE.Vector3()
+    const outwardDir = new THREE.Vector3()
     const normalDir = new THREE.Vector3()
 
     for (const arc of getWindowStripArcs()) {
-      const hingeAzimuth = arc.centerAzimuth + arc.arcRadians * 0.5
-      const cos = Math.cos(hingeAzimuth)
-      const sin = Math.sin(hingeAzimuth)
-      // Tangent pointing back across the window, tilted outward by the
-      // opening angle.
-      along
-        .set(sin, 0, -cos)
-        .multiplyScalar(Math.cos(openAngle))
-        .add(normalDir.set(cos, 0, sin).multiplyScalar(Math.sin(openAngle)))
-      normalDir.crossVectors(along, axis)
-      basis.makeBasis(along, axis, normalDir)
+      const cos = Math.cos(arc.centerAzimuth)
+      const sin = Math.sin(arc.centerAzimuth)
+      outwardDir.set(cos, 0, sin)
+      tangentDir.set(-sin, 0, cos)
+      // 45 degrees between the axis and the outward radial direction.
+      along.copy(axis).add(outwardDir).multiplyScalar(Math.SQRT1_2)
+      normalDir.crossVectors(tangentDir, along)
+      basis.makeBasis(tangentDir, along, normalDir)
 
       const mirror = new THREE.Mesh(
         new THREE.PlaneGeometry(mirrorWidth, mirrorLength),
         this.mirrorMaterial
       )
       mirror.quaternion.setFromRotationMatrix(basis)
+      // Hinged at the rim of the -Y end, leaning out over its window.
       mirror.position
-        .set(cos * radius, 0, sin * radius)
-        .addScaledVector(along, mirrorWidth * 0.5)
+        .copy(outwardDir)
+        .multiplyScalar(radius)
+        .setY(-length * 0.5)
+        .addScaledVector(along, mirrorLength * 0.5)
       this.mirrors.push(mirror)
       this.group.add(mirror)
     }

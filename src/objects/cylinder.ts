@@ -471,8 +471,10 @@ export class CylinderHabitat {
     this.disposeGroupGeometries(this.ribs)
     this.ribs.clear()
 
-    const ribRadius = Math.max(0.5, radius - 0.06)
     const ribThickness = Math.min(1.5, Math.max(0.12, radius * 0.003))
+    // Mostly embedded in the wall: only a fixed ~20cm ridge shows, so big
+    // habitats do not run chest-high structure through the player.
+    const ribRadius = Math.max(0.5, radius + ribThickness - 0.2)
     const ribCount = Math.min(5, Math.max(3, Math.round(length / (radius * 0.8))))
     const ribSpacing = length / (ribCount + 1)
 

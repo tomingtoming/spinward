@@ -26,9 +26,18 @@ const createRandom = (seed: number) => {
   }
 }
 
-// Clouds gather toward the axis where the spin gravity is weak: clusters of
-// puffs in a radial band between roughly a third and two thirds of the
-// habitat radius.
+// Cloud altitude above the ground, like real weather: small habitats get a
+// proportional deck, large ones clamp to a realistic cloud layer so the
+// clouds stay near the player's sky instead of kilometers away at mid-radius.
+export const getCloudAltitudeCenter = (radius: number) =>
+  Math.min(radius * 0.5, 1500)
+
+export const getCloudAltitudeSpread = (radius: number) =>
+  Math.min(radius * 0.13, 400)
+
+export const getCloudClusterSize = (radius: number) =>
+  Math.min(radius * 0.12, 500)
+
 export const planClouds = (config: CloudPlanConfig): CloudPuff[] => {
   const { radius, length } = config
 
@@ -41,13 +50,17 @@ export const planClouds = (config: CloudPlanConfig): CloudPuff[] => {
     40,
     Math.max(8, Math.round(length / (radius * 0.9)))
   )
+  const altitudeCenter = getCloudAltitudeCenter(radius)
+  const altitudeSpread = getCloudAltitudeSpread(radius)
+  const baseClusterSize = getCloudClusterSize(radius)
   const puffs: CloudPuff[] = []
 
   for (let cluster = 0; cluster < clusterCount; cluster += 1) {
     const clusterAzimuth = random() * TWO_PI
-    const clusterRadial = radius * (0.34 + random() * 0.26)
+    const clusterRadial =
+      radius - (altitudeCenter + (random() - 0.5) * 2 * altitudeSpread)
     const clusterAxial = (random() - 0.5) * length * 0.86
-    const clusterSize = radius * 0.12 * (0.7 + random() * 0.6)
+    const clusterSize = baseClusterSize * (0.7 + random() * 0.6)
     const puffCount = 4 + Math.floor(random() * 5)
 
     for (let puff = 0; puff < puffCount; puff += 1) {

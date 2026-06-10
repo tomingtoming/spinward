@@ -66,13 +66,13 @@ export const STRIP_ARC_RADIANS = TWO_PI / (LAND_STRIP_COUNT * 2)
 // along the window edges.
 const LAND_STRIP_USABLE_FRACTION = 0.86
 const DEFAULT_SEED = 0x1f2e3d4c
-const DEFAULT_MAX_BUILDINGS = 2400
+const DEFAULT_MAX_BUILDINGS = 4500
 // Blocks are sized in surface meters relative to the city cell.
 const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
 const SIDEWALK_FRACTION = 0.15
-const LOT_FRACTION = 1.1
-const MAX_KEEP_PROBABILITY = 0.85
+const LOT_FRACTION = 0.85
+const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.12
 const FARM_BLOCK_PROBABILITY = 0.18
 const MAX_TREES = 1500
@@ -279,7 +279,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         continue
       }
 
-      const along = lot * (0.55 + alongRoll * 0.35)
+      const along = lot * (0.62 + alongRoll * 0.32)
       const depth = depthMax * (0.55 + depthRoll * 0.45)
       const alongCenter =
         rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2

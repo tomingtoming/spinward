@@ -259,6 +259,8 @@ export const bootstrapApp = async () => {
   const locomotionIntent = getIdleLocomotionIntent()
   const jumpState = createJumpState()
   const jumpLaunchVelocity = new THREE.Vector3()
+  const jumpProbePosition = new THREE.Vector3()
+  const jumpProbeVelocity = new THREE.Vector3()
   // Landing snap after a jump or an overlook drop: position must match the
   // surface but arrival speed is forgiven (the snap absorbs it).
   const jumpLandingTuning = {
@@ -822,9 +824,32 @@ export const bootstrapApp = async () => {
           })
         : null
 
+    // The landing snap only fires while sinking toward the wall, so flying
+    // along or away from the surface (left-grip thrust) is never interrupted.
+    let descending = true
+
+    if (playerTraversal.mode === 'free-fly') {
+      inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, jumpProbePosition)
+      inertialVelocityToRotating(
+        playerTraversal.inertialPosition,
+        playerTraversal.inertialVelocity,
+        omega,
+        frameAngle,
+        jumpProbeVelocity
+      )
+      const radialDistance = Math.hypot(jumpProbePosition.x, jumpProbePosition.z)
+      descending =
+        radialDistance <= 1e-6 ||
+        (jumpProbePosition.x * jumpProbeVelocity.x +
+          jumpProbePosition.z * jumpProbeVelocity.z) /
+          radialDistance >
+          -0.05
+    }
+
     const jumpLanded = stepJumpState(jumpState, {
       mode: playerTraversal.mode,
-      radialError: reattachStatus?.radialError ?? 0
+      radialError: reattachStatus?.radialError ?? 0,
+      descending
     })
 
     if (jumpLanded) {

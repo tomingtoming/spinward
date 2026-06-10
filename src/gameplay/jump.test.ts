@@ -36,19 +36,19 @@ describe('stepJumpState', () => {
 
     // Still near the surface right after takeoff: must not land yet.
     expect(
-      stepJumpState(state, { mode: 'free-fly', radialError: 0.05 })
+      stepJumpState(state, { mode: 'free-fly', radialError: 0.05, descending: false })
     ).toBe(false)
     expect(state.phase).toBe('launching')
 
     // Rises clear of the arm threshold.
     expect(
-      stepJumpState(state, { mode: 'free-fly', radialError: JUMP_ARM_CLEARANCE + 0.1 })
+      stepJumpState(state, { mode: 'free-fly', radialError: JUMP_ARM_CLEARANCE + 0.1, descending: false })
     ).toBe(false)
     expect(state.phase).toBe('airborne')
 
     // Falls back within landing tolerance.
     expect(
-      stepJumpState(state, { mode: 'free-fly', radialError: JUMP_LAND_TOLERANCE - 0.05 })
+      stepJumpState(state, { mode: 'free-fly', radialError: JUMP_LAND_TOLERANCE - 0.05, descending: true })
     ).toBe(true)
     expect(state.phase).toBe('grounded')
   })
@@ -56,30 +56,48 @@ describe('stepJumpState', () => {
   test('landing fires only once', () => {
     const state = createJumpState()
     beginJump(state)
-    stepJumpState(state, { mode: 'free-fly', radialError: 1 })
-    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1 })).toBe(true)
-    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1 })).toBe(false)
+    stepJumpState(state, { mode: 'free-fly', radialError: 1, descending: true })
+    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })).toBe(true)
+    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })).toBe(false)
   })
 
   test('attached mode resets the cycle', () => {
     const state = createJumpState()
     beginJump(state)
-    stepJumpState(state, { mode: 'free-fly', radialError: 1 })
+    stepJumpState(state, { mode: 'free-fly', radialError: 1, descending: true })
     expect(state.phase).toBe('airborne')
-    expect(stepJumpState(state, { mode: 'attached', radialError: 0 })).toBe(false)
+    expect(stepJumpState(state, { mode: 'attached', radialError: 0, descending: true })).toBe(false)
     expect(state.phase).toBe('grounded')
   })
 
   test('grounded free-fly (manual detach) never triggers a landing snap', () => {
     const state = createJumpState()
-    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1 })).toBe(false)
+    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })).toBe(false)
     expect(state.phase).toBe('grounded')
+  })
+
+  test('skimming the wall while not descending does not force a landing', () => {
+    const state = createJumpState()
+    beginJump(state)
+    stepJumpState(state, { mode: 'free-fly', radialError: 1, descending: false })
+    expect(state.phase).toBe('airborne')
+
+    // Flying low along the surface (thrust keeps the player from sinking).
+    expect(
+      stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: false })
+    ).toBe(false)
+    expect(state.phase).toBe('airborne')
+
+    // The moment they sink, the landing fires.
+    expect(
+      stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })
+    ).toBe(true)
   })
 
   test('resetJumpState aborts an in-flight jump', () => {
     const state = createJumpState()
     beginJump(state)
     resetJumpState(state)
-    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1 })).toBe(false)
+    expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })).toBe(false)
   })
 })
