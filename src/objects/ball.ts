@@ -16,7 +16,9 @@ import {
   inertialPositionToRotating,
   inertialVelocityToRotating
 } from '../sim/frameTransforms'
+import { collideSphereWithBuildings } from '../sim/cityCollision'
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
+import type { CityBuilding } from './cityLayout'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 import type { TrailMode } from '../app/observerMode'
@@ -43,6 +45,7 @@ type BallStepConfig = {
   omega: number
   frameAngleEnd: number
   trailMode: TrailMode
+  buildings?: readonly CityBuilding[]
 }
 
 type BallPhysicsContext = {
@@ -391,7 +394,7 @@ export class Ball {
   }
 
   private applyHabitatCollision(config: BallStepConfig) {
-    const collided = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
+    const collidedWall = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
       radius: config.habitatRadius,
       length: config.habitatLength,
       sphereRadius: this.radius,
@@ -399,8 +402,20 @@ export class Ball {
       omega: this.omega,
       capEnds: false
     })
+    // Buildings co-rotate with the wall, so they are static obstacles in the
+    // rotating frame and share the same resolve-then-write-back path.
+    const collidedCity = collideSphereWithBuildings(
+      this.rotatingPosition,
+      this.rotatingVelocity,
+      config.buildings ?? [],
+      {
+        habitatRadius: config.habitatRadius,
+        sphereRadius: this.radius,
+        restitution: this.restitution
+      }
+    )
 
-    if (!collided) {
+    if (!collidedWall && !collidedCity) {
       return
     }
 

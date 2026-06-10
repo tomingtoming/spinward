@@ -44,6 +44,7 @@ import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Starfield } from '../objects/starfield'
+import { MobileControls, isTouchDevice } from '../pc/mobileControls'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import {
   JUMP_SPEED,
@@ -145,7 +146,7 @@ export const bootstrapApp = async () => {
   )
   camera.position.set(0, 1.6, 0)
   viewRig.add(camera)
-  camera.add(tourCardPanel.mesh)
+  scene.add(tourCardPanel.mesh)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -160,6 +161,22 @@ export const bootstrapApp = async () => {
     camera,
     renderer.domElement
   )
+  const mobileControls = isTouchDevice()
+    ? new MobileControls(camera, renderer.domElement, {
+        onThrow: () => requestDesktopThrow(),
+        onJump: () => {
+          desktopJumpQueued = true
+        },
+        onTravel: (target) =>
+          handleWatchAction(
+            target === 'surface'
+              ? 'respawn-inner-wall'
+              : target === 'overlook'
+                ? 'respawn-overlook'
+                : 'respawn-axis-end'
+          )
+      })
+    : null
 
   const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
   scene.add(light)
@@ -632,6 +649,11 @@ export const bootstrapApp = async () => {
       return
     }
 
+    // Touch taps are handled by MobileControls (tap vs drag discrimination).
+    if (event.pointerType === 'touch') {
+      return
+    }
+
     requestDesktopThrow()
   })
 
@@ -792,7 +814,8 @@ export const bootstrapApp = async () => {
         habitatLength: habitatSpan,
         omega,
         frameAngleEnd: frameAngle,
-        trailMode: debugVisuals.trailMode
+        trailMode: debugVisuals.trailMode,
+        buildings: cityscape.getBuildings()
       })
     }
 
@@ -923,7 +946,12 @@ export const bootstrapApp = async () => {
     }
 
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
-    tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds))
+    mobileControls?.update(renderer.xr.isPresenting)
+    tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds), {
+      camera: desktopUiCamera,
+      deltaSeconds,
+      xrActive: renderer.xr.isPresenting
+    })
     renderer.render(scene, desktopUiCamera)
   })
 
@@ -941,6 +969,7 @@ export const bootstrapApp = async () => {
   window.addEventListener('beforeunload', () => {
     cityscape.dispose()
     tourCardPanel.dispose()
+    mobileControls?.dispose()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cylinderWall.dispose()

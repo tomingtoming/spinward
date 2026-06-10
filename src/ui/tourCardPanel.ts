@@ -4,9 +4,17 @@ import type { TourCard } from '../app/tourGuide'
 
 const CANVAS_WIDTH = 1024
 const CANVAS_HEIGHT = 300
-// Head-locked, low and centered: readable on desktop and unobtrusive in VR.
+// Low and centered relative to the view: readable on desktop, and in VR the
+// panel lazily follows the head instead of hard-locking to it.
 const PANEL_POSITION = new THREE.Vector3(0, -0.36, -1.05)
 const PANEL_SCALE = new THREE.Vector3(0.78, 0.78 * (CANVAS_HEIGHT / CANVAS_WIDTH), 1)
+const FOLLOW_RATE = 4
+
+type TourCardView = {
+  camera: THREE.Camera
+  deltaSeconds: number
+  xrActive: boolean
+}
 
 export class TourCardPanel {
   readonly mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
@@ -14,7 +22,12 @@ export class TourCardPanel {
   private readonly canvas = document.createElement('canvas')
   private readonly context: CanvasRenderingContext2D
   private readonly texture: THREE.CanvasTexture
+  private readonly targetPosition = new THREE.Vector3()
+  private readonly targetQuaternion = new THREE.Quaternion()
+  private readonly cameraPosition = new THREE.Vector3()
+  private readonly cameraQuaternion = new THREE.Quaternion()
   private renderedCard: TourCard | null = null
+  private wasVisible = false
 
   constructor() {
     this.canvas.width = CANVAS_WIDTH
@@ -38,27 +51,47 @@ export class TourCardPanel {
         toneMapped: false
       })
     )
-    this.mesh.position.copy(PANEL_POSITION)
     this.mesh.scale.copy(PANEL_SCALE)
     this.mesh.renderOrder = 30
     this.mesh.visible = false
   }
 
-  update(card: TourCard | null) {
+  update(card: TourCard | null, view: TourCardView) {
     if (card === null) {
       this.mesh.visible = false
       this.renderedCard = null
+      this.wasVisible = false
       return
     }
 
     this.mesh.visible = true
 
-    if (card === this.renderedCard) {
-      return
+    if (card !== this.renderedCard) {
+      this.renderedCard = card
+      this.draw(card)
     }
 
-    this.renderedCard = card
-    this.draw(card)
+    view.camera.getWorldPosition(this.cameraPosition)
+    view.camera.getWorldQuaternion(this.cameraQuaternion)
+    this.targetPosition
+      .copy(PANEL_POSITION)
+      .applyQuaternion(this.cameraQuaternion)
+      .add(this.cameraPosition)
+    this.targetQuaternion.copy(this.cameraQuaternion)
+
+    if (!view.xrActive || !this.wasVisible) {
+      // Desktop: hard-lock. First XR frame: snap so the card doesn't swim in
+      // from a stale pose.
+      this.mesh.position.copy(this.targetPosition)
+      this.mesh.quaternion.copy(this.targetQuaternion)
+    } else {
+      // VR comfort: ease toward the view instead of head-locking.
+      const alpha = 1 - Math.exp(-FOLLOW_RATE * Math.max(0, view.deltaSeconds))
+      this.mesh.position.lerp(this.targetPosition, alpha)
+      this.mesh.quaternion.slerp(this.targetQuaternion, alpha)
+    }
+
+    this.wasVisible = true
   }
 
   dispose() {
