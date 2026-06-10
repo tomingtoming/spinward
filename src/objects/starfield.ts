@@ -15,7 +15,10 @@ export class Starfield {
     size: 0.9,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.95
+    opacity: 0.95,
+    // Stars sit outside the habitat atmosphere; the interior haze must not
+    // wash them out.
+    fog: false
   })
 
   private stars: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> | null = null

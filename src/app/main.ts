@@ -38,7 +38,7 @@ import {
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
-import { resolveCitySurfaceCollision } from '../objects/cityLayout'
+import { getWindowStripArcs, resolveCitySurfaceCollision } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
@@ -95,6 +95,10 @@ export const bootstrapApp = async () => {
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
+  // Aero perspective: the far side of town fades into a light haze. Density
+  // is rescaled to the habitat radius in syncHabitat.
+  const fog = new THREE.FogExp2(0x5f7587, 0.02)
+  scene.fog = fog
   const worldRoot = new THREE.Group()
   const skyLayer = new THREE.Group()
   const farLayer = new THREE.Group()
@@ -149,6 +153,8 @@ export const bootstrapApp = async () => {
   scene.add(tourCardPanel.mesh)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.25
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
@@ -178,12 +184,22 @@ export const bootstrapApp = async () => {
       })
     : null
 
-  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
+  const light = new THREE.HemisphereLight(0xdfeeff, 0x33404e, 1.1)
   scene.add(light)
 
-  const sun = new THREE.DirectionalLight(0xcde8ff, 0.7)
-  sun.position.set(-10, 8, 6)
-  scene.add(sun)
+  // Sunlight enters through the three window strips: one directional light
+  // per strip, pointing inward from the window's center azimuth. They live in
+  // nearLayer so they stay colony-fixed under the inertial observer mode.
+  for (const arc of getWindowStripArcs()) {
+    const windowSun = new THREE.DirectionalLight(0xfff2dd, 1.3)
+    windowSun.position.set(
+      Math.cos(arc.centerAzimuth) * 10,
+      0,
+      Math.sin(arc.centerAzimuth) * 10
+    )
+    nearLayer.add(windowSun)
+    nearLayer.add(windowSun.target)
+  }
 
   const rapier = await initRapier()
   const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
@@ -450,6 +466,8 @@ export const bootstrapApp = async () => {
         units: getUnits()
       }
     )
+    // Noticeable haze at roughly one diameter, regardless of habitat scale.
+    fog.density = 0.26 / habitatConfig.radius
   }
 
   syncHabitat()

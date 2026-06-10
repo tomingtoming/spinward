@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getWindowStripArcs } from './cityLayout'
 import {
   createCylinderSurfaceTexture,
   getCylinderSurfaceRepeat
@@ -12,6 +13,11 @@ type CylinderDimensions = {
 type CylinderShellArc = {
   thetaStart: number
   arcRadians: number
+}
+
+export type ArcInterval = {
+  start: number
+  length: number
 }
 
 export const mergeBufferGeometries = (
@@ -31,6 +37,8 @@ export const mergeBufferGeometries = (
 
   const positions = new Float32Array(totalPositions * 3)
   const normals = new Float32Array(totalPositions * 3)
+  const hasAllUvs = geometries.every((g) => g.getAttribute('uv') !== undefined)
+  const uvs = hasAllUvs ? new Float32Array(totalPositions * 2) : null
   const indices = new Uint32Array(totalIndices)
   let positionOffset = 0
   let indexOffset = 0
@@ -39,6 +47,7 @@ export const mergeBufferGeometries = (
   for (const g of geometries) {
     const pos = g.getAttribute('position') as THREE.BufferAttribute
     const norm = g.getAttribute('normal') as THREE.BufferAttribute | undefined
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute | undefined
 
     for (let i = 0; i < pos.count * 3; i++) {
       positions[positionOffset + i] = pos.array[i]
@@ -46,6 +55,11 @@ export const mergeBufferGeometries = (
     if (norm !== undefined) {
       for (let i = 0; i < norm.count * 3; i++) {
         normals[positionOffset + i] = norm.array[i]
+      }
+    }
+    if (uvs !== null && uv !== undefined) {
+      for (let i = 0; i < uv.count * 2; i++) {
+        uvs[vertexOffset * 2 + i] = uv.array[i]
       }
     }
 
@@ -68,8 +82,54 @@ export const mergeBufferGeometries = (
   const merged = new THREE.BufferGeometry()
   merged.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+  if (uvs !== null) {
+    merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+  }
   merged.setIndex(new THREE.BufferAttribute(indices, 1))
   return merged
+}
+
+// Subtracts hole arcs from a circular interval, returning the surviving
+// sub-intervals (absolute starts, same angular space, all lengths positive).
+export const subtractArcIntervals = (
+  start: number,
+  length: number,
+  holes: ArcInterval[]
+): ArcInterval[] => {
+  const covered: Array<[number, number]> = []
+
+  for (const hole of holes) {
+    const relative = THREE.MathUtils.euclideanModulo(hole.start - start, fullTurn)
+
+    // Hole begins inside the interval.
+    if (relative < length) {
+      covered.push([relative, Math.min(length, relative + hole.length)])
+    }
+
+    // Hole wraps across the interval start.
+    const wrapped = relative - fullTurn
+    if (wrapped + hole.length > 0) {
+      covered.push([0, Math.min(length, wrapped + hole.length)])
+    }
+  }
+
+  covered.sort((a, b) => a[0] - b[0])
+
+  const result: ArcInterval[] = []
+  let cursor = 0
+
+  for (const [coveredStart, coveredEnd] of covered) {
+    if (coveredStart > cursor + 1e-9) {
+      result.push({ start: start + cursor, length: coveredStart - cursor })
+    }
+    cursor = Math.max(cursor, coveredEnd)
+  }
+
+  if (cursor < length - 1e-9) {
+    result.push({ start: start + cursor, length: length - cursor })
+  }
+
+  return result
 }
 
 const fullTurn = Math.PI * 2
@@ -183,14 +243,15 @@ export class CylinderHabitat {
     depthWrite: false
   })
 
-  private nearShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
-  private farShell: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> | null = null
+  private nearShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
+  private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
   private radius = 0
   private length = 0
+  private focusAzimuth = 0
 
   constructor(dimensions: CylinderDimensions) {
     this.group.add(this.shellGroup)
@@ -213,9 +274,69 @@ export class CylinderHabitat {
   }
 
   setFocusAzimuth(focusAzimuth: number) {
-    this.shellGroup.rotation.y = focusAzimuth
+    // The window cutouts are fixed in the colony frame, so the high-detail
+    // arc is rebuilt at quantized focus steps instead of rotating the group.
+    const quantized = quantizeCylinderShellFocus(focusAzimuth)
+
+    if (quantized === this.focusAzimuth) {
+      return
+    }
+
+    this.focusAzimuth = quantized
+    this.rebuildShells()
   }
 
+  // One shell mesh from a set of azimuth intervals. UVs are baked in absolute
+  // angular space so every interval samples the shared texture seamlessly.
+  private buildShellGeometry(
+    intervals: ArcInterval[],
+    segmentsPerRadian: number,
+    circumferentialRepeat: number,
+    axialRepeat: number
+  ) {
+    const parts: THREE.BufferGeometry[] = []
+
+    for (const interval of intervals) {
+      if (interval.length <= 1e-6) {
+        continue
+      }
+
+      const thetaStart = getCylinderThetaStart(
+        interval.start + interval.length * 0.5,
+        interval.length
+      )
+      const part = new THREE.CylinderGeometry(
+        this.radius,
+        this.radius,
+        this.length,
+        Math.max(4, Math.ceil(segmentsPerRadian * interval.length)),
+        1,
+        true,
+        thetaStart,
+        interval.length
+      )
+      const uv = part.getAttribute('uv') as THREE.BufferAttribute
+
+      for (let i = 0; i < uv.count; i += 1) {
+        const theta = thetaStart + uv.getX(i) * interval.length
+        uv.setXY(
+          i,
+          (theta / fullTurn) * circumferentialRepeat,
+          uv.getY(i) * axialRepeat
+        )
+      }
+
+      parts.push(part)
+    }
+
+    const merged = mergeBufferGeometries(parts)
+
+    for (const part of parts) {
+      part.dispose()
+    }
+
+    return merged
+  }
 
   private rebuildShells() {
     this.nearShell?.geometry.dispose()
@@ -230,52 +351,55 @@ export class CylinderHabitat {
     }
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
-
-    const shellArcs = splitCylinderShellArcs(0)
-    const nearSurfaceUv = resolveCylinderShellUvTransform(
-      surfaceRepeat.circumferential,
-      shellArcs.near
-    )
-    const farSurfaceUv = resolveCylinderShellUvTransform(
-      surfaceRepeat.circumferential,
-      shellArcs.far
-    )
-    this.nearShellTexture.repeat.set(nearSurfaceUv.repeatX, surfaceRepeat.axial)
-    this.nearShellTexture.offset.set(nearSurfaceUv.offsetX, 0)
+    this.nearShellTexture.repeat.set(1, 1)
+    this.nearShellTexture.offset.set(0, 0)
     this.nearShellTexture.needsUpdate = true
-    this.farShellTexture.repeat.set(farSurfaceUv.repeatX, surfaceRepeat.axial)
-    this.farShellTexture.offset.set(farSurfaceUv.offsetX, 0)
+    this.farShellTexture.repeat.set(1, 1)
+    this.farShellTexture.offset.set(0, 0)
     this.farShellTexture.needsUpdate = true
 
-    this.nearShell = new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        this.radius,
-        this.radius,
-        this.length,
-        nearShellSegments,
-        1,
-        true,
-        shellArcs.near.thetaStart,
-        shellArcs.near.arcRadians
-      ),
-      this.nearShellMaterial
+    const windowHoles: ArcInterval[] = getWindowStripArcs().map((arc) => ({
+      start: arc.centerAzimuth - arc.arcRadians * 0.5,
+      length: arc.arcRadians
+    }))
+    const farArcRadians = fullTurn - defaultNearArcRadians
+    const nearIntervals = subtractArcIntervals(
+      this.focusAzimuth - defaultNearArcRadians * 0.5,
+      defaultNearArcRadians,
+      windowHoles
     )
-    this.farShell = new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        this.radius,
-        this.radius,
-        this.length,
-        farShellSegments,
-        1,
-        true,
-        shellArcs.far.thetaStart,
-        shellArcs.far.arcRadians
-      ),
-      this.farShellMaterial
+    const farIntervals = subtractArcIntervals(
+      this.focusAzimuth + defaultNearArcRadians * 0.5,
+      farArcRadians,
+      windowHoles
     )
 
-    this.shellGroup.add(this.farShell)
-    this.shellGroup.add(this.nearShell)
+    const nearGeometry = this.buildShellGeometry(
+      nearIntervals,
+      nearShellSegments / defaultNearArcRadians,
+      surfaceRepeat.circumferential,
+      surfaceRepeat.axial
+    )
+    const farGeometry = this.buildShellGeometry(
+      farIntervals,
+      farShellSegments / farArcRadians,
+      surfaceRepeat.circumferential,
+      surfaceRepeat.axial
+    )
+
+    if (farGeometry !== null) {
+      this.farShell = new THREE.Mesh(farGeometry, this.farShellMaterial)
+      this.shellGroup.add(this.farShell)
+    } else {
+      this.farShell = null
+    }
+
+    if (nearGeometry !== null) {
+      this.nearShell = new THREE.Mesh(nearGeometry, this.nearShellMaterial)
+      this.shellGroup.add(this.nearShell)
+    } else {
+      this.nearShell = null
+    }
   }
 
 
