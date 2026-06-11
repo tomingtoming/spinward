@@ -165,7 +165,7 @@ describe('planCity', () => {
 
   test('every building faces a nearby road', () => {
     const radius = 18
-    const cell = getCityCellSize(radius)
+    const cell = getCityCellSize(radius, 120)
     const { roads, buildings } = planCity({ radius, length: 120 })
 
     for (const building of buildings) {
@@ -271,6 +271,21 @@ describe('planCity', () => {
     for (const tree of trees) {
       expect(tree.height).toBeLessThanOrEqual(9 * 1.05)
     }
+  })
+
+  test('thin rings still get a city: cell size respects the span', () => {
+    expect(getCityCellSize(30000, 2000)).toBeCloseTo(160, 6)
+
+    const { buildings, roads } = planCity({ radius: 30000, length: 2000 })
+    expect(buildings.length).toBeGreaterThan(200)
+    expect(roads.length).toBeGreaterThan(0)
+  })
+
+  test('the plaza stays human-scale on giant habitats', () => {
+    expect(getPlazaTangentHalfWidth(30000)).toBe(80)
+    expect(getPlazaAxialHalfLength(30000)).toBe(60)
+    expect(getPlazaTangentHalfWidth(18)).toBe(10)
+    expect(getPlazaAxialHalfLength(18)).toBe(12)
   })
 
   test('plans the overlook tower just below the overlook altitude', () => {

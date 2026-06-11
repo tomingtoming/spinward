@@ -293,8 +293,8 @@ export class CylinderHabitat {
       this.endCaps = null
     }
 
-    const tube = Math.max(0.15, radius * 0.012)
-    const rimRadius = radius * 0.97
+    const tube = Math.max(0.15, Math.min(radius * 0.012, length * 0.02))
+    const rimRadius = radius - tube * 1.2
     const hubRadius = radius * 0.26
     const spokeLength = rimRadius - hubRadius
     const spokeCount = 8

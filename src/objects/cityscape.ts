@@ -336,9 +336,9 @@ export class Cityscape {
         : plan.buildings
     this.buildBuildings(plan.buildings)
     this.buildRoads(plan.roads, radius)
-    this.buildPatches(plan.patches, radius)
+    this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
-    this.buildLamps(plan.roads, radius)
+    this.buildLamps(plan.roads, radius, length)
     this.buildWindowStrips(radius, length)
     this.buildMirrors(radius, length)
     this.buildCables(radius, length)
@@ -584,10 +584,10 @@ export class Cityscape {
     return geometry
   }
 
-  private buildPatches(patches: CityPatch[], radius: number) {
+  private buildPatches(patches: CityPatch[], radius: number, length: number) {
     const bandRadius = radius - 0.04
     // Crop rows stay field-scale even on multi-km habitats.
-    const stripeWorld = Math.min(getCityCellSize(radius) * 0.8, 30)
+    const stripeWorld = Math.min(getCityCellSize(radius, length) * 0.8, 30)
 
     for (const kind of ['park', 'farm'] as const) {
       const geometries: THREE.BufferGeometry[] = []
@@ -682,8 +682,8 @@ export class Cityscape {
   }
 
   // Warm dots floating above the avenues: enough to read as street lighting.
-  private buildLamps(roads: CityRoad[], radius: number) {
-    const cell = getCityCellSize(radius)
+  private buildLamps(roads: CityRoad[], radius: number, length: number) {
+    const cell = getCityCellSize(radius, length)
     const spacing = cell * 2.2
     const lampHeight = THREE.MathUtils.clamp(cell * 0.55, 3, 12)
     const lampRadius = THREE.MathUtils.clamp(cell * 0.02, 0.12, 0.5)
@@ -779,7 +779,8 @@ export class Cityscape {
   // ties the ground to the hub and sells the scale.
   private buildCables(radius: number, length: number) {
     const spineRadius = getSpineRadius(radius)
-    const cableRadius = Math.max(0.05, radius * 0.004)
+    // Clamped: proportional sizing made 120m-wide pillars on Elysium.
+    const cableRadius = Math.min(12, Math.max(0.05, radius * 0.004))
     const cableLength = Math.max(0, radius - spineRadius)
 
     if (cableLength <= 0) {

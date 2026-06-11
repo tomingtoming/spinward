@@ -65,7 +65,7 @@ import { respawnAxisEnd, respawnInnerWall, respawnOverlook } from '../gameplay/r
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
-import { applyPresetToSettingsStore, getPresetName } from '../presets/presetManager'
+import { applyPresetToSettingsStore, getPresetById, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { getHabitatSpan } from '../sim/habitatConfig'
@@ -87,8 +87,15 @@ import { XRInputMap } from '../xr/xrInputMap'
 export const bootstrapApp = async () => {
   const settingsStore = createSettingsStore()
   // The demo opens at Izma scale; Playground stays one preset tap away for
-  // close-range physics play.
-  applyPresetToSettingsStore(settingsStore, 'izma')
+  // close-range physics play. `?preset=` deep-links any preset for testing
+  // and sharing.
+  const requestedPreset = new URLSearchParams(window.location.search).get('preset')
+  applyPresetToSettingsStore(
+    settingsStore,
+    requestedPreset !== null && getPresetById(requestedPreset) !== null
+      ? requestedPreset
+      : 'izma'
+  )
   const habitatConfig = settingsStore.habitat
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = {

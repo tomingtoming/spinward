@@ -105,12 +105,19 @@ export const isAzimuthOnLandStrip = (azimuth: number) => {
   return Math.floor(shifted / STRIP_ARC_RADIANS) % 2 === 0
 }
 
-export const getCityCellSize = (radius: number) => Math.max(6, radius * 0.045)
+// City cell scale follows the smaller of the two habitat dimensions, so
+// thin rings (span << radius) still get a walkable street grid.
+export const getCityCellSize = (radius: number, length = Number.POSITIVE_INFINITY) =>
+  Math.max(6, Math.min(radius * 0.045, length * 0.08))
 
 // Spawn plaza around (azimuth 0, axial 0) is kept clear of buildings so the
 // start marker and respawn point stay walkable.
-export const getPlazaTangentHalfWidth = (radius: number) => Math.max(10, radius * 0.3)
-export const getPlazaAxialHalfLength = (radius: number) => Math.max(12, radius * 0.15)
+// Human-scale: clamped in absolute meters so giant habitats do not carve
+// kilometer-wide empty fields around the spawn.
+export const getPlazaTangentHalfWidth = (radius: number) =>
+  Math.min(80, Math.max(10, radius * 0.3))
+export const getPlazaAxialHalfLength = (radius: number) =>
+  Math.min(60, Math.max(12, radius * 0.15))
 
 // Overlook travel altitude above the surface — shared with the respawn logic
 // so the observation tower tops out just below the spawn point.
@@ -198,7 +205,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
   const random = createRandom(config.seed ?? DEFAULT_SEED)
-  const cell = getCityCellSize(radius)
+  const cell = getCityCellSize(radius, length)
   const avenueWidth = cell * 0.55
   const streetWidth = cell * 0.45
   const sidewalk = cell * SIDEWALK_FRACTION
