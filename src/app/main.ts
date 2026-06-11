@@ -51,6 +51,7 @@ import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
+import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
 import { MobileControls, isTouchDevice } from '../pc/mobileControls'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
@@ -145,6 +146,10 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  const spaceport = new Spaceport({
+    radius: habitatConfig.radius,
+    length: getHabitatSpan(habitatConfig)
+  })
   const starfield = new Starfield({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
@@ -153,6 +158,7 @@ export const bootstrapApp = async () => {
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
   nearLayer.add(clouds.group)
+  nearLayer.add(spaceport.group)
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -491,6 +497,7 @@ export const bootstrapApp = async () => {
         habitat,
         cityscape,
         clouds,
+        spaceport,
         starfield,
         camera,
         inertialObserverCamera,
@@ -1067,6 +1074,7 @@ export const bootstrapApp = async () => {
     cityscape.setDaylight(daylight)
     clouds.setDaylight(daylight)
     clouds.update(deltaSeconds)
+    spaceport.update(deltaSeconds)
 
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
     mobileControls?.update(renderer.xr.isPresenting)
@@ -1097,8 +1105,12 @@ export const bootstrapApp = async () => {
   })
 
   window.addEventListener('beforeunload', () => {
+    // Stop ticking before freeing physics, or a final frame races the
+    // disposed Rapier world.
+    renderer.setAnimationLoop(null)
     cityscape.dispose()
     clouds.dispose()
+    spaceport.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()
     desktopLookControls.dispose()

@@ -15,6 +15,10 @@ type CloudsLike = {
   setDimensions: (dimensions: { radius: number; length: number }) => void
 }
 
+type SpaceportLike = {
+  setDimensions: (dimensions: { radius: number; length: number }) => void
+}
+
 type StarfieldLike = {
   setDimensions: (dimensions: { radius: number; length: number }) => void
   getSuggestedCameraFar: () => number
@@ -35,6 +39,7 @@ type SyncHabitatRuntimeDependencies<TPlayerRig, TPlayerTraversal, TUnits> = {
   habitat: HabitatLike
   cityscape: CityscapeLike
   clouds: CloudsLike
+  spaceport: SpaceportLike
   starfield: StarfieldLike
   camera: CameraLike
   inertialObserverCamera: CameraLike
@@ -72,6 +77,10 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     length: config.span
   })
   dependencies.clouds.setDimensions({
+    radius: config.radius,
+    length: config.span
+  })
+  dependencies.spaceport.setDimensions({
     radius: config.radius,
     length: config.span
   })

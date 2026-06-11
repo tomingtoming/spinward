@@ -56,7 +56,8 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     title: 'THE AXIS',
     body: [
       'Zero radius, zero spin speed - zero weight.',
-      'Same world, but no floor is pushing you. The city is your sky.'
+      'This is why the spaceport docks here: nothing to spin against.',
+      'Look around - the city wraps the sky.'
     ],
     durationSeconds: 12
   },
