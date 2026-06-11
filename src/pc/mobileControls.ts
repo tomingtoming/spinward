@@ -21,10 +21,6 @@ const TAP_MAX_DURATION_MS = 350
 const TOUCH_LOOK_SENSITIVITY = 0.0045
 const MAX_PITCH = Math.PI * 0.48
 
-const BUTTON_STYLE =
-  'pointer-events:auto;background:rgba(8,24,36,0.78);color:#d8ecf6;' +
-  'border:1px solid rgba(103,232,249,0.45);border-radius:10px;' +
-  'padding:10px 14px;font:600 14px sans-serif;min-width:52px;'
 
 // Touch / smartphone layer: one-finger drag (or gyro) to look, tap to throw,
 // on-screen buttons for jump and the three travel points.
@@ -51,15 +47,12 @@ export class MobileControls {
     private readonly handlers: MobileControlHandlers
   ) {
     this.overlay = document.createElement('div')
-    // Sits above three.js's VRButton (z-index 999, centered at the bottom).
-    this.overlay.style.cssText =
-      'position:fixed;bottom:74px;left:50%;transform:translateX(-50%);' +
-      'display:flex;gap:10px;z-index:1000;pointer-events:none;'
+    // Styled via .mobile-controls; sits above three.js's VRButton.
+    this.overlay.className = 'mobile-controls'
 
     const makeButton = (label: string, onTap: () => void) => {
       const button = document.createElement('button')
       button.textContent = label
-      button.style.cssText = BUTTON_STYLE
       button.addEventListener('pointerdown', (event) => {
         event.stopPropagation()
       })
@@ -113,7 +106,7 @@ export class MobileControls {
   private toggleGyro() {
     if (this.gyroEnabled) {
       this.gyroEnabled = false
-      this.gyroButton.style.background = 'rgba(8,24,36,0.78)'
+      this.gyroButton.classList.remove('is-active')
       window.removeEventListener('deviceorientation', this.handleDeviceOrientation)
       return
     }
@@ -122,7 +115,7 @@ export class MobileControls {
 
     const enable = () => {
       this.gyroEnabled = true
-      this.gyroButton.style.background = 'rgba(15,92,115,0.9)'
+      this.gyroButton.classList.add('is-active')
       window.addEventListener('deviceorientation', this.handleDeviceOrientation)
     }
 

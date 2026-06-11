@@ -37,7 +37,9 @@ export const createDebugGui = ({
   onSettingsChange,
   onVisualChange
 }: DebugGuiOptions): DebugGuiHandle => {
-  const gui = new GUI({ title: 'O’Neill Cylinder' })
+  const gui = new GUI({ title: 'Debug' })
+  // Developer tool: collapsed by default so the demo UI stays clean.
+  gui.close()
   const derivedState = {
     gTarget: surfaceG(rpmToOmega(config.rpm), config.radius),
     spanMeters: getHabitatSpan(config),

@@ -43,19 +43,48 @@ export type HudHandle = {
   update: (snapshot: HudSnapshot) => void
 }
 
+const CONTROLS_TEXT =
+  'PC - WASD: walk/jetpack | click: throw | Space: jump | 1/2/3: travel | F: launch | Shift: brake | right-drag/arrows: look | Tab: menu\n' +
+  'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel | right A: jump | right stick: snap turn\n' +
+  'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
+
+const makeChip = (className: string) => {
+  const chip = document.createElement('span')
+  chip.className = `hud-chip ${className}`
+  return chip
+}
+
 export const createHud = (): HudHandle => {
   const root = document.createElement('div')
   root.className = 'hud'
 
-  const stats = document.createElement('div')
-  stats.className = 'hud__stats'
+  const chips = document.createElement('div')
+  chips.className = 'hud__chips'
 
-  const controls = document.createElement('div')
-  controls.className = 'hud__controls'
-  controls.textContent =
-    'VR: right hand owns ball throw/UI; right trigger clicks the wrist panel only while hovering it, otherwise throws. Attached: hold left grip and move the hand or use left stick to walk, twist left/right to yaw, lift outward to launch, right stick=snap turn. Free-fly: hold left grip and move the hand or use left stick to thrust, twist it for pitch/yaw/roll, left X=angular brake, left Y=linear brake | PC: Tab=watch panel, left click/Space=throw, right drag/arrows=look, WASD=walk/jetpack, F=launch, Shift=slow'
+  const presetChip = makeChip('hud-chip--preset')
+  const gravityChip = makeChip('')
+  const spinChip = makeChip('')
+  const modeChip = makeChip('')
+  const ballsChip = makeChip('')
+  const dockChip = makeChip('')
+  chips.append(presetChip, gravityChip, spinChip, modeChip, ballsChip, dockChip)
 
-  root.append(stats, controls)
+  const controls = document.createElement('details')
+  controls.className = 'hud__drawer'
+  const controlsSummary = document.createElement('summary')
+  controlsSummary.textContent = 'controls'
+  const controlsBody = document.createElement('pre')
+  controlsBody.textContent = CONTROLS_TEXT
+  controls.append(controlsSummary, controlsBody)
+
+  const debug = document.createElement('details')
+  debug.className = 'hud__drawer'
+  const debugSummary = document.createElement('summary')
+  debugSummary.textContent = 'debug'
+  const debugBody = document.createElement('pre')
+  debug.append(debugSummary, debugBody)
+
+  root.append(chips, controls, debug)
   document.body.append(root)
 
   return {
@@ -64,33 +93,43 @@ export const createHud = (): HudHandle => {
       root.hidden = !visible
     },
     update: (snapshot) => {
-      const reattachText =
-        snapshot.reattach === null
-          ? ''
-          : ` | dock dr ${snapshot.reattach.radialError.toFixed(2)}/${snapshot.reattach.radialTolerance.toFixed(2)} ` +
-            `vn ${snapshot.reattach.normalSpeed.toFixed(2)}/${snapshot.reattach.maxNormalSpeed.toFixed(2)} ` +
-            `vs ${snapshot.reattach.surfaceSpeed.toFixed(2)}/${snapshot.reattach.maxSurfaceSpeed.toFixed(2)} ` +
-            `${snapshot.reattach.ready ? 'ready' : 'hold'}`
+      presetChip.textContent = snapshot.presetName
+      gravityChip.textContent = `g ${snapshot.gTarget.toFixed(2)} m/s²`
+      spinChip.textContent = `ω ${snapshot.rpm.toFixed(2)} rpm`
+      modeChip.textContent = snapshot.playerMode === 'attached' ? 'attached' : 'free-fly'
+      modeChip.className = `hud-chip ${
+        snapshot.playerMode === 'attached' ? 'hud-chip--attached' : 'hud-chip--freefly'
+      }`
 
-      stats.textContent =
-        `preset ${snapshot.presetName} | ${snapshot.habitatType} | ` +
-        `radius ${snapshot.radius.toFixed(0)}m | span ${snapshot.span.toFixed(0)}m | rpm ${snapshot.rpm.toFixed(2)} | ` +
-        `g ${snapshot.gTarget.toFixed(2)}m/s^2 | balls ${snapshot.ballCount} | ` +
-        `sim ${snapshot.simScale.toFixed(3)} | ` +
-        `tracked speed ${snapshot.trackedBallSpeed.toFixed(2)}m/s | ` +
-        `${snapshot.region} | ${snapshot.playerMode} | ` +
-        `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
-        `watch ${snapshot.watchMenuOpen ? 'on' : 'off'} | ` +
-        `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | ` +
-        `${snapshot.xrActive ? 'XR' : 'desktop'}${reattachText}` +
-        (snapshot.verification === null
+      ballsChip.hidden = snapshot.ballCount === 0
+      ballsChip.textContent = `balls ${snapshot.ballCount}`
+
+      const dock = snapshot.reattach
+      dockChip.hidden = snapshot.playerMode !== 'free-fly' || dock === null
+      if (dock !== null) {
+        dockChip.textContent = dock.ready ? 'dock ready' : `dock ${dock.radialError.toFixed(1)} m`
+        dockChip.className = `hud-chip ${dock.ready ? 'hud-chip--attached' : ''}`
+      }
+
+      const verification = snapshot.verification
+      debugBody.textContent =
+        `${snapshot.habitatType} R ${snapshot.radius.toFixed(0)}m span ${snapshot.span.toFixed(0)}m ` +
+        `sim ${snapshot.simScale.toFixed(3)} | view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
+        `tracked ball ${snapshot.trackedBallSpeed.toFixed(2)} m/s | ` +
+        `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | menu ${snapshot.watchMenuOpen ? 'open' : 'closed'} | ` +
+        `${snapshot.region} | ${snapshot.xrActive ? 'XR' : 'desktop'}` +
+        (dock === null
           ? ''
-          : ` | vI [${snapshot.verification.inertialVelocity.x.toFixed(1)} ${snapshot.verification.inertialVelocity.y.toFixed(1)} ${snapshot.verification.inertialVelocity.z.toFixed(1)}]` +
-            ` vR [${snapshot.verification.rotatingVelocity.x.toFixed(1)} ${snapshot.verification.rotatingVelocity.y.toFixed(1)} ${snapshot.verification.rotatingVelocity.z.toFixed(1)}]` +
-            ` aF [${snapshot.verification.fictitiousAcceleration.x.toFixed(1)} ${snapshot.verification.fictitiousAcceleration.y.toFixed(1)} ${snapshot.verification.fictitiousAcceleration.z.toFixed(1)}]` +
-            ` aE [${snapshot.verification.estimatedAcceleration.x.toFixed(1)} ${snapshot.verification.estimatedAcceleration.y.toFixed(1)} ${snapshot.verification.estimatedAcceleration.z.toFixed(1)}]` +
-            ` err ${snapshot.verification.errorMagnitude.toFixed(2)}` +
-            (snapshot.verification.warning ? ' Frame mismatch!' : ''))
+          : `\ndock dr ${dock.radialError.toFixed(2)}/${dock.radialTolerance.toFixed(2)} ` +
+            `vn ${dock.normalSpeed.toFixed(2)}/${dock.maxNormalSpeed.toFixed(2)} ` +
+            `vs ${dock.surfaceSpeed.toFixed(2)}/${dock.maxSurfaceSpeed.toFixed(2)} ${dock.ready ? 'ready' : 'hold'}`) +
+        (verification === null
+          ? ''
+          : `\nvI [${verification.inertialVelocity.x.toFixed(1)} ${verification.inertialVelocity.y.toFixed(1)} ${verification.inertialVelocity.z.toFixed(1)}] ` +
+            `vR [${verification.rotatingVelocity.x.toFixed(1)} ${verification.rotatingVelocity.y.toFixed(1)} ${verification.rotatingVelocity.z.toFixed(1)}] ` +
+            `aF [${verification.fictitiousAcceleration.x.toFixed(1)} ${verification.fictitiousAcceleration.y.toFixed(1)} ${verification.fictitiousAcceleration.z.toFixed(1)}] ` +
+            `aE [${verification.estimatedAcceleration.x.toFixed(1)} ${verification.estimatedAcceleration.y.toFixed(1)} ${verification.estimatedAcceleration.z.toFixed(1)}] ` +
+            `err ${verification.errorMagnitude.toFixed(2)}${verification.warning ? ' Frame mismatch!' : ''}`)
     }
   }
 }

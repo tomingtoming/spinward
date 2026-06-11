@@ -4,8 +4,12 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #202030;
-  font-family: sans-serif;
+  background: #060d15;
+  font-family:
+    'Avenir Next',
+    'Segoe UI',
+    'Hiragino Sans',
+    sans-serif;
 }
 
 canvas {
@@ -16,27 +20,184 @@ button {
   font: inherit;
 }
 
+/* ── Splash ── */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(ellipse at center, #0b1a29 0%, #04090f 70%);
+  color: #e8f4fa;
+  z-index: 100;
+  transition: opacity 0.6s ease;
+}
+
+.splash--done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  color: #67e8f9;
+  text-shadow: 0 0 24px rgba(103, 232, 249, 0.45);
+}
+
+.splash p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(190, 215, 230, 0.6);
+  letter-spacing: 0.12em;
+}
+
+.splash__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(103, 232, 249, 0.18);
+  border-top-color: #67e8f9;
+  animation: splash-spin 1.1s linear infinite;
+}
+
+@keyframes splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── HUD ── */
+
 .hud {
   position: fixed;
   left: 16px;
   bottom: 16px;
-  max-width: min(720px, calc(100vw - 32px));
-  padding: 12px 14px;
-  border: 1px solid rgba(130, 168, 192, 0.28);
-  border-radius: 12px;
-  background: rgba(4, 15, 24, 0.8);
+  max-width: min(680px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
   color: #d8ebf4;
   font-size: 13px;
-  line-height: 1.45;
+}
+
+.hud__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hud-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(6, 18, 28, 0.78);
+  border: 1px solid rgba(103, 232, 249, 0.22);
   backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.hud__stats {
   font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
-.hud__controls {
-  margin-top: 6px;
-  color: rgba(216, 235, 244, 0.78);
+.hud-chip--preset {
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.45);
+}
+
+.hud-chip--attached {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.hud-chip--freefly {
+  color: #c4b5fd;
+  border-color: rgba(196, 181, 253, 0.4);
+}
+
+.hud__drawer {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 12px;
+  background: rgba(6, 18, 28, 0.72);
+  border: 1px solid rgba(130, 168, 192, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.hud__drawer summary {
+  cursor: pointer;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(190, 215, 230, 0.6);
+  user-select: none;
+  list-style-position: inside;
+}
+
+.hud__drawer summary:hover {
+  color: #67e8f9;
+}
+
+.hud__drawer pre {
+  margin: 0;
+  padding: 4px 14px 12px;
+  font: 12px/1.6 'SF Mono', 'Cascadia Code', monospace;
+  white-space: pre-wrap;
+  color: rgba(216, 235, 244, 0.82);
+}
+
+/* ── Mobile control row ── */
+
+.mobile-controls {
+  position: fixed;
+  bottom: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.mobile-controls button {
+  pointer-events: auto;
+  background: rgba(6, 18, 30, 0.78);
+  color: #dff3fb;
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  border-radius: 14px;
+  padding: 13px 17px;
+  font-weight: 600;
+  font-size: 15px;
+  min-width: 58px;
+  backdrop-filter: blur(10px);
+  transition: background 0.15s ease;
+}
+
+.mobile-controls button:active {
+  background: rgba(15, 92, 115, 0.9);
+}
+
+.mobile-controls button.is-active {
+  background: rgba(15, 92, 115, 0.9);
+  border-color: rgba(103, 232, 249, 0.9);
+  color: #67e8f9;
+}
+
+/* ── three.js VRButton override ── */
+
+#VRButton {
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  background: rgba(6, 18, 30, 0.78) !important;
+  border: 1px solid rgba(103, 232, 249, 0.45) !important;
+  border-radius: 12px !important;
+  color: #dff3fb !important;
+  backdrop-filter: blur(10px);
 }

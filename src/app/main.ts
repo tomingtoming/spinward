@@ -1055,6 +1055,13 @@ export const bootstrapApp = async () => {
   notifyTourEvent(tourGuide, 'start')
   gameLoop.start()
 
+  const splash = document.getElementById('splash')
+
+  if (splash !== null) {
+    splash.classList.add('splash--done')
+    window.setTimeout(() => splash.remove(), 700)
+  }
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()

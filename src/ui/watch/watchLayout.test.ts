@@ -41,28 +41,36 @@ test('getWatchButtonAtUv reaches the playground preset button', () => {
   expect(getWatchButtonAtUv(layout, uv)?.id).toBe('preset-apply-playground')
 })
 
-test('createWatchExpandedLayout keeps the current parameter row order and action ids', () => {
+test('createWatchExpandedLayout splits the spin row from the parameter rows', () => {
   const layout = createWatchExpandedLayout()
 
-  expect(layout.rows.map((row) => row.key)).toEqual([
-    'rpm',
-    'radius',
-    'throwScale',
-    'jetpackAcceleration',
-    'reattachThreshold'
-  ])
-
-  expect(layout.rows[0]?.buttons.map((button) => button.id)).toEqual([
+  expect(layout.spinRow.key).toBe('rpm')
+  expect(layout.spinRow.buttons.map((button) => button.id)).toEqual([
     'rpm-coarse-decrement',
     'rpm-fine-decrement',
     'rpm-fine-increment',
     'rpm-coarse-increment'
   ])
 
-  expect(layout.rows[4]?.buttons.map((button) => button.id)).toEqual([
+  expect(layout.rows.map((row) => row.key)).toEqual([
+    'radius',
+    'throwScale',
+    'jetpackAcceleration',
+    'reattachThreshold'
+  ])
+
+  expect(layout.rows[3]?.buttons.map((button) => button.id)).toEqual([
     'reattach-threshold-coarse-decrement',
     'reattach-threshold-fine-decrement',
     'reattach-threshold-fine-increment',
     'reattach-threshold-coarse-increment'
   ])
+})
+
+test('travel buttons sit above the spin section', () => {
+  const layout = createWatchExpandedLayout()
+
+  for (const button of layout.respawnButtons) {
+    expect(button.y).toBeLessThan(layout.spinSection.top)
+  }
 })

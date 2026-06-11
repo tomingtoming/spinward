@@ -86,7 +86,9 @@ bun run preview -- --host 0.0.0.0
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
-- PC: `Tab` で左下の quick panel を開閉し、クリックで wrist UI と同じ設定、preset、respawn を操作できます。
+- PC: `Tab` で quick panel を開閉し、クリックで wrist UI と同じ Travel、SPIN(rpm+重力ゲージ)、設定、preset を操作できます。
+- HUD は左下のステータスチップ(preset / g / rpm / mode)と、折りたたみ式の `controls` / `debug` ドロワーに整理されています。デバッグ数値は `debug` を開くと見られます。
+- 起動時にはスプラッシュ(INERTIAL WORLDS)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。
 - GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。

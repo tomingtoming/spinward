@@ -1,6 +1,18 @@
 import { isWatchActionDisabled, type WatchRenderSnapshot } from './watchBindings'
-import type { WatchActionId, WatchExpandedLayout, WatchButton } from './watchLayout'
+import type {
+  WatchActionId,
+  WatchButton,
+  WatchExpandedLayout,
+  WatchSection
+} from './watchLayout'
+import { SECTION_PADDING } from './watchLayout'
 import { formatWatchParameterValue } from './watchSchema'
+
+const ACCENT = '#67e8f9'
+const TEXT_BRIGHT = '#eef7fc'
+const TEXT_DIM = 'rgba(190, 215, 230, 0.62)'
+const TEXT_FAINT = 'rgba(160, 195, 215, 0.45)'
+const EARTH_GRAVITY = 9.80665
 
 const clearCanvas = (ctx: CanvasRenderingContext2D) => {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -12,90 +24,127 @@ const drawPanelBackground = (
   width: number,
   height: number
 ) => {
-  ctx.fillStyle = 'rgba(4, 12, 20, 0.96)'
-  ctx.fillRect(0, 0, width, height)
-
-  ctx.strokeStyle = 'rgba(100, 180, 230, 0.22)'
-  ctx.lineWidth = 2
-  ctx.strokeRect(4, 4, width - 8, height - 8)
-}
-
-const drawSectionDivider = (
-  ctx: CanvasRenderingContext2D,
-  y: number,
-  width: number
-) => {
-  ctx.strokeStyle = 'rgba(100, 180, 230, 0.14)'
-  ctx.lineWidth = 1
+  const gradient = ctx.createLinearGradient(0, 0, 0, height)
+  gradient.addColorStop(0, 'rgba(8, 20, 32, 0.97)')
+  gradient.addColorStop(0.5, 'rgba(5, 13, 22, 0.96)')
+  gradient.addColorStop(1, 'rgba(8, 18, 30, 0.97)')
+  ctx.fillStyle = gradient
   ctx.beginPath()
-  ctx.moveTo(32, y)
-  ctx.lineTo(width - 32, y)
+  ctx.roundRect(2, 2, width - 4, height - 4, 26)
+  ctx.fill()
+
+  ctx.strokeStyle = 'rgba(103, 232, 249, 0.30)'
+  ctx.lineWidth = 2
   ctx.stroke()
 }
 
-const drawSectionHeader = (
+const drawSectionCard = (
   ctx: CanvasRenderingContext2D,
-  label: string,
-  x: number,
-  y: number
+  width: number,
+  section: WatchSection,
+  subtitle?: string
 ) => {
-  ctx.fillStyle = 'rgba(103, 232, 249, 0.8)'
-  ctx.font = '700 16px "Avenir Next", sans-serif'
+  ctx.fillStyle = 'rgba(16, 36, 52, 0.42)'
+  ctx.beginPath()
+  ctx.roundRect(
+    SECTION_PADDING.left,
+    section.top,
+    width - SECTION_PADDING.left - SECTION_PADDING.right,
+    section.height,
+    16
+  )
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(103, 232, 249, 0.10)'
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  ctx.fillStyle = ACCENT
+  ctx.font = '700 17px "Avenir Next", sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.fillText(label, x, y)
+  ctx.fillText(section.title, SECTION_PADDING.left + 20, section.top + 16)
+
+  if (subtitle !== undefined) {
+    ctx.fillStyle = TEXT_FAINT
+    ctx.font = '400 14px "Avenir Next", sans-serif'
+    ctx.fillText(subtitle, SECTION_PADDING.left + 20, section.top + 42)
+  }
+}
+
+type ButtonStyle = {
+  disabled?: boolean
+  active?: boolean
+  accent?: boolean
 }
 
 const drawButton = (
   ctx: CanvasRenderingContext2D,
   button: WatchButton,
   hoveredAction: WatchActionId | null,
-  state: {
-    disabled?: boolean
-    active?: boolean
-  } = {}
+  style: ButtonStyle = {}
 ) => {
-  const hovered = !state.disabled && hoveredAction === button.id
-  const fillStyle = state.disabled
-    ? 'rgba(24, 38, 48, 0.5)'
-    : hovered
-      ? '#67e8f9'
-      : state.active
-        ? 'rgba(15, 92, 115, 0.85)'
-        : 'rgba(24, 54, 72, 0.75)'
-  const strokeStyle = state.disabled
-    ? 'rgba(148, 163, 184, 0.15)'
-    : hovered
-      ? '#d9fbff'
-      : state.active
-        ? 'rgba(155, 231, 245, 0.7)'
-        : 'rgba(192, 228, 248, 0.18)'
-  const textStyle = state.disabled
-    ? 'rgba(148, 163, 184, 0.5)'
-    : hovered
-      ? '#02131b'
-      : state.active
-        ? '#cdf3fa'
-        : '#d0e4ee'
+  const hovered = !style.disabled && hoveredAction === button.id
 
-  const r = 4
+  let fill: string
+  let stroke: string
+  let text: string
+
+  if (style.disabled) {
+    fill = 'rgba(22, 34, 44, 0.45)'
+    stroke = 'rgba(148, 163, 184, 0.12)'
+    text = 'rgba(148, 163, 184, 0.42)'
+  } else if (hovered) {
+    fill = ACCENT
+    stroke = '#d9fbff'
+    text = '#02131b'
+  } else if (style.active) {
+    fill = 'rgba(20, 96, 118, 0.9)'
+    stroke = 'rgba(103, 232, 249, 0.85)'
+    text = '#d9fbff'
+  } else if (style.accent) {
+    fill = 'rgba(22, 66, 84, 0.85)'
+    stroke = 'rgba(103, 232, 249, 0.55)'
+    text = '#d9f6fd'
+  } else {
+    fill = 'rgba(22, 48, 64, 0.72)'
+    stroke = 'rgba(192, 228, 248, 0.20)'
+    text = '#d0e4ee'
+  }
+
   ctx.beginPath()
-  ctx.roundRect(button.x, button.y, button.width, button.height, r)
-  ctx.fillStyle = fillStyle
+  ctx.roundRect(button.x, button.y, button.width, button.height, 12)
+  ctx.fillStyle = fill
   ctx.fill()
-  ctx.strokeStyle = strokeStyle
-  ctx.lineWidth = 1.5
+  ctx.strokeStyle = stroke
+  ctx.lineWidth = hovered || style.active ? 2 : 1.5
   ctx.stroke()
 
-  ctx.fillStyle = textStyle
-  ctx.font = '600 30px "Avenir Next", sans-serif'
+  ctx.fillStyle = text
+  ctx.font = `600 ${button.height >= 66 ? 30 : 26}px "Avenir Next", sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(
-    button.label,
-    button.x + button.width * 0.5,
-    button.y + button.height * 0.52
-  )
+  ctx.fillText(button.label, button.x + button.width * 0.5, button.y + button.height * 0.54)
+}
+
+const drawStepperRow = (
+  ctx: CanvasRenderingContext2D,
+  row: { label: string; valueX: number; valueY: number; buttons: WatchButton[] },
+  value: string,
+  hoveredAction: WatchActionId | null
+) => {
+  ctx.fillStyle = TEXT_DIM
+  ctx.font = '600 15px "Avenir Next", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText(row.label.toUpperCase(), row.valueX, row.valueY - 28)
+
+  ctx.fillStyle = TEXT_BRIGHT
+  ctx.font = '700 30px "Avenir Next", sans-serif'
+  ctx.fillText(value, row.valueX, row.valueY + 6)
+
+  for (const button of row.buttons) {
+    drawButton(ctx, button, hoveredAction)
+  }
 }
 
 const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
@@ -118,81 +167,131 @@ export const renderWatchExpanded = (
   clearCanvas(ctx)
   drawPanelBackground(ctx, layout.width, layout.height)
 
-  // ── Header: status badges ──
+  const left = SECTION_PADDING.left + 20
+
+  // ── Header ──
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
+  ctx.fillStyle = ACCENT
+  ctx.font = '700 16px "Avenir Next", sans-serif'
+  ctx.fillText('I N E R T I A L   W O R L D S', left, 26)
 
-  // Mode / region badge
+  ctx.fillStyle = TEXT_BRIGHT
+  ctx.font = '700 34px "Avenir Next", sans-serif'
+  ctx.fillText(snapshot.currentPresetName, left, 52)
+
+  // Mode badge, right-aligned.
   const modeLabel = snapshot.playerMode === 'attached' ? 'ATTACHED' : 'FREE-FLY'
-  const modeColor = snapshot.playerMode === 'attached' ? '#34d399' : '#a78bfa'
-  ctx.fillStyle = modeColor
-  ctx.font = '700 22px "Avenir Next", sans-serif'
-  ctx.fillText(modeLabel, 28, 18)
-
+  const modeColor = snapshot.playerMode === 'attached' ? '#34d399' : '#c4b5fd'
+  ctx.font = '700 19px "Avenir Next", sans-serif'
   const modeWidth = ctx.measureText(modeLabel).width
-  ctx.fillStyle = 'rgba(216, 235, 244, 0.55)'
+  const badgeX = layout.width - SECTION_PADDING.right - modeWidth - 36
+  ctx.fillStyle = 'rgba(16, 36, 52, 0.7)'
+  ctx.beginPath()
+  ctx.roundRect(badgeX, 50, modeWidth + 36, 38, 19)
+  ctx.fill()
+  ctx.fillStyle = modeColor
+  ctx.fillText(modeLabel, badgeX + 18, 59)
+
+  // Key readouts line.
+  ctx.fillStyle = TEXT_DIM
   ctx.font = '500 18px "Avenir Next", sans-serif'
-  ctx.fillText(`${snapshot.region}`, 28 + modeWidth + 14, 21)
-
-  // Preset + habitat line
-  ctx.fillStyle = '#e8f4fa'
-  ctx.font = '600 20px "Avenir Next", sans-serif'
-  ctx.fillText(snapshot.currentPresetName, 28, 50)
-
-  const presetWidth = ctx.measureText(snapshot.currentPresetName).width
-  ctx.fillStyle = 'rgba(180, 210, 228, 0.65)'
-  ctx.font = '500 17px "Avenir Next", sans-serif'
   ctx.fillText(
-    `${snapshot.habitatType} | R ${snapshot.radius.toFixed(0)}m | g ${snapshot.surfaceGravity.toFixed(2)}`,
-    28 + presetWidth + 14,
-    53
-  )
-
-  // Key numbers line
-  ctx.fillStyle = 'rgba(160, 195, 215, 0.6)'
-  ctx.font = '400 16px "Avenir Next", sans-serif'
-  ctx.fillText(
-    `rpm ${snapshot.rpm.toFixed(2)} | \u03C9 ${snapshot.omega.toFixed(3)} | sim ${snapshot.simScale.toFixed(3)} | balls ${snapshot.ballCount}`,
-    28,
-    80
-  )
-
-  ctx.fillText(
-    `jet ${snapshot.jetpackAcceleration.toFixed(1)} | profile ${snapshot.locomotionProfileId}`,
-    28,
+    `R ${snapshot.radius.toFixed(0)} m · span ${snapshot.span.toFixed(0)} m · ` +
+      `wall ${snapshot.wallSpeed.toFixed(0)} m/s · balls ${snapshot.ballCount}`,
+    left,
     102
   )
-
-  ctx.fillStyle = 'rgba(160, 195, 215, 0.72)'
-  ctx.font = '400 13px "Avenir Next", sans-serif'
+  ctx.fillStyle = TEXT_FAINT
+  ctx.font = '400 15px "Avenir Next", sans-serif'
   ctx.fillText(
-    `abs v x ${snapshot.absoluteVelocityX.toFixed(2)} | y ${snapshot.absoluteVelocityY.toFixed(2)} | z ${snapshot.absoluteVelocityZ.toFixed(2)} | |v| ${snapshot.absoluteSpeed.toFixed(2)}`,
-    28,
-    120
+    `|v| ${snapshot.absoluteSpeed.toFixed(2)} m/s · ${snapshot.region} · ${snapshot.habitatType} · sim ${snapshot.simScale.toFixed(3)}`,
+    left,
+    130
   )
 
-  // ── Adjustment rows ──
-  drawSectionDivider(ctx, 132, layout.width)
-  drawSectionHeader(ctx, 'PARAMETERS', 28, 138)
+  // ── Travel ──
+  drawSectionCard(
+    ctx,
+    layout.width,
+    layout.travelSection,
+    'Surface = street level · Overlook = above the plaza · Axis = zero-g'
+  )
 
-  for (const row of layout.rows) {
-    ctx.fillStyle = 'rgba(200, 220, 235, 0.6)'
-    ctx.font = '500 16px "Avenir Next", sans-serif'
-    ctx.textAlign = 'left'
-    ctx.fillText(row.label.toUpperCase(), row.valueX, row.valueY - 26)
-
-    ctx.fillStyle = '#eef5fa'
-    ctx.font = '700 28px "Avenir Next", sans-serif'
-    ctx.fillText(formatWatchParameterValue(row.key, snapshot), row.valueX, row.valueY)
-
-    for (const button of row.buttons) {
-      drawButton(ctx, button, hoveredAction)
-    }
+  for (const button of layout.respawnButtons) {
+    drawButton(ctx, button, hoveredAction, {
+      accent: true,
+      disabled: isWatchActionDisabled(snapshot, button.id)
+    })
   }
 
-  // ── Locomotion profile ──
-  drawSectionDivider(ctx, 710, layout.width)
-  drawSectionHeader(ctx, 'LOCOMOTION', 28, 716)
+  // ── Spin & gravity ──
+  drawSectionCard(ctx, layout.width, layout.spinSection, 'g = ω² R — slow the spin, lighten the world')
+  drawStepperRow(
+    ctx,
+    layout.spinRow,
+    `${formatWatchParameterValue('rpm', snapshot)} rpm`,
+    hoveredAction
+  )
+
+  // Gravity gauge: current surface gravity against 1g.
+  const gaugeX = left
+  const gaugeWidth = layout.width - left - SECTION_PADDING.right - 20
+  const gaugeY = layout.gravityGaugeY
+  const ratio = snapshot.surfaceGravity / EARTH_GRAVITY
+  const fillRatio = Math.min(ratio / 1.25, 1)
+
+  ctx.fillStyle = TEXT_DIM
+  ctx.font = '600 15px "Avenir Next", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText('SURFACE GRAVITY', gaugeX, gaugeY - 24)
+  ctx.fillStyle = TEXT_BRIGHT
+  ctx.font = '700 26px "Avenir Next", sans-serif'
+  ctx.textAlign = 'right'
+  ctx.fillText(
+    `${snapshot.surfaceGravity.toFixed(2)} m/s² · ${(ratio * 100).toFixed(0)}%`,
+    gaugeX + gaugeWidth,
+    gaugeY - 32
+  )
+  ctx.textAlign = 'left'
+
+  ctx.fillStyle = 'rgba(20, 40, 56, 0.85)'
+  ctx.beginPath()
+  ctx.roundRect(gaugeX, gaugeY, gaugeWidth, 16, 8)
+  ctx.fill()
+
+  if (fillRatio > 0.01) {
+    const fillGradient = ctx.createLinearGradient(gaugeX, 0, gaugeX + gaugeWidth, 0)
+    fillGradient.addColorStop(0, 'rgba(103, 232, 249, 0.45)')
+    fillGradient.addColorStop(1, ACCENT)
+    ctx.fillStyle = fillGradient
+    ctx.beginPath()
+    ctx.roundRect(gaugeX, gaugeY, gaugeWidth * fillRatio, 16, 8)
+    ctx.fill()
+  }
+
+  // 1g marker.
+  const markerX = gaugeX + gaugeWidth * (1 / 1.25)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(markerX, gaugeY - 5)
+  ctx.lineTo(markerX, gaugeY + 21)
+  ctx.stroke()
+  ctx.fillStyle = TEXT_FAINT
+  ctx.font = '600 13px "Avenir Next", sans-serif'
+  ctx.fillText('1g', markerX + 6, gaugeY + 8)
+
+  // ── Parameters ──
+  drawSectionCard(ctx, layout.width, layout.parameterSection)
+
+  for (const row of layout.rows) {
+    drawStepperRow(ctx, row, formatWatchParameterValue(row.key, snapshot), hoveredAction)
+  }
+
+  // ── Locomotion ──
+  drawSectionCard(ctx, layout.width, layout.locomotionSection)
 
   for (const button of layout.profileButtons) {
     drawButton(ctx, button, hoveredAction, {
@@ -201,36 +300,16 @@ export const renderWatchExpanded = (
   }
 
   // ── Presets ──
-  drawSectionDivider(ctx, 830, layout.width)
-  drawSectionHeader(ctx, 'PRESETS', 28, 836)
-
-  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
-  ctx.font = '400 14px "Avenir Next", sans-serif'
-  ctx.fillText('Clears balls, rebuilds physics, respawns on the inner wall.', 28, 858)
+  drawSectionCard(
+    ctx,
+    layout.width,
+    layout.presetSection,
+    'Rebuilds the habitat and respawns on the surface'
+  )
 
   for (const button of layout.presetButtons) {
     drawButton(ctx, button, hoveredAction, {
       active: isActivePresetAction(snapshot, button.id)
-    })
-  }
-
-  // ── Travel ──
-  drawSectionDivider(ctx, 1122, layout.width)
-  drawSectionHeader(ctx, 'TRAVEL', 28, 1128)
-
-  ctx.fillStyle = 'rgba(160, 195, 215, 0.5)'
-  ctx.font = '400 14px "Avenir Next", sans-serif'
-  ctx.fillText(
-    snapshot.habitatType === 'ring'
-      ? 'Surface = street level. Overlook = above the plaza. Axis = zero-g ring center.'
-      : 'Surface = street level. Overlook = above the plaza. Axis = zero-g near the end.',
-    28,
-    1150
-  )
-
-  for (const button of layout.respawnButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      disabled: isWatchActionDisabled(snapshot, button.id)
     })
   }
 }
