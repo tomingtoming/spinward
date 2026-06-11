@@ -9,15 +9,11 @@ on:
 
 permissions:
   contents: read
-  deployments: write
 
 jobs:
   ci:
-    name: Test, build, and deploy
+    name: Test and build
     runs-on: ubuntu-latest
-    concurrency:
-      group: cloudflare-pages-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -33,27 +29,3 @@ jobs:
 
       - name: Build
         run: bun run build
-
-      - name: Check Cloudflare credentials
-        id: cloudflare
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipping Cloudflare Pages deploy because CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured."
-          fi
-
-      - name: Deploy to Cloudflare Pages
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.cloudflare.outputs.ready == 'true'
-        id: deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=inertial-worlds
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
