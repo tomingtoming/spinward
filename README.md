@@ -63,6 +63,8 @@ GitHub repository secrets に以下を設定してください。
 
 Cloudflare API token には Cloudflare Pages の edit 権限が必要です。Pages project name は `inertial-worlds` です。
 
+OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inertial-worlds.pages.dev/`)と `public/og.png`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。
+
 ## Quest での注意
 
 - WebXR の `immersive-vr` は HTTPS が必要です。
