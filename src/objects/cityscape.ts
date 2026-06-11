@@ -586,7 +586,8 @@ export class Cityscape {
 
   private buildPatches(patches: CityPatch[], radius: number) {
     const bandRadius = radius - 0.04
-    const stripeWorld = getCityCellSize(radius) * 0.8
+    // Crop rows stay field-scale even on multi-km habitats.
+    const stripeWorld = Math.min(getCityCellSize(radius) * 0.8, 30)
 
     for (const kind of ['park', 'farm'] as const) {
       const geometries: THREE.BufferGeometry[] = []

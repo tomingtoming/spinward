@@ -250,6 +250,29 @@ describe('planCity', () => {
     }
   })
 
+  test('the spawn plaza block is never zoned as a park or farm', () => {
+    for (const radius of [18, 3200]) {
+      const { patches } = planCity({ radius, length: radius === 18 ? 120 : 40000 })
+
+      for (const patch of patches) {
+        const tangentDelta = Math.abs(wrapToPi(patch.azimuth)) * radius
+        const coversPlazaCenter =
+          tangentDelta < patch.tangentExtent * 0.5 &&
+          Math.abs(patch.axial) < patch.axialExtent * 0.5
+        expect(coversPlazaCenter).toBe(false)
+      }
+    }
+  })
+
+  test('trees stay human-scale on giant habitats', () => {
+    const { trees } = planCity({ radius: 3200, length: 40000 })
+    expect(trees.length).toBeGreaterThan(0)
+
+    for (const tree of trees) {
+      expect(tree.height).toBeLessThanOrEqual(9 * 1.05)
+    }
+  })
+
   test('plans the overlook tower just below the overlook altitude', () => {
     const radius = 18
     const { tower } = planCity({ radius, length: 120 })

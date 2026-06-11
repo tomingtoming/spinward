@@ -86,6 +86,9 @@ import { XRInputMap } from '../xr/xrInputMap'
 
 export const bootstrapApp = async () => {
   const settingsStore = createSettingsStore()
+  // The demo opens at Izma scale; Playground stays one preset tap away for
+  // close-range physics play.
+  applyPresetToSettingsStore(settingsStore, 'izma')
   const habitatConfig = settingsStore.habitat
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = {

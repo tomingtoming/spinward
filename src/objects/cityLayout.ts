@@ -117,14 +117,21 @@ export const getPlazaAxialHalfLength = (radius: number) => Math.max(12, radius *
 export const getOverlookAltitude = (radius: number) =>
   Math.min(60, Math.max(8, radius * 0.5))
 
-export const getOverlookTower = (radius: number): CityTower => ({
-  // Beside the plaza, trailing the Coriolis drift of the overlook drop so
-  // the falling player slides past the tower instead of through it.
-  azimuth: -Math.min(6, getPlazaTangentHalfWidth(radius) * 0.5) / radius,
-  axial: 0,
-  height: Math.max(4, getOverlookAltitude(radius) - 1.5),
-  deckRadius: Math.min(12, Math.max(2, radius * 0.12))
-})
+export const getOverlookTower = (radius: number): CityTower => {
+  const deckRadius = Math.min(12, Math.max(2, radius * 0.12))
+
+  return {
+    // Beside the plaza, trailing the Coriolis drift of the overlook drop so
+    // the falling player slides past the tower instead of through it. The
+    // offset grows with the deck so the column does not fill the spawn view.
+    azimuth:
+      -Math.min(getPlazaTangentHalfWidth(radius) * 0.7, 8 + deckRadius * 1.4) /
+      radius,
+    axial: 0,
+    height: Math.max(4, getOverlookAltitude(radius) - 1.5),
+    deckRadius
+  }
+}
 
 export const isInsidePlaza = (
   azimuth: number,
@@ -327,15 +334,21 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         }
 
         // Block zoning: most blocks are residential, the rest become parks
-        // (green + trees) or farm fields.
+        // (green + trees) or farm fields. The spawn plaza's block always
+        // stays residential so the player starts on open plaza ground.
         const zoneRoll = random()
+        const blockCenterAzimuth = stripCenter + ((tangent0 + tangent1) * 0.5) / radius
+        const blockCenterAxial = (axial0 + axial1) * 0.5
 
-        if (zoneRoll < PARK_BLOCK_PROBABILITY + FARM_BLOCK_PROBABILITY) {
+        if (
+          zoneRoll < PARK_BLOCK_PROBABILITY + FARM_BLOCK_PROBABILITY &&
+          !isInsidePlaza(blockCenterAzimuth, blockCenterAxial, radius)
+        ) {
           const kind: CityPatchKind =
             zoneRoll < PARK_BLOCK_PROBABILITY ? 'park' : 'farm'
           patches.push({
-            azimuth: stripCenter + ((tangent0 + tangent1) * 0.5) / radius,
-            axial: (axial0 + axial1) * 0.5,
+            azimuth: blockCenterAzimuth,
+            axial: blockCenterAxial,
             tangentExtent: innerWidth,
             axialExtent: innerLength,
             kind
@@ -369,7 +382,9 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               trees.push({
                 azimuth: treeAzimuth,
                 axial: treeAxial,
-                height: cell * (0.55 + heightRoll * 0.5),
+                // Trees are human-scale: the size basis is clamped so giant
+                // habitats do not grow 100m cones.
+                height: Math.min(cell, 9) * (0.55 + heightRoll * 0.5),
                 tone: toneRoll
               })
             }
