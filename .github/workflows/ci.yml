@@ -9,14 +9,15 @@ on:
 
 permissions:
   contents: read
-
-env:
-  VITE_BASE_PATH: /inertial-worlds/
+  deployments: write
 
 jobs:
-  build:
-    name: Test and build
+  ci:
+    name: Test, build, and deploy
     runs-on: ubuntu-latest
+    concurrency:
+      group: cloudflare-pages-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -33,28 +34,12 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Upload Pages artifact
+      - name: Deploy to Cloudflare Pages
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-pages-artifact@v4
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: dist
-
-  deploy:
-    name: Deploy GitHub Pages
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=inertial-worlds
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

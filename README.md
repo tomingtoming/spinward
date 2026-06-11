@@ -52,6 +52,17 @@ bun run build
 bun run preview -- --host 0.0.0.0
 ```
 
+## Cloudflare Pages
+
+GitHub Actions は `main` への push で `bun test` と `bun run build` を実行し、成功した場合だけ Cloudflare Pages へ `dist/` を direct upload します。
+
+GitHub repository secrets に以下を設定してください。
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+
+Cloudflare API token には Cloudflare Pages の edit 権限が必要です。Pages project name は `inertial-worlds` です。
+
 ## Quest での注意
 
 - WebXR の `immersive-vr` は HTTPS が必要です。
