@@ -198,15 +198,15 @@ export class CylinderHabitat {
   // stars bleed through the floor and read as glass. Openness lives in the
   // carved window strips instead.
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2a3c50,
+    color: 0xa9adb2,
     map: this.nearShellTexture,
     side: THREE.BackSide,
-    roughness: 0.9,
-    metalness: 0.05
+    roughness: 0.92,
+    metalness: 0.04
   })
 
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x223040,
+    color: 0x8d9298,
     map: this.farShellTexture,
     side: THREE.BackSide,
     roughness: 0.95,

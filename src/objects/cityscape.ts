@@ -261,6 +261,19 @@ export class Cityscape {
     toneMapped: false
   })
 
+  private readonly bridgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x6b7682,
+    roughness: 0.7,
+    metalness: 0.3,
+    side: THREE.DoubleSide
+  })
+
+  private readonly bridgeEdgeMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffd9a0,
+    toneMapped: false,
+    side: THREE.DoubleSide
+  })
+
   private readonly roadMaterial = new THREE.MeshBasicMaterial({
     color: 0x141a21,
     transparent: true,
@@ -332,6 +345,8 @@ export class Cityscape {
   private largeBuildings: THREE.InstancedMesh | null = null
   private collisionBuildings: CityBuilding[] = []
   private windowStrips: THREE.Mesh[] = []
+  private bridges: THREE.Mesh | null = null
+  private bridgeEdges: THREE.Mesh | null = null
   private mirrors: THREE.Mesh[] = []
   private roads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
@@ -372,6 +387,7 @@ export class Cityscape {
     this.buildTrees(plan.trees, radius)
     this.buildLamps(plan.roads, radius, length)
     this.buildWindowStrips(radius, length)
+    this.buildWindowBridges(radius, length)
     this.buildMirrors(radius, length)
     this.buildCables(radius, length)
     this.buildSpineRings(radius, length)
@@ -424,6 +440,8 @@ export class Cityscape {
     this.mirrorMaterial.dispose()
     this.axisSpineMaterial.dispose()
     this.roadMaterial.dispose()
+    this.bridgeMaterial.dispose()
+    this.bridgeEdgeMaterial.dispose()
     this.parkMaterial.dispose()
     this.farmMaterial.map?.dispose()
     this.farmMaterial.dispose()
@@ -455,7 +473,14 @@ export class Cityscape {
 
     this.patchMeshes = []
 
-    for (const single of [this.trees, this.lamps, this.cables, this.spineRings]) {
+    for (const single of [
+      this.trees,
+      this.lamps,
+      this.cables,
+      this.spineRings,
+      this.bridges,
+      this.bridgeEdges
+    ]) {
       if (single !== null) {
         single.geometry.dispose()
         this.group.remove(single)
@@ -466,6 +491,8 @@ export class Cityscape {
     this.lamps = null
     this.cables = null
     this.spineRings = null
+    this.bridges = null
+    this.bridgeEdges = null
 
     if (this.towerGroup !== null) {
       for (const child of this.towerGroup.children) {
@@ -924,6 +951,78 @@ export class Cityscape {
       strip.renderOrder = 2
       this.windowStrips.push(strip)
       this.group.add(strip)
+    }
+  }
+
+  // Bridges spanning the window strips at regular intervals, tying the
+  // three land strips together — and giving the windows visible scale.
+  private buildWindowBridges(radius: number, length: number) {
+    const cell = getCityCellSize(radius, length)
+    const spacing = THREE.MathUtils.clamp(cell * 8, 40, 2400)
+    const deckWidth = THREE.MathUtils.clamp(cell * 0.6, 3, 36)
+    const count = Math.floor(length / spacing)
+
+    if (count < 1) {
+      return
+    }
+
+    const deckParts: THREE.BufferGeometry[] = []
+    const edgeParts: THREE.BufferGeometry[] = []
+    const deckRadius = radius - 0.12
+    const edgeWidth = Math.max(0.25, deckWidth * 0.08)
+
+    for (const arc of getWindowStripArcs()) {
+      const thetaStart = getThetaStart(arc.centerAzimuth, arc.arcRadians)
+      const segments = Math.max(6, Math.ceil(arc.arcRadians / THREE.MathUtils.degToRad(4)))
+
+      for (let index = 0; index < count; index += 1) {
+        const axial = -length * 0.5 + spacing * (index + 0.5)
+
+        const deck = new THREE.CylinderGeometry(
+          deckRadius,
+          deckRadius,
+          deckWidth,
+          segments,
+          1,
+          true,
+          thetaStart,
+          arc.arcRadians
+        )
+        deck.translate(0, axial, 0)
+        deckParts.push(deck)
+
+        for (const side of [-1, 1]) {
+          const edge = new THREE.CylinderGeometry(
+            deckRadius - 0.05,
+            deckRadius - 0.05,
+            edgeWidth,
+            segments,
+            1,
+            true,
+            thetaStart,
+            arc.arcRadians
+          )
+          edge.translate(0, axial + side * (deckWidth * 0.5 - edgeWidth * 0.5), 0)
+          edgeParts.push(edge)
+        }
+      }
+    }
+
+    const deckMerged = mergeBufferGeometries(deckParts)
+    const edgeMerged = mergeBufferGeometries(edgeParts)
+
+    for (const part of [...deckParts, ...edgeParts]) {
+      part.dispose()
+    }
+
+    if (deckMerged !== null) {
+      this.bridges = new THREE.Mesh(deckMerged, this.bridgeMaterial)
+      this.group.add(this.bridges)
+    }
+
+    if (edgeMerged !== null) {
+      this.bridgeEdges = new THREE.Mesh(edgeMerged, this.bridgeEdgeMaterial)
+      this.group.add(this.bridgeEdges)
     }
   }
 

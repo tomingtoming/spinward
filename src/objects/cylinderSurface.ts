@@ -31,7 +31,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
     throw new Error('2D canvas context is required for cylinder surface texture')
   }
 
-  context.fillStyle = '#1a2634'
+  context.fillStyle = '#2f343a'
   context.fillRect(0, 0, size, size)
 
   const tileSize = size / minorGridDivisions
@@ -39,7 +39,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   for (let column = 0; column <= minorGridDivisions; column += 1) {
     const x = Math.round(column * tileSize) + 0.5
     const major = column % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.28)' : 'rgba(160, 200, 235, 0.12)'
+    context.strokeStyle = major ? 'rgba(205, 212, 220, 0.22)' : 'rgba(185, 195, 205, 0.10)'
     context.lineWidth = major ? 2 : 1
     context.beginPath()
     context.moveTo(x, 0)
@@ -50,7 +50,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   for (let row = 0; row <= minorGridDivisions; row += 1) {
     const y = Math.round(row * tileSize) + 0.5
     const major = row % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(180, 220, 255, 0.28)' : 'rgba(160, 200, 235, 0.12)'
+    context.strokeStyle = major ? 'rgba(205, 212, 220, 0.22)' : 'rgba(185, 195, 205, 0.10)'
     context.lineWidth = major ? 2 : 1
     context.beginPath()
     context.moveTo(0, y)
@@ -63,8 +63,8 @@ export const createCylinderSurfaceTexture = (size = 512) => {
       const x = column * tileSize
       const y = row * tileSize
       const inset = tileSize * 0.16
-      const tint = (row + column) % 2 === 0 ? 0.08 : 0.13
-      context.fillStyle = `rgba(255, 255, 255, ${tint})`
+      const tint = (row + column) % 2 === 0 ? 0.05 : 0.1
+      context.fillStyle = `rgba(228, 232, 236, ${tint})`
       context.fillRect(
         x + inset,
         y + inset,
@@ -73,7 +73,7 @@ export const createCylinderSurfaceTexture = (size = 512) => {
       )
 
       if ((row + column) % majorGridStep === 0) {
-        context.strokeStyle = 'rgba(250, 204, 21, 0.42)'
+        context.strokeStyle = 'rgba(214, 182, 89, 0.28)'
         context.lineWidth = 1.5
         context.strokeRect(
           x + tileSize * 0.28,

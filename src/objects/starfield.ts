@@ -10,12 +10,14 @@ const shellDirection = new THREE.Vector3()
 export class Starfield {
   readonly group = new THREE.Group()
 
+  // Fixed pixel size: with world-unit attenuation, small habitats put the
+  // star shell close to the camera and the stars turned into chunky dots.
   private readonly starsMaterial = new THREE.PointsMaterial({
     color: 0xe5f4ff,
-    size: 0.9,
-    sizeAttenuation: true,
+    size: 2.2,
+    sizeAttenuation: false,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.9,
     // Stars sit outside the habitat atmosphere; the interior haze must not
     // wash them out.
     fog: false
