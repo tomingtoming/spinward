@@ -194,22 +194,21 @@ export class CylinderHabitat {
   private readonly nearShellTexture = createCylinderSurfaceTexture()
   private readonly farShellTexture = createCylinderSurfaceTexture()
 
+  // Solid ground: the land strips are opaque terrain — translucency made
+  // stars bleed through the floor and read as glass. Openness lives in the
+  // carved window strips instead.
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x243447,
+    color: 0x2a3c50,
     map: this.nearShellTexture,
     side: THREE.BackSide,
-    transparent: true,
-    opacity: 0.92,
     roughness: 0.9,
     metalness: 0.05
   })
 
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1a2532,
+    color: 0x223040,
     map: this.farShellTexture,
     side: THREE.BackSide,
-    transparent: true,
-    opacity: 0.84,
     roughness: 0.95,
     metalness: 0.03
   })
@@ -237,10 +236,7 @@ export class CylinderHabitat {
     emissive: 0x0e1e2d,
     roughness: 0.8,
     metalness: 0.3,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.45,
-    depthWrite: false
+    side: THREE.DoubleSide
   })
 
   private readonly endCapMaterial = new THREE.MeshStandardMaterial({
