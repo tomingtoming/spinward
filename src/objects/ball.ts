@@ -36,6 +36,7 @@ type BallOptions = {
   omega: number
   nowSeconds?: () => number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
+  onBounce?: (ball: Ball, impactSpeed: number) => void
 }
 
 type BallStepConfig = {
@@ -65,6 +66,7 @@ const CHARGED_EMISSIVE = new THREE.Color(0x164e63)
 const displayColor = new THREE.Color()
 const displayEmissive = new THREE.Color()
 const trailDisplayPoint = new THREE.Vector3()
+const preCollisionVelocity = new THREE.Vector3()
 
 const createTrailGeometry = (positions: Float32Array) => {
   const geometry = new THREE.BufferGeometry()
@@ -93,6 +95,7 @@ export class Ball {
     ball: Ball,
     heldSeconds: number
   ) => void
+  private readonly onBounce?: (ball: Ball, impactSpeed: number) => void
   private readonly nowSeconds: () => number
   private readonly world: World
   private readonly restitution: number
@@ -117,6 +120,7 @@ export class Ball {
     this.lifetimeSeconds = options.lifetimeSeconds
     this.maxTrailPoints = options.maxTrailPoints
     this.onReleased = options.onReleased
+    this.onBounce = options.onBounce
     this.nowSeconds = options.nowSeconds ?? (() => performance.now() * 0.001)
     this.world = options.physics.world
     this.restitution = options.physics.restitution
@@ -394,6 +398,7 @@ export class Ball {
   }
 
   private applyHabitatCollision(config: BallStepConfig) {
+    preCollisionVelocity.copy(this.rotatingVelocity)
     const collidedWall = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
       radius: config.habitatRadius,
       length: config.habitatLength,
@@ -418,6 +423,8 @@ export class Ball {
     if (!collidedWall && !collidedCity) {
       return
     }
+
+    this.onBounce?.(this, preCollisionVelocity.sub(this.rotatingVelocity).length())
 
     this.mesh.position.copy(this.rotatingPosition)
     rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)

@@ -88,6 +88,7 @@ bun run preview -- --host 0.0.0.0
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
 - PC: `Tab` で quick panel を開閉し、クリックで wrist UI と同じ Travel、SPIN(rpm+重力ゲージ)、設定、preset を操作できます。
 - HUD は左下のステータスチップ(preset / g / rpm / mode)と、折りたたみ式の `controls` / `debug` ドロワーに整理されています。デバッグ数値は `debug` を開くと見られます。
+- **音響**(全合成、アセットなし):ハビタットの環境音、スロー/バウンド/ジャンプ/着地/UIクリックのSFX。初回操作で有効化され、`M` でミュートできます。ボールのバウンド音は衝撃と距離で減衰します。
 - 起動時にはスプラッシュ(INERTIAL WORLDS)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。
 - GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。

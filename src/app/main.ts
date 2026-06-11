@@ -6,6 +6,7 @@ import {
   getDisplayRootRotation,
   getEffectiveObserverMode
 } from './observerMode'
+import { GameAudio } from './audio'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
@@ -122,6 +123,9 @@ export const bootstrapApp = async () => {
   const backgroundDayColor = new THREE.Color(0x08131d)
   const backgroundNightColor = new THREE.Color(0x040810)
   let dayNightPhase = INITIAL_DAY_NIGHT_PHASE
+  const audio = new GameAudio()
+  const sunNoonColor = new THREE.Color(0xfff2dd)
+  const sunLowColor = new THREE.Color(0xffbe82)
   const worldRoot = new THREE.Group()
   const skyLayer = new THREE.Group()
   const farLayer = new THREE.Group()
@@ -189,6 +193,7 @@ export const bootstrapApp = async () => {
   renderer.xr.setReferenceSpaceType('local-floor')
   document.body.appendChild(renderer.domElement)
   document.body.appendChild(VRButton.createButton(renderer))
+  renderer.xr.addEventListener('sessionstart', () => audio.unlock())
 
   const desktopLookControls = new DesktopLookControls(
     playerRig,
@@ -443,6 +448,7 @@ export const bootstrapApp = async () => {
 
   function handleWatchAction(action: WatchActionId) {
     if (applyWatchAction(settingsStore, action)) {
+      audio.playClick()
       if (action.startsWith('rpm-')) {
         notifyTourEvent(tourGuide, 'spin-change')
       }
@@ -453,6 +459,7 @@ export const bootstrapApp = async () => {
 
     switch (runtimeAction?.kind) {
       case 'preset':
+        audio.playClick()
         frameAngle = 0
         applyPresetToSettingsStore(settingsStore, runtimeAction.presetId)
         clearAllBalls()
@@ -462,6 +469,7 @@ export const bootstrapApp = async () => {
         settingsDirty = false
         return true
       case 'respawn':
+        audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
           notifyTourEvent(tourGuide, 'surface')
           return respawnPlayerInnerWall()
@@ -550,7 +558,12 @@ export const bootstrapApp = async () => {
       lifetimeSeconds: habitatConfig.ballLifetimeSeconds,
       frameAngle,
       omega,
+      onBounce: (bouncedBall, impactSpeed) => {
+        const distance = bouncedBall.position.distanceTo(playerFixedColliderPosition)
+        audio.playBounce(impactSpeed * Math.min(1, 12 / (distance + 3)))
+      },
       onReleased: (controller, releasedBall, heldSeconds) => {
+        audio.playThrow()
         getForwardDirection(controller, worldForward)
         controllerVelocity.getLocalVelocity(controller, controllerLocalVelocity)
 
@@ -629,6 +642,7 @@ export const bootstrapApp = async () => {
     }
 
     spawnBall({ origin: camera })
+    audio.playThrow()
   }
 
   const requestDesktopThrow = () => {
@@ -640,6 +654,12 @@ export const bootstrapApp = async () => {
   }
 
   window.addEventListener('keydown', (event) => {
+    audio.unlock()
+
+    if (event.code === 'KeyM' && !event.repeat) {
+      audio.toggleMuted()
+    }
+
     if (renderer.xr.isPresenting) {
       return
     }
@@ -691,6 +711,8 @@ export const bootstrapApp = async () => {
   })
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
+    audio.unlock()
+
     if (event.button !== 0) {
       return
     }
@@ -766,6 +788,7 @@ export const bootstrapApp = async () => {
       })
       beginJump(jumpState)
       notifyTourEvent(tourGuide, 'jump')
+      audio.playJump()
     }
 
     if (playerTraversal.mode === 'attached' && locomotionIntent.detachRequested) {
@@ -863,6 +886,7 @@ export const bootstrapApp = async () => {
     })
 
     if (jumpLanded) {
+      audio.playLand()
       tryReattachPlayer(playerTraversal, {
         ...jumpLandingTuning,
         radius: habitatConfig.radius,
@@ -1030,6 +1054,8 @@ export const bootstrapApp = async () => {
 
     for (const windowSun of windowSuns) {
       windowSun.intensity = 0.06 + daylight * 1.25
+      // Color temperature drops toward sunset: warm low sun, white noon.
+      windowSun.color.lerpColors(sunLowColor, sunNoonColor, Math.min(1, daylight * 2))
     }
 
     fog.color.lerpColors(fogNightColor, fogDayColor, daylight)

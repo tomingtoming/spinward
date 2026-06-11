@@ -23,7 +23,8 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     body: [
       'You live on the inside of a spinning cylinder.',
       'The floor pushes you in a circle - that push is your "gravity".',
-      'WASD / grip to move · click / trigger to throw · Space / A to jump'
+      'WASD / grip to move · click / trigger to throw · Space / A to jump',
+      'Tour: throw → jump → ② Overlook → ③ Axis'
     ],
     durationSeconds: 14
   },

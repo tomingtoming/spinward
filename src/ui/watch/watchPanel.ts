@@ -12,7 +12,8 @@ import {
 } from './watchLayout'
 import { renderWatchExpanded } from './watchRenderer'
 
-const EXPANDED_SCALE = new THREE.Vector3(0.25, 0.26, 1)
+// Matches the 720x1340 canvas aspect so wrist text is not squashed.
+const EXPANDED_SCALE = new THREE.Vector3(0.19, (0.19 * 1340) / 720, 1)
 const WRIST_BACK_MARGIN = 0.10
 const WRIST_DORSAL_OFFSET = 0.008
 const WRIST_LATERAL_OFFSET = -0.01

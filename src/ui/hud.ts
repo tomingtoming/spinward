@@ -44,7 +44,7 @@ export type HudHandle = {
 }
 
 const CONTROLS_TEXT =
-  'PC - WASD: walk/jetpack | click: throw | Space: jump | 1/2/3: travel | F: launch | Shift: brake | right-drag/arrows: look | Tab: menu\n' +
+  'PC - WASD: walk/jetpack | click: throw | Space: jump | 1/2/3: travel | F: launch | Shift: brake | right-drag/arrows: look | Tab: menu | M: mute\n' +
   'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel | right A: jump | right stick: snap turn\n' +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
