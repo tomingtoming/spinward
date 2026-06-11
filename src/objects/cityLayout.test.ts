@@ -288,6 +288,18 @@ describe('planCity', () => {
     expect(getPlazaAxialHalfLength(18)).toBe(12)
   })
 
+  test('building heights stay in the near-1g band on giant habitats', () => {
+    for (const [radius, length] of [[3200, 40000], [30000, 2000]] as const) {
+      const { buildings } = planCity({ radius, length })
+      expect(buildings.length).toBeGreaterThan(0)
+
+      for (const building of buildings) {
+        // heightBase clamp (55m) times the maximum towerness factor (1.35).
+        expect(building.height).toBeLessThanOrEqual(55 * 1.35 + 1e-9)
+      }
+    }
+  })
+
   test('plans the overlook tower just below the overlook altitude', () => {
     const radius = 18
     const { tower } = planCity({ radius, length: 120 })

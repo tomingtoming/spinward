@@ -210,7 +210,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const streetWidth = cell * 0.45
   const sidewalk = cell * SIDEWALK_FRACTION
   const lot = cell * LOT_FRACTION
-  const heightBase = Math.min(radius * 0.22, cell * 2.4)
+  // Buildings are human habitation: spin gravity falls off linearly with
+  // height (g(h) = g0 * (1 - h/R)), so everyday buildings cling to the 1g
+  // band near the surface. The absolute clamp keeps even giant habitats'
+  // towers within a few percent of surface gravity.
+  const heightBase = Math.min(radius * 0.22, cell * 2.4, 55)
   const usableArc = STRIP_ARC_RADIANS * LAND_STRIP_USABLE_FRACTION
   const tangentExtent = usableArc * radius
   const axialHalf = Math.max(0, length * 0.5 - cell)

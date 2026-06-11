@@ -128,9 +128,10 @@ const createMirrorTexture = () => {
   return texture
 }
 
-// Facade texture shared by every building: a window grid where a portion of
-// the windows are lit. Used as the emissive map on the side faces.
-const createWindowTexture = () => {
+// Facade texture shared by buildings: a window grid where a portion of the
+// windows are lit. Used as the emissive map on the side faces. Large
+// buildings get a denser grid so their windows stay window-sized.
+const createWindowTexture = (columns = 6, rows = 9) => {
   const size = 128
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -150,8 +151,6 @@ const createWindowTexture = () => {
   context.fillStyle = '#000000'
   context.fillRect(0, 0, size, size)
 
-  const columns = 6
-  const rows = 9
   const cellWidth = size / columns
   const cellHeight = size / rows
 
@@ -185,6 +184,7 @@ export class Cityscape {
   readonly group = new THREE.Group()
 
   private readonly windowTexture = createWindowTexture()
+  private readonly largeWindowTexture = createWindowTexture(14, 20)
 
   // Side faces carry the lit-window emissive map; roof and foundation stay
   // plain so towers do not glow from above.
@@ -195,6 +195,15 @@ export class Cityscape {
     emissive: new THREE.Color(0xffe2b8),
     emissiveIntensity: 0.65,
     emissiveMap: this.windowTexture
+  })
+
+  private readonly largeBuildingSideMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.85,
+    metalness: 0.1,
+    emissive: new THREE.Color(0xffe2b8),
+    emissiveIntensity: 0.65,
+    emissiveMap: this.largeWindowTexture
   })
 
   private readonly buildingRoofMaterial = new THREE.MeshStandardMaterial({
@@ -298,6 +307,7 @@ export class Cityscape {
   })
 
   private buildings: THREE.InstancedMesh | null = null
+  private largeBuildings: THREE.InstancedMesh | null = null
   private collisionBuildings: CityBuilding[] = []
   private windowStrips: THREE.Mesh[] = []
   private mirrors: THREE.Mesh[] = []
@@ -360,6 +370,8 @@ export class Cityscape {
     this.mirrorMaterial.color.lerpColors(MIRROR_NIGHT, MIRROR_DAY, daylight)
     this.windowStripMaterial.opacity = 0.05 + daylight * 0.12
     this.buildingSideMaterial.emissiveIntensity = 0.6 + (1 - daylight) * 0.85
+    this.largeBuildingSideMaterial.emissiveIntensity =
+      this.buildingSideMaterial.emissiveIntensity
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
@@ -381,8 +393,10 @@ export class Cityscape {
   dispose() {
     this.clear()
     this.buildingSideMaterial.dispose()
+    this.largeBuildingSideMaterial.dispose()
     this.buildingRoofMaterial.dispose()
     this.windowTexture.dispose()
+    this.largeWindowTexture.dispose()
     this.windowStripMaterial.dispose()
     this.mirrorMaterial.map?.dispose()
     this.mirrorMaterial.dispose()
@@ -402,11 +416,15 @@ export class Cityscape {
   private clear() {
     this.collisionBuildings = []
 
-    if (this.buildings !== null) {
-      this.buildings.geometry.dispose()
-      this.group.remove(this.buildings)
-      this.buildings = null
+    for (const batch of [this.buildings, this.largeBuildings]) {
+      if (batch !== null) {
+        batch.geometry.dispose()
+        this.group.remove(batch)
+      }
     }
+
+    this.buildings = null
+    this.largeBuildings = null
 
     for (const patch of this.patchMeshes) {
       patch.geometry.dispose()
@@ -463,20 +481,33 @@ export class Cityscape {
   }
 
   private buildBuildings(plan: CityBuilding[]) {
+    // Wide slabs sample the denser window grid so their windows stay
+    // window-sized; small blocks keep the coarse one.
+    const small = plan.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
+    const large = plan.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
+
+    this.buildings = this.buildBuildingBatch(small, this.buildingSideMaterial)
+    this.largeBuildings = this.buildBuildingBatch(large, this.largeBuildingSideMaterial)
+  }
+
+  private buildBuildingBatch(
+    plan: CityBuilding[],
+    sideMaterial: THREE.MeshStandardMaterial
+  ): THREE.InstancedMesh | null {
     if (plan.length === 0) {
-      return
+      return null
     }
 
     const geometry = new THREE.BoxGeometry(1, 1, 1)
     // BoxGeometry group order: +x, -x, +y, -y, +z, -z. Local +y is the roof
     // (toward the axis) in the instance basis below.
     const materials = [
-      this.buildingSideMaterial,
-      this.buildingSideMaterial,
+      sideMaterial,
+      sideMaterial,
       this.buildingRoofMaterial,
       this.buildingRoofMaterial,
-      this.buildingSideMaterial,
-      this.buildingSideMaterial
+      sideMaterial,
+      sideMaterial
     ]
     const mesh = new THREE.InstancedMesh(geometry, materials, plan.length)
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
@@ -510,8 +541,8 @@ export class Cityscape {
       mesh.instanceColor.needsUpdate = true
     }
 
-    this.buildings = mesh
     this.group.add(mesh)
+    return mesh
   }
 
   private buildRoads(roads: CityRoad[], radius: number) {
