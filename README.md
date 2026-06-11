@@ -97,7 +97,7 @@ Cloudflare API token には Cloudflare Pages の edit 権限が必要です。Pa
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
 - PC: `Shift` で `free-fly` の平行移動 brake を掛けられます。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
-- PC: `Tab` で quick panel を開閉し、クリックで wrist UI と同じ Travel、SPIN(rpm+重力ゲージ)、設定、preset を操作できます。
+- PC: `Tab` で quick panel を開閉し、クリックで wrist UI と同じ Travel、SPIN(rpm+重力ゲージ)、設定(半径・**全長**・スロー・ジェットパック・リアタッチ・**昼夜サイクル長**(0で停止))、preset を操作できます。
 - HUD は左下のステータスチップ(preset / g / rpm / mode)と、折りたたみ式の `controls` / `debug` ドロワーに整理されています。デバッグ数値は `debug` を開くと見られます。
 - **音響**(全合成、アセットなし):ハビタットの環境音、スロー/バウンド/ジャンプ/着地/UIクリックのSFX。初回操作で有効化され、`M` でミュートできます。ボールのバウンド音は衝撃と距離で減衰します。
 - 起動時にはスプラッシュ(INERTIAL WORLDS)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。

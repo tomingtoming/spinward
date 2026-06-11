@@ -54,12 +54,14 @@ test('createWatchExpandedLayout splits the spin row from the parameter rows', ()
 
   expect(layout.rows.map((row) => row.key)).toEqual([
     'radius',
+    'length',
     'throwScale',
     'jetpackAcceleration',
-    'reattachThreshold'
+    'reattachThreshold',
+    'dayCycleSeconds'
   ])
 
-  expect(layout.rows[3]?.buttons.map((button) => button.id)).toEqual([
+  expect(layout.rows[4]?.buttons.map((button) => button.id)).toEqual([
     'reattach-threshold-coarse-decrement',
     'reattach-threshold-fine-decrement',
     'reattach-threshold-fine-increment',

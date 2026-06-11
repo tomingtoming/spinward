@@ -1,3 +1,4 @@
+import { DEFAULT_DAY_NIGHT_CYCLE_SECONDS } from '../app/dayNight'
 import { DEFAULT_REATTACH_TUNING, type ReattachTuning } from '../app/playerTraversal'
 import {
   DEFAULT_HABITAT_CONFIG,
@@ -68,6 +69,9 @@ export const createSettingsStore = (
     ...DEFAULT_REATTACH_TUNING,
     ...reattachOverrides
   }
+  const environment = {
+    dayCycleSeconds: DEFAULT_DAY_NIGHT_CYCLE_SECONDS
+  }
   let locomotionProfileId: LocomotionProfileId = DEFAULT_LOCOMOTION_PROFILE_ID
   const listeners = new Set<SettingsListener>()
   const markHabitatCustom = () => {
@@ -128,6 +132,31 @@ export const createSettingsStore = (
       onAdjusted: markHabitatCustom
     }
   )
+  const lengthStepper = createScalarStepper(
+    () => habitat.length,
+    (value) => {
+      habitat.length = value
+    },
+    {
+      significantDigits: 3,
+      minStep: 1,
+      min: 40,
+      max: 200000,
+      onAdjusted: markHabitatCustom
+    }
+  )
+  const dayCycleStepper = createScalarStepper(
+    () => environment.dayCycleSeconds,
+    (value) => {
+      environment.dayCycleSeconds = value
+    },
+    {
+      significantDigits: 2,
+      minStep: 10,
+      min: 0,
+      max: 900
+    }
+  )
   const rpmStepper = createScalarStepper(
     () => habitat.rpm,
     (value) => {
@@ -182,6 +211,7 @@ export const createSettingsStore = (
   return {
     habitat,
     reattach,
+    environment,
     subscribe(listener: SettingsListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -219,6 +249,10 @@ export const createSettingsStore = (
     },
     getRadiusFineStep: radiusStepper.getFineStep,
     getRadiusCoarseStep: radiusStepper.getCoarseStep,
+    getLengthFineStep: lengthStepper.getFineStep,
+    getLengthCoarseStep: lengthStepper.getCoarseStep,
+    getDayCycleFineStep: dayCycleStepper.getFineStep,
+    getDayCycleCoarseStep: dayCycleStepper.getCoarseStep,
     getRpmFineStep: rpmStepper.getFineStep,
     getRpmCoarseStep: rpmStepper.getCoarseStep,
     getThrowScaleFineStep: throwScaleStepper.getFineStep,
@@ -228,6 +262,8 @@ export const createSettingsStore = (
     getReattachThresholdFineStep: reattachThresholdStepper.getFineStep,
     getReattachThresholdCoarseStep: reattachThresholdStepper.getCoarseStep,
     adjustRadius: radiusStepper.adjust,
+    adjustLength: lengthStepper.adjust,
+    adjustDayCycle: dayCycleStepper.adjust,
     adjustRpm: rpmStepper.adjust,
     adjustThrowScale: throwScaleStepper.adjust,
     adjustJetpackAcceleration: jetpackAccelerationStepper.adjust,

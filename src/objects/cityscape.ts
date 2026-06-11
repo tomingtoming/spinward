@@ -40,7 +40,7 @@ const instanceColor = new THREE.Color()
 const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 
 const MIRROR_DAY = new THREE.Color(0xffffff)
-const MIRROR_NIGHT = new THREE.Color(0x2a3648)
+const MIRROR_NIGHT = new THREE.Color(0x55657a)
 const LAMP_DAY = new THREE.Color(0x6b5a40)
 const LAMP_NIGHT = new THREE.Color(0xffe2b0)
 const SPINE_DAY = new THREE.Color(0xffeec4)
@@ -122,6 +122,28 @@ const createMirrorTexture = () => {
     context.lineTo(offset + 0.5, size)
     context.stroke()
   }
+
+  // Reflected starfield: the mirror is what you see through the windows,
+  // so the night sky lives on its surface. Denser toward the space end.
+  let seed = 0x51c0ffee >>> 0
+  const random = () => {
+    seed = (1664525 * seed + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
+
+  for (let star = 0; star < 240; star += 1) {
+    const x = random() * size
+    const y = random() * size
+    // Canvas top = far (dark) end of the petal.
+    const weight = 1 - y / size
+    const alpha = (0.3 + random() * 0.7) * (0.35 + weight * 0.65)
+    const dot = random() < 0.06 ? 2.4 : 1.4
+    context.globalAlpha = alpha
+    context.fillStyle = '#ffffff'
+    context.fillRect(x, y, dot, dot)
+  }
+
+  context.globalAlpha = 1
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace

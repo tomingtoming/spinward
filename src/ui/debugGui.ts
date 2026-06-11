@@ -12,7 +12,6 @@ export type DebugVisualState = {
   observerMode: ObserverMode
   trailMode: TrailMode
   verificationErrorThreshold: number
-  dayNightCycleSeconds: number
 }
 
 type DebugGuiOptions = {
@@ -146,10 +145,6 @@ export const createDebugGui = ({
   debugFolder
     .add(debugVisuals, 'verificationErrorThreshold', 0.1, 25, 0.1)
     .name('frame err')
-    .onChange(onVisualChange)
-  debugFolder
-    .add(debugVisuals, 'dayNightCycleSeconds', 0, 600, 10)
-    .name('day cycle (s)')
     .onChange(onVisualChange)
   debugFolder.open()
 

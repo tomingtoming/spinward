@@ -12,9 +12,13 @@ import {
 } from '../ui/watch/watchLayout'
 import { renderWatchExpanded } from '../ui/watch/watchRenderer'
 
-const PANEL_OFFSET = new THREE.Vector3(-0.55, -0.02, -0.92)
-// Matches the 720x1340 canvas aspect so the panel is not squashed.
-const PANEL_SCALE = new THREE.Vector3(0.46, (0.46 * 1340) / 720, 1)
+const PANEL_OFFSET = new THREE.Vector3(-0.55, -0.02, -0.95)
+// Matches the canvas aspect so the panel is not squashed.
+const PANEL_SCALE = new THREE.Vector3(
+  0.44,
+  (0.44 * WATCH_EXPANDED_SIZE.height) / WATCH_EXPANDED_SIZE.width,
+  1
+)
 const panelWorldPosition = new THREE.Vector3()
 const panelWorldQuaternion = new THREE.Quaternion()
 const cameraPosition = new THREE.Vector3()

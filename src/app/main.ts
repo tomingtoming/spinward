@@ -12,7 +12,6 @@ import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import {
-  DEFAULT_DAY_NIGHT_CYCLE_SECONDS,
   INITIAL_DAY_NIGHT_PHASE,
   getDaylight,
   stepDayNightPhase
@@ -110,8 +109,7 @@ export const bootstrapApp = async () => {
     showHud: true,
     observerMode: 'colony-fixed' as const,
     trailMode: 'rotating' as const,
-    verificationErrorThreshold: 4,
-    dayNightCycleSeconds: DEFAULT_DAY_NIGHT_CYCLE_SECONDS
+    verificationErrorThreshold: 4
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
@@ -1054,7 +1052,7 @@ export const bootstrapApp = async () => {
     dayNightPhase = stepDayNightPhase(
       dayNightPhase,
       deltaSeconds,
-      debugVisuals.dayNightCycleSeconds
+      settingsStore.environment.dayCycleSeconds
     )
     const daylight = getDaylight(dayNightPhase)
     light.intensity = 0.22 + daylight * 0.9

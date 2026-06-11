@@ -63,7 +63,7 @@ export type WatchExpandedLayout = {
 
 export const WATCH_EXPANDED_SIZE = {
   width: 720,
-  height: 1340
+  height: 1520
 } as const
 
 const SECTION_LEFT = 30
@@ -197,7 +197,7 @@ export const createWatchExpandedLayout = (
   )
 
   // ── Locomotion ──
-  const locomotionSection: WatchSection = { top: 1028, height: 128, title: 'LOCOMOTION' }
+  const locomotionSection: WatchSection = { top: 1210, height: 128, title: 'LOCOMOTION' }
   const profileButtonY = locomotionSection.top + 48
   const profileButtons: [WatchButton, WatchButton, WatchButton] = [
     makeActionButton('profile-beginner', 'Beginner', CONTENT_LEFT, profileButtonY, 196, 60),
@@ -206,7 +206,7 @@ export const createWatchExpandedLayout = (
   ]
 
   // ── Presets ──
-  const presetSection: WatchSection = { top: 1176, height: 144, title: 'HABITAT PRESETS' }
+  const presetSection: WatchSection = { top: 1358, height: 144, title: 'HABITAT PRESETS' }
   const presetButtonWidth = 148
   const presetButtonY = presetSection.top + 56
   const presetButtons: [WatchButton, WatchButton, WatchButton, WatchButton] = [

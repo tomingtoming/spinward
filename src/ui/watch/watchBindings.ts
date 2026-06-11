@@ -23,6 +23,8 @@ export type WatchRenderSnapshot = {
   currentPresetName: string
   radius: number
   span: number
+  length: number
+  dayCycleSeconds: number
   rpm: number
   omega: number
   wallSpeed: number
@@ -36,6 +38,10 @@ export type WatchRenderSnapshot = {
   axisEndRespawnEnabled: boolean
   radiusFineStep: number
   radiusCoarseStep: number
+  lengthFineStep: number
+  lengthCoarseStep: number
+  dayCycleFineStep: number
+  dayCycleCoarseStep: number
   rpmFineStep: number
   rpmCoarseStep: number
   throwScaleFineStep: number
@@ -77,6 +83,8 @@ export const createWatchRenderSnapshot = (
   currentPresetName: getPresetName(settingsStore.habitat.currentPresetId),
   radius: settingsStore.habitat.radius,
   span: getHabitatSpan(settingsStore.habitat),
+  length: settingsStore.habitat.length,
+  dayCycleSeconds: settingsStore.environment.dayCycleSeconds,
   rpm: settingsStore.habitat.rpm,
   omega: rpmToOmega(settingsStore.habitat.rpm),
   wallSpeed: rpmToOmega(settingsStore.habitat.rpm) * settingsStore.habitat.radius,
@@ -90,6 +98,10 @@ export const createWatchRenderSnapshot = (
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
+  lengthFineStep: settingsStore.getLengthFineStep(),
+  lengthCoarseStep: settingsStore.getLengthCoarseStep(),
+  dayCycleFineStep: settingsStore.getDayCycleFineStep(),
+  dayCycleCoarseStep: settingsStore.getDayCycleCoarseStep(),
   rpmFineStep: settingsStore.getRpmFineStep(),
   rpmCoarseStep: settingsStore.getRpmCoarseStep(),
   throwScaleFineStep: settingsStore.getThrowScaleFineStep(),
@@ -118,6 +130,12 @@ export const applyWatchAction = (
         return true
       case 'radius':
         settingsStore.adjustRadius(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'length':
+        settingsStore.adjustLength(parameterAction.ticks, parameterAction.mode)
+        return true
+      case 'day-cycle':
+        settingsStore.adjustDayCycle(parameterAction.ticks, parameterAction.mode)
         return true
       case 'throw-scale':
         settingsStore.adjustThrowScale(parameterAction.ticks, parameterAction.mode)

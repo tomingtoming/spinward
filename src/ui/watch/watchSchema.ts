@@ -7,9 +7,11 @@ export type WatchActionDirection = (typeof WATCH_ACTION_DIRECTIONS)[number]
 export type WatchParameterValueSource = {
   rpm: number
   radius: number
+  length: number
   throwScale: number
   jetpackAcceleration: number
   reattachThreshold: number
+  dayCycleSeconds: number
 }
 
 export const WATCH_PARAMETER_SPECS = [
@@ -24,6 +26,12 @@ export const WATCH_PARAMETER_SPECS = [
     label: 'Radius',
     actionPrefix: 'radius',
     format: (source: WatchParameterValueSource) => `${source.radius.toFixed(0)} m`
+  },
+  {
+    key: 'length',
+    label: 'Length',
+    actionPrefix: 'length',
+    format: (source: WatchParameterValueSource) => `${source.length.toFixed(0)} m`
   },
   {
     key: 'throwScale',
@@ -42,6 +50,13 @@ export const WATCH_PARAMETER_SPECS = [
     label: 'Reattach',
     actionPrefix: 'reattach-threshold',
     format: (source: WatchParameterValueSource) => source.reattachThreshold.toFixed(2)
+  },
+  {
+    key: 'dayCycleSeconds',
+    label: 'Day Cycle',
+    actionPrefix: 'day-cycle',
+    format: (source: WatchParameterValueSource) =>
+      source.dayCycleSeconds <= 0 ? 'Paused' : `${source.dayCycleSeconds.toFixed(0)} s`
   }
 ] as const
 

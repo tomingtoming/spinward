@@ -92,7 +92,7 @@ const instanceScale = new THREE.Vector3()
 const instanceColor = new THREE.Color()
 
 const CLOUD_DAY = new THREE.Color(0xf4f8fc)
-const CLOUD_NIGHT = new THREE.Color(0x39434f)
+const CLOUD_NIGHT = new THREE.Color(0x46505c)
 
 // Slow drift relative to the ground, expressed as a tangential wind speed.
 const WIND_SPEED = 1.2
@@ -100,20 +100,24 @@ const WIND_SPEED = 1.2
 export class Clouds {
   readonly group = new THREE.Group()
 
+  // Near-opaque with depth writes: translucent clouds let the bright far
+  // city bleed through, which reads as the clouds being behind the town.
   private readonly material = new THREE.MeshStandardMaterial({
     color: 0xf4f8fc,
     roughness: 1,
     metalness: 0,
     transparent: true,
-    opacity: 0.78,
-    depthWrite: false,
-    emissive: new THREE.Color(0x202833),
-    emissiveIntensity: 0.5
+    opacity: 0.96,
+    depthWrite: true,
+    emissive: new THREE.Color(0x232c38),
+    emissiveIntensity: 0.55
   })
 
   private puffs: THREE.InstancedMesh | null = null
   private radius = 0
   private length = 0
+  private opacityBase = 0.96
+  private daylight = 1
 
   constructor(dimensions: { radius: number; length: number }) {
     this.setDimensions(dimensions)
@@ -126,6 +130,15 @@ export class Clouds {
 
     this.radius = radius
     this.length = length
+    // Small habitats put the cloud deck right overhead: keep those wispy.
+    // Large habitats need near-opaque clouds, or the bright far-side city
+    // bleeds through and the layering reads inverted.
+    this.opacityBase = THREE.MathUtils.lerp(
+      0.72,
+      0.96,
+      THREE.MathUtils.clamp((radius - 100) / 900, 0, 1)
+    )
+    this.applyDaylight()
 
     if (this.puffs !== null) {
       this.puffs.geometry.dispose()
@@ -175,8 +188,13 @@ export class Clouds {
   }
 
   setDaylight(daylight: number) {
-    this.material.color.lerpColors(CLOUD_NIGHT, CLOUD_DAY, daylight)
-    this.material.opacity = 0.5 + daylight * 0.28
+    this.daylight = daylight
+    this.applyDaylight()
+  }
+
+  private applyDaylight() {
+    this.material.color.lerpColors(CLOUD_NIGHT, CLOUD_DAY, this.daylight)
+    this.material.opacity = this.opacityBase * (0.88 + this.daylight * 0.12)
   }
 
   update(deltaSeconds: number) {
