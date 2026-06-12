@@ -120,7 +120,7 @@ export const bootstrapApp = async () => {
   // is rescaled to the habitat radius in syncHabitat.
   const fog = new THREE.FogExp2(0x5f7587, 0.02)
   scene.fog = fog
-  const fogDayColor = new THREE.Color(0x5f7587)
+  const fogDayColor = new THREE.Color(0x728ba0)
   const fogNightColor = new THREE.Color(0x1b2530)
   const backgroundDayColor = new THREE.Color(0x08131d)
   const backgroundNightColor = new THREE.Color(0x040810)
@@ -583,7 +583,7 @@ export const bootstrapApp = async () => {
       }
     )
     // Noticeable haze at roughly one diameter, regardless of habitat scale.
-    fog.density = 0.26 / habitatConfig.radius
+    fog.density = 0.42 / habitatConfig.radius
   }
 
   syncHabitat()

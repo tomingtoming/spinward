@@ -241,6 +241,15 @@ export class CylinderHabitat {
     side: THREE.DoubleSide
   })
 
+  // Outward-facing hull so the colony is opaque from space; the interior
+  // shells are BackSide-only and vanish when seen from outside.
+  private readonly hullMaterial = new THREE.MeshStandardMaterial({
+    color: 0x39434e,
+    roughness: 0.6,
+    metalness: 0.5,
+    side: THREE.FrontSide
+  })
+
   private readonly endCapMaterial = new THREE.MeshStandardMaterial({
     color: 0x4a6478,
     emissive: 0x101a26,
@@ -251,6 +260,7 @@ export class CylinderHabitat {
 
   private nearShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
+  private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
@@ -354,7 +364,8 @@ export class CylinderHabitat {
     intervals: ArcInterval[],
     segmentsPerRadian: number,
     circumferentialRepeat: number,
-    axialRepeat: number
+    axialRepeat: number,
+    shellRadius = this.radius
   ) {
     const parts: THREE.BufferGeometry[] = []
 
@@ -368,8 +379,8 @@ export class CylinderHabitat {
         interval.length
       )
       const part = new THREE.CylinderGeometry(
-        this.radius,
-        this.radius,
+        shellRadius,
+        shellRadius,
         this.length,
         Math.max(4, Math.ceil(segmentsPerRadian * interval.length)),
         1,
@@ -404,12 +415,18 @@ export class CylinderHabitat {
     this.nearShell?.geometry.dispose()
     this.farShell?.geometry.dispose()
 
+    this.hullShell?.geometry.dispose()
+
     if (this.nearShell !== null) {
       this.shellGroup.remove(this.nearShell)
     }
 
     if (this.farShell !== null) {
       this.shellGroup.remove(this.farShell)
+    }
+
+    if (this.hullShell !== null) {
+      this.shellGroup.remove(this.hullShell)
     }
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
@@ -461,6 +478,23 @@ export class CylinderHabitat {
       this.shellGroup.add(this.nearShell)
     } else {
       this.nearShell = null
+    }
+
+    // One coarse outward-facing hull over the full land arcs (windows stay
+    // open), slightly outside the floor so it never z-fights the interior.
+    const hullGeometry = this.buildShellGeometry(
+      [...nearIntervals, ...farIntervals],
+      farShellSegments / farArcRadians,
+      1,
+      1,
+      this.radius + Math.max(0.5, this.radius * 0.001)
+    )
+
+    if (hullGeometry !== null) {
+      this.hullShell = new THREE.Mesh(hullGeometry, this.hullMaterial)
+      this.shellGroup.add(this.hullShell)
+    } else {
+      this.hullShell = null
     }
   }
 

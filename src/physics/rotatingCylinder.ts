@@ -23,11 +23,11 @@ const radialAxis = new THREE.Vector3(0, 1, 0)
 export const resolveCylinderWallSegmentCount = ({
   radius,
   segmentCount,
-  targetPanelWidth = 6,
+  targetSagitta = 0.04,
   minSegments = 24,
-  maxSegments = 144
+  maxSegments = 1024
 }: Pick<RotatingCylinderConfig, 'radius' | 'segmentCount'> & {
-  targetPanelWidth?: number
+  targetSagitta?: number
   minSegments?: number
   maxSegments?: number
 }) => {
@@ -35,7 +35,13 @@ export const resolveCylinderWallSegmentCount = ({
     return Math.max(6, Math.floor(segmentCount))
   }
 
-  const estimated = Math.ceil((Math.PI * 2 * Math.max(radius, 0.001)) / targetPanelWidth)
+  // Flat panels chord the true cylinder: pick the segment count so the
+  // floor undulation (sagitta ~ R*theta^2/8) stays below targetSagitta
+  // even on multi-kilometer habitats. The old fixed cap of 144 left the
+  // Izma floor rippling by ~0.8m.
+  const safeRadius = Math.max(radius, 0.001)
+  const maxArc = Math.sqrt((8 * targetSagitta) / safeRadius)
+  const estimated = Math.ceil((Math.PI * 2) / maxArc)
   return Math.min(maxSegments, Math.max(minSegments, estimated))
 }
 
