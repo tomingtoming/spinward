@@ -75,7 +75,7 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inert
 
 - VR: 右手だけが球生成と投擲を担当します。何もない空間で右トリガーを引くと手元に球を生成し、そのまま掴みます。
 - VR: 左 grip を押している間が locomotion clutch です。手元に出る小さな軸とラインが、今の相対入力を示します。
-- VR: `attached` 中は、左 grip を握ったまま手を壁面に沿って動かすか、左スティックを倒すと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ約 30cm 強く持ち上げると、そのまま `free-fly` へ離陸します。
+- VR: `grounded` 中は、左 grip を握ったまま手を壁面に沿って動かすか、左スティックを倒すと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ約 30cm 強く持ち上げると、そのまま `free-fly` へ離陸します。
 - VR: `free-fly` 中は、左 grip を握ったまま手を前後左右上下へずらすか、左スティックを倒すと、その方向へ推進します。手首の pitch / yaw / roll 差分はそのまま回転入力になります。
 - VR: `free-fly` 中は左 `X` で回転 brake、左 `Y` で平行移動 brake を掛けられます。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / jetpack / reattach` を変更できます。
@@ -83,17 +83,17 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inert
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI の Travel から `Surface / Overlook / Axis` の 3 地点へワープできます。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
-- VR: 右スティック左右の `snap turn` は `attached` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
+- VR: 右スティック左右の `snap turn` は `grounded` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
 - VR: 球のトリガーを離すと放します。投げ速度は右手の相対運動と前方チャージから決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
 - VR: 球を握っている間は、チャージ量に応じて色がオレンジから水色へ変わります。
 - VR/PC: 球は建物に当たると跳ね返ります(建物は回転系で静止しているので、回転系の相対速度で反射します)。
 - VR/PC: 球はシリンダー開口部から外へ抜けられます。
 - VR/PC: プレイヤーも端で止まらず、そのまま開口部の外へ出られます。
-- VR/PC: `free-fly` 中でも、内壁へ低速で戻れば自然接触で `attached` に戻ります。
+- VR/PC: `free-fly` 中でも、内壁へ低速で戻れば自然接触で `grounded` に戻ります。
 - VR/PC: `free-fly` 中は、最寄りの内壁ドッキング位置へ伸びる in-world guide が出ます。`ready` で緑、それ以外は青です。
 - PC: キャンバス左クリックで球を前方へ投げます。
-- PC: `Space` でジャンプします。空中では何も引かないので、床のほうが曲がって迎えに来ます。着地すると自動で `attached` に戻ります。
+- PC: `Space` でジャンプします。空中では何も引かないので、床のほうが曲がって迎えに来ます。着地すると自動で `grounded` に戻ります。
 - PC: `1 / 2 / 3` で 地表 / 展望地点 / 軸端 へワープします。
 - PC: `F` で壁から離陸して `free-fly` に入れます。
 - PC: 内壁にいる間は `WASD` で歩行し、外では視線方向へ jetpack 移動します。
@@ -133,7 +133,7 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inert
 - Rapier との境界は [src/physics/rapierBoundary.ts](/home/toming/xr1/src/physics/rapierBoundary.ts) へ集約しています。
 - runtime 側では raw `simScale` を直接ばら撒かず、`UnitsContext` を生成して boundary API へ渡します。
 - 球と `free-fly` プレイヤーの内部状態は慣性系で保持し、描画時に回転系へ戻しています。
-- `attached` プレイヤーだけは内壁拘束ロジックを使います。
+- `grounded` プレイヤーだけは内壁拘束ロジックを使います。
 - Trail は 2 系統あります。
 - `Rotating`: コロニー観測者基準なので曲がって見えます。
 - `Inertial`: 慣性観測者基準なので、壁接触がなければ直線に近く見えます。
@@ -154,8 +154,8 @@ a_cf = -(Ω × (Ω × r))
 
 ## Travel(ワープ 3 地点)
 
-- `Surface`: 円筒中央の内壁プラザへ戻り、`attached` で開始します。
-- `Overlook`: プラザ上空(半径の 1/2、8〜60m にクランプ)へ共回転状態で出ます。弱い遠心「重力」でゆっくり落下し、着地すると自動で `attached` に戻ります。
+- `Surface`: 円筒中央の内壁プラザへ戻り、`grounded` で開始します。
+- `Overlook`: プラザ上空(半径の 1/2、8〜60m にクランプ)へ共回転状態で出ます。弱い遠心「重力」でゆっくり落下し、着地すると自動で `grounded` に戻ります。
 - `Axis`: cylinder では円筒端の回転軸上、ring ではリング中心へ戻り、`free-fly` 0g で開始します。
 
 ## Cityscape(円筒都市)
@@ -215,7 +215,7 @@ a_cf = -(Ω × (Ω × r))
 - 球の投擲、二重軌跡表示、30秒での自動破棄
 - Rapier による球の慣性系シミュレーションと、回転する内壁への接触処理
 - 球だけは開口部から外へ出られるシームレスな内外遷移
-- プレイヤーの `attached / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
+- プレイヤーの `grounded / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
 - free-fly プレーヤーの `capsule + foot plate` collider
 - 左手 wrist UI、右手 UI レーザー、PC quick panel
 - 内壁 shell の procedural texture

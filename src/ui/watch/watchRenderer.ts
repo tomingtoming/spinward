@@ -181,8 +181,8 @@ export const renderWatchExpanded = (
   ctx.fillText(snapshot.currentPresetName, left, 52)
 
   // Mode badge, right-aligned.
-  const modeLabel = snapshot.playerMode === 'attached' ? 'ATTACHED' : 'FREE-FLY'
-  const modeColor = snapshot.playerMode === 'attached' ? '#34d399' : '#c4b5fd'
+  const modeLabel = snapshot.playerMode === 'grounded' ? 'ATTACHED' : 'FREE-FLY'
+  const modeColor = snapshot.playerMode === 'grounded' ? '#34d399' : '#c4b5fd'
   ctx.font = '700 19px "Avenir Next", sans-serif'
   const modeWidth = ctx.measureText(modeLabel).width
   const badgeX = layout.width - SECTION_PADDING.right - modeWidth - 36

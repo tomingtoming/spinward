@@ -7,9 +7,9 @@ const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
 const MAX_PITCH = Math.PI * 0.48
 
-const attachedForward = new THREE.Vector3()
-const attachedRight = new THREE.Vector3()
-const attachedMove = new THREE.Vector3()
+const groundedForward = new THREE.Vector3()
+const groundedRight = new THREE.Vector3()
+const groundedMove = new THREE.Vector3()
 const freeFlyForward = new THREE.Vector3()
 const freeFlyMove = new THREE.Vector3()
 const inverseRigQuaternion = new THREE.Quaternion()
@@ -49,8 +49,8 @@ export class DesktopLookControls {
   }
 
   update(deltaSeconds: number, xrActive: boolean) {
-    intent.attachedAxis = 0
-    intent.attachedTangent = 0
+    intent.groundedAxis = 0
+    intent.groundedTangent = 0
     intent.freeFlyThrust.set(0, 0, 0)
     intent.freeFlyBrake = 0
     intent.detachRequested = false
@@ -104,27 +104,27 @@ export class DesktopLookControls {
 
     if (forwardInput !== 0 || rightInput !== 0) {
       inverseRigQuaternion.copy(this.playerRig.getWorldQuaternion(new THREE.Quaternion())).invert()
-      attachedForward.copy(getForwardDirection(this.camera)).applyQuaternion(inverseRigQuaternion)
-      attachedForward.y = 0
+      groundedForward.copy(getForwardDirection(this.camera)).applyQuaternion(inverseRigQuaternion)
+      groundedForward.y = 0
 
-      if (attachedForward.lengthSq() < 1e-6) {
-        attachedForward.set(0, 0, -1)
+      if (groundedForward.lengthSq() < 1e-6) {
+        groundedForward.set(0, 0, -1)
       } else {
-        attachedForward.normalize()
+        groundedForward.normalize()
       }
 
-      attachedRight.copy(attachedForward).cross(new THREE.Vector3(0, 1, 0)).normalize()
-      attachedMove
-        .copy(attachedForward)
+      groundedRight.copy(groundedForward).cross(new THREE.Vector3(0, 1, 0)).normalize()
+      groundedMove
+        .copy(groundedForward)
         .multiplyScalar(forwardInput)
-        .addScaledVector(attachedRight, rightInput)
+        .addScaledVector(groundedRight, rightInput)
 
-      if (attachedMove.lengthSq() > 1) {
-        attachedMove.normalize()
+      if (groundedMove.lengthSq() > 1) {
+        groundedMove.normalize()
       }
 
-      intent.attachedAxis = attachedMove.x
-      intent.attachedTangent = attachedMove.z
+      intent.groundedAxis = groundedMove.x
+      intent.groundedTangent = groundedMove.z
 
       freeFlyForward.copy(getForwardDirection(this.camera))
       worldRight.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion()))

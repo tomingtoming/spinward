@@ -30,7 +30,7 @@ export type HandClutchSample = {
   localVelocity: THREE.Vector3
 }
 
-export type AttachedClutchConfig = {
+export type GroundedClutchConfig = {
   moveDeadzone: number
   moveMaxDistance: number
   detachLiftDistance: number
@@ -49,7 +49,7 @@ export type RotationClutchConfig = {
   maxAngleRadians: number
 }
 
-export type AttachedClutchIntent = {
+export type GroundedClutchIntent = {
   axis: number
   tangent: number
   lift: number
@@ -63,7 +63,7 @@ export type RotationClutchIntent = {
   roll: number
 }
 
-export const DEFAULT_ATTACHED_CLUTCH_CONFIG: AttachedClutchConfig = {
+export const DEFAULT_ATTACHED_CLUTCH_CONFIG: GroundedClutchConfig = {
   moveDeadzone: 0.025,
   moveMaxDistance: 0.16,
   detachLiftDistance: 0.3,
@@ -227,7 +227,7 @@ export const sampleHandClutch = (
   return target
 }
 
-export const createAttachedClutchIntent = (): AttachedClutchIntent => ({
+export const createGroundedClutchIntent = (): GroundedClutchIntent => ({
   axis: 0,
   tangent: 0,
   lift: 0,
@@ -235,10 +235,10 @@ export const createAttachedClutchIntent = (): AttachedClutchIntent => ({
   detachLaunchVelocity: new THREE.Vector3()
 })
 
-export const resolveAttachedClutchIntent = (
+export const resolveGroundedClutchIntent = (
   sample: HandClutchSample,
   config = DEFAULT_ATTACHED_CLUTCH_CONFIG,
-  target = createAttachedClutchIntent()
+  target = createGroundedClutchIntent()
 ) => {
   const upwardLift = Math.max(0, sample.localDisplacement.y)
   const upwardSpeed = Math.max(0, sample.localVelocity.y)

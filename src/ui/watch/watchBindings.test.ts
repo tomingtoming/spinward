@@ -90,7 +90,7 @@ test('applyWatchAction routes parameter, mode, and profile actions through the s
 test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says so', () => {
   const store = createSettingsStore()
   const snapshot = createWatchRenderSnapshot(store, {
-    playerMode: 'attached',
+    playerMode: 'grounded',
     region: 'inside',
     watchMenuOpen: true,
     observerMode: 'colony-fixed',

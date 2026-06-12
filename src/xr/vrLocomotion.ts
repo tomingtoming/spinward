@@ -7,12 +7,12 @@ import type { PlayerTraversalMode } from '../app/playerTraversal'
 import { inertialOrientationToRotating, rotatingOrientationToInertial } from '../sim/frameTransforms'
 import {
   applyRotationAxisProfile,
-  createAttachedClutchIntent,
+  createGroundedClutchIntent,
   createHandClutchSample,
   createHandClutchState,
   createRotationClutchIntent,
   rebaseHandClutchState,
-  resolveAttachedClutchIntent,
+  resolveGroundedClutchIntent,
   resolveFreeFlyClutchThrust,
   resolveRotationClutchIntent,
   resetHandClutchState,
@@ -47,7 +47,7 @@ const viewRight = new THREE.Vector3()
 const stickMove = new THREE.Vector3()
 const viewWorldQuaternion = new THREE.Quaternion()
 const intent = createLocomotionIntent()
-const attachedClutchIntent = createAttachedClutchIntent()
+const groundedClutchIntent = createGroundedClutchIntent()
 const clutchSample = createHandClutchSample()
 const clutchRotationIntent = createRotationClutchIntent()
 const freeFlyThrust = new THREE.Vector3()
@@ -63,7 +63,7 @@ export class VRLocomotion {
   private readonly clutchState = createHandClutchState()
   private readonly freeFlyInertialOrientation = new THREE.Quaternion()
   readonly clutchDebug = new HandClutchDebugView()
-  private previousPlayerMode: PlayerTraversalMode = 'attached'
+  private previousPlayerMode: PlayerTraversalMode = 'grounded'
   private snapYaw = 0
   private profile: LocomotionProfile = SIM_PROFILE
 
@@ -101,8 +101,8 @@ export class VRLocomotion {
     frameAngle: number,
     omega: number
   ) {
-    intent.attachedAxis = 0
-    intent.attachedTangent = 0
+    intent.groundedAxis = 0
+    intent.groundedTangent = 0
     intent.freeFlyThrust.set(0, 0, 0)
     intent.freeFlyBrake = 0
     intent.detachRequested = false
@@ -112,9 +112,9 @@ export class VRLocomotion {
       resetJetpackAttitude(this.freeFlyAttitude)
       resetHandClutchState(this.clutchState)
       this.freeFlyInertialOrientation.identity()
-      this.previousPlayerMode = 'attached'
-      this.applyAttachedView()
-      this.clutchDebug.update(null, 'attached')
+      this.previousPlayerMode = 'grounded'
+      this.applyGroundedView()
+      this.clutchDebug.update(null, 'grounded')
       return intent
     }
 
@@ -145,7 +145,7 @@ export class VRLocomotion {
       const stickMagnitudeSq = axisX * axisX + axisY * axisY
 
       if (
-        playerMode === 'attached' &&
+        playerMode === 'grounded' &&
         inputSource.handedness === 'right' &&
         stickMagnitudeSq > snapAxisMagnitudeSq
       ) {
@@ -177,7 +177,7 @@ export class VRLocomotion {
       }
     }
 
-    const snapIntent = playerMode === 'attached'
+    const snapIntent = playerMode === 'grounded'
       ? consumeSnapTurn(snapAxisX, this.snapTurnState)
       : 0
 
@@ -244,38 +244,38 @@ export class VRLocomotion {
     }
 
     resetJetpackAttitude(this.freeFlyAttitude)
-    this.applyAttachedView()
+    this.applyGroundedView()
     this.previousPlayerMode = playerMode
 
     if (clutchInput !== null) {
-      resolveAttachedClutchIntent(
+      resolveGroundedClutchIntent(
         clutchInput,
-        this.profile.attached,
-        attachedClutchIntent
+        this.profile.grounded,
+        groundedClutchIntent
       )
       resolveRotationClutchIntent(
         clutchInput,
         this.profile.rotation,
         clutchRotationIntent
       )
-      intent.attachedAxis = attachedClutchIntent.axis
-      intent.attachedTangent = attachedClutchIntent.tangent
-      intent.detachRequested = attachedClutchIntent.detachRequested
-      intent.detachLaunchVelocity.copy(attachedClutchIntent.detachLaunchVelocity)
+      intent.groundedAxis = groundedClutchIntent.axis
+      intent.groundedTangent = groundedClutchIntent.tangent
+      intent.detachRequested = groundedClutchIntent.detachRequested
+      intent.detachLaunchVelocity.copy(groundedClutchIntent.detachLaunchVelocity)
       this.snapYaw += clutchRotationIntent.yaw * ATTACHED_YAW_SPEED * deltaSeconds
     } else {
-      attachedClutchIntent.axis = 0
-      attachedClutchIntent.tangent = 0
-      attachedClutchIntent.lift = 0
-      attachedClutchIntent.detachRequested = false
-      attachedClutchIntent.detachLaunchVelocity.set(0, 0, 0)
+      groundedClutchIntent.axis = 0
+      groundedClutchIntent.tangent = 0
+      groundedClutchIntent.lift = 0
+      groundedClutchIntent.detachRequested = false
+      groundedClutchIntent.detachLaunchVelocity.set(0, 0, 0)
       clutchRotationIntent.pitch = 0
       clutchRotationIntent.yaw = 0
       clutchRotationIntent.roll = 0
     }
 
-    this.clutchDebug.update(clutchInput, 'attached', {
-      detachReady: attachedClutchIntent.detachRequested || attachedClutchIntent.lift >= 0.85,
+    this.clutchDebug.update(clutchInput, 'grounded', {
+      detachReady: groundedClutchIntent.detachRequested || groundedClutchIntent.lift >= 0.85,
       linearBrake: leftLinearBrake,
       angularBrake: leftAngularBrake
     })
@@ -342,13 +342,13 @@ export class VRLocomotion {
     }
 
     // Cylinder axis is world Y; tangent is circumferential at the player's azimuth
-    intent.attachedAxis += stickMove.y
+    intent.groundedAxis += stickMove.y
     const px = this.playerRig.position.x
     const pz = this.playerRig.position.z
     const r = Math.hypot(px, pz)
     if (r > 0.001) {
       // tangent direction = (-sinθ, 0, cosθ) = (-pz/r, 0, px/r)
-      intent.attachedTangent += (-pz * stickMove.x + px * stickMove.z) / r
+      intent.groundedTangent += (-pz * stickMove.x + px * stickMove.z) / r
     }
   }
 
@@ -362,7 +362,7 @@ export class VRLocomotion {
     this.viewRig.quaternion.copy(playerRigWorldQuaternion.invert()).multiply(desiredWorldOrientation)
   }
 
-  private applyAttachedView() {
+  private applyGroundedView() {
     yawQuaternion.setFromAxisAngle(localUp, this.snapYaw)
     this.viewRig.quaternion.copy(yawQuaternion)
   }
@@ -437,7 +437,7 @@ export class VRLocomotion {
   }
 
   private resolveControlFrame(playerMode: PlayerTraversalMode) {
-    if (playerMode === 'attached') {
+    if (playerMode === 'grounded') {
       this.playerRig.updateWorldMatrix(true, false)
       this.playerRig.getWorldPosition(controlFramePosition)
       this.playerRig.getWorldQuaternion(controlFrameQuaternion)

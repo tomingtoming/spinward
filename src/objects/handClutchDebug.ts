@@ -37,7 +37,7 @@ export class HandClutchDebugView {
 
   update(
     sample: HandClutchSample | null,
-    mode: 'attached' | 'free-fly',
+    mode: 'grounded' | 'free-fly',
     options: {
       detachReady?: boolean
       linearBrake?: boolean
@@ -71,7 +71,7 @@ export class HandClutchDebugView {
         ? 0xf59e0b
         : options.angularBrake
           ? 0xf97316
-          : mode === 'attached'
+          : mode === 'grounded'
             ? 0x67e8f9
             : 0xa78bfa
 

@@ -27,9 +27,9 @@ import {
   getIdleLocomotionIntent,
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
-  resetPlayerToAttached,
+  resetPlayerToGrounded,
   syncPlayerTraversalFromPhysics,
-  stepAttachedPlayer,
+  stepGroundedPlayer,
   stepFreeFlyPlayer,
   updatePlayerGroundContact
 } from './playerTraversal'
@@ -479,7 +479,7 @@ export const bootstrapApp = async () => {
 
   const exitDrive = () => {
     drive.exit()
-    resetPlayerToAttached(playerTraversal, {
+    resetPlayerToGrounded(playerTraversal, {
       axialPosition: drive.surface.axialPosition,
       azimuth: drive.surface.azimuth + 2.6 / habitatConfig.radius,
       radius: habitatConfig.radius,
@@ -503,7 +503,7 @@ export const bootstrapApp = async () => {
     }
 
     if (
-      playerTraversal.mode !== 'attached' ||
+      playerTraversal.mode !== 'grounded' ||
       !drive.isPlayerNear(
         playerTraversal.surface.azimuth,
         playerTraversal.surface.axialPosition,
@@ -899,7 +899,7 @@ export const bootstrapApp = async () => {
       )
     }
 
-    if (playerTraversal.mode === 'attached' && jumpRequested) {
+    if (playerTraversal.mode === 'grounded' && jumpRequested) {
       computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: jumpLaunchVelocity,
@@ -911,17 +911,17 @@ export const bootstrapApp = async () => {
       audio.playJump()
     }
 
-    if (playerTraversal.mode === 'attached' && locomotionIntent.detachRequested) {
+    if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: locomotionIntent.detachLaunchVelocity,
         radius: habitatConfig.radius,
         omega,
         frameAngle
       })
-    } else if (playerTraversal.mode === 'attached' && !drive.driving) {
-      stepAttachedPlayer(playerTraversal, {
-        axisDistanceDelta: locomotionIntent.attachedAxis * 6 * deltaSeconds,
-        tangentDistanceDelta: locomotionIntent.attachedTangent * 6 * deltaSeconds,
+    } else if (playerTraversal.mode === 'grounded' && !drive.driving) {
+      stepGroundedPlayer(playerTraversal, {
+        axisDistanceDelta: locomotionIntent.groundedAxis * 6 * deltaSeconds,
+        tangentDistanceDelta: locomotionIntent.groundedTangent * 6 * deltaSeconds,
         radius: habitatConfig.radius,
         length: habitatSpan,
         deltaSeconds,
@@ -944,7 +944,7 @@ export const bootstrapApp = async () => {
       })
     }
 
-    if (playerTraversal.mode === 'attached') {
+    if (playerTraversal.mode === 'grounded') {
       if (
         !drive.driving &&
         resolveCitySurfaceCollision(
@@ -955,7 +955,7 @@ export const bootstrapApp = async () => {
       ) {
         // Walking is physical: when a footprint pushes the surface state
         // out of a building, the live body must follow (and stop).
-        resetPlayerToAttached(playerTraversal, {
+        resetPlayerToGrounded(playerTraversal, {
           axialPosition: playerTraversal.surface.axialPosition,
           azimuth: playerTraversal.surface.azimuth,
           radius: habitatConfig.radius,
@@ -982,7 +982,7 @@ export const bootstrapApp = async () => {
 
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
-      resetPlayerToAttached(playerTraversal, {
+      resetPlayerToGrounded(playerTraversal, {
         axialPosition: drive.surface.axialPosition,
         azimuth: drive.surface.azimuth,
         radius: habitatConfig.radius,
@@ -1192,6 +1192,7 @@ export const bootstrapApp = async () => {
     }
 
     fog.color.lerpColors(fogNightColor, fogDayColor, daylight)
+    habitat.setAtmosphere(fog.color, fog.density)
     ;(scene.background as THREE.Color).lerpColors(
       backgroundNightColor,
       backgroundDayColor,

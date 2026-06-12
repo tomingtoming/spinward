@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import type {
-  AttachedClutchConfig,
+  GroundedClutchConfig,
   FreeFlyClutchConfig,
   RotationClutchConfig
 } from './handClutchLocomotion'
@@ -10,7 +10,7 @@ export type LocomotionProfileId = 'beginner' | 'sim' | 'expert'
 
 export type LocomotionProfile = {
   id: LocomotionProfileId
-  attached: AttachedClutchConfig
+  grounded: GroundedClutchConfig
   freeFly: FreeFlyClutchConfig
   rotation: RotationClutchConfig
   rollDeadzone: number
@@ -22,7 +22,7 @@ export type LocomotionProfile = {
 
 export const BEGINNER_PROFILE: LocomotionProfile = {
   id: 'beginner',
-  attached: {
+  grounded: {
     moveDeadzone: 0.04,
     moveMaxDistance: 0.2,
     detachLiftDistance: 0.38,
@@ -47,7 +47,7 @@ export const BEGINNER_PROFILE: LocomotionProfile = {
 
 export const SIM_PROFILE: LocomotionProfile = {
   id: 'sim',
-  attached: {
+  grounded: {
     moveDeadzone: 0.025,
     moveMaxDistance: 0.16,
     detachLiftDistance: 0.3,
@@ -72,7 +72,7 @@ export const SIM_PROFILE: LocomotionProfile = {
 
 export const EXPERT_PROFILE: LocomotionProfile = {
   id: 'expert',
-  attached: {
+  grounded: {
     moveDeadzone: 0.015,
     moveMaxDistance: 0.12,
     detachLiftDistance: 0.25,

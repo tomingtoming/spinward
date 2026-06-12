@@ -16,7 +16,7 @@ test('respawnInnerWall places the player back on the inner wall center', () => {
     omega: 1.1
   })
 
-  expect(state.mode).toBe('attached')
+  expect(state.mode).toBe('grounded')
   expect(state.surface.axialPosition).toBeCloseTo(0, 6)
   expect(state.surface.azimuth).toBeCloseTo(0, 6)
 })

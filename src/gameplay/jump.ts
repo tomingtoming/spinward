@@ -31,19 +31,19 @@ export const resetJumpState = (state: JumpState) => {
 }
 
 // Returns true exactly when the airborne player has come back within landing
-// tolerance of the surface and should be re-attached. `descending` gates the
+// tolerance of the surface and should be re-grounded. `descending` gates the
 // snap to players actually sinking toward the wall — thrusting along or away
 // from the surface (e.g. left-grip flight after a jump) must not force a
 // landing just because the wall is close.
 export const stepJumpState = (
   state: JumpState,
   input: {
-    mode: 'attached' | 'free-fly'
+    mode: 'grounded' | 'free-fly'
     radialError: number
     descending: boolean
   }
 ): boolean => {
-  if (input.mode === 'attached') {
+  if (input.mode === 'grounded') {
     state.phase = 'grounded'
     return false
   }

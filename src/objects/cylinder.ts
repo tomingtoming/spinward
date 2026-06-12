@@ -258,9 +258,45 @@ export class CylinderHabitat {
     metalness: 0.4
   })
 
+  // The air itself: scene fog only tints surfaces, so the carved windows
+  // (holes to space) show stars and mirrors with zero haze and the
+  // atmosphere reads as vacuum. These panes sit in the window openings and
+  // apply the same exponential in-scatter — alpha = 1 - exp(-density * d) —
+  // per fragment, so a window overhead across the cylinder is milky while
+  // the one beside you stays clear.
+  private readonly hazeMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      hazeColor: { value: new THREE.Color(0x728ba0) },
+      hazeDensity: { value: 0.0001 }
+    },
+    vertexShader: /* glsl */ `
+      varying float vViewDistance;
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewDistance = length(mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 hazeColor;
+      uniform float hazeDensity;
+      varying float vViewDistance;
+      void main() {
+        float alpha = 1.0 - exp(-hazeDensity * vViewDistance);
+        gl_FragColor = vec4(hazeColor, alpha);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.BackSide
+  })
+
   private nearShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
+  private hazeShell: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
@@ -416,6 +452,7 @@ export class CylinderHabitat {
     this.farShell?.geometry.dispose()
 
     this.hullShell?.geometry.dispose()
+    this.hazeShell?.geometry.dispose()
 
     if (this.nearShell !== null) {
       this.shellGroup.remove(this.nearShell)
@@ -427,6 +464,10 @@ export class CylinderHabitat {
 
     if (this.hullShell !== null) {
       this.shellGroup.remove(this.hullShell)
+    }
+
+    if (this.hazeShell !== null) {
+      this.shellGroup.remove(this.hazeShell)
     }
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
@@ -496,6 +537,28 @@ export class CylinderHabitat {
     } else {
       this.hullShell = null
     }
+
+    // Atmosphere panes over the window openings, just inside the wall.
+    const hazeGeometry = this.buildShellGeometry(
+      windowHoles,
+      farShellSegments / farArcRadians,
+      1,
+      1,
+      this.radius - Math.max(0.5, this.radius * 0.001)
+    )
+
+    if (hazeGeometry !== null) {
+      this.hazeShell = new THREE.Mesh(hazeGeometry, this.hazeMaterial)
+      this.shellGroup.add(this.hazeShell)
+    } else {
+      this.hazeShell = null
+    }
+  }
+
+  // Keeps the window haze in sync with the scene fog each frame.
+  setAtmosphere(color: THREE.Color, density: number) {
+    ;(this.hazeMaterial.uniforms.hazeColor.value as THREE.Color).copy(color)
+    this.hazeMaterial.uniforms.hazeDensity.value = density
   }
 
 

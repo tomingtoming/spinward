@@ -84,9 +84,9 @@ test('resetJetpackAttitude clears accumulated free-fly rotation state', () => {
   expect(state.angularVelocity.z).toBe(0)
 })
 
-test('seedJetpackAttitudeFromWorldAngularVelocity matches the attached wall rotation axis', () => {
+test('seedJetpackAttitudeFromWorldAngularVelocity matches the grounded wall rotation axis', () => {
   const state = createJetpackAttitudeState()
-  const attachedOrientation = new THREE.Quaternion().setFromRotationMatrix(
+  const groundedOrientation = new THREE.Quaternion().setFromRotationMatrix(
     new THREE.Matrix4().makeBasis(
       new THREE.Vector3(0, 1, 0),
       new THREE.Vector3(-1, 0, 0),
@@ -96,7 +96,7 @@ test('seedJetpackAttitudeFromWorldAngularVelocity matches the attached wall rota
 
   seedJetpackAttitudeFromWorldAngularVelocity(
     state,
-    attachedOrientation,
+    groundedOrientation,
     new THREE.Vector3(0, 0.55, 0)
   )
 

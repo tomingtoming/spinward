@@ -6,7 +6,7 @@ import {
   respawnPlayerInnerWallRuntime
 } from './playerRespawnRuntime'
 
-test('respawnPlayerInnerWallRuntime applies the updated attached pose immediately', () => {
+test('respawnPlayerInnerWallRuntime applies the updated grounded pose immediately', () => {
   const respawnInnerWall = mock(() => {})
   const applyPlayerTraversalState = mock(() => {})
   const playerTraversal = { id: 'player' }

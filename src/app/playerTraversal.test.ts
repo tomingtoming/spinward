@@ -13,7 +13,7 @@ import {
   getPlayerTraversalRegion,
   syncPlayerTraversalFromPhysics,
   tryReattachPlayer,
-  stepAttachedPlayer,
+  stepGroundedPlayer,
   stepFreeFlyPlayer
 } from './playerTraversal'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
@@ -33,14 +33,14 @@ const expectVectorCloseTo = (actual: THREE.Vector3, expected: THREE.Vector3) => 
   expect(actual.z).toBeCloseTo(expected.z, 5)
 }
 
-test('stepAttachedPlayer transitions to free-fly after crossing the opening', () => {
+test('stepGroundedPlayer transitions to free-fly after crossing the opening', () => {
   const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1.2)
   const expectedVelocity = new THREE.Vector3(0, 2, -10 * 1.2).applyAxisAngle(
     new THREE.Vector3(0, 1, 0),
     0.6
   )
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 1,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -55,7 +55,7 @@ test('stepAttachedPlayer transitions to free-fly after crossing the opening', ()
   expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
 })
 
-test('attached traversal seeds free-fly with the visible wall transport speed', () => {
+test('grounded traversal seeds free-fly with the visible wall transport speed', () => {
   const radius = 3200
   const omega = 0.05535
   const frameAngleEnd = 0.45
@@ -65,7 +65,7 @@ test('attached traversal seeds free-fly with the visible wall transport speed', 
     frameAngleEnd
   )
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 0,
     tangentDistanceDelta: 0,
     radius,
@@ -85,10 +85,10 @@ test('attached traversal seeds free-fly with the visible wall transport speed', 
   expectVectorCloseTo(state.inertialVelocity, expectedVelocity)
 })
 
-test('stepAttachedPlayer keeps the player attached while still inside the cylinder', () => {
+test('stepGroundedPlayer keeps the player grounded while still inside the cylinder', () => {
   const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0, 1)
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 2,
     tangentDistanceDelta: 5,
     radius: 10,
@@ -98,7 +98,7 @@ test('stepAttachedPlayer keeps the player attached while still inside the cylind
     frameAngleEnd: 1
   })
 
-  expect(state.mode).toBe('attached')
+  expect(state.mode).toBe('grounded')
   expect(state.surface.axialPosition).toBeCloseTo(2, 6)
   expect(state.surface.azimuth).toBeCloseTo(0.5, 6)
 })
@@ -148,7 +148,7 @@ test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', 
   const state = createPlayerTraversalState({ axialPosition: 9.2, azimuth: 0 }, 10, 0, 1)
   const rig = new THREE.Group()
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 1,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -183,7 +183,7 @@ test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', 
 test('getPlayerTraversalRegion reports outside for a free-flying player beyond the opening', () => {
   const state = createPlayerTraversalState({ axialPosition: 9.6, azimuth: 0 }, 10, 0, 1)
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 0.5,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -207,7 +207,7 @@ test('physical walking drives the live body velocity toward the intent', async (
     { rapier, world }
   )
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 1,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -217,7 +217,7 @@ test('physical walking drives the live body velocity toward the intent', async (
     frameAngleEnd: 0.6
   })
 
-  expect(state.mode).toBe('attached')
+  expect(state.mode).toBe('grounded')
 
   const rotatingVelocity = inertialVelocityToRotating(
     state.inertialPosition,
@@ -264,7 +264,7 @@ test('physical walking holds co-rotation on the spinning wall at izma scale', as
       frameAngle + omega * deltaSeconds,
       Math.PI * 2
     )
-    stepAttachedPlayer(state, {
+    stepGroundedPlayer(state, {
       axisDistanceDelta: 0,
       tangentDistanceDelta: 0,
       radius,
@@ -277,7 +277,7 @@ test('physical walking holds co-rotation on the spinning wall at izma scale', as
     world.step()
   }
 
-  expect(state.mode).toBe('attached')
+  expect(state.mode).toBe('grounded')
 
   const rotatingVelocity = inertialVelocityToRotating(
     state.inertialPosition,
@@ -309,7 +309,7 @@ test('physical walking releases to free-fly past the opening', async () => {
     { rapier, world }
   )
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 0,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -469,7 +469,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
   const elysiumState = buildState(elysiumWorld, 0.005)
 
   for (const state of [izmaState, elysiumState]) {
-    stepAttachedPlayer(state, {
+    stepGroundedPlayer(state, {
       axisDistanceDelta: 1,
       tangentDistanceDelta: 0,
       radius: 10,
@@ -510,7 +510,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
 test('stepFreeFlyPlayer brake strongly reduces free-fly inertial speed', () => {
   const state = createPlayerTraversalState({ axialPosition: 8.4, azimuth: 0 }, 10, 0, 1)
 
-  stepAttachedPlayer(state, {
+  stepGroundedPlayer(state, {
     axisDistanceDelta: 1,
     tangentDistanceDelta: 0,
     radius: 10,
@@ -537,7 +537,7 @@ test('stepFreeFlyPlayer brake strongly reduces free-fly inertial speed', () => {
   expect(state.inertialVelocity.length()).toBeLessThan(1)
 })
 
-test('tryReattachPlayer returns to attached mode on a low-speed wall contact', () => {
+test('tryReattachPlayer returns to grounded mode on a low-speed wall contact', () => {
   const radius = 10
   const length = 20
   const frameAngle = 0.4
@@ -553,7 +553,7 @@ test('tryReattachPlayer returns to attached mode on a low-speed wall contact', (
     rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
   )
 
-  const attached = tryReattachPlayer(state, {
+  const grounded = tryReattachPlayer(state, {
     ...DEFAULT_REATTACH_TUNING,
     radius,
     length,
@@ -561,8 +561,8 @@ test('tryReattachPlayer returns to attached mode on a low-speed wall contact', (
     frameAngle
   })
 
-  expect(attached).toBe(true)
-  expect(state.mode).toBe('attached')
+  expect(grounded).toBe(true)
+  expect(state.mode).toBe('grounded')
   expect(state.surface.axialPosition).toBeCloseTo(1.4, 6)
   expect(state.surface.azimuth).toBeCloseTo(0, 6)
 })
@@ -613,7 +613,7 @@ test('tryReattachPlayer stays in free-fly when wall-relative speed is too high',
     rotatingVelocityToInertial(rotatingPosition, rotatingVelocity, omega, frameAngle)
   )
 
-  const attached = tryReattachPlayer(state, {
+  const grounded = tryReattachPlayer(state, {
     ...DEFAULT_REATTACH_TUNING,
     radius,
     length,
@@ -621,6 +621,6 @@ test('tryReattachPlayer stays in free-fly when wall-relative speed is too high',
     frameAngle
   })
 
-  expect(attached).toBe(false)
+  expect(grounded).toBe(false)
   expect(state.mode).toBe('free-fly')
 })

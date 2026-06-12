@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import type { PlayerTraversalState } from '../app/playerTraversal'
-import { resetPlayerToAttached, resetPlayerToFreeFly } from '../app/playerTraversal'
+import { resetPlayerToGrounded, resetPlayerToFreeFly } from '../app/playerTraversal'
 import { getOverlookAltitude } from '../objects/cityLayout'
 import type { HabitatType } from '../sim/habitatConfig'
 
@@ -26,7 +26,7 @@ export const respawnInnerWall = (
     omega: number
   }
 ) => {
-  resetPlayerToAttached(state, {
+  resetPlayerToGrounded(state, {
     axialPosition: 0,
     azimuth: 0,
     radius: config.radius,

@@ -61,12 +61,12 @@ describe('stepJumpState', () => {
     expect(stepJumpState(state, { mode: 'free-fly', radialError: 0.1, descending: true })).toBe(false)
   })
 
-  test('attached mode resets the cycle', () => {
+  test('grounded mode resets the cycle', () => {
     const state = createJumpState()
     beginJump(state)
     stepJumpState(state, { mode: 'free-fly', radialError: 1, descending: true })
     expect(state.phase).toBe('airborne')
-    expect(stepJumpState(state, { mode: 'attached', radialError: 0, descending: true })).toBe(false)
+    expect(stepJumpState(state, { mode: 'grounded', radialError: 0, descending: true })).toBe(false)
     expect(state.phase).toBe('grounded')
   })
 

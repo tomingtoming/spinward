@@ -17,7 +17,7 @@ type HudSnapshot = {
   trailMode: TrailMode
   watchMenuOpen: boolean
   region: 'inside' | 'outside'
-  playerMode: 'attached' | 'free-fly'
+  playerMode: 'grounded' | 'free-fly'
   verification: {
     inertialVelocity: Vector3
     rotatingVelocity: Vector3
@@ -96,9 +96,9 @@ export const createHud = (): HudHandle => {
       presetChip.textContent = snapshot.presetName
       gravityChip.textContent = `g ${snapshot.gTarget.toFixed(2)} m/s²`
       spinChip.textContent = `ω ${snapshot.rpm.toFixed(2)} rpm`
-      modeChip.textContent = snapshot.playerMode === 'attached' ? 'attached' : 'free-fly'
+      modeChip.textContent = snapshot.playerMode === 'grounded' ? 'grounded' : 'free-fly'
       modeChip.className = `hud-chip ${
-        snapshot.playerMode === 'attached' ? 'hud-chip--attached' : 'hud-chip--freefly'
+        snapshot.playerMode === 'grounded' ? 'hud-chip--grounded' : 'hud-chip--freefly'
       }`
 
       ballsChip.hidden = snapshot.ballCount === 0
@@ -108,7 +108,7 @@ export const createHud = (): HudHandle => {
       dockChip.hidden = snapshot.playerMode !== 'free-fly' || dock === null
       if (dock !== null) {
         dockChip.textContent = dock.ready ? 'dock ready' : `dock ${dock.radialError.toFixed(1)} m`
-        dockChip.className = `hud-chip ${dock.ready ? 'hud-chip--attached' : ''}`
+        dockChip.className = `hud-chip ${dock.ready ? 'hud-chip--grounded' : ''}`
       }
 
       const verification = snapshot.verification

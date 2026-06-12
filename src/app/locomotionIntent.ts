@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 
 export type LocomotionIntent = {
-  attachedAxis: number
-  attachedTangent: number
+  groundedAxis: number
+  groundedTangent: number
   freeFlyThrust: THREE.Vector3
   freeFlyBrake: number
   detachRequested: boolean
@@ -10,8 +10,8 @@ export type LocomotionIntent = {
 }
 
 export const createLocomotionIntent = (): LocomotionIntent => ({
-  attachedAxis: 0,
-  attachedTangent: 0,
+  groundedAxis: 0,
+  groundedTangent: 0,
   freeFlyThrust: new THREE.Vector3(),
   freeFlyBrake: 0,
   detachRequested: false,

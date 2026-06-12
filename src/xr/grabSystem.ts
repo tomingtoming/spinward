@@ -185,7 +185,7 @@ export class GrabSystem {
       return
     }
 
-    // Objects are attached directly to the controller so the existing grab behavior stays intact.
+    // Objects are grounded directly to the controller so the existing grab behavior stays intact.
     controller.attach(target.object)
     target.object.position.copy(target.holdOffset ?? DEFAULT_HOLD_OFFSET)
 

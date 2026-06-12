@@ -27,7 +27,7 @@ import {
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
-export type PlayerTraversalMode = 'attached' | 'free-fly'
+export type PlayerTraversalMode = 'grounded' | 'free-fly'
 
 type PlayerTraversalPhysicsState = {
   world: World
@@ -49,7 +49,7 @@ export type PlayerTraversalState = {
   physics: PlayerTraversalPhysicsState | null
 }
 
-type AttachedPlayerStepConfig = {
+type GroundedPlayerStepConfig = {
   axisDistanceDelta: number
   tangentDistanceDelta: number
   radius: number
@@ -160,14 +160,14 @@ export const createPlayerTraversalState = (
   physics?: PlayerTraversalPhysicsContext
 ): PlayerTraversalState => {
   const state: PlayerTraversalState = {
-    mode: 'attached',
+    mode: 'grounded',
     surface: { ...surface },
     inertialPosition: new THREE.Vector3(),
     inertialVelocity: new THREE.Vector3(),
     physics: null
   }
 
-  syncAttachedInertialState(state, radius, frameAngle, omega, zeroRotatingVelocity)
+  syncGroundedInertialState(state, radius, frameAngle, omega, zeroRotatingVelocity)
 
   if (physics !== undefined) {
     const units = physics.units ?? createUnitsContext(1)
@@ -220,7 +220,7 @@ export const createPlayerTraversalState = (
 // radial axis (contact, bumps, lift-off) stay with the engine.
 const stepGroundedPlayerPhysics = (
   state: PlayerTraversalState,
-  config: AttachedPlayerStepConfig
+  config: GroundedPlayerStepConfig
 ) => {
   if (state.physics === null) {
     return
@@ -306,7 +306,7 @@ const stepGroundedPlayerPhysics = (
   )
 }
 
-// Free-fly -> attached when the body has settled onto the wall. Returns true
+// Free-fly -> grounded when the body has settled onto the wall. Returns true
 // exactly on the landing frame.
 export const updatePlayerGroundContact = (
   state: PlayerTraversalState,
@@ -343,17 +343,17 @@ export const updatePlayerGroundContact = (
     return false
   }
 
-  state.mode = 'attached'
+  state.mode = 'grounded'
   state.surface.azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
   state.surface.axialPosition = nextRotatingPosition.y
   return true
 }
 
-export const stepAttachedPlayer = (
+export const stepGroundedPlayer = (
   state: PlayerTraversalState,
-  config: AttachedPlayerStepConfig
+  config: GroundedPlayerStepConfig
 ) => {
-  if (state.mode !== 'attached') {
+  if (state.mode !== 'grounded') {
     return
   }
 
@@ -385,7 +385,7 @@ export const stepAttachedPlayer = (
     rotatingVelocity.set(0, 0, 0)
   }
 
-  syncAttachedInertialState(state, config.radius, config.frameAngleEnd, config.omega, rotatingVelocity)
+  syncGroundedInertialState(state, config.radius, config.frameAngleEnd, config.omega, rotatingVelocity)
 
   if (getSurfaceRigRegion(state.surface, config.length) === 'outside') {
     state.mode = 'free-fly'
@@ -402,11 +402,11 @@ export const detachPlayerToFreeFly = (
     frameAngle: number
   }
 ) => {
-  if (state.mode !== 'attached') {
+  if (state.mode !== 'grounded') {
     return
   }
 
-  syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
+  syncGroundedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
   state.mode = 'free-fly'
   rotatingPositionToInertial(config.launchVelocity, config.frameAngle, inertialLaunchVelocity)
   state.inertialVelocity.add(inertialLaunchVelocity)
@@ -474,7 +474,7 @@ export const applyPlayerTraversalState = (
   radius: number,
   frameAngle: number
 ) => {
-  if (state.mode === 'attached') {
+  if (state.mode === 'grounded') {
     applySurfaceRigState(playerRig, state.surface, radius)
     return
   }
@@ -487,7 +487,7 @@ export const getPlayerTraversalRegion = (
   length: number,
   frameAngle: number
 ) => {
-  if (state.mode === 'attached') {
+  if (state.mode === 'grounded') {
     return getSurfaceRigRegion(state.surface, length)
   }
 
@@ -651,14 +651,14 @@ export const tryReattachPlayer = (
 
   const halfLength = Math.max(0, config.length * 0.5 - config.endCapMargin)
   inertialPositionToRotating(state.inertialPosition, config.frameAngle, reattachPosition)
-  state.mode = 'attached'
+  state.mode = 'grounded'
   state.surface.axialPosition = THREE.MathUtils.clamp(reattachPosition.y, -halfLength, halfLength)
   state.surface.azimuth = Math.atan2(reattachPosition.z, reattachPosition.x)
-  syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
+  syncGroundedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
   return true
 }
 
-const syncAttachedInertialState = (
+const syncGroundedInertialState = (
   state: PlayerTraversalState,
   radius: number,
   frameAngle: number,
@@ -700,7 +700,7 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, _enabled: boolean) 
   state.physics.freeFlyBody.setEnabled(true)
 }
 
-export const resetPlayerToAttached = (
+export const resetPlayerToGrounded = (
   state: PlayerTraversalState,
   config: {
     axialPosition: number
@@ -710,10 +710,10 @@ export const resetPlayerToAttached = (
     omega: number
   }
 ) => {
-  state.mode = 'attached'
+  state.mode = 'grounded'
   state.surface.axialPosition = config.axialPosition
   state.surface.azimuth = config.azimuth
-  syncAttachedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
+  syncGroundedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
 }
 
 export const resetPlayerToFreeFly = (
@@ -742,8 +742,8 @@ export const mergeLocomotionIntent = (
   next: LocomotionIntent,
   target = createLocomotionIntent()
 ) => {
-  target.attachedAxis = base.attachedAxis + next.attachedAxis
-  target.attachedTangent = base.attachedTangent + next.attachedTangent
+  target.groundedAxis = base.groundedAxis + next.groundedAxis
+  target.groundedTangent = base.groundedTangent + next.groundedTangent
   target.freeFlyThrust.copy(base.freeFlyThrust).add(next.freeFlyThrust)
   target.freeFlyBrake = Math.max(base.freeFlyBrake, next.freeFlyBrake)
   target.detachRequested = base.detachRequested || next.detachRequested
@@ -761,7 +761,7 @@ export const mergeLocomotionIntent = (
   }
 
   target.freeFlyBrake = THREE.MathUtils.clamp(target.freeFlyBrake, 0, 1)
-  target.attachedAxis = THREE.MathUtils.clamp(target.attachedAxis, -1, 1)
-  target.attachedTangent = THREE.MathUtils.clamp(target.attachedTangent, -1, 1)
+  target.groundedAxis = THREE.MathUtils.clamp(target.groundedAxis, -1, 1)
+  target.groundedTangent = THREE.MathUtils.clamp(target.groundedTangent, -1, 1)
   return target
 }

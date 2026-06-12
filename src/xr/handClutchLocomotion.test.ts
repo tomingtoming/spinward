@@ -3,7 +3,7 @@ import * as THREE from 'three'
 
 import {
   applyRotationAxisProfile,
-  createAttachedClutchIntent,
+  createGroundedClutchIntent,
   createHandClutchSample,
   createHandClutchState,
   createRotationClutchIntent,
@@ -11,7 +11,7 @@ import {
   DEFAULT_FREE_FLY_CLUTCH_CONFIG,
   DEFAULT_ROTATION_CLUTCH_CONFIG,
   rebaseHandClutchState,
-  resolveAttachedClutchIntent,
+  resolveGroundedClutchIntent,
   resolveFreeFlyClutchThrust,
   resolveRotationClutchIntent,
   sampleHandClutch
@@ -149,13 +149,13 @@ test('rebaseHandClutchState preserves displacement across a control-frame change
   expect(sample.localVelocity.length()).toBeCloseTo(0, 6)
 })
 
-test('resolveAttachedClutchIntent maps lateral hand motion onto wall movement', () => {
+test('resolveGroundedClutchIntent maps lateral hand motion onto wall movement', () => {
   const sample = createHandClutchSample()
   sample.active = true
   sample.localDisplacement.set(0.09, 0, -0.12)
   sample.controlFrameWorldQuaternion.identity()
 
-  const intent = resolveAttachedClutchIntent(sample)
+  const intent = resolveGroundedClutchIntent(sample)
 
   expect(intent.axis).toBeGreaterThan(0.45)
   expect(intent.tangent).toBeLessThan(-0.65)
@@ -210,14 +210,14 @@ test('applyRotationAxisProfile gives roll extra play and softer gain', () => {
   expect(applyRotationAxisProfile(0.5, 0.24, 0.55)).toBeLessThan(0.25)
 })
 
-test('resolveAttachedClutchIntent requests detach on an upward lift of about 30cm', () => {
+test('resolveGroundedClutchIntent requests detach on an upward lift of about 30cm', () => {
   const sample = createHandClutchSample()
   sample.active = true
   sample.localDisplacement.set(0, 0.31, 0)
   sample.localVelocity.set(0, 0.55, 0)
   sample.controlFrameWorldQuaternion.identity()
 
-  const intent = resolveAttachedClutchIntent(sample, DEFAULT_ATTACHED_CLUTCH_CONFIG, createAttachedClutchIntent())
+  const intent = resolveGroundedClutchIntent(sample, DEFAULT_ATTACHED_CLUTCH_CONFIG, createGroundedClutchIntent())
 
   expect(intent.detachRequested).toBe(true)
   expect(intent.detachLaunchVelocity.x).toBeCloseTo(0, 6)
