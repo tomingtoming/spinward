@@ -117,6 +117,17 @@ const instanceColor = new THREE.Color()
 
 const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 
+// Arc distance (meters) within which buildings keep their full-detail
+// shapes; beyond it they collapse to plain instanced boxes. Small habitats
+// stay all-near via the floor.
+const getCityNearDistance = (radius: number) =>
+  Math.max(150, Math.min(radius * 0.5, 1000))
+
+const wrapAngleToPi = (angle: number) => {
+  const wrapped = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+  return wrapped > Math.PI ? wrapped - Math.PI * 2 : wrapped
+}
+
 const MIRROR_DAY = new THREE.Color(0xffffff)
 const MIRROR_NIGHT = new THREE.Color(0x55657a)
 const LAMP_DAY = new THREE.Color(0x6b5a40)
@@ -495,6 +506,9 @@ export class Cityscape {
 
   private buildings: THREE.InstancedMesh | null = null
   private largeBuildings: THREE.InstancedMesh | null = null
+  private farBuildings: THREE.InstancedMesh | null = null
+  private cityPlanBuildings: CityBuilding[] = []
+  private cityFocusAzimuth = 0
   private archetypeBatches: THREE.InstancedMesh[] = []
   private collisionBuildings: CityBuilding[] = []
   private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
@@ -622,11 +636,13 @@ export class Cityscape {
     this.spineRingMaterial.dispose()
   }
 
-  private clear() {
-    this.collisionBuildings = []
-    this.collisionIndex = buildCityCollisionIndex([], 1, 1)
-
-    for (const batch of [this.buildings, this.largeBuildings, ...this.archetypeBatches]) {
+  private disposeBuildingBatches() {
+    for (const batch of [
+      this.buildings,
+      this.largeBuildings,
+      this.farBuildings,
+      ...this.archetypeBatches
+    ]) {
       if (batch !== null) {
         batch.geometry.dispose()
         this.group.remove(batch)
@@ -635,7 +651,15 @@ export class Cityscape {
 
     this.buildings = null
     this.largeBuildings = null
+    this.farBuildings = null
     this.archetypeBatches = []
+  }
+
+  private clear() {
+    this.collisionBuildings = []
+    this.collisionIndex = buildCityCollisionIndex([], 1, 1)
+    this.cityPlanBuildings = []
+    this.disposeBuildingBatches()
 
     for (const patch of this.patchMeshes) {
       patch.geometry.dispose()
@@ -703,9 +727,47 @@ export class Cityscape {
   }
 
   private buildBuildings(plan: CityBuilding[]) {
-    // Plain blocks split by size so their windows stay window-sized; the
-    // shaped archetypes each get their own instanced batch.
-    const blocks = plan.filter((b) => b.kind === 'block')
+    this.cityPlanBuildings = plan
+    this.rebuildBuildingBatches()
+  }
+
+  // Azimuth-bucketed LOD: everything in a cylinder is visible at once, so
+  // detail is budgeted by arc distance from the player instead of frustum.
+  // The near arc gets the shaped archetypes; everything beyond it becomes a
+  // single instanced box batch (same windowed material, so the night-light
+  // skyline survives). Rebucketed at quantized focus steps like the shell.
+  setFocusAzimuth(azimuth: number) {
+    const step = getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6) / 3
+    const quantized = Math.round(azimuth / step) * step
+    const diff = Math.abs(wrapAngleToPi(quantized - this.cityFocusAzimuth))
+
+    if (diff < step * 0.5 || this.cityPlanBuildings.length === 0) {
+      return
+    }
+
+    this.cityFocusAzimuth = quantized
+    this.rebuildBuildingBatches()
+  }
+
+  private rebuildBuildingBatches() {
+    this.disposeBuildingBatches()
+
+    const nearArc =
+      getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6)
+    const near: CityBuilding[] = []
+    const far: CityBuilding[] = []
+
+    for (const building of this.cityPlanBuildings) {
+      if (Math.abs(wrapAngleToPi(building.azimuth - this.cityFocusAzimuth)) < nearArc) {
+        near.push(building)
+      } else {
+        far.push(building)
+      }
+    }
+
+    // Near arc: plain blocks split by size so their windows stay
+    // window-sized; the shaped archetypes each get their own batch.
+    const blocks = near.filter((b) => b.kind === 'block')
     const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
     const large = blocks.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
 
@@ -714,7 +776,7 @@ export class Cityscape {
 
     for (const kind of ['setback', 'tower', 'house'] as const) {
       const batch = this.buildArchetypeBatch(
-        plan.filter((b) => b.kind === kind),
+        near.filter((b) => b.kind === kind),
         kind
       )
 
@@ -722,6 +784,8 @@ export class Cityscape {
         this.archetypeBatches.push(batch)
       }
     }
+
+    this.farBuildings = this.buildBuildingBatch(far, this.largeBuildingSideMaterial)
   }
 
   private buildArchetypeBatch(

@@ -1059,6 +1059,7 @@ export const bootstrapApp = async () => {
 
     const playerAzimuth = Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
     habitat.setFocusAzimuth(playerAzimuth)
+    cityscape.setFocusAzimuth(playerAzimuth)
 
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
