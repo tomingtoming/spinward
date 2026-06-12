@@ -14,7 +14,8 @@ const building: CityBuilding = {
   width: 4,
   depth: 6,
   height: 8,
-  tone: 0.5
+  tone: 0.5,
+  kind: 'block'
 }
 
 const config = {

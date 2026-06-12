@@ -5,6 +5,7 @@ import {
   getLandStripCenters,
   getWindowStripArcs,
   planCity,
+  type BuildingKind,
   type CityBuilding,
   type CityPatch,
   type CityRoad,
@@ -26,6 +27,80 @@ const getThetaStart = (centerAzimuth: number, arcRadians: number) =>
     Math.PI * 0.5 - centerAzimuth - arcRadians * 0.5,
     fullTurn
   )
+
+// Merge parts and tag each with a material index, so archetype buildings
+// keep windowed walls (0) and plain roofs (1) in a single instanced draw.
+const mergeWithMaterialGroups = (
+  parts: Array<{ geometry: THREE.BufferGeometry; materialIndex: number }>
+) => {
+  const merged = mergeBufferGeometries(parts.map((part) => part.geometry))
+
+  if (merged === null) {
+    return null
+  }
+
+  let start = 0
+
+  for (const part of parts) {
+    const indexCount =
+      part.geometry.index !== null
+        ? part.geometry.index.count
+        : part.geometry.getAttribute('position').count
+    merged.addGroup(start, indexCount, part.materialIndex)
+    start += indexCount
+  }
+
+  return merged
+}
+
+// Unit-size archetypes, scaled per instance by (width, height, depth).
+// Local +Y is up (toward the axis); the base sits at y = -0.5.
+const buildArchetypeGeometry = (kind: BuildingKind) => {
+  const parts: Array<{ geometry: THREE.BufferGeometry; materialIndex: number }> = []
+
+  if (kind === 'setback') {
+    const lower = new THREE.BoxGeometry(1, 0.6, 1)
+    lower.translate(0, -0.2, 0)
+    parts.push({ geometry: lower, materialIndex: 0 })
+
+    const lowerCap = new THREE.BoxGeometry(1.02, 0.03, 1.02)
+    lowerCap.translate(0, 0.115, 0)
+    parts.push({ geometry: lowerCap, materialIndex: 1 })
+
+    const upper = new THREE.BoxGeometry(0.68, 0.4, 0.72)
+    upper.translate(0, 0.3, 0)
+    parts.push({ geometry: upper, materialIndex: 0 })
+
+    const upperCap = new THREE.BoxGeometry(0.7, 0.03, 0.74)
+    upperCap.translate(0, 0.515, 0)
+    parts.push({ geometry: upperCap, materialIndex: 1 })
+  } else if (kind === 'tower') {
+    const shaft = new THREE.CylinderGeometry(0.46, 0.52, 0.96, 8)
+    shaft.translate(0, -0.02, 0)
+    parts.push({ geometry: shaft, materialIndex: 0 })
+
+    const cap = new THREE.CylinderGeometry(0.48, 0.48, 0.05, 8)
+    cap.translate(0, 0.475, 0)
+    parts.push({ geometry: cap, materialIndex: 1 })
+  } else if (kind === 'house') {
+    const body = new THREE.BoxGeometry(1, 0.68, 1)
+    body.translate(0, -0.16, 0)
+    parts.push({ geometry: body, materialIndex: 0 })
+
+    const roof = new THREE.ConeGeometry(0.74, 0.32, 4)
+    roof.rotateY(Math.PI / 4)
+    roof.translate(0, 0.34, 0)
+    parts.push({ geometry: roof, materialIndex: 1 })
+  }
+
+  const merged = mergeWithMaterialGroups(parts)
+
+  for (const part of parts) {
+    part.geometry.dispose()
+  }
+
+  return merged
+}
 
 const tangent = new THREE.Vector3()
 const inward = new THREE.Vector3()
@@ -343,6 +418,7 @@ export class Cityscape {
 
   private buildings: THREE.InstancedMesh | null = null
   private largeBuildings: THREE.InstancedMesh | null = null
+  private archetypeBatches: THREE.InstancedMesh[] = []
   private collisionBuildings: CityBuilding[] = []
   private windowStrips: THREE.Mesh[] = []
   private bridges: THREE.Mesh | null = null
@@ -424,7 +500,8 @@ export class Cityscape {
       width: footprint,
       depth: footprint,
       height: tower.height,
-      tone: 0.5
+      tone: 0.5,
+      kind: 'tower'
     }
   }
 
@@ -456,7 +533,7 @@ export class Cityscape {
   private clear() {
     this.collisionBuildings = []
 
-    for (const batch of [this.buildings, this.largeBuildings]) {
+    for (const batch of [this.buildings, this.largeBuildings, ...this.archetypeBatches]) {
       if (batch !== null) {
         batch.geometry.dispose()
         this.group.remove(batch)
@@ -465,6 +542,7 @@ export class Cityscape {
 
     this.buildings = null
     this.largeBuildings = null
+    this.archetypeBatches = []
 
     for (const patch of this.patchMeshes) {
       patch.geometry.dispose()
@@ -530,13 +608,80 @@ export class Cityscape {
   }
 
   private buildBuildings(plan: CityBuilding[]) {
-    // Wide slabs sample the denser window grid so their windows stay
-    // window-sized; small blocks keep the coarse one.
-    const small = plan.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
-    const large = plan.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
+    // Plain blocks split by size so their windows stay window-sized; the
+    // shaped archetypes each get their own instanced batch.
+    const blocks = plan.filter((b) => b.kind === 'block')
+    const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
+    const large = blocks.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
 
     this.buildings = this.buildBuildingBatch(small, this.buildingSideMaterial)
     this.largeBuildings = this.buildBuildingBatch(large, this.largeBuildingSideMaterial)
+
+    for (const kind of ['setback', 'tower', 'house'] as const) {
+      const batch = this.buildArchetypeBatch(
+        plan.filter((b) => b.kind === kind),
+        kind
+      )
+
+      if (batch !== null) {
+        this.archetypeBatches.push(batch)
+      }
+    }
+  }
+
+  private buildArchetypeBatch(
+    plan: CityBuilding[],
+    kind: BuildingKind
+  ): THREE.InstancedMesh | null {
+    if (plan.length === 0) {
+      return null
+    }
+
+    const geometry = buildArchetypeGeometry(kind)
+
+    if (geometry === null) {
+      return null
+    }
+
+    // Houses are small: the coarse window grid fits; the tall shapes use
+    // the dense one.
+    const sideMaterial =
+      kind === 'house' ? this.buildingSideMaterial : this.largeBuildingSideMaterial
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      [sideMaterial, this.buildingRoofMaterial],
+      plan.length
+    )
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+
+    for (let index = 0; index < plan.length; index += 1) {
+      const building = plan[index]
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - building.height * 0.5)
+        .setY(building.axial)
+      instanceScale.set(building.width, building.height, building.depth)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+      mesh.setColorAt(index, buildingTone(building.tone, instanceColor))
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+
+    this.group.add(mesh)
+    return mesh
   }
 
   private buildBuildingBatch(

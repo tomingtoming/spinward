@@ -70,7 +70,8 @@ describe('resolveCitySurfaceCollision', () => {
     width: 4,
     depth: 6,
     height: 5,
-    tone: 0.5
+    tone: 0.5,
+    kind: 'block' as const
   }
 
   test('does nothing when the player is clear of all footprints', () => {
@@ -163,10 +164,11 @@ describe('planCity', () => {
     }
   })
 
-  test('every building faces a nearby road', () => {
+  test('most buildings face a nearby road (inner-ring courts face alleys)', () => {
     const radius = 18
     const cell = getCityCellSize(radius, 120)
     const { roads, buildings } = planCity({ radius, length: 120 })
+    let facing = 0
 
     for (const building of buildings) {
       const nearestFrontage = Math.min(
@@ -175,8 +177,13 @@ describe('planCity', () => {
           return Math.max(tangentGap, axialGap, 0)
         })
       )
-      expect(nearestFrontage).toBeLessThanOrEqual(cell * 0.25)
+
+      if (nearestFrontage <= cell * 0.25) {
+        facing += 1
+      }
     }
+
+    expect(facing / buildings.length).toBeGreaterThan(0.5)
   })
 
   test('plaza exclusion respects tangent and axial half extents', () => {
@@ -194,8 +201,27 @@ describe('planCity', () => {
 
   test('respects the instance cap at large scales', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
-    expect(buildings.length).toBeLessThanOrEqual(4500)
-    expect(buildings.length).toBeGreaterThan(1000)
+    expect(buildings.length).toBeLessThanOrEqual(9000)
+    expect(buildings.length).toBeGreaterThan(3000)
+  })
+
+  test('assigns building archetypes with sane shapes', () => {
+    const { buildings } = planCity({ radius: 3200, length: 40000 })
+    const kinds = new Set(buildings.map((b) => b.kind))
+
+    for (const kind of ['block', 'setback', 'tower', 'house'] as const) {
+      expect(kinds.has(kind)).toBe(true)
+    }
+
+    for (const building of buildings) {
+      if (building.kind === 'house') {
+        expect(building.height).toBeLessThanOrEqual(10)
+      }
+      if (building.kind === 'tower') {
+        expect(building.width).toBeCloseTo(building.depth, 6)
+      }
+      expect(building.height).toBeLessThanOrEqual(78 + 1e-9)
+    }
   })
 
   test('buildings stay within the axial extent and have positive dimensions', () => {
@@ -294,8 +320,9 @@ describe('planCity', () => {
       expect(buildings.length).toBeGreaterThan(0)
 
       for (const building of buildings) {
-        // heightBase clamp (55m) times the maximum towerness factor (1.35).
-        expect(building.height).toBeLessThanOrEqual(55 * 1.35 + 1e-9)
+        // heightBase clamp times tower factors, capped at 78m — still within
+        // a few percent of surface gravity on the giant presets.
+        expect(building.height).toBeLessThanOrEqual(78 + 1e-9)
       }
     }
   })

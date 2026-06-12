@@ -1,5 +1,7 @@
 const TWO_PI = Math.PI * 2
 
+export type BuildingKind = 'block' | 'setback' | 'tower' | 'house'
+
 export type CityBuilding = {
   azimuth: number
   axial: number
@@ -7,6 +9,7 @@ export type CityBuilding = {
   depth: number
   height: number
   tone: number
+  kind: BuildingKind
 }
 
 export type CityRoad = {
@@ -66,12 +69,12 @@ export const STRIP_ARC_RADIANS = TWO_PI / (LAND_STRIP_COUNT * 2)
 // along the window edges.
 const LAND_STRIP_USABLE_FRACTION = 0.86
 const DEFAULT_SEED = 0x1f2e3d4c
-const DEFAULT_MAX_BUILDINGS = 4500
+const DEFAULT_MAX_BUILDINGS = 9000
 // Blocks are sized in surface meters relative to the city cell.
 const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
 const SIDEWALK_FRACTION = 0.15
-const LOT_FRACTION = 0.85
+const LOT_FRACTION = 0.62
 const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.12
 const FARM_BLOCK_PROBABILITY = 0.18
@@ -224,11 +227,37 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const blockWidth = tangentExtent / blocksTangent
   const blockLength = axialExtent / blocksAxial
 
+  // Mirror the placement math exactly so keepProbability is accurate —
+  // an inflated estimate starves the city instead of filling it.
   const innerWidthEstimate = blockWidth - avenueWidth - sidewalk * 2
   const innerLengthEstimate = blockLength - streetWidth - sidewalk * 2
-  const lotsPerBlockEstimate =
+  const depthMaxEstimate = Math.min(
+    cell * 0.9,
+    innerWidthEstimate * 0.35,
+    innerLengthEstimate * 0.35
+  )
+  const perimeterLots =
     2 * Math.max(0, Math.floor(innerLengthEstimate / lot)) +
-    2 * Math.max(0, Math.floor(innerWidthEstimate / lot))
+    2 *
+      Math.max(
+        0,
+        Math.floor(
+          (innerWidthEstimate - 2 * (depthMaxEstimate + sidewalk)) / lot
+        )
+      )
+  const ringInset = depthMaxEstimate + sidewalk * 1.5
+  const ringWidth = innerWidthEstimate - 2 * ringInset
+  const ringLength = innerLengthEstimate - 2 * ringInset
+  let innerRingLots = 0
+
+  if (ringWidth >= cell * 1.2 && ringLength >= cell * 1.2) {
+    const ringDepth = Math.min(depthMaxEstimate, ringWidth * 0.35, ringLength * 0.35)
+    innerRingLots =
+      2 * Math.max(0, Math.floor(ringLength / lot)) +
+      2 * Math.max(0, Math.floor((ringWidth - 2 * (ringDepth + sidewalk)) / lot))
+  }
+
+  const lotsPerBlockEstimate = perimeterLots + innerRingLots
   const candidateEstimate =
     lotsPerBlockEstimate * blocksTangent * blocksAxial * LAND_STRIP_COUNT
   const keepProbability = Math.min(
@@ -248,7 +277,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     width: number,
     depth: number,
     height: number,
-    tone: number
+    tone: number,
+    kind: BuildingKind
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -260,7 +290,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       return
     }
 
-    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone })
+    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone, kind })
   }
 
   // A row of buildings along one block edge, all fronting the same road.
@@ -292,22 +322,42 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const heightRoll = random()
       const toneRoll = random()
       const jitterRoll = random()
+      const kindRoll = random()
 
       if (keepRoll > keepProbability) {
         continue
       }
 
-      const along = lot * (0.62 + alongRoll * 0.32)
-      const depth = depthMax * (0.55 + depthRoll * 0.45)
+      let along = lot * (0.62 + alongRoll * 0.32)
+      let depth = depthMax * (0.55 + depthRoll * 0.45)
       const alongCenter =
         rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
+      let height = heightBase * (0.25 + heightRoll * heightRoll * 1.1)
+
+      // Building archetypes: low lots lean toward houses, tall rolls become
+      // slim towers or stepped setbacks, everything else stays a block.
+      let kind: BuildingKind = 'block'
+
+      if (height < heightBase * 0.45 && kindRoll < 0.55) {
+        kind = 'house'
+        height = Math.min(height, 10)
+      } else if (kindRoll > 0.84) {
+        kind = 'tower'
+        const slim = Math.min(along, depth) * 0.85
+        along = slim
+        depth = slim
+        height = Math.min(height * 1.25, 78)
+      } else if (kindRoll > 0.62) {
+        kind = 'setback'
+        height = Math.min(height * 1.1, 76)
+      }
+
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
-      const height = heightBase * (0.25 + heightRoll * heightRoll * 1.1)
 
       if (facing === 'avenue') {
-        placeBuilding(stripCenter, frontCenter, alongCenter, depth, along, height, toneRoll)
+        placeBuilding(stripCenter, frontCenter, alongCenter, depth, along, height, toneRoll, kind)
       } else {
-        placeBuilding(stripCenter, alongCenter, frontCenter, along, depth, height, toneRoll)
+        placeBuilding(stripCenter, alongCenter, frontCenter, along, depth, height, toneRoll, kind)
       }
     }
   }
@@ -428,6 +478,45 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           tangent1 - depthMax - sidewalk,
           depthMax
         )
+
+        // Inner ring: deep blocks get a second row of buildings across an
+        // alley, filling the previously empty block cores.
+        const inset = depthMax + sidewalk * 1.5
+        const innerTangent0 = tangent0 + inset
+        const innerTangent1 = tangent1 - inset
+        const innerAxial0 = axial0 + inset
+        const innerAxial1 = axial1 - inset
+
+        if (
+          innerTangent1 - innerTangent0 >= cell * 1.2 &&
+          innerAxial1 - innerAxial0 >= cell * 1.2
+        ) {
+          const innerDepthMax = Math.min(
+            depthMax,
+            (innerTangent1 - innerTangent0) * 0.35,
+            (innerAxial1 - innerAxial0) * 0.35
+          )
+          placeEdgeRow(stripCenter, 'avenue', innerTangent0, 1, innerAxial0, innerAxial1, innerDepthMax)
+          placeEdgeRow(stripCenter, 'avenue', innerTangent1, -1, innerAxial0, innerAxial1, innerDepthMax)
+          placeEdgeRow(
+            stripCenter,
+            'street',
+            innerAxial0,
+            1,
+            innerTangent0 + innerDepthMax + sidewalk,
+            innerTangent1 - innerDepthMax - sidewalk,
+            innerDepthMax
+          )
+          placeEdgeRow(
+            stripCenter,
+            'street',
+            innerAxial1,
+            -1,
+            innerTangent0 + innerDepthMax + sidewalk,
+            innerTangent1 - innerDepthMax - sidewalk,
+            innerDepthMax
+          )
+        }
       }
     }
   }
