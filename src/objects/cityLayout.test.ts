@@ -143,6 +143,26 @@ describe('planCity', () => {
     }
   })
 
+  test('road hierarchy: arterials wide but realistic, locals narrow', () => {
+    for (const [radius, length] of [[18, 120], [3200, 40000], [30000, 2000]] as const) {
+      const { roads } = planCity({ radius, length })
+      const kinds = new Set(roads.map((road) => road.kind))
+      expect(kinds.has('arterial')).toBe(true)
+      expect(kinds.has('local')).toBe(true)
+
+      for (const road of roads) {
+        const width = Math.min(road.tangentWidth, road.axialLength)
+        if (road.kind === 'arterial') {
+          expect(width).toBeGreaterThanOrEqual(6)
+          expect(width).toBeLessThanOrEqual(24)
+        } else {
+          expect(width).toBeGreaterThanOrEqual(4)
+          expect(width).toBeLessThanOrEqual(8)
+        }
+      }
+    }
+  })
+
   test('roads are centered on land strips', () => {
     const { roads } = planCity({ radius: 18, length: 120 })
     expect(roads.length).toBeGreaterThan(0)

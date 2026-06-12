@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import {
+  getArterialRoadWidth,
   getCityCellSize,
   getLandStripCenters,
   getWindowStripArcs,
@@ -349,6 +350,17 @@ export class Cityscape {
     side: THREE.DoubleSide
   })
 
+  private readonly localRoadMaterial = new THREE.MeshBasicMaterial({
+    color: 0x272d35,
+    transparent: true,
+    opacity: 0.85,
+    side: THREE.BackSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
+  })
+
   private readonly roadMaterial = new THREE.MeshBasicMaterial({
     color: 0x141a21,
     transparent: true,
@@ -425,6 +437,7 @@ export class Cityscape {
   private bridgeEdges: THREE.Mesh | null = null
   private mirrors: THREE.Mesh[] = []
   private roads: THREE.Mesh | null = null
+  private localRoads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
   private trees: THREE.InstancedMesh | null = null
   private lamps: THREE.InstancedMesh | null = null
@@ -517,6 +530,7 @@ export class Cityscape {
     this.mirrorMaterial.dispose()
     this.axisSpineMaterial.dispose()
     this.roadMaterial.dispose()
+    this.localRoadMaterial.dispose()
     this.bridgeMaterial.dispose()
     this.bridgeEdgeMaterial.dispose()
     this.parkMaterial.dispose()
@@ -557,7 +571,8 @@ export class Cityscape {
       this.cables,
       this.spineRings,
       this.bridges,
-      this.bridgeEdges
+      this.bridgeEdges,
+      this.localRoads
     ]) {
       if (single !== null) {
         single.geometry.dispose()
@@ -571,6 +586,7 @@ export class Cityscape {
     this.spineRings = null
     this.bridges = null
     this.bridgeEdges = null
+    this.localRoads = null
 
     if (this.towerGroup !== null) {
       for (const child of this.towerGroup.children) {
@@ -740,48 +756,60 @@ export class Cityscape {
   }
 
   private buildRoads(roads: CityRoad[], radius: number) {
-    if (roads.length === 0) {
-      return
-    }
-
     // Each road is a thin arc band hugging the inner wall; cross streets
     // curve with the cylinder, so flat planes would visibly chord. The
     // clearance is absolute meters: proportional offsets float at head
-    // height on multi-kilometer habitats.
-    const roadRadius = radius - 0.05
-    const geometries: THREE.BufferGeometry[] = []
+    // height on multi-kilometer habitats. Arterials and residential
+    // streets get separate meshes so their surfaces read differently.
+    for (const kind of ['arterial', 'local'] as const) {
+      const roadRadius = radius - 0.05
+      const geometries: THREE.BufferGeometry[] = []
 
-    for (const road of roads) {
-      const arcRadians = road.tangentWidth / radius
-      const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
-      const geometry = new THREE.CylinderGeometry(
-        roadRadius,
-        roadRadius,
-        road.axialLength,
-        segments,
-        1,
-        true,
-        getThetaStart(road.azimuth, arcRadians),
-        arcRadians
+      for (const road of roads) {
+        if (road.kind !== kind) {
+          continue
+        }
+
+        const arcRadians = road.tangentWidth / radius
+        const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
+        const geometry = new THREE.CylinderGeometry(
+          roadRadius,
+          roadRadius,
+          road.axialLength,
+          segments,
+          1,
+          true,
+          getThetaStart(road.azimuth, arcRadians),
+          arcRadians
+        )
+        geometry.translate(0, road.axial, 0)
+        geometries.push(geometry)
+      }
+
+      const merged = mergeBufferGeometries(geometries)
+
+      for (const geometry of geometries) {
+        geometry.dispose()
+      }
+
+      if (merged === null) {
+        continue
+      }
+
+      const mesh = new THREE.Mesh(
+        merged,
+        kind === 'arterial' ? this.roadMaterial : this.localRoadMaterial
       )
-      geometry.translate(0, road.axial, 0)
-      geometries.push(geometry)
+      mesh.renderOrder = 1
+
+      if (kind === 'arterial') {
+        this.roads = mesh
+      } else {
+        this.localRoads = mesh
+      }
+
+      this.group.add(mesh)
     }
-
-    const merged = mergeBufferGeometries(geometries)
-
-    for (const geometry of geometries) {
-      geometry.dispose()
-    }
-
-    if (merged === null) {
-      return
-    }
-
-    const mesh = new THREE.Mesh(merged, this.roadMaterial)
-    mesh.renderOrder = 1
-    this.roads = mesh
-    this.group.add(mesh)
   }
 
   // Curved arc band hugging the inner wall, used for patches.
@@ -915,8 +943,8 @@ export class Cityscape {
     const positions: Array<{ azimuth: number; axial: number }> = []
 
     for (const road of roads) {
-      // Avenues run along the axis; cross streets are wider than long.
-      if (road.axialLength <= road.tangentWidth) {
+      // Street lighting follows the arterial avenues (long axial roads).
+      if (road.kind !== 'arterial' || road.axialLength <= road.tangentWidth) {
         continue
       }
 
@@ -1104,7 +1132,8 @@ export class Cityscape {
   private buildWindowBridges(radius: number, length: number) {
     const cell = getCityCellSize(radius, length)
     const spacing = THREE.MathUtils.clamp(cell * 8, 40, 2400)
-    const deckWidth = THREE.MathUtils.clamp(cell * 0.6, 3, 36)
+    // Bridges carry an arterial across the window.
+    const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
     const count = Math.floor(length / spacing)
 
     if (count < 1) {

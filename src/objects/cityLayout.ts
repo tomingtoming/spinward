@@ -12,11 +12,14 @@ export type CityBuilding = {
   kind: BuildingKind
 }
 
+export type RoadKind = 'arterial' | 'local'
+
 export type CityRoad = {
   azimuth: number
   axial: number
   tangentWidth: number
   axialLength: number
+  kind: RoadKind
 }
 
 export type CityPatchKind = 'park' | 'farm'
@@ -73,7 +76,6 @@ const DEFAULT_MAX_BUILDINGS = 9000
 // Blocks are sized in surface meters relative to the city cell.
 const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
-const SIDEWALK_FRACTION = 0.15
 const LOT_FRACTION = 0.62
 const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.12
@@ -112,6 +114,17 @@ export const isAzimuthOnLandStrip = (azimuth: number) => {
 // thin rings (span << radius) still get a walkable street grid.
 export const getCityCellSize = (radius: number, length = Number.POSITIVE_INFINITY) =>
   Math.max(6, Math.min(radius * 0.045, length * 0.08))
+
+// Realistic road widths in absolute meters: arterials top out at a wide
+// boulevard, residential streets stay narrow regardless of habitat scale.
+export const getArterialRoadWidth = (radius: number, length?: number) =>
+  Math.min(24, Math.max(6, getCityCellSize(radius, length) * 0.5))
+
+export const getLocalRoadWidth = (radius: number, length?: number) =>
+  Math.min(8, Math.max(4, getCityCellSize(radius, length) * 0.28))
+
+export const getSidewalkWidth = (radius: number, length?: number) =>
+  Math.min(5, Math.max(1.2, getCityCellSize(radius, length) * 0.15))
 
 // Spawn plaza around (azimuth 0, axial 0) is kept clear of buildings so the
 // start marker and respawn point stay walkable.
@@ -209,9 +222,21 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
   const random = createRandom(config.seed ?? DEFAULT_SEED)
   const cell = getCityCellSize(radius, length)
-  const avenueWidth = cell * 0.55
-  const streetWidth = cell * 0.45
-  const sidewalk = cell * SIDEWALK_FRACTION
+  const arterialWidth = getArterialRoadWidth(radius, length)
+  const localWidth = getLocalRoadWidth(radius, length)
+  const sidewalk = getSidewalkWidth(radius, length)
+  // Strip edges plus every Nth boundary carry the arterials; the rest are
+  // residential streets.
+  const avenueKindAt = (index: number): RoadKind =>
+    index === 0 || index === blocksTangentCount || index % 3 === 0
+      ? 'arterial'
+      : 'local'
+  const streetKindAt = (index: number): RoadKind =>
+    index === 0 || index === blocksAxialCount || index % 4 === 0
+      ? 'arterial'
+      : 'local'
+  const roadWidthFor = (kind: RoadKind) =>
+    kind === 'arterial' ? arterialWidth : localWidth
   const lot = cell * LOT_FRACTION
   // Buildings are human habitation: spin gravity falls off linearly with
   // height (g(h) = g0 * (1 - h/R)), so everyday buildings cling to the 1g
@@ -222,15 +247,15 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const tangentExtent = usableArc * radius
   const axialHalf = Math.max(0, length * 0.5 - cell)
   const axialExtent = axialHalf * 2
-  const blocksTangent = Math.max(1, Math.round(tangentExtent / (cell * BLOCK_TANGENT_CELLS)))
-  const blocksAxial = Math.max(1, Math.round(axialExtent / (cell * BLOCK_AXIAL_CELLS)))
-  const blockWidth = tangentExtent / blocksTangent
-  const blockLength = axialExtent / blocksAxial
+  const blocksTangentCount = Math.max(1, Math.round(tangentExtent / (cell * BLOCK_TANGENT_CELLS)))
+  const blocksAxialCount = Math.max(1, Math.round(axialExtent / (cell * BLOCK_AXIAL_CELLS)))
+  const blockWidth = tangentExtent / blocksTangentCount
+  const blockLength = axialExtent / blocksAxialCount
 
   // Mirror the placement math exactly so keepProbability is accurate —
   // an inflated estimate starves the city instead of filling it.
-  const innerWidthEstimate = blockWidth - avenueWidth - sidewalk * 2
-  const innerLengthEstimate = blockLength - streetWidth - sidewalk * 2
+  const innerWidthEstimate = blockWidth - localWidth - sidewalk * 2
+  const innerLengthEstimate = blockLength - localWidth - sidewalk * 2
   const depthMaxEstimate = Math.min(
     cell * 0.9,
     innerWidthEstimate * 0.35,
@@ -259,7 +284,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
   const lotsPerBlockEstimate = perimeterLots + innerRingLots
   const candidateEstimate =
-    lotsPerBlockEstimate * blocksTangent * blocksAxial * LAND_STRIP_COUNT
+    lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * LAND_STRIP_COUNT
   const keepProbability = Math.min(
     MAX_KEEP_PROBABILITY,
     candidateEstimate > 0 ? maxBuildings / candidateEstimate : 0
@@ -363,30 +388,47 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   }
 
   for (const stripCenter of getLandStripCenters()) {
-    for (let i = 0; i <= blocksTangent; i += 1) {
+    for (let i = 0; i <= blocksTangentCount; i += 1) {
+      const kind = avenueKindAt(i)
       roads.push({
         azimuth: stripCenter + (-tangentExtent * 0.5 + i * blockWidth) / radius,
         axial: 0,
-        tangentWidth: avenueWidth,
-        axialLength: axialExtent + streetWidth
+        tangentWidth: roadWidthFor(kind),
+        axialLength: axialExtent + arterialWidth,
+        kind
       })
     }
 
-    for (let j = 0; j <= blocksAxial; j += 1) {
+    for (let j = 0; j <= blocksAxialCount; j += 1) {
+      const kind = streetKindAt(j)
       roads.push({
         azimuth: stripCenter,
         axial: -axialHalf + j * blockLength,
-        tangentWidth: tangentExtent + avenueWidth,
-        axialLength: streetWidth
+        tangentWidth: tangentExtent + arterialWidth,
+        axialLength: roadWidthFor(kind),
+        kind
       })
     }
 
-    for (let i = 0; i < blocksTangent; i += 1) {
-      for (let j = 0; j < blocksAxial; j += 1) {
-        const tangent0 = -tangentExtent * 0.5 + i * blockWidth + avenueWidth * 0.5 + sidewalk
-        const tangent1 = -tangentExtent * 0.5 + (i + 1) * blockWidth - avenueWidth * 0.5 - sidewalk
-        const axial0 = -axialHalf + j * blockLength + streetWidth * 0.5 + sidewalk
-        const axial1 = -axialHalf + (j + 1) * blockLength - streetWidth * 0.5 - sidewalk
+    for (let i = 0; i < blocksTangentCount; i += 1) {
+      for (let j = 0; j < blocksAxialCount; j += 1) {
+        const tangent0 =
+          -tangentExtent * 0.5 +
+          i * blockWidth +
+          roadWidthFor(avenueKindAt(i)) * 0.5 +
+          sidewalk
+        const tangent1 =
+          -tangentExtent * 0.5 +
+          (i + 1) * blockWidth -
+          roadWidthFor(avenueKindAt(i + 1)) * 0.5 -
+          sidewalk
+        const axial0 =
+          -axialHalf + j * blockLength + roadWidthFor(streetKindAt(j)) * 0.5 + sidewalk
+        const axial1 =
+          -axialHalf +
+          (j + 1) * blockLength -
+          roadWidthFor(streetKindAt(j + 1)) * 0.5 -
+          sidewalk
         const innerWidth = tangent1 - tangent0
         const innerLength = axial1 - axial0
 
