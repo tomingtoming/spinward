@@ -432,6 +432,26 @@ export const detachPlayerToFreeFly = (
     return
   }
 
+  if (state.physics !== null) {
+    // The body is live: keep its actual momentum (walking speed included)
+    // and just add the launch impulse. Resetting to the surface rest pose
+    // here used to erase a running start on every jump.
+    readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.units, {
+      position: state.inertialPosition,
+      linearVelocity: state.inertialVelocity
+    })
+    state.mode = 'free-fly'
+    rotatingPositionToInertial(config.launchVelocity, config.frameAngle, inertialLaunchVelocity)
+    state.inertialVelocity.add(inertialLaunchVelocity)
+    setRigidBodyLinvelFromReal(
+      state.physics.freeFlyBody,
+      state.inertialVelocity,
+      state.physics.units,
+      true
+    )
+    return
+  }
+
   syncGroundedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
   state.mode = 'free-fly'
   rotatingPositionToInertial(config.launchVelocity, config.frameAngle, inertialLaunchVelocity)

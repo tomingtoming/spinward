@@ -298,6 +298,54 @@ test('physical walking holds co-rotation on the spinning wall at izma scale', as
   world.free()
 })
 
+test('jumping mid-run keeps the walking momentum', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const state = createPlayerTraversalState(
+    { axialPosition: 2, azimuth: 0 },
+    10,
+    0,
+    1.2,
+    { rapier, world }
+  )
+
+  // Build up an axial run (2 m/s after this step, per the walking test).
+  stepGroundedPlayer(state, {
+    axisDistanceDelta: 1,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1.2,
+    frameAngleEnd: 0.6
+  })
+
+  // Jump straight "up" (radially inward at azimuth ~0).
+  detachPlayerToFreeFly(state, {
+    launchVelocity: new THREE.Vector3(-3, 0, 0),
+    radius: 10,
+    omega: 1.2,
+    frameAngle: 0.6
+  })
+
+  expect(state.mode).toBe('free-fly')
+
+  const rotatingVelocity = inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    1.2,
+    0.6,
+    new THREE.Vector3()
+  )
+
+  // The run survives the jump; the launch impulse rides on top of it.
+  expect(rotatingVelocity.y).toBeCloseTo(2, 5)
+  expect(rotatingVelocity.x).toBeLessThan(-2)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
 test('physical walking releases to free-fly past the opening', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })
