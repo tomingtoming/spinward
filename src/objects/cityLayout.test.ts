@@ -6,6 +6,7 @@ import {
   getCityCellSize,
   getCityGroundHeight,
   getOverlookAltitude,
+  getOverlookTowerClearance,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
   getWindowStripArcs,
@@ -263,8 +264,8 @@ describe('planCity', () => {
 
   test('respects the instance cap at large scales', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
-    expect(buildings.length).toBeLessThanOrEqual(9000)
-    expect(buildings.length).toBeGreaterThan(3000)
+    expect(buildings.length).toBeLessThanOrEqual(12000)
+    expect(buildings.length).toBeGreaterThan(9000)
   })
 
   test('assigns building archetypes with sane shapes', () => {
@@ -369,11 +370,30 @@ describe('planCity', () => {
     expect(roads.length).toBeGreaterThan(0)
   })
 
-  test('the plaza stays human-scale on giant habitats', () => {
-    expect(getPlazaTangentHalfWidth(30000)).toBe(80)
-    expect(getPlazaAxialHalfLength(30000)).toBe(60)
-    expect(getPlazaTangentHalfWidth(18)).toBe(10)
-    expect(getPlazaAxialHalfLength(18)).toBe(12)
+  test('the plaza is a modest crossroads square at every scale', () => {
+    expect(getPlazaTangentHalfWidth(30000)).toBe(16)
+    expect(getPlazaAxialHalfLength(30000)).toBe(14)
+    expect(getPlazaTangentHalfWidth(18)).toBe(8)
+    expect(getPlazaAxialHalfLength(18)).toBe(8)
+  })
+
+  test('large habitats put an arterial crossroads exactly at the spawn point', () => {
+    const radius = 3200
+    const { roads } = planCity({ radius, length: 32000 })
+    const avenueAtSpawn = roads.find(
+      (road) =>
+        road.kind === 'arterial' &&
+        Math.abs(road.azimuth) * radius < 0.5 &&
+        road.axialLength > road.tangentWidth
+    )
+    const streetAtSpawn = roads.find(
+      (road) =>
+        road.kind === 'arterial' &&
+        Math.abs(road.axial) < 0.5 &&
+        road.tangentWidth > road.axialLength
+    )
+    expect(avenueAtSpawn).toBeDefined()
+    expect(streetAtSpawn).toBeDefined()
   })
 
   test('building heights stay in the near-1g band on giant habitats', () => {
@@ -396,11 +416,14 @@ describe('planCity', () => {
     expect(tower).not.toBeNull()
     expect(tower?.height).toBeCloseTo(getOverlookAltitude(radius) - 1.5, 6)
     expect(tower?.deckRadius).toBeGreaterThan(0)
-    // Beside the plaza, on the trailing side of the Coriolis drift.
+    // Diagonally off the spawn crossroads, on the trailing side of the
+    // Coriolis drift, clear of both arterials.
     expect(tower!.azimuth).toBeLessThan(0)
-    expect(Math.abs(tower!.azimuth) * radius).toBeLessThanOrEqual(
-      getPlazaTangentHalfWidth(radius)
+    expect(Math.abs(tower!.azimuth) * radius).toBeCloseTo(
+      getOverlookTowerClearance(radius),
+      6
     )
+    expect(tower!.axial).toBeCloseTo(getOverlookTowerClearance(radius), 6)
   })
 
   test('opposite side of the cylinder is also populated', () => {

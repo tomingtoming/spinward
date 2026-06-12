@@ -23,5 +23,5 @@ export const getQualityProfile = (): QualityProfile => {
     return { pixelRatioCap: Number.POSITIVE_INFINITY, maxBuildings: 18000, cloudDensity: 0.7 }
   }
 
-  return { pixelRatioCap: Number.POSITIVE_INFINITY, maxBuildings: 40000, cloudDensity: 1 }
+  return { pixelRatioCap: Number.POSITIVE_INFINITY, maxBuildings: 48000, cloudDensity: 1 }
 }

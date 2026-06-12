@@ -78,8 +78,8 @@ const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
 const LOT_FRACTION = 0.62
 const MAX_KEEP_PROBABILITY = 0.92
-const PARK_BLOCK_PROBABILITY = 0.12
-const FARM_BLOCK_PROBABILITY = 0.18
+const PARK_BLOCK_PROBABILITY = 0.08
+const FARM_BLOCK_PROBABILITY = 0.1
 const MAX_TREES = 1500
 // Building rows nest inward until the block core is used up.
 const MAX_BLOCK_RINGS = 4
@@ -115,7 +115,7 @@ export const isAzimuthOnLandStrip = (azimuth: number) => {
 // City cell scale follows the smaller of the two habitat dimensions, so
 // thin rings (span << radius) still get a walkable street grid.
 export const getCityCellSize = (radius: number, length = Number.POSITIVE_INFINITY) =>
-  Math.max(6, Math.min(radius * 0.03, length * 0.08))
+  Math.max(6, Math.min(radius * 0.025, length * 0.08))
 
 // Realistic road widths in absolute meters: arterials top out at a wide
 // boulevard, residential streets stay narrow regardless of habitat scale.
@@ -132,27 +132,36 @@ export const getSidewalkWidth = (radius: number, length?: number) =>
 // start marker and respawn point stay walkable.
 // Human-scale: clamped in absolute meters so giant habitats do not carve
 // kilometer-wide empty fields around the spawn.
+// A modest crossroads square, not a vast clearing: the spawn sits on an
+// arterial intersection and the city starts right at the sidewalk.
 export const getPlazaTangentHalfWidth = (radius: number) =>
-  Math.min(80, Math.max(10, radius * 0.3))
+  Math.min(16, Math.max(8, radius * 0.04))
 export const getPlazaAxialHalfLength = (radius: number) =>
-  Math.min(60, Math.max(12, radius * 0.15))
+  Math.min(14, Math.max(8, radius * 0.04))
 
 // Overlook travel altitude above the surface — shared with the respawn logic
 // so the observation tower tops out just below the spawn point.
 export const getOverlookAltitude = (radius: number) =>
   Math.min(60, Math.max(8, radius * 0.5))
 
+export const getOverlookTowerClearance = (radius: number) => {
+  const deckRadius = Math.min(12, Math.max(2, radius * 0.12))
+  return (
+    getArterialRoadWidth(radius) * 0.5 + getSidewalkWidth(radius) + deckRadius + 4
+  )
+}
+
 export const getOverlookTower = (radius: number): CityTower => {
   const deckRadius = Math.min(12, Math.max(2, radius * 0.12))
+  // Diagonally off the spawn crossroads, clear of both arterials, trailing
+  // the Coriolis drift of the overlook drop so the falling player slides
+  // past the column instead of through it. Building placement keeps a
+  // matching exclusion zone around it.
+  const clearance = getOverlookTowerClearance(radius)
 
   return {
-    // Beside the plaza, trailing the Coriolis drift of the overlook drop so
-    // the falling player slides past the tower instead of through it. The
-    // offset grows with the deck so the column does not fill the spawn view.
-    azimuth:
-      -Math.min(getPlazaTangentHalfWidth(radius) * 0.7, 8 + deckRadius * 1.4) /
-      radius,
-    axial: 0,
+    azimuth: -clearance / radius,
+    axial: clearance,
     height: Math.max(4, getOverlookAltitude(radius) - 1.5),
     deckRadius
   }
@@ -393,11 +402,17 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // Strip edges plus every Nth boundary carry the arterials; the rest are
   // residential streets.
   const avenueKindAt = (index: number): RoadKind =>
-    index === 0 || index === blocksTangentCount || index % 3 === 0
+    index === 0 ||
+    index === blocksTangentCount ||
+    index === blocksTangentCount / 2 ||
+    index % 3 === 0
       ? 'arterial'
       : 'local'
   const streetKindAt = (index: number): RoadKind =>
-    index === 0 || index === blocksAxialCount || index % 4 === 0
+    index === 0 ||
+    index === blocksAxialCount ||
+    index === blocksAxialCount / 2 ||
+    index % 4 === 0
       ? 'arterial'
       : 'local'
   const roadWidthFor = (kind: RoadKind) =>
@@ -412,8 +427,14 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const tangentExtent = usableArc * radius
   const axialHalf = Math.max(0, length * 0.5 - cell)
   const axialExtent = axialHalf * 2
-  const blocksTangentCount = Math.max(1, Math.round(tangentExtent / (cell * BLOCK_TANGENT_CELLS)))
-  const blocksAxialCount = Math.max(1, Math.round(axialExtent / (cell * BLOCK_AXIAL_CELLS)))
+  // Even block counts put an avenue at the strip center and a street at
+  // axial 0: the spawn point lands exactly on an arterial crossroads.
+  // Habitats too small for two viable blocks keep a single one instead of
+  // collapsing below the minimum block size.
+  const evenBlockCount = (raw: number) =>
+    Math.round(raw) < 2 ? Math.max(1, Math.round(raw)) : 2 * Math.max(1, Math.round(raw / 2))
+  const blocksTangentCount = evenBlockCount(tangentExtent / (cell * BLOCK_TANGENT_CELLS))
+  const blocksAxialCount = evenBlockCount(axialExtent / (cell * BLOCK_AXIAL_CELLS))
   const blockWidth = tangentExtent / blocksTangentCount
   const blockLength = axialExtent / blocksAxialCount
 
@@ -452,6 +473,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const patches: CityPatch[] = []
   const trees: CityTree[] = []
 
+  const overlookTower = getOverlookTower(radius)
+  const towerClearance =
+    overlookTower.deckRadius + Math.max(4, getSidewalkWidth(radius, length))
+
   const placeBuilding = (
     stripCenter: number,
     tangentCenter: number,
@@ -469,6 +494,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     const azimuth = stripCenter + tangentCenter / radius
 
     if (isInsidePlaza(azimuth, axialCenter, radius)) {
+      return
+    }
+
+    // The observation tower lives inside a normal block now: keep its
+    // immediate footprint free of buildings.
+    if (
+      Math.abs(wrapToPi(azimuth - overlookTower.azimuth)) * radius <
+        towerClearance + width * 0.5 &&
+      Math.abs(axialCenter - overlookTower.axial) < towerClearance + depth * 0.5
+    ) {
       return
     }
 
@@ -510,7 +545,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         continue
       }
 
-      let along = lot * (0.62 + alongRoll * 0.32)
+      let along = lot * (0.74 + alongRoll * 0.24)
       let depth = depthMax * (0.55 + depthRoll * 0.45)
       const alongCenter =
         rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
