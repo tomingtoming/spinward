@@ -70,9 +70,9 @@ export const LAND_STRIP_COUNT = 3
 export const STRIP_ARC_RADIANS = TWO_PI / (LAND_STRIP_COUNT * 2)
 // Buildings stay inside this fraction of a land strip so streets remain
 // along the window edges.
-const LAND_STRIP_USABLE_FRACTION = 0.86
+const LAND_STRIP_USABLE_FRACTION = 0.94
 const DEFAULT_SEED = 0x1f2e3d4c
-const DEFAULT_MAX_BUILDINGS = 9000
+const DEFAULT_MAX_BUILDINGS = 12000
 // Blocks are sized in surface meters relative to the city cell.
 const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
@@ -81,6 +81,8 @@ const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.12
 const FARM_BLOCK_PROBABILITY = 0.18
 const MAX_TREES = 1500
+// Building rows nest inward until the block core is used up.
+const MAX_BLOCK_RINGS = 4
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0
@@ -256,33 +258,25 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // an inflated estimate starves the city instead of filling it.
   const innerWidthEstimate = blockWidth - localWidth - sidewalk * 2
   const innerLengthEstimate = blockLength - localWidth - sidewalk * 2
-  const depthMaxEstimate = Math.min(
-    cell * 0.9,
-    innerWidthEstimate * 0.35,
-    innerLengthEstimate * 0.35
-  )
-  const perimeterLots =
-    2 * Math.max(0, Math.floor(innerLengthEstimate / lot)) +
-    2 *
-      Math.max(
-        0,
-        Math.floor(
-          (innerWidthEstimate - 2 * (depthMaxEstimate + sidewalk)) / lot
-        )
-      )
-  const ringInset = depthMaxEstimate + sidewalk * 1.5
-  const ringWidth = innerWidthEstimate - 2 * ringInset
-  const ringLength = innerLengthEstimate - 2 * ringInset
-  let innerRingLots = 0
+  let lotsPerBlockEstimate = 0
+  {
+    let estWidth = innerWidthEstimate
+    let estLength = innerLengthEstimate
 
-  if (ringWidth >= cell * 1.2 && ringLength >= cell * 1.2) {
-    const ringDepth = Math.min(depthMaxEstimate, ringWidth * 0.35, ringLength * 0.35)
-    innerRingLots =
-      2 * Math.max(0, Math.floor(ringLength / lot)) +
-      2 * Math.max(0, Math.floor((ringWidth - 2 * (ringDepth + sidewalk)) / lot))
+    for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
+      if (estWidth < cell * 0.6 || estLength < cell * 0.6) {
+        break
+      }
+
+      const ringDepth = Math.min(cell * 0.9, estWidth * 0.35, estLength * 0.35)
+      lotsPerBlockEstimate +=
+        2 * Math.max(0, Math.floor(estLength / lot)) +
+        2 * Math.max(0, Math.floor((estWidth - 2 * (ringDepth + sidewalk)) / lot))
+      const inset = 2 * (ringDepth + sidewalk * 1.5)
+      estWidth -= inset
+      estLength -= inset
+    }
   }
-
-  const lotsPerBlockEstimate = perimeterLots + innerRingLots
   const candidateEstimate =
     lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * LAND_STRIP_COUNT
   const keepProbability = Math.min(
@@ -496,68 +490,69 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           continue
         }
 
-        const depthMax = Math.min(cell * 0.9, innerWidth * 0.35, innerLength * 0.35)
+        // Nested rings of buildings march inward across alleys until the
+        // block core is used up; whatever remains becomes a courtyard
+        // garden, so blocks read full instead of hollow.
+        let ringTangent0 = tangent0
+        let ringTangent1 = tangent1
+        let ringAxial0 = axial0
+        let ringAxial1 = axial1
 
-        // Rows fronting the avenues (block's tangent edges)...
-        placeEdgeRow(stripCenter, 'avenue', tangent0, 1, axial0, axial1, depthMax)
-        placeEdgeRow(stripCenter, 'avenue', tangent1, -1, axial0, axial1, depthMax)
-        // ...and rows fronting the cross streets, inset past the corner lots.
-        placeEdgeRow(
-          stripCenter,
-          'street',
-          axial0,
-          1,
-          tangent0 + depthMax + sidewalk,
-          tangent1 - depthMax - sidewalk,
-          depthMax
-        )
-        placeEdgeRow(
-          stripCenter,
-          'street',
-          axial1,
-          -1,
-          tangent0 + depthMax + sidewalk,
-          tangent1 - depthMax - sidewalk,
-          depthMax
-        )
+        for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
+          const ringWidth = ringTangent1 - ringTangent0
+          const ringLength = ringAxial1 - ringAxial0
 
-        // Inner ring: deep blocks get a second row of buildings across an
-        // alley, filling the previously empty block cores.
-        const inset = depthMax + sidewalk * 1.5
-        const innerTangent0 = tangent0 + inset
-        const innerTangent1 = tangent1 - inset
-        const innerAxial0 = axial0 + inset
-        const innerAxial1 = axial1 - inset
+          if (ringWidth < cell * 0.6 || ringLength < cell * 0.6) {
+            break
+          }
+
+          const ringDepth = Math.min(cell * 0.9, ringWidth * 0.35, ringLength * 0.35)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth)
+          placeEdgeRow(
+            stripCenter,
+            'street',
+            ringAxial0,
+            1,
+            ringTangent0 + ringDepth + sidewalk,
+            ringTangent1 - ringDepth - sidewalk,
+            ringDepth
+          )
+          placeEdgeRow(
+            stripCenter,
+            'street',
+            ringAxial1,
+            -1,
+            ringTangent0 + ringDepth + sidewalk,
+            ringTangent1 - ringDepth - sidewalk,
+            ringDepth
+          )
+
+          const inset = ringDepth + sidewalk * 1.5
+          ringTangent0 += inset
+          ringTangent1 -= inset
+          ringAxial0 += inset
+          ringAxial1 -= inset
+        }
+
+        // Courtyard garden in whatever core is left.
+        const coreWidth = ringTangent1 - ringTangent0
+        const coreLength = ringAxial1 - ringAxial0
+        const coreAzimuth = stripCenter + ((ringTangent0 + ringTangent1) * 0.5) / radius
+        const coreAxial = (ringAxial0 + ringAxial1) * 0.5
 
         if (
-          innerTangent1 - innerTangent0 >= cell * 1.2 &&
-          innerAxial1 - innerAxial0 >= cell * 1.2
+          coreWidth >= cell * 0.45 &&
+          coreLength >= cell * 0.45 &&
+          !isInsidePlaza(coreAzimuth, coreAxial, radius)
         ) {
-          const innerDepthMax = Math.min(
-            depthMax,
-            (innerTangent1 - innerTangent0) * 0.35,
-            (innerAxial1 - innerAxial0) * 0.35
-          )
-          placeEdgeRow(stripCenter, 'avenue', innerTangent0, 1, innerAxial0, innerAxial1, innerDepthMax)
-          placeEdgeRow(stripCenter, 'avenue', innerTangent1, -1, innerAxial0, innerAxial1, innerDepthMax)
-          placeEdgeRow(
-            stripCenter,
-            'street',
-            innerAxial0,
-            1,
-            innerTangent0 + innerDepthMax + sidewalk,
-            innerTangent1 - innerDepthMax - sidewalk,
-            innerDepthMax
-          )
-          placeEdgeRow(
-            stripCenter,
-            'street',
-            innerAxial1,
-            -1,
-            innerTangent0 + innerDepthMax + sidewalk,
-            innerTangent1 - innerDepthMax - sidewalk,
-            innerDepthMax
-          )
+          patches.push({
+            azimuth: coreAzimuth,
+            axial: coreAxial,
+            tangentExtent: coreWidth,
+            axialExtent: coreLength,
+            kind: 'park'
+          })
         }
       }
     }

@@ -6,6 +6,7 @@ export type TourEventId =
   | 'axis'
   | 'surface'
   | 'spin-change'
+  | 'drive'
 
 export type TourCard = {
   title: string
@@ -15,7 +16,7 @@ export type TourCard = {
 
 // Waypoint and spin cards re-show on every trigger; one-shot discovery cards
 // (throw, jump) only fire the first time so they do not nag.
-const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump'])
+const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump', 'drive'])
 
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   start: {
@@ -68,6 +69,15 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       'the far side of town hangs overhead, 2R away.'
     ],
     durationSeconds: 8
+  },
+  drive: {
+    title: 'GRIP IS GRAVITY',
+    body: [
+      'The wheels hold the road only because the spinning floor presses them down.',
+      'Lower the rpm and feel the grip melt away.',
+      'W/S drive · A/D steer · Space brake · E exit'
+    ],
+    durationSeconds: 12
   },
   'spin-change': {
     title: 'SPIN = GRAVITY',

@@ -16,6 +16,7 @@ import {
   getDaylight,
   stepDayNightPhase
 } from './dayNight'
+import { DriveRuntime } from './driveRuntime'
 import { syncHabitatRuntime } from './habitatRuntime'
 import {
   applyPlayerTraversalState,
@@ -26,6 +27,7 @@ import {
   getIdleLocomotionIntent,
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
+  resetPlayerToAttached,
   syncPlayerTraversalFromPhysics,
   stepAttachedPlayer,
   stepFreeFlyPlayer,
@@ -44,8 +46,9 @@ import {
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
+import { Car } from '../objects/car'
 import { Clouds } from '../objects/clouds'
-import { getWindowStripArcs, resolveCitySurfaceCollision } from '../objects/cityLayout'
+import { getPlazaTangentHalfWidth, getWindowStripArcs, resolveCitySurfaceCollision } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
@@ -255,6 +258,25 @@ export const bootstrapApp = async () => {
     units: getUnits()
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
+  const car = new Car()
+  nearLayer.add(car.group)
+  const drive = new DriveRuntime()
+  drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
+  const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
+
+  const parkCarNearPlaza = () => {
+    // Right beside the spawn ring: the car is the first thing you can reach.
+    const tangentOffset = Math.min(getPlazaTangentHalfWidth(habitatConfig.radius) * 0.5, 4.5)
+    drive.parkAt(tangentOffset / habitatConfig.radius, 0, 0)
+    car.setPose(
+      drive.surface.azimuth,
+      drive.surface.axialPosition,
+      drive.heading,
+      habitatConfig.radius
+    )
+  }
+
+  parkCarNearPlaza()
   const balls: Ball[] = []
   const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
@@ -450,6 +472,51 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const exitDrive = () => {
+    drive.exit()
+    resetPlayerToAttached(playerTraversal, {
+      axialPosition: drive.surface.axialPosition,
+      azimuth: drive.surface.azimuth + 2.6 / habitatConfig.radius,
+      radius: habitatConfig.radius,
+      frameAngle,
+      omega: rpmToOmega(habitatConfig.rpm)
+    })
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    car.setPose(
+      drive.surface.azimuth,
+      drive.surface.axialPosition,
+      drive.heading,
+      habitatConfig.radius
+    )
+    audio.playClick()
+  }
+
+  const tryToggleDrive = () => {
+    if (drive.driving) {
+      exitDrive()
+      return
+    }
+
+    if (
+      playerTraversal.mode !== 'attached' ||
+      !drive.isPlayerNear(
+        playerTraversal.surface.azimuth,
+        playerTraversal.surface.axialPosition,
+        habitatConfig.radius
+      )
+    ) {
+      return
+    }
+
+    drive.enter(frameAngle, rpmToOmega(habitatConfig.rpm), habitatConfig.radius, {
+      rapier,
+      world: physicsWorld,
+      units: getUnits()
+    })
+    notifyTourEvent(tourGuide, 'drive')
+    audio.playClick()
+  }
+
   function handleWatchAction(action: WatchActionId) {
     if (applyWatchAction(settingsStore, action)) {
       audio.playClick()
@@ -469,6 +536,8 @@ export const bootstrapApp = async () => {
         clearAllBalls()
         resetJumpState(jumpState)
         rebuildPlayerTraversal('inner-wall')
+        drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
+        parkCarNearPlaza()
         syncHabitat()
         settingsDirty = false
         return true
@@ -694,6 +763,16 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (event.code === 'KeyE') {
+      tryToggleDrive()
+      return
+    }
+
+    if (event.code === 'KeyW') driveKeys.forward = true
+    if (event.code === 'KeyS') driveKeys.back = true
+    if (event.code === 'KeyA') driveKeys.left = true
+    if (event.code === 'KeyD') driveKeys.right = true
+
     if (event.code !== 'Space') {
       return
     }
@@ -704,7 +783,20 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (drive.driving) {
+      driveKeys.brake = true
+      return
+    }
+
     desktopJumpQueued = true
+  })
+
+  window.addEventListener('keyup', (event) => {
+    if (event.code === 'KeyW') driveKeys.forward = false
+    if (event.code === 'KeyS') driveKeys.back = false
+    if (event.code === 'KeyA') driveKeys.left = false
+    if (event.code === 'KeyD') driveKeys.right = false
+    if (event.code === 'Space') driveKeys.brake = false
   })
 
   renderer.domElement.addEventListener('pointermove', (event) => {
@@ -780,8 +872,27 @@ export const bootstrapApp = async () => {
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
 
-    const jumpRequested = desktopJumpQueued || xrWatchInput.jumpPressed
+    const jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
     desktopJumpQueued = false
+
+    if (drive.driving) {
+      drive.preStep(
+        {
+          throttle: (driveKeys.forward ? 1 : 0) + (driveKeys.back ? -1 : 0),
+          steer: (driveKeys.right ? 1 : 0) + (driveKeys.left ? -1 : 0),
+          brake: driveKeys.brake ? 1 : 0
+        },
+        {
+          deltaSeconds,
+          frameAngle,
+          omega,
+          radius: habitatConfig.radius,
+          surfaceGravity: settingsStore.getSurfaceGravity(),
+          buildings: cityscape.getBuildings(),
+          units: getUnits()
+        }
+      )
+    }
 
     if (playerTraversal.mode === 'attached' && jumpRequested) {
       computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
@@ -803,7 +914,7 @@ export const bootstrapApp = async () => {
         omega,
         frameAngle
       })
-    } else if (playerTraversal.mode === 'attached') {
+    } else if (playerTraversal.mode === 'attached' && !drive.driving) {
       stepAttachedPlayer(playerTraversal, {
         axisDistanceDelta: locomotionIntent.attachedAxis * 6 * deltaSeconds,
         tangentDistanceDelta: locomotionIntent.attachedTangent * 6 * deltaSeconds,
@@ -830,11 +941,14 @@ export const bootstrapApp = async () => {
     }
 
     if (playerTraversal.mode === 'attached') {
-      resolveCitySurfaceCollision(
-        playerTraversal.surface,
-        cityscape.getBuildings(),
-        habitatConfig.radius
-      )
+      if (!drive.driving) {
+        resolveCitySurfaceCollision(
+          playerTraversal.surface,
+          cityscape.getBuildings(),
+          habitatConfig.radius
+        )
+      }
+
       getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
     } else {
       inertialPositionToRotating(
@@ -851,6 +965,23 @@ export const bootstrapApp = async () => {
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
+
+    if (drive.driving) {
+      drive.postStep({ frameAngle, units: getUnits() })
+      resetPlayerToAttached(playerTraversal, {
+        axialPosition: drive.surface.axialPosition,
+        azimuth: drive.surface.azimuth,
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega
+      })
+      car.setPose(
+        drive.surface.azimuth,
+        drive.surface.axialPosition,
+        drive.heading,
+        habitatConfig.radius
+      )
+    }
     const reattachStatus =
       playerTraversal.mode === 'free-fly'
         ? evaluateReattachPlayer(playerTraversal, {
@@ -902,6 +1033,12 @@ export const bootstrapApp = async () => {
     }
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+
+    if (drive.driving) {
+      // Driver view: same surface anchor, but facing the car's heading.
+      drive.getRigQuaternion(playerRig.quaternion)
+    }
+
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {
         radius: habitatConfig.radius,
@@ -1106,6 +1243,8 @@ export const bootstrapApp = async () => {
     // Stop ticking before freeing physics, or a final frame races the
     // disposed Rapier world.
     renderer.setAnimationLoop(null)
+    drive.dispose()
+    car.dispose()
     cityscape.dispose()
     clouds.dispose()
     spaceport.dispose()
