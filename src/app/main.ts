@@ -62,6 +62,7 @@ import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
+import { getQualityProfile } from './quality'
 import { MobileControls, isTouchDevice } from '../pc/mobileControls'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
@@ -140,14 +141,21 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
-  const cityscape = new Cityscape({
-    radius: habitatConfig.radius,
-    length: getHabitatSpan(habitatConfig)
-  })
-  const clouds = new Clouds({
-    radius: habitatConfig.radius,
-    length: getHabitatSpan(habitatConfig)
-  })
+  const quality = getQualityProfile()
+  const cityscape = new Cityscape(
+    {
+      radius: habitatConfig.radius,
+      length: getHabitatSpan(habitatConfig)
+    },
+    { maxBuildings: quality.maxBuildings }
+  )
+  const clouds = new Clouds(
+    {
+      radius: habitatConfig.radius,
+      length: getHabitatSpan(habitatConfig)
+    },
+    { densityScale: quality.cloudDensity }
+  )
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
@@ -195,12 +203,26 @@ export const bootstrapApp = async () => {
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
-  renderer.setPixelRatio(window.devicePixelRatio)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
   renderer.xr.setReferenceSpaceType('local-floor')
   document.body.appendChild(renderer.domElement)
-  document.body.appendChild(VRButton.createButton(renderer))
+
+  // Touch devices only get the VR button when a session is actually
+  // possible — a permanent "VR NOT SUPPORTED" pill is just clutter there.
+  if (!isTouchDevice()) {
+    document.body.appendChild(VRButton.createButton(renderer))
+  } else {
+    navigator.xr
+      ?.isSessionSupported('immersive-vr')
+      .then((supported) => {
+        if (supported) {
+          document.body.appendChild(VRButton.createButton(renderer))
+        }
+      })
+      .catch(() => {})
+  }
   renderer.xr.addEventListener('sessionstart', () => audio.unlock())
 
   const desktopLookControls = new DesktopLookControls(
@@ -221,7 +243,10 @@ export const bootstrapApp = async () => {
               : target === 'overlook'
                 ? 'respawn-overlook'
                 : 'respawn-axis-end'
-          )
+          ),
+        onToggleDrive: () => tryToggleDrive(),
+        onToggleSettings: () => desktopQuickPanel.toggle(),
+        isUiPointerBlocked: () => desktopQuickPanel.isVisible
       })
     : null
 
@@ -650,6 +675,7 @@ export const bootstrapApp = async () => {
       },
       onReleased: (controller, releasedBall, heldSeconds) => {
         audio.playThrow()
+        vibrate(8)
         getForwardDirection(controller, worldForward)
         controllerVelocity.getLocalVelocity(controller, controllerLocalVelocity)
 
@@ -738,6 +764,7 @@ export const bootstrapApp = async () => {
 
     spawnBall({ origin: camera })
     audio.playThrow()
+    vibrate(8)
   }
 
   const requestDesktopThrow = () => {
@@ -866,6 +893,12 @@ export const bootstrapApp = async () => {
   const fallProbePosition = new THREE.Vector3()
   const fallProbeVelocity = new THREE.Vector3()
 
+  // Haptics where available (Android Chrome; iOS Safari has no vibrate API).
+  const vibrate = (milliseconds: number) => {
+    navigator.vibrate?.(milliseconds)
+  }
+  let wasCarCrashed = false
+
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
     if (settingsDirty) {
       syncHabitat()
@@ -880,7 +913,12 @@ export const bootstrapApp = async () => {
       renderer.xr.isPresenting
     )
 
-    const desktopIntent = desktopLookControls.update(deltaSeconds, renderer.xr.isPresenting)
+    const touchMove = mobileControls?.getMoveInput()
+    const desktopIntent = desktopLookControls.update(
+      deltaSeconds,
+      renderer.xr.isPresenting,
+      drive.driving ? undefined : touchMove
+    )
     const vrIntent = vrLocomotion.update(
       deltaSeconds,
       renderer.xr.isPresenting,
@@ -916,9 +954,17 @@ export const bootstrapApp = async () => {
     if (drive.driving) {
       drive.preStep(
         {
-          throttle: (driveKeys.forward ? 1 : 0) + (driveKeys.back ? -1 : 0),
-          steer: (driveKeys.right ? 1 : 0) + (driveKeys.left ? -1 : 0),
-          brake: driveKeys.brake ? 1 : 0
+          throttle: THREE.MathUtils.clamp(
+            (driveKeys.forward ? 1 : 0) + (driveKeys.back ? -1 : 0) + (touchMove?.forward ?? 0),
+            -1,
+            1
+          ),
+          steer: THREE.MathUtils.clamp(
+            (driveKeys.right ? 1 : 0) + (driveKeys.left ? -1 : 0) + (touchMove?.right ?? 0),
+            -1,
+            1
+          ),
+          brake: driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0
         },
         {
           deltaSeconds,
@@ -941,6 +987,7 @@ export const bootstrapApp = async () => {
       })
       notifyTourEvent(tourGuide, 'jump')
       audio.playJump()
+      vibrate(12)
     }
 
     if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
@@ -1088,10 +1135,21 @@ export const bootstrapApp = async () => {
 
       if (landed) {
         audio.playLand()
+        vibrate(Math.min(10 + fallSpeed * 4, 45))
         // Knees flex with the impact: a brief view dip, springing back.
         landDipVelocity -= THREE.MathUtils.clamp((fallSpeed - 1) * 0.35, 0, 4.5)
         fallSpeed = 0
       }
+    }
+
+    if (drive.driving) {
+      if (drive.lastCrashed && !wasCarCrashed) {
+        vibrate(25)
+      }
+
+      wasCarCrashed = drive.lastCrashed
+    } else {
+      wasCarCrashed = false
     }
 
     // Critically damped spring brings the view back up after a landing dip.
@@ -1305,7 +1363,19 @@ export const bootstrapApp = async () => {
     }
 
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
-    mobileControls?.update(renderer.xr.isPresenting)
+    if (mobileControls !== null) {
+      mobileControls.update(renderer.xr.isPresenting)
+      mobileControls.setDriving(drive.driving)
+      mobileControls.setDriveAvailable(
+        drive.driving ||
+          (playerTraversal.mode === 'grounded' &&
+            drive.isPlayerNear(
+              playerTraversal.surface.azimuth,
+              playerTraversal.surface.axialPosition,
+              habitatConfig.radius
+            ))
+      )
+    }
     tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds), {
       camera: desktopUiCamera,
       deltaSeconds,

@@ -48,7 +48,11 @@ export class DesktopLookControls {
     window.removeEventListener('keyup', this.handleKeyUp)
   }
 
-  update(deltaSeconds: number, xrActive: boolean) {
+  update(
+    deltaSeconds: number,
+    xrActive: boolean,
+    touchMove?: { forward: number; right: number }
+  ) {
     intent.groundedAxis = 0
     intent.groundedTangent = 0
     intent.freeFlyThrust.set(0, 0, 0)
@@ -100,6 +104,12 @@ export class DesktopLookControls {
 
     if (this.pressedKeys.has('KeyA')) {
       rightInput -= 1
+    }
+
+    // The virtual stick rides on the same camera-relative mapping as WASD.
+    if (touchMove !== undefined) {
+      forwardInput = THREE.MathUtils.clamp(forwardInput + touchMove.forward, -1, 1)
+      rightInput = THREE.MathUtils.clamp(rightInput + touchMove.right, -1, 1)
     }
 
     if (forwardInput !== 0 || rightInput !== 0) {

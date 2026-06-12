@@ -14,6 +14,10 @@ body {
 
 canvas {
   display: block;
+  /* The canvas owns its gestures: no double-tap zoom or scroll stealing. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 button {
@@ -110,7 +114,7 @@ button {
   border-color: rgba(103, 232, 249, 0.45);
 }
 
-.hud-chip--attached {
+.hud-chip--grounded {
   color: #34d399;
   border-color: rgba(52, 211, 153, 0.4);
 }
@@ -157,11 +161,15 @@ button {
 
 .mobile-controls {
   position: fixed;
-  bottom: 74px;
+  /* Clear of the home indicator / notch on phones. */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
+  max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   z-index: 1000;
   pointer-events: none;
 }
@@ -190,6 +198,41 @@ button {
   color: #67e8f9;
 }
 
+.mobile-controls button.is-hidden {
+  display: none;
+}
+
+/* ── Floating virtual stick (appears where the left thumb lands) ── */
+
+.mobile-stick {
+  position: fixed;
+  width: 128px;
+  height: 128px;
+  margin: -64px 0 0 -64px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(103, 232, 249, 0.4);
+  background: rgba(6, 18, 30, 0.32);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  pointer-events: none;
+  display: none;
+}
+
+.mobile-stick.is-active {
+  display: block;
+}
+
+.mobile-stick-nub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(103, 232, 249, 0.5);
+  transform: translate(-50%, -50%);
+}
+
 /* ── three.js VRButton override ── */
 
 #VRButton {
@@ -200,4 +243,33 @@ button {
   border-radius: 12px !important;
   color: #dff3fb !important;
   backdrop-filter: blur(10px);
+}
+
+/* ── Touch devices up to landscape-phone width ── */
+
+@media (pointer: coarse) and (max-width: 1100px) {
+  .hud {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 8px 0
+      max(8px, env(safe-area-inset-left, 0px));
+  }
+
+  .hud-chip {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+
+  .hud__drawer {
+    display: none;
+  }
+
+  .splash h1 {
+    font-size: 28px;
+  }
+
+  .mobile-controls button {
+    padding: 12px 13px;
+    min-width: 48px;
+    min-height: 44px;
+    font-size: 14px;
+  }
 }

@@ -511,7 +511,10 @@ export class Cityscape {
   private radius = 0
   private length = 0
 
-  constructor(dimensions: CityscapeDimensions) {
+  private readonly maxBuildings: number | undefined
+
+  constructor(dimensions: CityscapeDimensions, options?: { maxBuildings?: number }) {
+    this.maxBuildings = options?.maxBuildings
     this.setDimensions(dimensions)
   }
 
@@ -528,7 +531,7 @@ export class Cityscape {
       return
     }
 
-    const plan = planCity({ radius, length })
+    const plan = planCity({ radius, length, maxBuildings: this.maxBuildings })
     this.collisionBuildings =
       plan.tower !== null
         ? [...plan.buildings, this.getTowerFootprint(plan.tower)]

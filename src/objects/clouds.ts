@@ -12,6 +12,9 @@ export type CloudPlanConfig = {
   radius: number
   length: number
   seed?: number
+  // Scales the cluster count: low-power devices thin the deck to cut the
+  // transparent overdraw without losing the sky's character.
+  densityScale?: number
 }
 
 const DEFAULT_SEED = 0x3d7a92c1
@@ -46,9 +49,12 @@ export const planClouds = (config: CloudPlanConfig): CloudPuff[] => {
   }
 
   const random = createRandom(config.seed ?? DEFAULT_SEED)
-  const clusterCount = Math.min(
-    40,
-    Math.max(8, Math.round(length / (radius * 0.9)))
+  const clusterCount = Math.max(
+    4,
+    Math.round(
+      Math.min(40, Math.max(8, Math.round(length / (radius * 0.9)))) *
+        (config.densityScale ?? 1)
+    )
   )
   const altitudeCenter = getCloudAltitudeCenter(radius)
   const altitudeSpread = getCloudAltitudeSpread(radius)
@@ -119,7 +125,13 @@ export class Clouds {
   private opacityBase = 0.96
   private daylight = 1
 
-  constructor(dimensions: { radius: number; length: number }) {
+  private readonly densityScale: number
+
+  constructor(
+    dimensions: { radius: number; length: number },
+    options?: { densityScale?: number }
+  ) {
+    this.densityScale = options?.densityScale ?? 1
     this.setDimensions(dimensions)
   }
 
@@ -146,7 +158,7 @@ export class Clouds {
       this.puffs = null
     }
 
-    const plan = planClouds({ radius, length })
+    const plan = planClouds({ radius, length, densityScale: this.densityScale })
 
     if (plan.length === 0) {
       return
