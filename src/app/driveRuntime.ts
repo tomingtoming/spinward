@@ -22,7 +22,7 @@ import {
 } from '../gameplay/vehicle'
 import {
   resolveCitySurfaceCollision,
-  type CityBuilding
+  type CityBuildingSource
 } from '../objects/cityLayout'
 import type { UnitsContext } from '../units/units'
 
@@ -169,7 +169,7 @@ export class DriveRuntime {
       frameAngle: number
       omega: number
       radius: number
-      buildings: readonly CityBuilding[]
+      buildings: CityBuildingSource
       units: UnitsContext
     }
   ): DriveFrame | null {

@@ -293,7 +293,7 @@ export const bootstrapApp = async () => {
   const parkCarNearPlaza = () => {
     // Beside the spawn ring, but never inside a building: probe outward for
     // the first pose with car-sized clearance on all sides.
-    const buildings = cityscape.getBuildings()
+    const buildings = cityscape.getCollisionIndex()
     const baseTangent = Math.min(getPlazaTangentHalfWidth(habitatConfig.radius) * 0.5, 4.5)
     const probe = { azimuth: 0, axialPosition: 0 }
     let parked = false
@@ -878,7 +878,7 @@ export const bootstrapApp = async () => {
 
   const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) =>
     getCityGroundHeight(
-      cityscape.getBuildings(),
+      cityscape.getCollisionIndex(),
       habitatConfig.radius,
       azimuth,
       axialPosition,
@@ -971,7 +971,7 @@ export const bootstrapApp = async () => {
           frameAngle,
           omega,
           radius: habitatConfig.radius,
-          buildings: cityscape.getBuildings(),
+          buildings: cityscape.getCollisionIndex(),
           units: getUnits()
         }
       )
@@ -1029,7 +1029,7 @@ export const bootstrapApp = async () => {
         !drive.driving &&
         resolveCitySurfaceCollision(
           playerTraversal.surface,
-          cityscape.getBuildings(),
+          cityscape.getCollisionIndex(),
           habitatConfig.radius,
           undefined,
           // Standing on a roof: only taller neighbours are walls.
@@ -1065,7 +1065,7 @@ export const bootstrapApp = async () => {
     syncPlayerTraversalFromPhysics(playerTraversal)
     syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
     confinePlayerToCityBuildings(playerTraversal, {
-      buildings: cityscape.getBuildings(),
+      buildings: cityscape.getCollisionIndex(),
       radius: habitatConfig.radius,
       frameAngle,
       omega
@@ -1184,7 +1184,7 @@ export const bootstrapApp = async () => {
         omega,
         frameAngleEnd: frameAngle,
         trailMode: debugVisuals.trailMode,
-        buildings: cityscape.getBuildings()
+        buildings: cityscape.getCollisionIndex()
       })
     }
 

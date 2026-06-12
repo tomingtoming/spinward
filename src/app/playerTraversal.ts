@@ -24,7 +24,10 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
-import type { CityBuilding } from '../objects/cityLayout'
+import {
+  resolveBuildingsNear,
+  type CityBuildingSource
+} from '../objects/cityLayout'
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
@@ -670,17 +673,13 @@ const wrapAngleToPi = (angle: number) =>
 export const confinePlayerToCityBuildings = (
   state: PlayerTraversalState,
   config: {
-    buildings: readonly CityBuilding[]
+    buildings: CityBuildingSource
     radius: number
     frameAngle: number
     omega: number
   }
 ) => {
-  if (
-    state.mode !== 'free-fly' ||
-    state.physics === null ||
-    config.buildings.length === 0
-  ) {
+  if (state.mode !== 'free-fly' || state.physics === null) {
     return false
   }
 
@@ -703,8 +702,7 @@ export const confinePlayerToCityBuildings = (
   let axial = reattachPosition.y
   const margin = getPlayerCollisionRadius()
   let moved = false
-
-  for (const building of config.buildings) {
+  for (const building of resolveBuildingsNear(config.buildings, azimuth, axial)) {
     const halfWidth = building.width * 0.5 + margin
     const halfDepth = building.depth * 0.5 + margin
     const tangentDelta = wrapAngleToPi(azimuth - building.azimuth) * config.radius

@@ -115,7 +115,7 @@ export const isAzimuthOnLandStrip = (azimuth: number) => {
 // City cell scale follows the smaller of the two habitat dimensions, so
 // thin rings (span << radius) still get a walkable street grid.
 export const getCityCellSize = (radius: number, length = Number.POSITIVE_INFINITY) =>
-  Math.max(6, Math.min(radius * 0.045, length * 0.08))
+  Math.max(6, Math.min(radius * 0.03, length * 0.08))
 
 // Realistic road widths in absolute meters: arterials top out at a wide
 // boulevard, residential streets stay narrow regardless of habitat scale.
@@ -170,12 +170,124 @@ export const isInsidePlaza = (
   )
 }
 
+// ── Collision spatial index ─────────────────────────────────────────────
+// The per-frame collision queries (walking, driving, ground height, free-fly
+// confinement) used to scan every building. A coarse grid over the unrolled
+// surface (tangent meters x axial meters) keeps them O(1) however dense the
+// city gets. Buildings are inserted with a margin that covers every query
+// clearance in use, so a lookup of the single containing cell suffices.
+
+const COLLISION_CELL_SIZE = 64
+const COLLISION_INSERT_MARGIN = 8
+
+const positiveModulo = (value: number, modulus: number) =>
+  ((value % modulus) + modulus) % modulus
+
+export type CityCollisionIndex = {
+  readonly kind: 'city-collision-index'
+  readonly radius: number
+  readonly azimuthCellCount: number
+  readonly axialCellCount: number
+  readonly axialMin: number
+  readonly axialCellSize: number
+  readonly cells: ReadonlyMap<number, readonly CityBuilding[]>
+  readonly all: readonly CityBuilding[]
+}
+
+export type CityBuildingSource = readonly CityBuilding[] | CityCollisionIndex
+
+const EMPTY_BUILDINGS: readonly CityBuilding[] = []
+
+export const buildCityCollisionIndex = (
+  buildings: readonly CityBuilding[],
+  radius: number,
+  length: number
+): CityCollisionIndex => {
+  const circumference = Math.max(Math.PI * 2 * radius, 1e-6)
+  const azimuthCellCount = Math.max(1, Math.round(circumference / COLLISION_CELL_SIZE))
+  const tangentCellSize = circumference / azimuthCellCount
+  const axialMin = -length * 0.5
+  const axialCellCount = Math.max(1, Math.ceil(Math.max(length, 1e-6) / COLLISION_CELL_SIZE))
+  const axialCellSize = Math.max(length, 1e-6) / axialCellCount
+  const cells = new Map<number, CityBuilding[]>()
+
+  for (const building of buildings) {
+    const halfWidth = building.width * 0.5 + COLLISION_INSERT_MARGIN
+    const halfDepth = building.depth * 0.5 + COLLISION_INSERT_MARGIN
+    const tangentCenter = positiveModulo(building.azimuth, TWO_PI) * radius
+    const columnStart = Math.floor((tangentCenter - halfWidth) / tangentCellSize)
+    const columnEnd = Math.floor((tangentCenter + halfWidth) / tangentCellSize)
+    const rowStart = Math.max(
+      0,
+      Math.floor((building.axial - halfDepth - axialMin) / axialCellSize)
+    )
+    const rowEnd = Math.min(
+      axialCellCount - 1,
+      Math.floor((building.axial + halfDepth - axialMin) / axialCellSize)
+    )
+
+    for (let column = columnStart; column <= columnEnd; column += 1) {
+      const wrappedColumn =
+        ((column % azimuthCellCount) + azimuthCellCount) % azimuthCellCount
+
+      for (let row = rowStart; row <= rowEnd; row += 1) {
+        const key = row * azimuthCellCount + wrappedColumn
+        const bucket = cells.get(key)
+
+        if (bucket === undefined) {
+          cells.set(key, [building])
+        } else {
+          bucket.push(building)
+        }
+      }
+    }
+  }
+
+  return {
+    kind: 'city-collision-index',
+    radius,
+    azimuthCellCount,
+    axialCellCount,
+    axialMin,
+    axialCellSize,
+    cells,
+    all: buildings
+  }
+}
+
+export const queryCityBuildingsNear = (
+  index: CityCollisionIndex,
+  azimuth: number,
+  axialPosition: number
+): readonly CityBuilding[] => {
+  const tangent = positiveModulo(azimuth, TWO_PI) * index.radius
+  const circumference = TWO_PI * index.radius
+  const column = Math.min(
+    index.azimuthCellCount - 1,
+    Math.max(0, Math.floor((tangent / circumference) * index.azimuthCellCount))
+  )
+  const row = Math.min(
+    index.axialCellCount - 1,
+    Math.max(0, Math.floor((axialPosition - index.axialMin) / index.axialCellSize))
+  )
+  return index.cells.get(row * index.azimuthCellCount + column) ?? EMPTY_BUILDINGS
+}
+
+export const resolveBuildingsNear = (
+  source: CityBuildingSource,
+  azimuth: number,
+  axialPosition: number
+): readonly CityBuilding[] =>
+  'kind' in source
+    ? queryCityBuildingsNear(source, azimuth, axialPosition)
+    : source
+
 // Walking collision against building footprints, resolved in the unrolled
 // surface plane (tangent meters x axial meters). Pushes the position out of
 // any overlapped footprint along the axis of least penetration.
 export const resolveCitySurfaceCollision = (
   position: { azimuth: number; axialPosition: number },
-  buildings: readonly CityBuilding[],
+  buildings: CityBuildingSource,
   radius: number,
   clearance = 0.45,
   // Buildings no taller than this do not block: someone standing on a roof
@@ -188,7 +300,11 @@ export const resolveCitySurfaceCollision = (
 
   let moved = false
 
-  for (const building of buildings) {
+  for (const building of resolveBuildingsNear(
+    buildings,
+    position.azimuth,
+    position.axialPosition
+  )) {
     if (building.height <= minBlockingHeight) {
       continue
     }
@@ -224,7 +340,7 @@ export const resolveCitySurfaceCollision = (
 // is at or just below your feet — a tower far above you is a wall, not a
 // floor). Returns 0 over open ground.
 export const getCityGroundHeight = (
-  buildings: readonly CityBuilding[],
+  buildings: CityBuildingSource,
   radius: number,
   azimuth: number,
   axialPosition: number,
@@ -237,7 +353,7 @@ export const getCityGroundHeight = (
 
   let groundHeight = 0
 
-  for (const building of buildings) {
+  for (const building of resolveBuildingsNear(buildings, azimuth, axialPosition)) {
     if (
       building.height <= groundHeight ||
       building.height > altitude + stepTolerance

@@ -18,7 +18,7 @@ import {
 } from '../sim/frameTransforms'
 import { collideSphereWithBuildings } from '../sim/cityCollision'
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
-import type { CityBuilding } from './cityLayout'
+import type { CityBuildingSource } from './cityLayout'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 import type { TrailMode } from '../app/observerMode'
@@ -46,7 +46,7 @@ type BallStepConfig = {
   omega: number
   frameAngleEnd: number
   trailMode: TrailMode
-  buildings?: readonly CityBuilding[]
+  buildings?: CityBuildingSource
 }
 
 type BallPhysicsContext = {

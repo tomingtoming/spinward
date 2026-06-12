@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import type { CityBuilding } from '../objects/cityLayout'
+import { resolveBuildingsNear, type CityBuildingSource } from '../objects/cityLayout'
 
 type CityCollisionConfig = {
   habitatRadius: number
@@ -29,10 +29,10 @@ const normal = new THREE.Vector3()
 export const collideSphereWithBuildings = (
   position: THREE.Vector3,
   velocity: THREE.Vector3,
-  buildings: readonly CityBuilding[],
+  buildings: CityBuildingSource,
   config: CityCollisionConfig
 ): boolean => {
-  if (buildings.length === 0 || config.habitatRadius <= 0) {
+  if (config.habitatRadius <= 0) {
     return false
   }
 
@@ -40,7 +40,7 @@ export const collideSphereWithBuildings = (
   const sphereRadial = Math.hypot(position.x, position.z)
   let collided = false
 
-  for (const building of buildings) {
+  for (const building of resolveBuildingsNear(buildings, sphereAzimuth, position.y)) {
     const halfWidth = building.width * 0.5
     const halfHeight = building.height * 0.5
     const halfDepth = building.depth * 0.5

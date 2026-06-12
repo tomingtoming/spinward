@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import {
+  buildCityCollisionIndex,
   getArterialRoadWidth,
   getCityCellSize,
   getLandStripCenters,
@@ -8,6 +9,7 @@ import {
   planCity,
   type BuildingKind,
   type CityBuilding,
+  type CityCollisionIndex,
   type CityPatch,
   type CityRoad,
   type CityTower,
@@ -495,6 +497,7 @@ export class Cityscape {
   private largeBuildings: THREE.InstancedMesh | null = null
   private archetypeBatches: THREE.InstancedMesh[] = []
   private collisionBuildings: CityBuilding[] = []
+  private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
   private windowStrips: THREE.Mesh[] = []
   private bridges: THREE.Mesh | null = null
   private bridgeEdges: THREE.Mesh | null = null
@@ -536,6 +539,7 @@ export class Cityscape {
       plan.tower !== null
         ? [...plan.buildings, this.getTowerFootprint(plan.tower)]
         : plan.buildings
+    this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.buildBuildings(plan.buildings)
     this.buildRoads(plan.roads, radius)
     this.buildPatches(plan.patches, radius, length)
@@ -555,6 +559,11 @@ export class Cityscape {
 
   getBuildings(): readonly CityBuilding[] {
     return this.collisionBuildings
+  }
+
+  // O(1) spatial lookups for the per-frame collision queries.
+  getCollisionIndex(): CityCollisionIndex {
+    return this.collisionIndex
   }
 
   // Day/night dressing: the mirrors dim to night-side blue, facades and
@@ -615,6 +624,7 @@ export class Cityscape {
 
   private clear() {
     this.collisionBuildings = []
+    this.collisionIndex = buildCityCollisionIndex([], 1, 1)
 
     for (const batch of [this.buildings, this.largeBuildings, ...this.archetypeBatches]) {
       if (batch !== null) {
