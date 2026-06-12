@@ -169,7 +169,6 @@ export class DriveRuntime {
       frameAngle: number
       omega: number
       radius: number
-      surfaceGravity: number
       buildings: readonly CityBuilding[]
       units: UnitsContext
     }
@@ -203,6 +202,15 @@ export class DriveRuntime {
     surfaceOutward.set(Math.cos(azimuth), 0, Math.sin(azimuth))
     surfaceTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))
 
+    // The wheels are pressed down by the CAR's own centripetal acceleration,
+    // not the habitat's nominal one: drive against the spin and the grip
+    // melts away with your inertial speed (transport is along -tangent, so
+    // the inertial tangential speed is T - omega*r).
+    const inertialTangentSpeed =
+      rotatingVelocity.dot(surfaceTangent) - config.omega * radialDistance
+    const effectiveGravity =
+      (inertialTangentSpeed * inertialTangentSpeed) / Math.max(radialDistance, 1e-6)
+
     stepVehicleDynamics(
       this,
       rotatingVelocity,
@@ -210,19 +218,25 @@ export class DriveRuntime {
       input,
       {
         deltaSeconds: config.deltaSeconds,
-        surfaceGravity: config.surfaceGravity,
+        surfaceGravity: effectiveGravity,
         grounded
       }
     )
 
     // Suspension: hold the body on the analytic surface so panel seams and
-    // soft-contact bias never lift or shake the car.
+    // soft-contact bias never lift or shake the car. Pushing up is the
+    // springs' job and stays unrestricted; settling down is gravity's and
+    // is capped by the effective g.
     if (grounded) {
       const radialVelocity = rotatingVelocity.dot(surfaceOutward)
+      const maxSettleSpeed = Math.min(
+        GROUND_FOLLOW_MAX_SPEED,
+        effectiveGravity * GROUND_FOLLOW_TIME * 3
+      )
       const followVelocity = THREE.MathUtils.clamp(
         (restingRadial - radialDistance) / GROUND_FOLLOW_TIME,
         -GROUND_FOLLOW_MAX_SPEED,
-        GROUND_FOLLOW_MAX_SPEED
+        maxSettleSpeed
       )
       rotatingVelocity.addScaledVector(surfaceOutward, followVelocity - radialVelocity)
     }

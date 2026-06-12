@@ -273,8 +273,11 @@ const stepGroundedPlayerPhysics = (
   const desiredTangent = config.tangentDistanceDelta / config.deltaSeconds
 
   // Traction is normal load, and the normal load is YOUR centripetal
-  // acceleration: run against the spin and your feet get lighter.
-  const inertialTangentSpeed = tangentVelocity + config.omega * radialDistance
+  // acceleration: run against the spin and your feet get lighter. With +Y
+  // spin the transport velocity points along -tangent, so the inertial
+  // tangential speed is T - omega*r (a positive rotating-frame T means you
+  // are cancelling the spin, not adding to it).
+  const inertialTangentSpeed = tangentVelocity - config.omega * radialDistance
   const effectiveGravity =
     (inertialTangentSpeed * inertialTangentSpeed) / Math.max(radialDistance, 1e-6)
   const grip = THREE.MathUtils.clamp(effectiveGravity / 9.80665, 0, 1.2)
@@ -286,11 +289,18 @@ const stepGroundedPlayerPhysics = (
     THREE.MathUtils.clamp(desiredTangent - tangentVelocity, -maxDelta, maxDelta)
 
   // Radial ground-follow: hold the body on the analytic cylinder surface.
+  // Pushing UP (inward) is the legs' normal force — unrestricted. Pulling
+  // DOWN (outward) is gravity's job alone, so it is capped by the effective
+  // gravity: at low g you settle slowly instead of being sucked to the floor.
   const restRadial = getPlayerBodyRadius(config.radius)
+  const maxSettleSpeed = Math.min(
+    GROUND_FOLLOW_MAX_SPEED,
+    effectiveGravity * GROUND_FOLLOW_TIME * 3
+  )
   const newRadial = THREE.MathUtils.clamp(
     (restRadial - radialDistance) / GROUND_FOLLOW_TIME,
     -GROUND_FOLLOW_MAX_SPEED,
-    GROUND_FOLLOW_MAX_SPEED
+    maxSettleSpeed
   )
 
   walkDesired

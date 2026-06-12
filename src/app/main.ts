@@ -654,17 +654,15 @@ export const bootstrapApp = async () => {
           controllerParentQuaternion.identity()
         }
 
-        if (playerTraversal.mode === 'free-fly') {
-          inertialVelocityToRotating(
-            playerTraversal.inertialPosition,
-            playerTraversal.inertialVelocity,
-            omega,
-            frameAngle,
-            controllerCarrierVelocity
-          )
-        } else {
-          controllerCarrierVelocity.set(0, 0, 0)
-        }
+        // The thrower's own motion rides on the ball in every mode — a
+        // grounded runner's body is a live physics body too.
+        inertialVelocityToRotating(
+          playerTraversal.inertialPosition,
+          playerTraversal.inertialVelocity,
+          omega,
+          frameAngle,
+          controllerCarrierVelocity
+        )
 
         computeThrowVelocityReal(
           controllerCarrierVelocity,
@@ -696,7 +694,18 @@ export const bootstrapApp = async () => {
     if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())
     } else {
-      worldVelocity.copy(worldForward).multiplyScalar(8 * habitatConfig.ballSpeedScale)
+      // Desktop throws also inherit the thrower's motion.
+      inertialVelocityToRotating(
+        playerTraversal.inertialPosition,
+        playerTraversal.inertialVelocity,
+        rpmToOmega(habitatConfig.rpm),
+        frameAngle,
+        controllerCarrierVelocity
+      )
+      worldVelocity
+        .copy(worldForward)
+        .multiplyScalar(8 * habitatConfig.ballSpeedScale)
+        .add(controllerCarrierVelocity)
       ball.setVelocity(worldVelocity)
     }
 
@@ -893,7 +902,6 @@ export const bootstrapApp = async () => {
           frameAngle,
           omega,
           radius: habitatConfig.radius,
-          surfaceGravity: settingsStore.getSurfaceGravity(),
           buildings: cityscape.getBuildings(),
           units: getUnits()
         }

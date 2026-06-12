@@ -123,7 +123,7 @@ describe('stepVehicleDynamics', () => {
     })
     expect(state.heading).toBeCloseTo(0, 9)
 
-    const moving = new THREE.Vector3(0, 10, 0)
+    const moving = new THREE.Vector3(0, 6, 0)
     stepVehicleDynamics(state, moving, basisAtAzimuthZero(), {
       throttle: 0,
       steer: 1,
@@ -134,6 +134,37 @@ describe('stepVehicleDynamics', () => {
       grounded: true
     })
     expect(state.heading).toBeGreaterThan(0.5)
+  })
+
+  test('cornering is capped by the friction circle', () => {
+    // At 20 m/s the tires can only bend the path at g/v rad/s even though
+    // the steering rate asks for far more.
+    const state = { heading: 0 }
+    const fast = new THREE.Vector3(0, 20, 0)
+    stepVehicleDynamics(state, fast, basisAtAzimuthZero(), {
+      throttle: 0,
+      steer: 1,
+      brake: 0
+    }, {
+      deltaSeconds: 1,
+      surfaceGravity: EARTH_GRAVITY,
+      grounded: true
+    })
+    expect(state.heading).toBeCloseTo(EARTH_GRAVITY / 20, 3)
+
+    // Quarter gravity, quarter budget: the car ploughs nearly straight.
+    const lowG = { heading: 0 }
+    const fast2 = new THREE.Vector3(0, 20, 0)
+    stepVehicleDynamics(lowG, fast2, basisAtAzimuthZero(), {
+      throttle: 0,
+      steer: 1,
+      brake: 0
+    }, {
+      deltaSeconds: 1,
+      surfaceGravity: EARTH_GRAVITY * 0.25,
+      grounded: true
+    })
+    expect(lowG.heading).toBeCloseTo((EARTH_GRAVITY * 0.25) / 20, 3)
   })
 
   test('the radial component is left to the physics engine', () => {

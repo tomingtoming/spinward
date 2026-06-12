@@ -73,8 +73,17 @@ export const stepVehicleDynamics = (
   // Steering authority builds with speed and fades with lost grip.
   const steerScale = THREE.MathUtils.clamp(Math.abs(along) / 6, 0, 1)
   const direction = along >= 0 ? 1 : -1
+  // Friction circle: following the new heading costs centripetal force
+  // |along| * yawRate, and the tires cannot pull more than grip * 1g
+  // sideways. At full speed the turning radius opens up; at low gravity
+  // the car ploughs straight no matter how hard you steer.
+  const requestedYawRate =
+    VEHICLE_TUNING.steerRate * steerScale * grip
+  const lateralBudget = grip * EARTH_GRAVITY
+  const maxYawRate =
+    Math.abs(along) > 1e-6 ? lateralBudget / Math.abs(along) : requestedYawRate
   state.heading +=
-    input.steer * VEHICLE_TUNING.steerRate * steerScale * direction * grip * dt
+    input.steer * Math.min(requestedYawRate, maxYawRate) * direction * dt
 
   // Engine and brakes push through the tire contact patch.
   along += input.throttle * VEHICLE_TUNING.maxAcceleration * grip * dt
