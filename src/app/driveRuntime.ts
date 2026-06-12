@@ -178,16 +178,20 @@ export class DriveRuntime {
       return null
     }
 
+    // Pre-step pose corresponds to the frame angle BEFORE this frame's
+    // advance; converting with the end angle skews the azimuth by omega*dt.
+    const frameAngleStart = config.frameAngle - config.omega * config.deltaSeconds
+
     readRigidBodyPoseAsReal(this.body, config.units, {
       position: inertialPosition,
       linearVelocity: inertialVelocity
     })
-    inertialPositionToRotating(inertialPosition, config.frameAngle, rotatingPosition)
+    inertialPositionToRotating(inertialPosition, frameAngleStart, rotatingPosition)
     inertialVelocityToRotating(
       inertialPosition,
       inertialVelocity,
       config.omega,
-      config.frameAngle,
+      frameAngleStart,
       rotatingVelocity
     )
 
@@ -261,7 +265,7 @@ export class DriveRuntime {
         this.surface.axialPosition,
         sin * radialDistance
       )
-      rotatingPositionToInertial(rotatingPosition, config.frameAngle, inertialPosition)
+      rotatingPositionToInertial(rotatingPosition, frameAngleStart, inertialPosition)
       setRigidBodyTranslationFromReal(this.body, inertialPosition, config.units, true)
     }
 
@@ -269,7 +273,7 @@ export class DriveRuntime {
       rotatingPosition,
       rotatingVelocity,
       config.omega,
-      config.frameAngle,
+      frameAngleStart,
       inertialVelocity
     )
     setRigidBodyLinvelFromReal(this.body, inertialVelocity, config.units, true)

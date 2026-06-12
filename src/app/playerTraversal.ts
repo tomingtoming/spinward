@@ -226,16 +226,23 @@ const stepGroundedPlayerPhysics = (
     return
   }
 
+  // This runs BEFORE the world step, so the body pose corresponds to the
+  // frame angle at the start of this frame. Converting it with the already
+  // advanced end angle skews the derived azimuth by omega*dt — a constant
+  // offset at fixed dt, but VR frame-time jitter turned it into visible
+  // tangential shaking of the whole ground (~2.5m per ms of dt at izma).
+  const frameAngleStart = config.frameAngleEnd - config.omega * config.deltaSeconds
+
   readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.units, {
     position: state.inertialPosition,
     linearVelocity: state.inertialVelocity
   })
-  inertialPositionToRotating(state.inertialPosition, config.frameAngleEnd, nextRotatingPosition)
+  inertialPositionToRotating(state.inertialPosition, frameAngleStart, nextRotatingPosition)
   inertialVelocityToRotating(
     state.inertialPosition,
     state.inertialVelocity,
     config.omega,
-    config.frameAngleEnd,
+    frameAngleStart,
     rotatingVelocity
   )
 
@@ -295,7 +302,7 @@ const stepGroundedPlayerPhysics = (
     nextRotatingPosition,
     walkDesired,
     config.omega,
-    config.frameAngleEnd,
+    frameAngleStart,
     state.inertialVelocity
   )
   setRigidBodyLinvelFromReal(
@@ -304,6 +311,25 @@ const stepGroundedPlayerPhysics = (
     state.physics.units,
     true
   )
+}
+
+// After the world step the body pose matches the frame's end angle: derive
+// the surface coordinates the renderer anchors to from that settled pose.
+export const syncGroundedSurfaceFromPhysics = (
+  state: PlayerTraversalState,
+  frameAngle: number
+) => {
+  if (state.mode !== 'grounded' || state.physics === null) {
+    return
+  }
+
+  readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.units, {
+    position: state.inertialPosition,
+    linearVelocity: state.inertialVelocity
+  })
+  inertialPositionToRotating(state.inertialPosition, frameAngle, nextRotatingPosition)
+  state.surface.azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
+  state.surface.axialPosition = nextRotatingPosition.y
 }
 
 // Free-fly -> grounded when the body has settled onto the wall. Returns true

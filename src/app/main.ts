@@ -28,6 +28,7 @@ import {
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
   resetPlayerToGrounded,
+  syncGroundedSurfaceFromPhysics,
   syncPlayerTraversalFromPhysics,
   stepGroundedPlayer,
   stepFreeFlyPlayer,
@@ -979,6 +980,7 @@ export const bootstrapApp = async () => {
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
+    syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
 
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
