@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
 import {
+  confinePlayerToCityBuildings,
   confinePlayerToHabitatInterior,
   detachPlayerToFreeFly,
   DEFAULT_REATTACH_TUNING,
@@ -11,11 +12,16 @@ import {
   evaluateReattachPlayer,
   getPlayerBodyRadius,
   getPlayerTraversalRegion,
+  resetPlayerToFreeFly,
+  resetPlayerToGrounded,
+  syncGroundedSurfaceFromPhysics,
   syncPlayerTraversalFromPhysics,
   tryReattachPlayer,
   stepGroundedPlayer,
-  stepFreeFlyPlayer
+  stepFreeFlyPlayer,
+  updatePlayerGroundContact
 } from './playerTraversal'
+import { getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
@@ -341,6 +347,148 @@ test('jumping mid-run keeps the walking momentum', async () => {
   // The run survives the jump; the launch impulse rides on top of it.
   expect(rotatingVelocity.y).toBeCloseTo(2, 5)
   expect(rotatingVelocity.x).toBeLessThan(-2)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('a free-fly drop lands on a rooftop and grounds at its height', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const radius = 30
+  const length = 60
+  const omega = 0.7
+  const building: CityBuilding = {
+    azimuth: 0,
+    axial: 0,
+    width: 8,
+    depth: 8,
+    height: 6,
+    tone: 0.5,
+    kind: 'block'
+  }
+  const sample = (azimuth: number, axialPosition: number, altitude: number) =>
+    getCityGroundHeight([building], radius, azimuth, axialPosition, altitude)
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    omega,
+    { rapier, world }
+  )
+
+  // Co-rotating, 4m above the roof: spin gravity pulls it down onto it.
+  resetPlayerToFreeFly(state, {
+    rotatingPosition: new THREE.Vector3(radius - building.height - 4, 0, 0),
+    frameAngle: 0,
+    omega
+  })
+
+  const deltaSeconds = 1 / 72
+  let frameAngle = 0
+  let landed = false
+
+  for (let index = 0; index < 720 && !landed; index += 1) {
+    frameAngle = THREE.MathUtils.euclideanModulo(
+      frameAngle + omega * deltaSeconds,
+      Math.PI * 2
+    )
+    world.timestep = deltaSeconds
+    world.step()
+    syncPlayerTraversalFromPhysics(state)
+    confinePlayerToCityBuildings(state, {
+      buildings: [building],
+      radius,
+      frameAngle,
+      omega
+    })
+    landed = updatePlayerGroundContact(state, {
+      radius,
+      length,
+      frameAngle,
+      omega,
+      sampleGroundHeight: sample
+    })
+  }
+
+  expect(landed).toBe(true)
+  expect(state.mode).toBe('grounded')
+  expect(state.groundHeight).toBeCloseTo(building.height, 5)
+
+  const rotating = inertialPositionToRotating(
+    state.inertialPosition,
+    frameAngle,
+    new THREE.Vector3()
+  )
+  // Resting just above the roof plane, well inside the cylinder floor.
+  expect(Math.hypot(rotating.x, rotating.z)).toBeLessThan(radius - building.height)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('walking off a roof edge releases to free-fall', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const radius = 30
+  const length = 60
+  const omega = 0.7
+  const building: CityBuilding = {
+    azimuth: 0,
+    axial: 0,
+    width: 8,
+    depth: 8,
+    height: 6,
+    tone: 0.5,
+    kind: 'block'
+  }
+  const sample = (azimuth: number, axialPosition: number, altitude: number) =>
+    getCityGroundHeight([building], radius, azimuth, axialPosition, altitude)
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    omega,
+    { rapier, world }
+  )
+
+  resetPlayerToGrounded(state, {
+    axialPosition: 0,
+    azimuth: 0,
+    radius,
+    frameAngle: 0,
+    omega,
+    groundHeight: building.height
+  })
+
+  const deltaSeconds = 1 / 72
+  let frameAngle = 0
+
+  for (let index = 0; index < 360 && state.mode === 'grounded'; index += 1) {
+    frameAngle = THREE.MathUtils.euclideanModulo(
+      frameAngle + omega * deltaSeconds,
+      Math.PI * 2
+    )
+    stepGroundedPlayer(state, {
+      axisDistanceDelta: 6 * deltaSeconds,
+      tangentDistanceDelta: 0,
+      radius,
+      length,
+      deltaSeconds,
+      omega,
+      frameAngleEnd: frameAngle,
+      sampleGroundHeight: sample
+    })
+    world.timestep = deltaSeconds
+    world.step()
+    syncPlayerTraversalFromPhysics(state)
+    syncGroundedSurfaceFromPhysics(state, frameAngle)
+  }
+
+  // Past the footprint edge the sampled ground drops to the street and the
+  // walker leaves the roof in free-fall.
+  expect(state.mode).toBe('free-fly')
+  expect(Math.abs(state.surface.axialPosition)).toBeGreaterThan(building.depth * 0.5)
 
   disposePlayerTraversalState(state)
   world.free()

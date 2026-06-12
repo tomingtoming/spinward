@@ -20,6 +20,7 @@ import { DriveRuntime } from './driveRuntime'
 import { syncHabitatRuntime } from './habitatRuntime'
 import {
   applyPlayerTraversalState,
+  confinePlayerToCityBuildings,
   createPlayerTraversalState,
   detachPlayerToFreeFly,
   disposePlayerTraversalState,
@@ -49,7 +50,12 @@ import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { Car } from '../objects/car'
 import { Clouds } from '../objects/clouds'
-import { getPlazaTangentHalfWidth, getWindowStripArcs, resolveCitySurfaceCollision } from '../objects/cityLayout'
+import {
+  getCityGroundHeight,
+  getPlazaTangentHalfWidth,
+  getWindowStripArcs,
+  resolveCitySurfaceCollision
+} from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
 import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
@@ -843,6 +849,23 @@ export const bootstrapApp = async () => {
     requestDesktopThrow()
   })
 
+  const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) =>
+    getCityGroundHeight(
+      cityscape.getBuildings(),
+      habitatConfig.radius,
+      azimuth,
+      axialPosition,
+      altitude
+    )
+
+  // Landing absorb: the camera dips with the impact speed and springs back.
+  const LAND_DIP_STIFFNESS = 6
+  let landDipOffset = 0
+  let landDipVelocity = 0
+  let fallSpeed = 0
+  const fallProbePosition = new THREE.Vector3()
+  const fallProbeVelocity = new THREE.Vector3()
+
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
     if (settingsDirty) {
       syncHabitat()
@@ -935,7 +958,8 @@ export const bootstrapApp = async () => {
         length: habitatSpan,
         deltaSeconds,
         omega,
-        frameAngleEnd: frameAngle
+        frameAngleEnd: frameAngle,
+        sampleGroundHeight
       })
     } else {
       stepFreeFlyPlayer(playerTraversal, {
@@ -959,7 +983,10 @@ export const bootstrapApp = async () => {
         resolveCitySurfaceCollision(
           playerTraversal.surface,
           cityscape.getBuildings(),
-          habitatConfig.radius
+          habitatConfig.radius,
+          undefined,
+          // Standing on a roof: only taller neighbours are walls.
+          playerTraversal.groundHeight + 1
         )
       ) {
         // Walking is physical: when a footprint pushes the surface state
@@ -969,7 +996,8 @@ export const bootstrapApp = async () => {
           azimuth: playerTraversal.surface.azimuth,
           radius: habitatConfig.radius,
           frameAngle,
-          omega
+          omega,
+          groundHeight: playerTraversal.groundHeight
         })
       }
 
@@ -989,6 +1017,12 @@ export const bootstrapApp = async () => {
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
     syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
+    confinePlayerToCityBuildings(playerTraversal, {
+      buildings: cityscape.getBuildings(),
+      radius: habitatConfig.radius,
+      frameAngle,
+      omega
+    })
 
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
@@ -1017,6 +1051,29 @@ export const bootstrapApp = async () => {
           })
         : null
 
+    // Track the fall: the deepest recent outward speed sets how hard the
+    // upcoming landing is (slow decay so a long drop is not forgotten by a
+    // gentle final touchdown).
+    if (playerTraversal.mode === 'free-fly') {
+      inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, fallProbePosition)
+      inertialVelocityToRotating(
+        playerTraversal.inertialPosition,
+        playerTraversal.inertialVelocity,
+        omega,
+        frameAngle,
+        fallProbeVelocity
+      )
+      const fallRadial = Math.hypot(fallProbePosition.x, fallProbePosition.z)
+
+      if (fallRadial > 1e-6) {
+        const outwardSpeed =
+          (fallProbeVelocity.x * fallProbePosition.x +
+            fallProbeVelocity.z * fallProbePosition.z) /
+          fallRadial
+        fallSpeed = Math.max(outwardSpeed, fallSpeed * Math.exp(-deltaSeconds * 2))
+      }
+    }
+
     // Walking is physics now: free-fly ends the moment the body has settled
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
@@ -1025,13 +1082,25 @@ export const bootstrapApp = async () => {
         radius: habitatConfig.radius,
         length: habitatSpan,
         frameAngle,
-        omega
+        omega,
+        sampleGroundHeight
       })
 
       if (landed) {
         audio.playLand()
+        // Knees flex with the impact: a brief view dip, springing back.
+        landDipVelocity -= THREE.MathUtils.clamp((fallSpeed - 1) * 0.35, 0, 4.5)
+        fallSpeed = 0
       }
     }
+
+    // Critically damped spring brings the view back up after a landing dip.
+    landDipVelocity +=
+      (-LAND_DIP_STIFFNESS * LAND_DIP_STIFFNESS * landDipOffset -
+        2 * LAND_DIP_STIFFNESS * landDipVelocity) *
+      deltaSeconds
+    landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
+    viewRig.position.y = landDipOffset
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
@@ -1222,6 +1291,8 @@ export const bootstrapApp = async () => {
       axial: rotatingCameraPosition.y,
       speed: playerTraversal.inertialVelocity.length(),
       frameAngle,
+      groundHeight: playerTraversal.groundHeight,
+      dip: landDipOffset,
       drive: {
         driving: drive.driving,
         azimuth: drive.surface.azimuth,

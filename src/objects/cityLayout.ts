@@ -177,7 +177,10 @@ export const resolveCitySurfaceCollision = (
   position: { azimuth: number; axialPosition: number },
   buildings: readonly CityBuilding[],
   radius: number,
-  clearance = 0.45
+  clearance = 0.45,
+  // Buildings no taller than this do not block: someone standing on a roof
+  // walks over every neighbour at or below their feet.
+  minBlockingHeight = 0
 ) => {
   if (radius <= 0) {
     return false
@@ -186,6 +189,10 @@ export const resolveCitySurfaceCollision = (
   let moved = false
 
   for (const building of buildings) {
+    if (building.height <= minBlockingHeight) {
+      continue
+    }
+
     const halfWidth = building.width * 0.5 + clearance
     const halfDepth = building.depth * 0.5 + clearance
     const tangentDelta = wrapToPi(position.azimuth - building.azimuth) * radius
@@ -210,6 +217,46 @@ export const resolveCitySurfaceCollision = (
   }
 
   return moved
+}
+
+// The walkable ground height at a surface point: the tallest building roof
+// underfoot that is reachable from the current altitude (you stand on what
+// is at or just below your feet — a tower far above you is a wall, not a
+// floor). Returns 0 over open ground.
+export const getCityGroundHeight = (
+  buildings: readonly CityBuilding[],
+  radius: number,
+  azimuth: number,
+  axialPosition: number,
+  altitude: number,
+  stepTolerance = 1.5
+) => {
+  if (radius <= 0) {
+    return 0
+  }
+
+  let groundHeight = 0
+
+  for (const building of buildings) {
+    if (
+      building.height <= groundHeight ||
+      building.height > altitude + stepTolerance
+    ) {
+      continue
+    }
+
+    const halfWidth = building.width * 0.5 + 0.3
+    const halfDepth = building.depth * 0.5 + 0.3
+
+    if (
+      Math.abs(wrapToPi(azimuth - building.azimuth) * radius) < halfWidth &&
+      Math.abs(axialPosition - building.axial) < halfDepth
+    ) {
+      groundHeight = building.height
+    }
+  }
+
+  return groundHeight
 }
 
 // Generates a street grid per land strip and lines the resulting blocks with

@@ -4,6 +4,7 @@ import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
   getCityCellSize,
+  getCityGroundHeight,
   getOverlookAltitude,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
@@ -113,6 +114,47 @@ describe('resolveCitySurfaceCollision', () => {
     const tangentDelta = Math.abs(position.azimuth - building.azimuth) * radius
     const axialDelta = Math.abs(position.axialPosition - building.axial)
     expect(Math.max(tangentDelta, axialDelta)).toBeGreaterThan(0)
+  })
+
+  test('buildings at or below the blocking height are walked over, taller ones still block', () => {
+    const position = { azimuth: building.azimuth, axialPosition: building.axial }
+    expect(
+      resolveCitySurfaceCollision(position, [building], radius, undefined, building.height)
+    ).toBe(false)
+    expect(
+      resolveCitySurfaceCollision(position, [building], radius, undefined, building.height - 1)
+    ).toBe(true)
+  })
+})
+
+describe('getCityGroundHeight', () => {
+  const radius = 18
+  const building: CityBuilding = {
+    azimuth: 0.5,
+    axial: 10,
+    width: 4,
+    depth: 6,
+    height: 5,
+    tone: 0.5,
+    kind: 'block'
+  }
+
+  test('returns the roof height over the footprint when reachable from the altitude', () => {
+    expect(getCityGroundHeight([building], radius, 0.5, 10, 5)).toBeCloseTo(5, 6)
+    expect(getCityGroundHeight([building], radius, 0.5, 10, 4.2)).toBeCloseTo(5, 6)
+  })
+
+  test('a tower far above your feet is a wall, not a floor', () => {
+    expect(getCityGroundHeight([building], radius, 0.5, 10, 0)).toBe(0)
+  })
+
+  test('returns 0 over open ground', () => {
+    expect(getCityGroundHeight([building], radius, 2.5, -30, 5)).toBe(0)
+  })
+
+  test('the tallest reachable roof wins when footprints stack', () => {
+    const low = { ...building, height: 2 }
+    expect(getCityGroundHeight([low, building], radius, 0.5, 10, 6)).toBeCloseTo(5, 6)
   })
 })
 

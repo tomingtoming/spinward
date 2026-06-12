@@ -24,6 +24,7 @@ import {
   rotatingPositionToInertial,
   rotatingVelocityToInertial
 } from '../sim/frameTransforms'
+import type { CityBuilding } from '../objects/cityLayout'
 import { confineSphereToRotatingCylinder } from '../sim/cylinderCollision'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
@@ -44,10 +45,19 @@ export type PlayerTraversalPhysicsContext = {
 export type PlayerTraversalState = {
   mode: PlayerTraversalMode
   surface: SurfaceRigState
+  // Height of whatever the player stands on above the cylinder floor —
+  // 0 on open ground, the roof height when standing on a building.
+  groundHeight: number
   inertialPosition: THREE.Vector3
   inertialVelocity: THREE.Vector3
   physics: PlayerTraversalPhysicsState | null
 }
+
+export type GroundHeightSampler = (
+  azimuth: number,
+  axialPosition: number,
+  altitude: number
+) => number
 
 type GroundedPlayerStepConfig = {
   axisDistanceDelta: number
@@ -57,6 +67,7 @@ type GroundedPlayerStepConfig = {
   deltaSeconds: number
   omega: number
   frameAngleEnd: number
+  sampleGroundHeight?: GroundHeightSampler
 }
 
 type FreeFlyPlayerStepConfig = {
@@ -162,6 +173,7 @@ export const createPlayerTraversalState = (
   const state: PlayerTraversalState = {
     mode: 'grounded',
     surface: { ...surface },
+    groundHeight: 0,
     inertialPosition: new THREE.Vector3(),
     inertialVelocity: new THREE.Vector3(),
     physics: null
@@ -251,14 +263,24 @@ const stepGroundedPlayerPhysics = (
   state.surface.azimuth = azimuth
   state.surface.axialPosition = nextRotatingPosition.y
 
+  // The ground is wherever you stand: open floor or a rooftop underfoot.
+  // Walking off a roof edge drops the sampled ground to the street and the
+  // grounded check below releases to free-fall.
+  const altitude = config.radius - radialDistance
+  const groundHeight =
+    config.sampleGroundHeight?.(azimuth, nextRotatingPosition.y, altitude) ?? 0
+  const surfaceRadius = config.radius - groundHeight
+
   const insideAxially =
     Math.abs(nextRotatingPosition.y) <= Math.max(0, config.length * 0.5 - 1.5)
-  const grounded = radialDistance > config.radius - PLAYER_REST_SUPPORT - GROUND_LOSS_GAP
+  const grounded = radialDistance > surfaceRadius - PLAYER_REST_SUPPORT - GROUND_LOSS_GAP
 
   if (!grounded || !insideAxially) {
     state.mode = 'free-fly'
     return
   }
+
+  state.groundHeight = groundHeight
 
   if (config.deltaSeconds <= 0) {
     return
@@ -292,7 +314,7 @@ const stepGroundedPlayerPhysics = (
   // Pushing UP (inward) is the legs' normal force — unrestricted. Pulling
   // DOWN (outward) is gravity's job alone, so it is capped by the effective
   // gravity: at low g you settle slowly instead of being sucked to the floor.
-  const restRadial = getPlayerBodyRadius(config.radius)
+  const restRadial = getPlayerBodyRadius(surfaceRadius)
   const maxSettleSpeed = Math.min(
     GROUND_FOLLOW_MAX_SPEED,
     effectiveGravity * GROUND_FOLLOW_TIME * 3
@@ -346,7 +368,13 @@ export const syncGroundedSurfaceFromPhysics = (
 // exactly on the landing frame.
 export const updatePlayerGroundContact = (
   state: PlayerTraversalState,
-  config: { radius: number; length: number; frameAngle: number; omega: number }
+  config: {
+    radius: number
+    length: number
+    frameAngle: number
+    omega: number
+    sampleGroundHeight?: GroundHeightSampler
+  }
 ) => {
   if (state.mode !== 'free-fly' || state.physics === null) {
     return false
@@ -365,7 +393,16 @@ export const updatePlayerGroundContact = (
   const insideAxially =
     Math.abs(nextRotatingPosition.y) <= Math.max(0, config.length * 0.5 - 1.5)
 
-  if (!insideAxially || radialDistance <= config.radius - PLAYER_REST_SUPPORT - GROUND_CONTACT_GAP) {
+  // Land on whatever is underfoot — open floor or a rooftop.
+  const groundHeight =
+    config.sampleGroundHeight?.(
+      Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x),
+      nextRotatingPosition.y,
+      config.radius - radialDistance
+    ) ?? 0
+  const surfaceRadius = config.radius - groundHeight
+
+  if (!insideAxially || radialDistance <= surfaceRadius - PLAYER_REST_SUPPORT - GROUND_CONTACT_GAP) {
     return false
   }
 
@@ -380,6 +417,7 @@ export const updatePlayerGroundContact = (
   }
 
   state.mode = 'grounded'
+  state.groundHeight = groundHeight
   state.surface.azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
   state.surface.axialPosition = nextRotatingPosition.y
   return true
@@ -531,7 +569,7 @@ export const applyPlayerTraversalState = (
   frameAngle: number
 ) => {
   if (state.mode === 'grounded') {
-    applySurfaceRigState(playerRig, state.surface, radius)
+    applySurfaceRigState(playerRig, state.surface, radius - state.groundHeight)
     return
   }
 
@@ -620,6 +658,131 @@ export const confinePlayerToHabitatInterior = (
     )
   }
 
+  return true
+}
+
+const wrapAngleToPi = (angle: number) =>
+  THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI
+
+// Free-fly collision against the city: buildings are analytic boxes in
+// surface space (no Rapier colliders), so jumps and flights bounce off
+// walls and can come to rest on rooftops instead of clipping through.
+export const confinePlayerToCityBuildings = (
+  state: PlayerTraversalState,
+  config: {
+    buildings: readonly CityBuilding[]
+    radius: number
+    frameAngle: number
+    omega: number
+  }
+) => {
+  if (
+    state.mode !== 'free-fly' ||
+    state.physics === null ||
+    config.buildings.length === 0
+  ) {
+    return false
+  }
+
+  inertialPositionToRotating(state.inertialPosition, config.frameAngle, reattachPosition)
+  inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    config.omega,
+    config.frameAngle,
+    reattachVelocity
+  )
+
+  let radialDistance = Math.hypot(reattachPosition.x, reattachPosition.z)
+
+  if (radialDistance <= 1e-6) {
+    return false
+  }
+
+  let azimuth = Math.atan2(reattachPosition.z, reattachPosition.x)
+  let axial = reattachPosition.y
+  const margin = getPlayerCollisionRadius()
+  let moved = false
+
+  for (const building of config.buildings) {
+    const halfWidth = building.width * 0.5 + margin
+    const halfDepth = building.depth * 0.5 + margin
+    const tangentDelta = wrapAngleToPi(azimuth - building.azimuth) * config.radius
+    const axialDelta = axial - building.axial
+
+    if (Math.abs(tangentDelta) >= halfWidth || Math.abs(axialDelta) >= halfDepth) {
+      continue
+    }
+
+    const roofRadial = config.radius - building.height
+    const radialPenetration = radialDistance - (roofRadial - margin)
+
+    if (radialPenetration <= 0) {
+      continue
+    }
+
+    const tangentPenetration = halfWidth - Math.abs(tangentDelta)
+    const axialPenetration = halfDepth - Math.abs(axialDelta)
+
+    if (radialPenetration <= tangentPenetration && radialPenetration <= axialPenetration) {
+      // Shallowest exit is up: rest on the roof and kill the fall.
+      radialDistance = roofRadial - margin
+      walkOutward.set(Math.cos(azimuth), 0, Math.sin(azimuth))
+      const outwardSpeed = reattachVelocity.dot(walkOutward)
+
+      if (outwardSpeed > 0) {
+        reattachVelocity.addScaledVector(walkOutward, -outwardSpeed * 1.02)
+      }
+    } else if (tangentPenetration <= axialPenetration) {
+      const side = tangentDelta >= 0 ? 1 : -1
+      azimuth = building.azimuth + (side * halfWidth) / config.radius
+      walkTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))
+      const tangentSpeed = reattachVelocity.dot(walkTangent)
+
+      if (side >= 0 ? tangentSpeed < 0 : tangentSpeed > 0) {
+        reattachVelocity.addScaledVector(walkTangent, -tangentSpeed * 1.02)
+      }
+    } else {
+      const side = axialDelta >= 0 ? 1 : -1
+      axial = building.axial + side * halfDepth
+
+      if (side >= 0 ? reattachVelocity.y < 0 : reattachVelocity.y > 0) {
+        reattachVelocity.y *= -0.02
+      }
+    }
+
+    moved = true
+  }
+
+  if (!moved) {
+    return false
+  }
+
+  reattachPosition.set(
+    Math.cos(azimuth) * radialDistance,
+    axial,
+    Math.sin(azimuth) * radialDistance
+  )
+  rotatingPositionToInertial(reattachPosition, config.frameAngle, state.inertialPosition)
+  rotatingVelocityToInertial(
+    reattachPosition,
+    reattachVelocity,
+    config.omega,
+    config.frameAngle,
+    state.inertialVelocity
+  )
+  setRigidBodyTranslationFromReal(
+    state.physics.freeFlyBody,
+    state.inertialPosition,
+    state.physics.units,
+    true
+  )
+  setRigidBodyLinvelFromReal(
+    state.physics.freeFlyBody,
+    state.inertialVelocity,
+    state.physics.units,
+    true
+  )
   return true
 }
 
@@ -764,12 +927,20 @@ export const resetPlayerToGrounded = (
     radius: number
     frameAngle: number
     omega: number
+    groundHeight?: number
   }
 ) => {
   state.mode = 'grounded'
+  state.groundHeight = config.groundHeight ?? 0
   state.surface.axialPosition = config.axialPosition
   state.surface.azimuth = config.azimuth
-  syncGroundedInertialState(state, config.radius, config.frameAngle, config.omega, zeroRotatingVelocity)
+  syncGroundedInertialState(
+    state,
+    config.radius - state.groundHeight,
+    config.frameAngle,
+    config.omega,
+    zeroRotatingVelocity
+  )
 }
 
 export const resetPlayerToFreeFly = (
