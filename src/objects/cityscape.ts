@@ -149,6 +149,74 @@ const createFarmTexture = () => {
   return texture
 }
 
+// One dash cycle of road surface: U spans the full width (edge lines at the
+// sides), V repeats along the road in ROAD_TEXTURE_WORLD_METERS units.
+export const ROAD_TEXTURE_WORLD_METERS = 12
+
+const createRoadTexture = (kind: 'arterial' | 'local') => {
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+
+  if (context === null) {
+    throw new Error('2D canvas context is required for the road texture')
+  }
+
+  context.fillStyle = kind === 'arterial' ? '#15191f' : '#20262d'
+  context.fillRect(0, 0, size, size)
+
+  // Edge lines on both sides (symmetric, so the BackSide mirror is free).
+  context.fillStyle = 'rgba(218, 224, 230, 0.5)'
+  context.fillRect(8, 0, 5, size)
+  context.fillRect(size - 13, 0, 5, size)
+
+  if (kind === 'arterial') {
+    // Solid warm center line plus dashed lane separators (4 lanes).
+    context.fillStyle = 'rgba(226, 196, 116, 0.85)'
+    context.fillRect(size / 2 - 3, 0, 6, size)
+    context.fillStyle = 'rgba(220, 226, 232, 0.7)'
+    context.fillRect(62, 16, 4, 120)
+    context.fillRect(size - 66, 16, 4, 120)
+  } else {
+    // Faint short center dash for residential streets.
+    context.fillStyle = 'rgba(210, 216, 222, 0.22)'
+    context.fillRect(size / 2 - 2, 40, 4, 88)
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.ClampToEdgeWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.anisotropy = 4
+  return texture
+}
+
+// Remap an arc-band road geometry's UVs so U spans the road width and V
+// runs along the road in world units (one texture cycle per
+// ROAD_TEXTURE_WORLD_METERS). `alongIsArc` flips the axes for roads whose
+// long direction is the cylinder arc (cross streets, bridges).
+const bakeRoadUvs = (
+  geometry: THREE.BufferGeometry,
+  alongMeters: number,
+  alongIsArc: boolean
+) => {
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
+  const repeat = alongMeters / ROAD_TEXTURE_WORLD_METERS
+
+  for (let index = 0; index < uv.count; index += 1) {
+    const u = uv.getX(index)
+    const v = uv.getY(index)
+
+    if (alongIsArc) {
+      uv.setXY(index, v, u * repeat)
+    } else {
+      uv.setXY(index, u, v * repeat)
+    }
+  }
+}
+
 const buildingTone = (tone: number, target: THREE.Color) => {
   // Cool slate blocks with occasional warmer facades.
   const hue = tone > 0.85 ? 0.07 : 0.58
@@ -338,9 +406,10 @@ export class Cityscape {
   })
 
   private readonly bridgeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x6b7682,
+    color: 0xd6dade,
+    map: createRoadTexture('arterial'),
     roughness: 0.7,
-    metalness: 0.3,
+    metalness: 0.2,
     side: THREE.DoubleSide
   })
 
@@ -351,22 +420,16 @@ export class Cityscape {
   })
 
   private readonly localRoadMaterial = new THREE.MeshBasicMaterial({
-    color: 0x272d35,
-    transparent: true,
-    opacity: 0.85,
+    map: createRoadTexture('local'),
     side: THREE.BackSide,
-    depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2
   })
 
   private readonly roadMaterial = new THREE.MeshBasicMaterial({
-    color: 0x141a21,
-    transparent: true,
-    opacity: 0.88,
+    map: createRoadTexture('arterial'),
     side: THREE.BackSide,
-    depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2
@@ -529,8 +592,11 @@ export class Cityscape {
     this.mirrorMaterial.map?.dispose()
     this.mirrorMaterial.dispose()
     this.axisSpineMaterial.dispose()
+    this.roadMaterial.map?.dispose()
     this.roadMaterial.dispose()
+    this.localRoadMaterial.map?.dispose()
     this.localRoadMaterial.dispose()
+    this.bridgeMaterial.map?.dispose()
     this.bridgeMaterial.dispose()
     this.bridgeEdgeMaterial.dispose()
     this.parkMaterial.dispose()
@@ -783,6 +849,13 @@ export class Cityscape {
           arcRadians
         )
         geometry.translate(0, road.axial, 0)
+        // Avenues run along the axis; cross streets run along the arc.
+        const isAvenue = road.axialLength > road.tangentWidth
+        bakeRoadUvs(
+          geometry,
+          isAvenue ? road.axialLength : road.tangentWidth,
+          !isAvenue
+        )
         geometries.push(geometry)
       }
 
@@ -1163,6 +1236,7 @@ export class Cityscape {
           arc.arcRadians
         )
         deck.translate(0, axial, 0)
+        bakeRoadUvs(deck, arc.arcRadians * deckRadius, true)
         deckParts.push(deck)
 
         for (const side of [-1, 1]) {

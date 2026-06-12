@@ -219,10 +219,12 @@ export class CylinderHabitat {
     opacity: 0.28
   })
 
-  private readonly markerMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3b82f6,
-    emissive: 0x0f1f3d,
-    side: THREE.DoubleSide
+  private readonly markerMaterial = new THREE.MeshBasicMaterial({
+    color: 0x67e8f9,
+    transparent: true,
+    opacity: 0.45,
+    side: THREE.DoubleSide,
+    toneMapped: false
   })
 
   private readonly runwayMaterial = new THREE.LineBasicMaterial({
@@ -252,7 +254,7 @@ export class CylinderHabitat {
   private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
-  private startMarker: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
+  private startMarker: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null
   private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private radius = 0
   private length = 0
@@ -546,8 +548,9 @@ export class CylinderHabitat {
       this.group.remove(this.startMarker)
     }
 
-    this.startMarker = new THREE.Mesh(new THREE.PlaneGeometry(14, 10), this.markerMaterial)
-    this.startMarker.position.set(radius - 0.04, 0, 0)
+    // Subtle pavement inlay at the spawn instead of the old blue billboard.
+    this.startMarker = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 40), this.markerMaterial)
+    this.startMarker.position.set(radius - 0.08, 0, 0)
     this.startMarker.quaternion.setFromUnitVectors(
       new THREE.Vector3(0, 0, 1),
       new THREE.Vector3(-1, 0, 0)
