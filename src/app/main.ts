@@ -31,7 +31,7 @@ import {
   syncPlayerTraversalFromPhysics,
   stepAttachedPlayer,
   stepFreeFlyPlayer,
-  tryReattachPlayer
+  updatePlayerGroundContact
 } from './playerTraversal'
 import {
   rebuildPlayerTraversalRuntime,
@@ -57,16 +57,10 @@ import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
 import { MobileControls, isTouchDevice } from '../pc/mobileControls'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
-import {
-  JUMP_SPEED,
-  beginJump,
-  computeJumpLaunchVelocity,
-  createJumpState,
-  resetJumpState,
-  stepJumpState
-} from '../gameplay/jump'
+import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
 import { respawnAxisEnd, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
+import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { applyPresetToSettingsStore, getPresetById, getPresetName } from '../presets/presetManager'
@@ -246,7 +240,7 @@ export const bootstrapApp = async () => {
 
   const rapier = await initRapier()
   const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
-  physicsWorld.lengthUnit = 1
+  applyWorldLengthUnit(physicsWorld, habitatConfig.simScale)
   physicsWorld.maxCcdSubsteps = 4
   const getHabitatSpanMeters = () => getHabitatSpan(habitatConfig)
   const getUnits = () => createUnitsContext(habitatConfig.simScale)
@@ -265,9 +259,34 @@ export const bootstrapApp = async () => {
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
 
   const parkCarNearPlaza = () => {
-    // Right beside the spawn ring: the car is the first thing you can reach.
-    const tangentOffset = Math.min(getPlazaTangentHalfWidth(habitatConfig.radius) * 0.5, 4.5)
-    drive.parkAt(tangentOffset / habitatConfig.radius, 0, 0)
+    // Beside the spawn ring, but never inside a building: probe outward for
+    // the first pose with car-sized clearance on all sides.
+    const buildings = cityscape.getBuildings()
+    const baseTangent = Math.min(getPlazaTangentHalfWidth(habitatConfig.radius) * 0.5, 4.5)
+    const probe = { azimuth: 0, axialPosition: 0 }
+    let parked = false
+
+    candidateSearch: for (const ring of [0, 4, 8, 14, 22, 32]) {
+      for (const [tangentStep, axialStep] of [
+        [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]
+      ]) {
+        const tangent = baseTangent + tangentStep * ring
+        const axial = axialStep * ring
+        probe.azimuth = tangent / habitatConfig.radius
+        probe.axialPosition = axial
+
+        if (!resolveCitySurfaceCollision(probe, buildings, habitatConfig.radius, 4)) {
+          drive.parkAt(tangent / habitatConfig.radius, axial, 0)
+          parked = true
+          break candidateSearch
+        }
+      }
+    }
+
+    if (!parked) {
+      drive.parkAt(baseTangent / habitatConfig.radius, 0, 0)
+    }
+
     car.setPose(
       drive.surface.azimuth,
       drive.surface.axialPosition,
@@ -298,18 +317,7 @@ export const bootstrapApp = async () => {
   }
   const playerFixedColliderPosition = new THREE.Vector3()
   const locomotionIntent = getIdleLocomotionIntent()
-  const jumpState = createJumpState()
   const jumpLaunchVelocity = new THREE.Vector3()
-  const jumpProbePosition = new THREE.Vector3()
-  const jumpProbeVelocity = new THREE.Vector3()
-  // Landing snap after a jump or an overlook drop: position must match the
-  // surface but arrival speed is forgiven (the snap absorbs it).
-  const jumpLandingTuning = {
-    endCapMargin: 1.5,
-    radialTolerance: 0.3,
-    maxNormalSpeed: Number.POSITIVE_INFINITY,
-    maxSurfaceSpeed: Number.POSITIVE_INFINITY
-  }
   let desktopThrowQueued = false
   let desktopJumpQueued = false
   let frameAngle = 0
@@ -426,9 +434,6 @@ export const bootstrapApp = async () => {
         omega: rpmToOmega(habitatConfig.rpm)
       }
     )
-    // Arm the landing snap so the drop from the overlook ends back on the
-    // surface in attached mode, exactly like a jump landing.
-    beginJump(jumpState)
     return didRespawn
   }
 
@@ -534,7 +539,6 @@ export const bootstrapApp = async () => {
         frameAngle = 0
         applyPresetToSettingsStore(settingsStore, runtimeAction.presetId)
         clearAllBalls()
-        resetJumpState(jumpState)
         rebuildPlayerTraversal('inner-wall')
         drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
         parkCarNearPlaza()
@@ -559,6 +563,7 @@ export const bootstrapApp = async () => {
   }
 
   const syncHabitat = () => {
+    applyWorldLengthUnit(physicsWorld, habitatConfig.simScale)
     syncHabitatRuntime(
       {
         habitat,
@@ -902,7 +907,6 @@ export const bootstrapApp = async () => {
         omega,
         frameAngle
       })
-      beginJump(jumpState)
       notifyTourEvent(tourGuide, 'jump')
       audio.playJump()
     }
@@ -941,12 +945,23 @@ export const bootstrapApp = async () => {
     }
 
     if (playerTraversal.mode === 'attached') {
-      if (!drive.driving) {
+      if (
+        !drive.driving &&
         resolveCitySurfaceCollision(
           playerTraversal.surface,
           cityscape.getBuildings(),
           habitatConfig.radius
         )
+      ) {
+        // Walking is physical: when a footprint pushes the surface state
+        // out of a building, the live body must follow (and stop).
+        resetPlayerToAttached(playerTraversal, {
+          axialPosition: playerTraversal.surface.axialPosition,
+          azimuth: playerTraversal.surface.azimuth,
+          radius: habitatConfig.radius,
+          frameAngle,
+          omega
+        })
       }
 
       getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
@@ -960,7 +975,6 @@ export const bootstrapApp = async () => {
 
     const playerAzimuth = Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
     habitat.setFocusAzimuth(playerAzimuth)
-    cylinderWall.updateActiveColliders(playerAzimuth, frameAngle)
 
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
@@ -993,43 +1007,20 @@ export const bootstrapApp = async () => {
           })
         : null
 
-    // The landing snap only fires while sinking toward the wall, so flying
-    // along or away from the surface (left-grip thrust) is never interrupted.
-    let descending = true
-
-    if (playerTraversal.mode === 'free-fly') {
-      inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, jumpProbePosition)
-      inertialVelocityToRotating(
-        playerTraversal.inertialPosition,
-        playerTraversal.inertialVelocity,
-        omega,
-        frameAngle,
-        jumpProbeVelocity
-      )
-      const radialDistance = Math.hypot(jumpProbePosition.x, jumpProbePosition.z)
-      descending =
-        radialDistance <= 1e-6 ||
-        (jumpProbePosition.x * jumpProbeVelocity.x +
-          jumpProbePosition.z * jumpProbeVelocity.z) /
-          radialDistance >
-          -0.05
-    }
-
-    const jumpLanded = stepJumpState(jumpState, {
-      mode: playerTraversal.mode,
-      radialError: reattachStatus?.radialError ?? 0,
-      descending
-    })
-
-    if (jumpLanded) {
-      audio.playLand()
-      tryReattachPlayer(playerTraversal, {
-        ...jumpLandingTuning,
+    // Walking is physics now: free-fly ends the moment the body has settled
+    // onto the wall — jumps, overlook drops, and clutch flights all land the
+    // same natural way.
+    if (!drive.driving) {
+      const landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
-        omega,
-        frameAngle
+        frameAngle,
+        omega
       })
+
+      if (landed) {
+        audio.playLand()
+      }
     }
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
@@ -1210,6 +1201,26 @@ export const bootstrapApp = async () => {
     clouds.setDaylight(daylight)
     clouds.update(deltaSeconds)
     spaceport.update(deltaSeconds)
+
+    // Lightweight state probe for headless debugging.
+    inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
+    ;(window as unknown as { __xr1?: unknown }).__xr1 = {
+      mode: playerTraversal.mode,
+      radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
+      radius: habitatConfig.radius,
+      axial: rotatingCameraPosition.y,
+      speed: playerTraversal.inertialVelocity.length(),
+      frameAngle,
+      drive: {
+        driving: drive.driving,
+        azimuth: drive.surface.azimuth,
+        axial: drive.surface.axialPosition,
+        heading: drive.heading,
+        crashed: drive.lastCrashed,
+        grounded: drive.lastGrounded,
+        speed: drive.lastSpeed
+      }
+    }
 
     desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
     mobileControls?.update(renderer.xr.isPresenting)

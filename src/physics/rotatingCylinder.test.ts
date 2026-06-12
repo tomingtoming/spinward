@@ -42,11 +42,16 @@ test('buildCylinderWallPanels spans around the full cylinder circumference', () 
   expect(panels[6]?.translation.z).toBeCloseTo(0, 6)
 })
 
-test('resolveCylinderWallSegmentCount grows with cylinder radius when using adaptive defaults', () => {
+test('resolveCylinderWallSegmentCount honours ridge and sagitta budgets', () => {
   const compactCount = resolveCylinderWallSegmentCount({ radius: 10 })
-  const largeCount = resolveCylinderWallSegmentCount({ radius: 80 })
+  const izmaCount = resolveCylinderWallSegmentCount({ radius: 3200 })
+  const elysiumCount = resolveCylinderWallSegmentCount({ radius: 30000 })
 
-  expect(compactCount).toBeGreaterThanOrEqual(24)
-  expect(largeCount).toBeGreaterThan(compactCount)
-  expect(largeCount).toBeLessThanOrEqual(144)
+  // Small habitats are ridge-bound: seam dihedrals stay <= 0.02 rad so
+  // walkers are not launched at panel boundaries.
+  expect(compactCount).toBe(Math.ceil((Math.PI * 2) / 0.02))
+  // Kilometre habitats are sagitta-bound and need more panels...
+  expect(izmaCount).toBeGreaterThan(compactCount)
+  // ...up to the collider-count cap.
+  expect(elysiumCount).toBe(1024)
 })

@@ -16,6 +16,7 @@ import {
   stepAttachedPlayer,
   stepFreeFlyPlayer
 } from './playerTraversal'
+import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import {
@@ -195,11 +196,11 @@ test('getPlayerTraversalRegion reports outside for a free-flying player beyond t
   expect(getPlayerTraversalRegion(state, 20, 0.5)).toBe('outside')
 })
 
-test('stepAttachedPlayer seeds a Rapier body when transitioning to free-fly', async () => {
+test('physical walking drives the live body velocity toward the intent', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })
   const state = createPlayerTraversalState(
-    { axialPosition: 8.4, azimuth: 0 },
+    { axialPosition: 2, azimuth: 0 },
     10,
     0,
     1.2,
@@ -216,13 +217,109 @@ test('stepAttachedPlayer seeds a Rapier body when transitioning to free-fly', as
     frameAngleEnd: 0.6
   })
 
-  const expectedPosition = state.inertialPosition.clone().addScaledVector(state.inertialVelocity, 0.5)
-  world.timestep = 0.5
-  world.step()
-  syncPlayerTraversalFromPhysics(state)
+  expect(state.mode).toBe('attached')
+
+  const rotatingVelocity = inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    1.2,
+    0.6,
+    new THREE.Vector3()
+  )
+
+  // Desired axial walk speed = 1m / 0.5s; full traction at this g.
+  expect(rotatingVelocity.y).toBeCloseTo(2, 5)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('physical walking holds co-rotation on the spinning wall at izma scale', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(0.02)
+  applyWorldLengthUnit(world, units)
+  const radius = 3200
+  const length = 32000
+  const omega = (Math.PI * 2) / 113.5
+  const cylinder = createRotatingCylinderBody(rapier, world, { radius, length, units })
+  cylinder.setAngularVelocity(omega)
+
+  let frameAngle = 0
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    frameAngle,
+    omega,
+    { rapier, world, units }
+  )
+
+  // 4 simulated seconds of standing still. The historical failure mode:
+  // wall contact read as static (kinematic body com displaced by partially
+  // enabled panels), friction bled ~13 m/s of co-rotation and the player
+  // drifted onto an inward epicycle within two seconds.
+  const deltaSeconds = 1 / 72
+  for (let index = 0; index < 288; index += 1) {
+    frameAngle = THREE.MathUtils.euclideanModulo(
+      frameAngle + omega * deltaSeconds,
+      Math.PI * 2
+    )
+    stepAttachedPlayer(state, {
+      axisDistanceDelta: 0,
+      tangentDistanceDelta: 0,
+      radius,
+      length,
+      deltaSeconds,
+      omega,
+      frameAngleEnd: frameAngle
+    })
+    world.timestep = deltaSeconds
+    world.step()
+  }
+
+  expect(state.mode).toBe('attached')
+
+  const rotatingVelocity = inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    omega,
+    frameAngle,
+    new THREE.Vector3()
+  )
+  const radialDistance = Math.hypot(state.inertialPosition.x, state.inertialPosition.z)
+
+  // Still co-rotating (rotating-frame speed ~ 0) and resting on the surface.
+  expect(rotatingVelocity.length()).toBeLessThan(0.5)
+  expect(radius - radialDistance).toBeGreaterThan(0.2)
+  expect(radius - radialDistance).toBeLessThan(0.8)
+
+  cylinder.dispose()
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('physical walking releases to free-fly past the opening', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const state = createPlayerTraversalState(
+    { axialPosition: 9.6, azimuth: 0 },
+    10,
+    0,
+    1.2,
+    { rapier, world }
+  )
+
+  stepAttachedPlayer(state, {
+    axisDistanceDelta: 0,
+    tangentDistanceDelta: 0,
+    radius: 10,
+    length: 20,
+    deltaSeconds: 0.5,
+    omega: 1.2,
+    frameAngleEnd: 0
+  })
 
   expect(state.mode).toBe('free-fly')
-  expectVectorCloseTo(state.inertialPosition, expectedPosition)
 
   disposePlayerTraversalState(state)
   world.free()
@@ -323,14 +420,11 @@ test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the s
     { rapier, world }
   )
 
-  stepAttachedPlayer(state, {
-    axisDistanceDelta: 1,
-    tangentDistanceDelta: 0,
+  detachPlayerToFreeFly(state, {
+    launchVelocity: new THREE.Vector3(0, 0, 0),
     radius: 10,
-    length: 20,
-    deltaSeconds: 0.5,
     omega: 1,
-    frameAngleEnd: 0.5
+    frameAngle: 0.5
   })
 
   const previousVelocity = state.inertialVelocity.clone()

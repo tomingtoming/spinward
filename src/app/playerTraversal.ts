@@ -11,6 +11,7 @@ import {
 } from './surfaceRig'
 import type { RapierModule } from '../physics/rapierContext'
 import {
+  PLAYER_COLLISION_GROUPS,
   createRigidBodyAtRealPose,
   readRigidBodyPoseAsReal,
   scaleLengthForRapier,
@@ -112,18 +113,31 @@ const reattachPosition = new THREE.Vector3()
 const reattachVelocity = new THREE.Vector3()
 const outwardNormal = new THREE.Vector3()
 const surfaceRelativeVelocity = new THREE.Vector3()
-const playerColliderOffset = new THREE.Vector3(0, 0.87, 0)
-const playerFootPlateOffset = new THREE.Vector3(0, 0.1, 0)
-
-const PLAYER_COLLIDER_HALF_HEIGHT = 0.55
+// The body's rotation is locked to identity while "up" is radial and varies
+// with azimuth, so any oriented collider shape ends up sideways somewhere on
+// the ring. A sphere is the only orientation-free choice: it rests on the
+// wall panels at every azimuth and glides over panel seams.
 const PLAYER_COLLIDER_RADIUS = 0.32
-const PLAYER_FOOT_PLATE_HALF_WIDTH = 0.36
-const PLAYER_FOOT_PLATE_HALF_THICKNESS = 0.045
 const PLAYER_WALL_CLEARANCE = 0.08
-const PLAYER_COLLISION_SUPPORT_RADIUS = Math.max(
-  PLAYER_COLLIDER_RADIUS,
-  PLAYER_FOOT_PLATE_HALF_WIDTH * Math.SQRT2
-)
+const PLAYER_COLLISION_SUPPORT_RADIUS = PLAYER_COLLIDER_RADIUS
+
+// Physical walking: the body is a live dynamic sphere. Tangent/axial motion
+// is steered toward the intent with traction proportional to the EFFECTIVE
+// spin gravity (your co-rotation speed, not the habitat's), while the radial
+// axis follows the analytic cylinder surface — the ground constraint solved
+// exactly, so panel seams and chord ripple never shake the walker. The
+// sphere hovers just above the wall panels; they only matter for free-fly
+// landings, thrown balls and the car.
+const PLAYER_REST_SUPPORT = 0.32
+const GROUND_LOSS_GAP = 1.0
+const GROUND_CONTACT_GAP = 0.9
+const GROUND_CONTACT_MAX_RADIAL_SPEED = 1.8
+const WALK_TRACTION_ACCEL = 28
+const GROUND_FOLLOW_TIME = 0.12
+const GROUND_FOLLOW_MAX_SPEED = 3
+const walkOutward = new THREE.Vector3()
+const walkTangent = new THREE.Vector3()
+const walkDesired = new THREE.Vector3()
 
 export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   endCapMargin: 1.5,
@@ -164,43 +178,30 @@ export const createPlayerTraversalState = (
         .setLinearDamping(0)
         .lockRotations()
         .setCanSleep(false)
-        .setCcdEnabled(true)
-        .setEnabled(false),
+        // No CCD: sweeps ignore the wall's rotational surface velocity, so a
+        // co-rotating body reads as a 177 m/s impact and gets stopped dead.
+        // Relative wall speeds are a few m/s against a meters-thick shell.
+        .setCcdEnabled(false)
+        .setEnabled(true),
       {
         position: state.inertialPosition,
         linearVelocity: state.inertialVelocity
       },
       units
     )
+    // Traction is modeled by the walking controller (grip ~ spin gravity), so
+    // engine friction stays low: at panel seams the sphere touches two faces
+    // at once, and full friction there out-muscled the controller and parked
+    // the player on every seam.
     physics.world.createCollider(
-      physics.rapier.ColliderDesc.capsule(
-        scaleLengthForRapier(PLAYER_COLLIDER_HALF_HEIGHT, units),
+      physics.rapier.ColliderDesc.ball(
         scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, units)
       )
-        .setTranslation(
-          scaleLengthForRapier(playerColliderOffset.x, units),
-          scaleLengthForRapier(playerColliderOffset.y, units),
-          scaleLengthForRapier(playerColliderOffset.z, units)
-        )
-        .setFriction(1.5)
-        .setDensity(0.35)
-        .setRestitution(0.05),
-      freeFlyBody
-    )
-    physics.world.createCollider(
-      physics.rapier.ColliderDesc.cuboid(
-        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_WIDTH, units),
-        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_THICKNESS, units),
-        scaleLengthForRapier(PLAYER_FOOT_PLATE_HALF_WIDTH, units)
-      )
-        .setTranslation(
-          scaleLengthForRapier(playerFootPlateOffset.x, units),
-          scaleLengthForRapier(playerFootPlateOffset.y, units),
-          scaleLengthForRapier(playerFootPlateOffset.z, units)
-        )
-        .setFriction(2.0)
-        .setDensity(1.15)
-        .setRestitution(0.01),
+        .setFriction(0.5)
+        .setFrictionCombineRule(physics.rapier.CoefficientCombineRule.Min)
+        .setCollisionGroups(PLAYER_COLLISION_GROUPS)
+        .setDensity(1.0)
+        .setRestitution(0.02),
       freeFlyBody
     )
     state.physics = {
@@ -214,11 +215,150 @@ export const createPlayerTraversalState = (
   return state
 }
 
+// Walking as physics: read the live body, steer its surface-plane velocity
+// toward the intent with grip proportional to spin gravity, and let the
+// radial axis (contact, bumps, lift-off) stay with the engine.
+const stepGroundedPlayerPhysics = (
+  state: PlayerTraversalState,
+  config: AttachedPlayerStepConfig
+) => {
+  if (state.physics === null) {
+    return
+  }
+
+  readRigidBodyPoseAsReal(state.physics.freeFlyBody, state.physics.units, {
+    position: state.inertialPosition,
+    linearVelocity: state.inertialVelocity
+  })
+  inertialPositionToRotating(state.inertialPosition, config.frameAngleEnd, nextRotatingPosition)
+  inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    config.omega,
+    config.frameAngleEnd,
+    rotatingVelocity
+  )
+
+  const azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
+  const radialDistance = Math.hypot(nextRotatingPosition.x, nextRotatingPosition.z)
+  state.surface.azimuth = azimuth
+  state.surface.axialPosition = nextRotatingPosition.y
+
+  const insideAxially =
+    Math.abs(nextRotatingPosition.y) <= Math.max(0, config.length * 0.5 - 1.5)
+  const grounded = radialDistance > config.radius - PLAYER_REST_SUPPORT - GROUND_LOSS_GAP
+
+  if (!grounded || !insideAxially) {
+    state.mode = 'free-fly'
+    return
+  }
+
+  if (config.deltaSeconds <= 0) {
+    return
+  }
+
+  walkOutward.set(Math.cos(azimuth), 0, Math.sin(azimuth))
+  walkTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))
+
+  const axialVelocity = rotatingVelocity.y
+  const tangentVelocity = rotatingVelocity.dot(walkTangent)
+  const desiredAxial = config.axisDistanceDelta / config.deltaSeconds
+  const desiredTangent = config.tangentDistanceDelta / config.deltaSeconds
+
+  // Traction is normal load, and the normal load is YOUR centripetal
+  // acceleration: run against the spin and your feet get lighter.
+  const inertialTangentSpeed = tangentVelocity + config.omega * radialDistance
+  const effectiveGravity =
+    (inertialTangentSpeed * inertialTangentSpeed) / Math.max(radialDistance, 1e-6)
+  const grip = THREE.MathUtils.clamp(effectiveGravity / 9.80665, 0, 1.2)
+  const maxDelta = WALK_TRACTION_ACCEL * grip * config.deltaSeconds
+  const newAxial =
+    axialVelocity + THREE.MathUtils.clamp(desiredAxial - axialVelocity, -maxDelta, maxDelta)
+  const newTangent =
+    tangentVelocity +
+    THREE.MathUtils.clamp(desiredTangent - tangentVelocity, -maxDelta, maxDelta)
+
+  // Radial ground-follow: hold the body on the analytic cylinder surface.
+  const restRadial = getPlayerBodyRadius(config.radius)
+  const newRadial = THREE.MathUtils.clamp(
+    (restRadial - radialDistance) / GROUND_FOLLOW_TIME,
+    -GROUND_FOLLOW_MAX_SPEED,
+    GROUND_FOLLOW_MAX_SPEED
+  )
+
+  walkDesired
+    .copy(walkTangent)
+    .multiplyScalar(newTangent)
+    .addScaledVector(walkOutward, newRadial)
+  walkDesired.y += newAxial
+  rotatingVelocityToInertial(
+    nextRotatingPosition,
+    walkDesired,
+    config.omega,
+    config.frameAngleEnd,
+    state.inertialVelocity
+  )
+  setRigidBodyLinvelFromReal(
+    state.physics.freeFlyBody,
+    state.inertialVelocity,
+    state.physics.units,
+    true
+  )
+}
+
+// Free-fly -> attached when the body has settled onto the wall. Returns true
+// exactly on the landing frame.
+export const updatePlayerGroundContact = (
+  state: PlayerTraversalState,
+  config: { radius: number; length: number; frameAngle: number; omega: number }
+) => {
+  if (state.mode !== 'free-fly' || state.physics === null) {
+    return false
+  }
+
+  inertialPositionToRotating(state.inertialPosition, config.frameAngle, nextRotatingPosition)
+  inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    config.omega,
+    config.frameAngle,
+    rotatingVelocity
+  )
+
+  const radialDistance = Math.hypot(nextRotatingPosition.x, nextRotatingPosition.z)
+  const insideAxially =
+    Math.abs(nextRotatingPosition.y) <= Math.max(0, config.length * 0.5 - 1.5)
+
+  if (!insideAxially || radialDistance <= config.radius - PLAYER_REST_SUPPORT - GROUND_CONTACT_GAP) {
+    return false
+  }
+
+  walkOutward.set(
+    nextRotatingPosition.x / Math.max(radialDistance, 1e-6),
+    0,
+    nextRotatingPosition.z / Math.max(radialDistance, 1e-6)
+  )
+
+  if (Math.abs(rotatingVelocity.dot(walkOutward)) > GROUND_CONTACT_MAX_RADIAL_SPEED) {
+    return false
+  }
+
+  state.mode = 'attached'
+  state.surface.azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
+  state.surface.axialPosition = nextRotatingPosition.y
+  return true
+}
+
 export const stepAttachedPlayer = (
   state: PlayerTraversalState,
   config: AttachedPlayerStepConfig
 ) => {
   if (state.mode !== 'attached') {
+    return
+  }
+
+  if (state.physics !== null) {
+    stepGroundedPlayerPhysics(state, config)
     return
   }
 
@@ -538,7 +678,7 @@ const syncAttachedInertialState = (
   syncFreeFlyBodyToState(state, false)
 }
 
-const syncFreeFlyBodyToState = (state: PlayerTraversalState, enabled: boolean) => {
+const syncFreeFlyBodyToState = (state: PlayerTraversalState, _enabled: boolean) => {
   if (state.physics === null) {
     return
   }
@@ -555,7 +695,9 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, enabled: boolean) =
     state.physics.units,
     true
   )
-  state.physics.freeFlyBody.setEnabled(enabled)
+  // The body is always live: walking is physical too, pressed onto the wall
+  // by nothing but its own co-rotation.
+  state.physics.freeFlyBody.setEnabled(true)
 }
 
 export const resetPlayerToAttached = (

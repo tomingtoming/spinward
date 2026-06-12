@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 
 import { Ball } from './ball'
+import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import {
@@ -382,6 +383,8 @@ test('Ball keeps the same real collision result across sim scales', async () => 
   const rapier = await initRapier()
   const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
   const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
+  applyWorldLengthUnit(izmaWorld, 0.02)
+  applyWorldLengthUnit(elysiumWorld, 0.005)
   const izmaCylinder = createRotatingCylinderBody(rapier, izmaWorld, {
     radius: 3200,
     length: 40000,

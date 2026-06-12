@@ -26,6 +26,20 @@ const resolveUnits = (units: UnitsContext | number) =>
 export const scaleLengthForRapier = (realLength: number, units: UnitsContext | number) =>
   resolveUnits(units).toSimLength(realLength)
 
+// Rapier's solver tolerances (allowed penetration, contact prediction) are
+// expressed relative to the world's lengthUnit. Every world built on scaled
+// units must apply this, or human-sized bodies sink decimeters into floors
+// on kilometer-scale habitats.
+export const applyWorldLengthUnit = (world: World, units: UnitsContext | number) => {
+  world.lengthUnit = resolveUnits(units).simScale
+}
+
+// Collision groups: (membership << 16) | filter. The driver sits inside the
+// car's collider while driving, so the two must never collide; both still
+// collide with the wall (bit 1) and thrown balls (bit 8).
+export const PLAYER_COLLISION_GROUPS = (0x0002 << 16) | (0x0001 | 0x0008)
+export const CAR_COLLISION_GROUPS = (0x0004 << 16) | (0x0001 | 0x0008)
+
 export const scaleVector3ForRapier = (
   realVector: THREE.Vector3,
   units: UnitsContext | number

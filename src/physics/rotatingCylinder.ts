@@ -24,10 +24,12 @@ export const resolveCylinderWallSegmentCount = ({
   radius,
   segmentCount,
   targetSagitta = 0.04,
+  targetRidgeAngle = 0.02,
   minSegments = 24,
   maxSegments = 1024
 }: Pick<RotatingCylinderConfig, 'radius' | 'segmentCount'> & {
   targetSagitta?: number
+  targetRidgeAngle?: number
   minSegments?: number
   maxSegments?: number
 }) => {
@@ -35,12 +37,17 @@ export const resolveCylinderWallSegmentCount = ({
     return Math.max(6, Math.floor(segmentCount))
   }
 
-  // Flat panels chord the true cylinder: pick the segment count so the
-  // floor undulation (sagitta ~ R*theta^2/8) stays below targetSagitta
-  // even on multi-kilometer habitats. The old fixed cap of 144 left the
-  // Izma floor rippling by ~0.8m.
+  // Flat panels chord the true cylinder. Two budgets pick the segment count:
+  // - sagitta (R*theta^2/8): floor undulation depth, dominates at large R.
+  // - ridge angle (theta): the dihedral between neighbouring panels. A body
+  //   crossing a seam at speed v picks up ~v*theta of radial kick, so on
+  //   small habitats (playground R=18 had 7.5 deg seams) walkers were
+  //   launched airborne at every panel boundary.
   const safeRadius = Math.max(radius, 0.001)
-  const maxArc = Math.sqrt((8 * targetSagitta) / safeRadius)
+  const maxArc = Math.min(
+    Math.sqrt((8 * targetSagitta) / safeRadius),
+    targetRidgeAngle
+  )
   const estimated = Math.ceil((Math.PI * 2) / maxArc)
   return Math.min(maxSegments, Math.max(minSegments, estimated))
 }
@@ -57,7 +64,11 @@ export const buildCylinderWallPanels = ({
     segmentCount
   })
   const halfThickness = wallThickness * 0.5
-  const panelWidth = 2 * radius * Math.tan(Math.PI / clampedSegments) + wallThickness
+  // Exactly the circumscribed-polygon side: adjacent inner faces then share
+  // their edges with no overlap. Widening panels (the old +wallThickness)
+  // made each box jut centimeters above its neighbour's walking surface —
+  // a curb that wedged walkers and cars at every panel boundary.
+  const panelWidth = 2 * radius * Math.tan(Math.PI / clampedSegments)
 
   for (let index = 0; index < clampedSegments; index += 1) {
     const angle = (index / clampedSegments) * Math.PI * 2
@@ -75,15 +86,7 @@ export const buildCylinderWallPanels = ({
   return panels
 }
 
-type PanelEntry = {
-  collider: ReturnType<InstanceType<RapierModule['World']>['createCollider']>
-  localAzimuth: number
-}
-
-const normalizeAngleDiff = (diff: number) => {
-  const wrapped = THREE.MathUtils.euclideanModulo(diff + Math.PI, Math.PI * 2) - Math.PI
-  return Math.abs(wrapped)
-}
+type WallCollider = ReturnType<InstanceType<RapierModule['World']>['createCollider']>
 
 export const createRotatingCylinderBody = (
   rapier: RapierModule,
@@ -91,16 +94,21 @@ export const createRotatingCylinderBody = (
   config: RotatingCylinderConfig
 ) => {
   const body = world.createRigidBody(rapier.RigidBodyDesc.kinematicVelocityBased())
-  const panels: PanelEntry[] = []
-  let currentRadius = config.radius
+  const panels: WallCollider[] = []
 
   const rebuild = (nextConfig: RotatingCylinderConfig) => {
     const units = nextConfig.units ?? createUnitsContext(1)
-    currentRadius = nextConfig.radius
     const scaledConfig: RotatingCylinderConfig = {
       ...nextConfig,
       radius: scaleLengthForRapier(nextConfig.radius, units),
       length: scaleLengthForRapier(nextConfig.length, units),
+      // The sagitta budget is a real-world ripple tolerance, so the segment
+      // count must come from the REAL radius. Resolving it from the scaled
+      // radius gave izma 89 panels (2m floor ripple) instead of 628.
+      segmentCount: resolveCylinderWallSegmentCount({
+        radius: nextConfig.radius,
+        segmentCount: nextConfig.segmentCount
+      }),
       wallThickness: scaleLengthForRapier(
         nextConfig.wallThickness ?? getStableWallThicknessReal(units),
         units
@@ -108,28 +116,45 @@ export const createRotatingCylinderBody = (
     }
 
     for (const panel of panels.splice(0)) {
-      world.removeCollider(panel.collider, false)
+      world.removeCollider(panel, false)
     }
 
+    // Every panel stays enabled, always. Rapier derives the kinematic body's
+    // center of mass from its enabled colliders and computes contact surface
+    // velocity as angvel x (point - com): only the full symmetric ring keeps
+    // the com on the axis. Enabling just an arc near the player put the com
+    // at the player's feet, so the wall surface read as static and friction
+    // braked walkers/cars toward inertial rest (~13 m/s lost at izma scale).
     const builtPanels = buildCylinderWallPanels(scaledConfig)
-
-    for (let index = 0; index < builtPanels.length; index++) {
-      const panel = builtPanels[index]
-      const localAzimuth = (index / builtPanels.length) * Math.PI * 2
-      const collider = world.createCollider(
-        rapier.ColliderDesc.cuboid(
-          panel.halfExtents.x,
-          panel.halfExtents.y,
-          panel.halfExtents.z
+    // Rounded edges: bodies rest a few millimeters into the face, so a sharp
+    // neighbour edge at each seam was a lip that hard-blocked tangential
+    // motion. A fillet bigger than the rest penetration turns the seam into
+    // a smooth ridge; capping it against the panel width keeps most of the
+    // walking face flat.
+    const borderRadius = builtPanels.length > 0
+      ? Math.min(
+          scaleLengthForRapier(0.15, units),
+          builtPanels[0].halfExtents.x * 0.5,
+          builtPanels[0].halfExtents.z * 0.3
         )
-          .setTranslation(panel.translation.x, panel.translation.y, panel.translation.z)
-          .setRotation(panel.rotation)
-          .setFriction(1.8)
-          .setRestitution(0.02),
-        body
+      : 0
+
+    for (const panel of builtPanels) {
+      panels.push(
+        world.createCollider(
+          rapier.ColliderDesc.roundCuboid(
+            Math.max(panel.halfExtents.x - borderRadius, borderRadius),
+            Math.max(panel.halfExtents.y - borderRadius, borderRadius),
+            Math.max(panel.halfExtents.z - borderRadius, borderRadius),
+            borderRadius
+          )
+            .setTranslation(panel.translation.x, panel.translation.y, panel.translation.z)
+            .setRotation(panel.rotation)
+            .setFriction(1.8)
+            .setRestitution(0.02),
+          body
+        )
       )
-      collider.setEnabled(false)
-      panels.push({ collider, localAzimuth })
     }
   }
 
@@ -141,21 +166,6 @@ export const createRotatingCylinderBody = (
     setAngularVelocity(omega: number) {
       body.setAngvel({ x: 0, y: omega, z: 0 }, true)
     },
-    updateActiveColliders(
-      playerAzimuth: number,
-      frameAngle: number,
-      activationRadius = 100
-    ) {
-      const maxAngle = currentRadius > 0.001
-        ? activationRadius / currentRadius
-        : Math.PI
-
-      for (const panel of panels) {
-        const worldAzimuth = panel.localAzimuth + frameAngle
-        const angularDist = normalizeAngleDiff(worldAzimuth - playerAzimuth)
-        panel.collider.setEnabled(angularDist < maxAngle)
-      }
-    },
     syncToFrame(frameAngle: number) {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true)
       const rotation = new THREE.Quaternion().setFromAxisAngle(radialAxis, frameAngle)
@@ -163,7 +173,7 @@ export const createRotatingCylinderBody = (
     },
     dispose() {
       for (const panel of panels.splice(0)) {
-        world.removeCollider(panel.collider, false)
+        world.removeCollider(panel, false)
       }
 
       world.removeRigidBody(body)

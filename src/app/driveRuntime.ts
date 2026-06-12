@@ -3,6 +3,7 @@ import type { RigidBody, World } from '@dimforge/rapier3d-compat'
 
 import type { RapierModule } from '../physics/rapierContext'
 import {
+  CAR_COLLISION_GROUPS,
   createRigidBodyAtRealPose,
   readRigidBodyPoseAsReal,
   scaleLengthForRapier,
@@ -25,11 +26,16 @@ import {
 } from '../objects/cityLayout'
 import type { UnitsContext } from '../units/units'
 
-// The car body's collider: a low box riding on the rotating wall panels.
-const CAR_HALF_EXTENTS = new THREE.Vector3(0.95, 0.55, 2.1)
+// The car's physics body is a sphere: the body's rotation is locked while
+// "up" is radial and changes with azimuth, so an oriented box would lie
+// sideways at most azimuths (and plough metres into the wall). The sphere
+// hovers above the panels; radial ground-follow plays suspension.
+const CAR_COLLIDER_RADIUS = 0.5
 const CAR_BODY_CENTER_HEIGHT = 0.91
 // Contact is "grounded" while the body center sits near its resting radius.
 const GROUND_TOLERANCE = 0.6
+const GROUND_FOLLOW_TIME = 0.15
+const GROUND_FOLLOW_MAX_SPEED = 3
 const ENTER_DISTANCE = 6
 
 export type DrivePhysicsContext = {
@@ -62,6 +68,9 @@ export class DriveRuntime {
   driving = false
   readonly surface = { azimuth: 0, axialPosition: 0 }
   heading = 0
+  lastCrashed = false
+  lastGrounded = false
+  lastSpeed = 0
 
   private body: RigidBody | null = null
   private world: World | null = null
@@ -82,7 +91,9 @@ export class DriveRuntime {
         .setLinearDamping(0)
         .lockRotations()
         .setCanSleep(false)
-        .setCcdEnabled(true)
+        // No CCD against the rotating wall: sweeps misread the kinematic
+        // panels' surface motion and clamp/bleed the car's velocity.
+        .setCcdEnabled(false)
         .setEnabled(false),
       {
         position: new THREE.Vector3(),
@@ -91,13 +102,14 @@ export class DriveRuntime {
       physics.units
     )
     physics.world.createCollider(
-      physics.rapier.ColliderDesc.cuboid(
-        scaleLengthForRapier(CAR_HALF_EXTENTS.x, physics.units),
-        scaleLengthForRapier(CAR_HALF_EXTENTS.y, physics.units),
-        scaleLengthForRapier(CAR_HALF_EXTENTS.z, physics.units)
+      physics.rapier.ColliderDesc.ball(
+        scaleLengthForRapier(CAR_COLLIDER_RADIUS, physics.units)
       )
-        .setTranslation(0, 0, 0)
-        .setFriction(1.1)
+        // Tire grip lives in the vehicle model; keep engine friction below
+        // the engine's drive accel even with two contacts at a panel seam.
+        .setFriction(0.3)
+        .setFrictionCombineRule(physics.rapier.CoefficientCombineRule.Min)
+        .setCollisionGroups(CAR_COLLISION_GROUPS)
         .setDensity(0.6)
         .setRestitution(0.05),
       this.body
@@ -199,13 +211,49 @@ export class DriveRuntime {
       }
     )
 
-    // Crude building crash: push the footprint out and bleed speed.
+    // Suspension: hold the body on the analytic surface so panel seams and
+    // soft-contact bias never lift or shake the car.
+    if (grounded) {
+      const radialVelocity = rotatingVelocity.dot(surfaceOutward)
+      const followVelocity = THREE.MathUtils.clamp(
+        (restingRadial - radialDistance) / GROUND_FOLLOW_TIME,
+        -GROUND_FOLLOW_MAX_SPEED,
+        GROUND_FOLLOW_MAX_SPEED
+      )
+      rotatingVelocity.addScaledVector(surfaceOutward, followVelocity - radialVelocity)
+    }
+
+    // Building crash: push the footprint out, kill the velocity component
+    // driving into the wall, and keep the slide along it (with a scrape).
     this.surface.azimuth = azimuth
     this.surface.axialPosition = rotatingPosition.y
+    this.lastCrashed = false
+    this.lastGrounded = grounded
+    this.lastSpeed = rotatingVelocity.length()
 
     if (
       resolveCitySurfaceCollision(this.surface, config.buildings, config.radius, 1.3)
     ) {
+      this.lastCrashed = true
+      const pushTangent = wrapDelta(this.surface.azimuth - azimuth) * config.radius
+      const pushAxial = this.surface.axialPosition - rotatingPosition.y
+      const pushLength = Math.hypot(pushTangent, pushAxial)
+
+      if (pushLength > 1e-9) {
+        const normalTangent = pushTangent / pushLength
+        const normalAxial = pushAxial / pushLength
+        const intoWall =
+          rotatingVelocity.dot(surfaceTangent) * normalTangent +
+          rotatingVelocity.y * normalAxial
+
+        if (intoWall < 0) {
+          rotatingVelocity.addScaledVector(surfaceTangent, -intoWall * normalTangent)
+          rotatingVelocity.y += -intoWall * normalAxial
+        }
+
+        rotatingVelocity.multiplyScalar(0.9)
+      }
+
       const cos = Math.cos(this.surface.azimuth)
       const sin = Math.sin(this.surface.azimuth)
       rotatingPosition.set(
@@ -213,7 +261,6 @@ export class DriveRuntime {
         this.surface.axialPosition,
         sin * radialDistance
       )
-      rotatingVelocity.multiplyScalar(0.4)
       rotatingPositionToInertial(rotatingPosition, config.frameAngle, inertialPosition)
       setRigidBodyTranslationFromReal(this.body, inertialPosition, config.units, true)
     }
