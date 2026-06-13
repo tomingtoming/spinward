@@ -550,6 +550,9 @@ export const bootstrapApp = async () => {
       world: physicsWorld,
       units: getUnits()
     })
+    // Face the hood, not wherever you last looked while walking.
+    desktopLookControls.resetLook()
+    mobileControls?.resetLook()
     notifyTourEvent(tourGuide, 'drive')
     audio.playClick()
   }
@@ -1359,7 +1362,9 @@ export const bootstrapApp = async () => {
         heading: drive.heading,
         crashed: drive.lastCrashed,
         grounded: drive.lastGrounded,
-        speed: drive.lastSpeed
+        speed: drive.lastSpeed,
+        gap: drive.lastRadialGap,
+        contacts: drive.lastContacts
       }
     }
 

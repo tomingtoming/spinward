@@ -5,12 +5,12 @@ import * as THREE from 'three'
 // acceleration, braking, cornering — scales with the local surface gravity.
 // Drop the rpm and the car turns into a soap bar.
 export const VEHICLE_TUNING = {
-  maxSpeed: 26,
-  maxAcceleration: 8,
-  brakeAcceleration: 16,
+  maxSpeed: 45,
+  maxAcceleration: 11,
+  brakeAcceleration: 20,
   steerRate: 1.7,
   lateralGripRate: 7,
-  rollingDragRate: 0.25
+  rollingDragRate: 0.18
 } as const
 
 export const EARTH_GRAVITY = 9.80665

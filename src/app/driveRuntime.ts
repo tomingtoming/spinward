@@ -71,6 +71,8 @@ export class DriveRuntime {
   lastCrashed = false
   lastGrounded = false
   lastSpeed = 0
+  lastRadialGap = 0
+  lastContacts = 0
 
   private body: RigidBody | null = null
   private world: World | null = null
@@ -248,6 +250,25 @@ export class DriveRuntime {
     this.lastCrashed = false
     this.lastGrounded = grounded
     this.lastSpeed = rotatingVelocity.length()
+    this.lastRadialGap = config.radius - radialDistance
+    this.lastContacts = 0
+    {
+      const body = this.body as unknown as {
+        numColliders(): number
+        collider(index: number): unknown
+      }
+      const world = this.world as unknown as {
+        contactPairsWith(collider: unknown, callback: () => void): void
+      } | null
+
+      if (world !== null) {
+        for (let index = 0; index < body.numColliders(); index += 1) {
+          world.contactPairsWith(body.collider(index), () => {
+            this.lastContacts += 1
+          })
+        }
+      }
+    }
 
     if (
       resolveCitySurfaceCollision(this.surface, config.buildings, config.radius, 1.3)

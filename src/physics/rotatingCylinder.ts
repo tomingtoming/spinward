@@ -78,7 +78,12 @@ export const buildCylinderWallPanels = ({
         0,
         Math.sin(angle) * (radius + halfThickness)
       ),
-      rotation: new THREE.Quaternion().setFromAxisAngle(radialAxis, angle),
+      // A +Y right-handed rotation maps local +X to (cos, 0, -sin): the
+      // panel sits at azimuth +angle, so the box must rotate by -angle for
+      // its thickness axis to point outward there. The old +angle yawed
+      // every panel by twice its azimuth, turning the wall into a saw blade
+      // that snagged tangential drivers at every seam.
+      rotation: new THREE.Quaternion().setFromAxisAngle(radialAxis, -angle),
       halfExtents: new THREE.Vector3(halfThickness, length * 0.5, panelWidth * 0.5)
     })
   }

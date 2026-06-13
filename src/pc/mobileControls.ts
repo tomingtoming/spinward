@@ -156,6 +156,15 @@ export class MobileControls {
     return this.moveInput
   }
 
+  resetLook() {
+    this.yaw = 0
+    this.pitch = 0
+
+    if (!this.gyroEnabled) {
+      this.camera.rotation.set(0, 0, 0)
+    }
+  }
+
   isBrakeHeld() {
     return this.brakeHeld
   }

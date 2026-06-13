@@ -163,6 +163,14 @@ export class DesktopLookControls {
     return intent
   }
 
+  // Snap the view to the rig's forward (yaw 0): entering the car keeps the
+  // camera aligned with the hood instead of whatever way you last looked.
+  resetLook() {
+    this.yaw = 0
+    this.pitch = 0
+    this.camera.rotation.set(0, 0, 0)
+  }
+
   private applyLookDelta(yawDelta: number, pitchDelta: number) {
     this.yaw += yawDelta
     this.pitch = THREE.MathUtils.clamp(this.pitch + pitchDelta, -MAX_PITCH, MAX_PITCH)

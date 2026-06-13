@@ -1,6 +1,27 @@
 import { expect, test } from 'bun:test'
+import * as THREE from 'three'
 
 import { buildCylinderWallPanels, resolveCylinderWallSegmentCount } from './rotatingCylinder'
+
+test('every wall panel faces outward at its own azimuth', () => {
+  // The old +angle rotation yawed panels by twice their azimuth (a +Y
+  // rotation maps +X to (cos, -sin)), sawtoothing the physical floor and
+  // snagging tangential drivers at every seam.
+  const segmentCount = 12
+  const panels = buildCylinderWallPanels({
+    radius: 12,
+    length: 30,
+    segmentCount,
+    wallThickness: 0.8
+  })
+
+  panels.forEach((panel, index) => {
+    const angle = (index / segmentCount) * Math.PI * 2
+    const outward = new THREE.Vector3(1, 0, 0).applyQuaternion(panel.rotation)
+    expect(outward.x).toBeCloseTo(Math.cos(angle), 6)
+    expect(outward.z).toBeCloseTo(Math.sin(angle), 6)
+  })
+})
 
 test('buildCylinderWallPanels creates the requested number of wall segments', () => {
   const panels = buildCylinderWallPanels({
