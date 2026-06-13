@@ -117,6 +117,14 @@ const instanceColor = new THREE.Color()
 
 const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 
+// Arc tessellation by sagitta budget: a fixed angular step chords meters on
+// kilometer-radius habitats (4 deg at izma sagged road bands ~2m above the
+// ground every 223m). 2cm keeps surface bands flush at every scale.
+const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) => {
+  const maxArc = Math.sqrt((8 * tolerance) / Math.max(radius, 0.001))
+  return THREE.MathUtils.clamp(Math.ceil(arcRadians / maxArc), 2, 720)
+}
+
 // Arc distance (meters) within which buildings keep their full-detail
 // shapes; beyond it they collapse to plain instanced boxes. Small habitats
 // stay all-near via the floor.
@@ -560,7 +568,7 @@ export class Cityscape {
     this.buildTrees(plan.trees, radius)
     this.buildLamps(plan.roads, radius, length)
     this.buildWindowStrips(radius, length)
-    this.buildWindowBridges(radius, length)
+    this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
     this.buildCables(radius, length)
     this.buildSpineRings(radius, length)
@@ -914,7 +922,7 @@ export class Cityscape {
         }
 
         const arcRadians = road.tangentWidth / radius
-        const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
+        const segments = getArcSegments(arcRadians, radius)
         const geometry = new THREE.CylinderGeometry(
           roadRadius,
           roadRadius,
@@ -972,7 +980,7 @@ export class Cityscape {
     bandRadius: number
   ) {
     const arcRadians = tangentExtent / radius
-    const segments = Math.max(2, Math.ceil(arcRadians / THREE.MathUtils.degToRad(4)))
+    const segments = getArcSegments(arcRadians, radius)
     const geometry = new THREE.CylinderGeometry(
       bandRadius,
       bandRadius,
@@ -1279,29 +1287,49 @@ export class Cityscape {
 
   // Bridges spanning the window strips at regular intervals, tying the
   // three land strips together — and giving the windows visible scale.
-  private buildWindowBridges(radius: number, length: number) {
-    const cell = getCityCellSize(radius, length)
-    const spacing = THREE.MathUtils.clamp(cell * 8, 40, 2400)
-    // Bridges carry an arterial across the window.
-    const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
-    const count = Math.floor(length / spacing)
+  private buildWindowBridges(roads: CityRoad[], radius: number, length: number) {
+    // Bridges continue the arterial cross-streets over the windows: same
+    // axial rows as the streets, spanning road-end to road-end so you can
+    // drive straight onto the next island.
+    const arterialStreets = roads.filter(
+      (road) => road.kind === 'arterial' && road.tangentWidth > road.axialLength
+    )
 
-    if (count < 1) {
+    if (arterialStreets.length === 0) {
       return
     }
 
+    const bridgeAxials: number[] = []
+
+    for (const street of arterialStreets) {
+      if (!bridgeAxials.some((axial) => Math.abs(axial - street.axial) < 0.5)) {
+        bridgeAxials.push(street.axial)
+      }
+    }
+
+    const streetHalfArc = (arterialStreets[0].tangentWidth * 0.5) / radius
+    const stripCenters = getLandStripCenters()
+    const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
     const deckParts: THREE.BufferGeometry[] = []
     const edgeParts: THREE.BufferGeometry[] = []
-    const deckRadius = radius - 0.12
+    const deckRadius = radius - 0.05
     const edgeWidth = Math.max(0.25, deckWidth * 0.08)
 
-    for (const arc of getWindowStripArcs()) {
-      const thetaStart = getThetaStart(arc.centerAzimuth, arc.arcRadians)
-      const segments = Math.max(6, Math.ceil(arc.arcRadians / THREE.MathUtils.degToRad(4)))
+    for (let index = 0; index < stripCenters.length; index += 1) {
+      const gapStart = stripCenters[index] + streetHalfArc
+      const nextCenter = stripCenters[(index + 1) % stripCenters.length]
+      const gapSpan = THREE.MathUtils.euclideanModulo(
+        nextCenter - streetHalfArc - gapStart,
+        Math.PI * 2
+      )
 
-      for (let index = 0; index < count; index += 1) {
-        const axial = -length * 0.5 + spacing * (index + 0.5)
+      if (gapSpan <= 1e-4) {
+        continue
+      }
 
+      const segments = getArcSegments(gapSpan, radius)
+
+      for (const axial of bridgeAxials) {
         const deck = new THREE.CylinderGeometry(
           deckRadius,
           deckRadius,
@@ -1309,11 +1337,11 @@ export class Cityscape {
           segments,
           1,
           true,
-          thetaStart,
-          arc.arcRadians
+          getThetaStart(gapStart + gapSpan * 0.5, gapSpan),
+          gapSpan
         )
         deck.translate(0, axial, 0)
-        bakeRoadUvs(deck, arc.arcRadians * deckRadius, true)
+        bakeRoadUvs(deck, gapSpan * deckRadius, true)
         deckParts.push(deck)
 
         for (const side of [-1, 1]) {
@@ -1324,8 +1352,8 @@ export class Cityscape {
             segments,
             1,
             true,
-            thetaStart,
-            arc.arcRadians
+            getThetaStart(gapStart + gapSpan * 0.5, gapSpan),
+            gapSpan
           )
           edge.translate(0, axial + side * (deckWidth * 0.5 - edgeWidth * 0.5), 0)
           edgeParts.push(edge)
