@@ -70,7 +70,7 @@ test('respawnAxisEnd places the player on the axis near the cylinder end', () =>
   expect(state.mode).toBe('free-fly')
   expect(rotatingPosition.x).toBeCloseTo(0, 6)
   expect(rotatingPosition.z).toBeCloseTo(0, 6)
-  expect(rotatingPosition.y).toBeCloseTo(48, 6)
+  expect(rotatingPosition.y).toBeCloseTo(-48, 6)
 })
 
 test('respawnAxisEnd uses an adaptive end margin for short cylinders', () => {
@@ -84,7 +84,7 @@ test('respawnAxisEnd uses an adaptive end margin for short cylinders', () => {
   })
 
   expect(didRespawn).toBe(true)
-  expect(state.inertialPosition.y).toBeCloseTo(48, 6)
+  expect(state.inertialPosition.y).toBeCloseTo(-48, 6)
 })
 
 test('respawnAxisEnd uses the ring center for ring habitats', () => {
@@ -148,7 +148,7 @@ test('respawnAxisEnd is defined in real meters while Rapier pose follows sim sca
   const izmaWorld = new rapier.World({ x: 0, y: 0, z: 0 })
   const elysiumWorld = new rapier.World({ x: 0, y: 0, z: 0 })
   const length = 40000
-  const expectedAxisEndY = length * 0.5 - 50
+  const expectedAxisEndY = -(length * 0.5 - 50)
 
   const izmaState = createPlayerTraversalState(
     { axialPosition: 0, azimuth: 0 },

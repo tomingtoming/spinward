@@ -10,14 +10,15 @@ export type SpaceportDimensions = {
   hubRadius: number
   hubLength: number
   armLength: number
-  // Axial center of the hub tube (the cylinder's +Y end plane).
+  // Axial center of the hub tube (the cylinder's -Y end plane: the same
+  // end the Island-Three mirrors hinge from, so arrivals see the petals).
   hubCenterY: number
   approachSpan: number
 }
 
 // Docking only works at the axis, where there is no spin to fight — so the
-// port is a hub tube on the +Y end. Structure scales with the habitat
-// (clamped), ships stay human-scale.
+// port is a hub tube on the mirror-hinge end. Structure scales with the
+// habitat (clamped), ships stay human-scale.
 export const getSpaceportDimensions = (
   radius: number,
   length: number
@@ -25,9 +26,13 @@ export const getSpaceportDimensions = (
   hubRadius: THREE.MathUtils.clamp(radius * 0.03, 2.5, 120),
   hubLength: THREE.MathUtils.clamp(length * 0.04, 20, 600),
   armLength: THREE.MathUtils.clamp(radius * 0.12, 8, 360),
-  hubCenterY: length * 0.5,
+  hubCenterY: -length * 0.5,
   approachSpan: THREE.MathUtils.clamp(length * 0.12, 60, 3000)
 })
+
+// +1 when the port sits on the +Y end, -1 on the -Y end: every one-sided
+// offset (arms, approach path, docked noses) mirrors through this.
+const getEndSign = (dims: SpaceportDimensions) => Math.sign(dims.hubCenterY) || 1
 
 // Low-poly shuttle: body + nose + engine bell, pointing along +Y.
 const buildShipGeometry = () => {
@@ -142,7 +147,8 @@ export class Spaceport {
     const cycleSeconds = 75
     const progress = (this.elapsedSeconds % cycleSeconds) / cycleSeconds
     ship.position.y =
-      dims.hubCenterY + dims.hubLength * 0.7 + dims.approachSpan * (1 - progress)
+      dims.hubCenterY +
+      getEndSign(dims) * (dims.hubLength * 0.7 + dims.approachSpan * (1 - progress))
     ship.position.x = dims.hubRadius * 0.4
     ship.position.z = 0
   }
@@ -202,7 +208,7 @@ export class Spaceport {
       parts.push(ring)
     }
 
-    const armY = dims.hubCenterY + dims.hubLength * 0.32
+    const armY = dims.hubCenterY + getEndSign(dims) * dims.hubLength * 0.32
     const armThickness = Math.max(0.6, dims.hubRadius * 0.14)
 
     for (let index = 0; index < 4; index += 1) {
@@ -266,7 +272,8 @@ export class Spaceport {
 
   private buildDockedShips(dims: SpaceportDimensions) {
     const parts: THREE.BufferGeometry[] = []
-    const armY = dims.hubCenterY + dims.hubLength * 0.32
+    const endSign = getEndSign(dims)
+    const armY = dims.hubCenterY + endSign * dims.hubLength * 0.32
 
     // Two shuttles docked nose-in at opposite arm ports.
     for (const index of [0, 2]) {
@@ -277,9 +284,14 @@ export class Spaceport {
         continue
       }
 
+      // Nose toward the port block above (or below, on the -Y end).
+      if (endSign < 0) {
+        ship.rotateZ(Math.PI)
+      }
+
       ship.translate(
         dims.hubRadius + dims.armLength,
-        -SHIP_LENGTH * 0.62,
+        -endSign * SHIP_LENGTH * 0.62,
         0
       )
       ship.rotateY(-angle)
@@ -303,7 +315,8 @@ export class Spaceport {
 
   private buildNavLights(dims: SpaceportDimensions) {
     const positions: THREE.Vector3[] = []
-    const armY = dims.hubCenterY + dims.hubLength * 0.32
+    const endSign = getEndSign(dims)
+    const armY = dims.hubCenterY + endSign * dims.hubLength * 0.32
 
     // Arm tips.
     for (let index = 0; index < 4; index += 1) {
@@ -317,13 +330,13 @@ export class Spaceport {
       )
     }
 
-    // Hub mouth ring.
+    // Hub mouth ring (the space-facing opening).
     for (let index = 0; index < 8; index += 1) {
       const angle = (index / 8) * Math.PI * 2
       positions.push(
         new THREE.Vector3(
           Math.cos(angle) * dims.hubRadius,
-          dims.hubCenterY + dims.hubLength * 0.5,
+          dims.hubCenterY + endSign * dims.hubLength * 0.5,
           Math.sin(angle) * dims.hubRadius
         )
       )
@@ -357,10 +370,19 @@ export class Spaceport {
       return
     }
 
-    // Nose toward the port (flying in the -Y direction).
-    geometry.rotateZ(Math.PI)
+    // Nose toward the port: approaching from outside the end plane.
+    const endSign = getEndSign(dims)
+
+    if (endSign > 0) {
+      geometry.rotateZ(Math.PI)
+    }
+
     const ship = new THREE.Mesh(geometry, this.shipMaterial)
-    ship.position.set(dims.hubRadius * 0.4, dims.hubCenterY + dims.approachSpan, 0)
+    ship.position.set(
+      dims.hubRadius * 0.4,
+      dims.hubCenterY + endSign * dims.approachSpan,
+      0
+    )
     this.approachShip = ship
     this.group.add(ship)
   }

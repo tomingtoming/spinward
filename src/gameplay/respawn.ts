@@ -71,10 +71,12 @@ export const respawnAxisEnd = (
     return false
   }
 
+  // The -Y end: where the spaceport hub and the mirror hinges live, so the
+  // axis traveller arrives with the port and petals in view.
   axisEndRotatingPosition.set(
     0,
     config.type === 'cylinder'
-      ? Math.max(0, config.length * 0.5 - getAxisEndMargin(config.length, config.endMargin))
+      ? -Math.max(0, config.length * 0.5 - getAxisEndMargin(config.length, config.endMargin))
       : 0,
     0
   )

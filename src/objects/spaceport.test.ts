@@ -3,9 +3,9 @@ import { describe, expect, test } from 'bun:test'
 import { getSpaceportDimensions } from './spaceport'
 
 describe('getSpaceportDimensions', () => {
-  test('small habitats get a compact hub at the +Y end', () => {
+  test('small habitats get a compact hub at the mirror-hinge (-Y) end', () => {
     const dims = getSpaceportDimensions(18, 120)
-    expect(dims.hubCenterY).toBeCloseTo(60, 6)
+    expect(dims.hubCenterY).toBeCloseTo(-60, 6)
     expect(dims.hubRadius).toBeCloseTo(2.5, 6)
     expect(dims.hubLength).toBeCloseTo(20, 6)
     expect(dims.armLength).toBeCloseTo(8, 6)
@@ -25,9 +25,9 @@ describe('getSpaceportDimensions', () => {
   })
 
   test('hub structure stays clear of the habitat interior except the mouth', () => {
-    // The hub straddles the end plane: half inside (arrival bay), half out.
+    // The hub straddles the -Y end plane: half inside (arrival bay), half out.
     const dims = getSpaceportDimensions(3200, 40000)
-    expect(dims.hubCenterY - dims.hubLength * 0.5).toBeLessThan(20000)
-    expect(dims.hubCenterY + dims.hubLength * 0.5).toBeGreaterThan(20000)
+    expect(dims.hubCenterY + dims.hubLength * 0.5).toBeGreaterThan(-20000)
+    expect(dims.hubCenterY - dims.hubLength * 0.5).toBeLessThan(-20000)
   })
 })
