@@ -73,6 +73,11 @@ export class DriveRuntime {
   lastSpeed = 0
   lastRadialGap = 0
   lastContacts = 0
+  // The body's measured inertial pose after the last settled step — the felt-G
+  // accelerometer in the app loop differences the velocity and projects the
+  // proper acceleration onto the radial "down" given by the position.
+  readonly lastInertialVelocity = new THREE.Vector3()
+  readonly lastInertialPosition = new THREE.Vector3()
 
   private body: RigidBody | null = null
   private world: World | null = null
@@ -332,6 +337,8 @@ export class DriveRuntime {
       position: inertialPosition,
       linearVelocity: inertialVelocity
     })
+    this.lastInertialVelocity.copy(inertialVelocity)
+    this.lastInertialPosition.copy(inertialPosition)
     inertialPositionToRotating(inertialPosition, config.frameAngle, rotatingPosition)
     this.surface.azimuth = Math.atan2(rotatingPosition.z, rotatingPosition.x)
     this.surface.axialPosition = rotatingPosition.y

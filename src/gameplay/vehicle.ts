@@ -5,8 +5,13 @@ import * as THREE from 'three'
 // acceleration, braking, cornering — scales with the local surface gravity.
 // Drop the rpm and the car turns into a soap bar.
 export const VEHICLE_TUNING = {
-  maxSpeed: 45,
-  maxAcceleration: 11,
+  // Top speed reaches the Izma wall's circumferential speed (omega*R ~= 177
+  // m/s), so flooring it against the spin cancels the rotation and you float.
+  // Rolling drag scales with grip (below), so it caps cruise near
+  // maxAcceleration/rollingDragRate = 36/0.18 ~= 200 m/s, clearing the 178 cap
+  // in every grip regime — without it the car would stall short of the wall.
+  maxSpeed: 178,
+  maxAcceleration: 36,
   brakeAcceleration: 20,
   steerRate: 1.7,
   lateralGripRate: 7,
@@ -93,7 +98,10 @@ export const stepVehicleDynamics = (
     along = Math.sign(along) * Math.max(0, Math.abs(along) - brakeDelta)
   }
 
-  along *= Math.exp(-VEHICLE_TUNING.rollingDragRate * dt)
+  // Rolling resistance is proportional to the normal load (grip), like the
+  // lateral slip below: as spin-gravity fades toward the wall speed the tyres
+  // unload, drag melts with it, and momentum can carry the car to a true float.
+  along *= Math.exp(-VEHICLE_TUNING.rollingDragRate * grip * dt)
   along = THREE.MathUtils.clamp(along, -VEHICLE_TUNING.maxSpeed, VEHICLE_TUNING.maxSpeed)
 
   // Lateral slip dies at a rate proportional to grip: at 1g the car corners

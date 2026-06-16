@@ -17,6 +17,7 @@ import {
   stepDayNightPhase
 } from './dayNight'
 import { DriveRuntime } from './driveRuntime'
+import { Accelerometer } from '../sim/accelerometer'
 import { syncHabitatRuntime } from './habitatRuntime'
 import {
   applyPlayerTraversalState,
@@ -354,6 +355,9 @@ export const bootstrapApp = async () => {
   // LaserPointer is capped at 1.8 m and non-recursive, so it can't reach it.
   const carRaycaster = new THREE.Raycaster()
   carRaycaster.far = 60
+  // Simulated accelerometer for the felt g-force readout (measured, not ω²R).
+  const feltAccelerometer = new Accelerometer()
+  let feltAccelDriving = false
   let desktopThrowQueued = false
   let desktopJumpQueued = false
   let frameAngle = 0
@@ -955,7 +959,8 @@ export const bootstrapApp = async () => {
       renderer.xr.isPresenting,
       playerTraversal.mode,
       frameAngleStart,
-      omega
+      omega,
+      drive.driving
     )
     const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
@@ -990,16 +995,25 @@ export const bootstrapApp = async () => {
       drive.preStep(
         {
           throttle: THREE.MathUtils.clamp(
-            (driveKeys.forward ? 1 : 0) + (driveKeys.back ? -1 : 0) + (touchMove?.forward ?? 0),
+            (driveKeys.forward ? 1 : 0) +
+              (driveKeys.back ? -1 : 0) +
+              (touchMove?.forward ?? 0) +
+              xrWatchInput.driveThrottle,
             -1,
             1
           ),
           steer: THREE.MathUtils.clamp(
-            (driveKeys.right ? 1 : 0) + (driveKeys.left ? -1 : 0) + (touchMove?.right ?? 0),
+            (driveKeys.right ? 1 : 0) +
+              (driveKeys.left ? -1 : 0) +
+              (touchMove?.right ?? 0) +
+              xrWatchInput.driveSteer,
             -1,
             1
           ),
-          brake: driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0
+          brake: Math.max(
+            driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0,
+            xrWatchInput.driveBrake
+          )
         },
         {
           deltaSeconds,
@@ -1256,6 +1270,21 @@ export const bootstrapApp = async () => {
     })
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
     const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
+
+    // Felt g-force: difference the active body's real inertial velocity (resync
+    // across the walk↔drive handoff so the swap isn't read as a spike). It
+    // reads ~1g on the wall and drains toward 0 as the car cancels the spin.
+    if (drive.driving !== feltAccelDriving) {
+      feltAccelerometer.resync()
+      feltAccelDriving = drive.driving
+    }
+    const feltGravity = feltAccelerometer.sample(
+      drive.driving ? drive.lastInertialVelocity : playerTraversal.inertialVelocity,
+      drive.driving ? drive.lastInertialPosition : playerTraversal.inertialPosition,
+      deltaSeconds
+    )
+    const feltSpeed = drive.driving ? drive.lastSpeed : -1
+
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
       playerMode: playerTraversal.mode,
       region: playerRegion,
@@ -1263,6 +1292,8 @@ export const bootstrapApp = async () => {
       observerMode: effectiveObserverMode,
       trailMode: debugVisuals.trailMode,
       ballCount: balls.length,
+      feltGravity,
+      feltSpeed,
       absoluteVelocity: {
         x: playerTraversal.inertialVelocity.x,
         y: playerTraversal.inertialVelocity.y,
@@ -1280,6 +1311,8 @@ export const bootstrapApp = async () => {
       habitatType: habitatConfig.type,
       simScale: habitatConfig.simScale,
       ballCount: balls.length,
+      feltGravity,
+      feltSpeed,
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,
       xrActive: renderer.xr.isPresenting,
       forceVectors: debugVisuals.showForceVectors,

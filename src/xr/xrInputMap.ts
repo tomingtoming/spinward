@@ -36,12 +36,36 @@ export const stepHoldToggleState = (
 const UI_TRIGGER_THRESHOLD = 0.55
 // xr-standard gamepad mapping: buttons[4] is A on the right controller.
 const PRIMARY_BUTTON_INDEX = 4
+// Thumbstick rest jitter to ignore before it counts as a drive command.
+const DRIVE_DEADZONE = 0.12
+
+const applyDriveDeadzone = (value: number) =>
+  Math.abs(value) < DRIVE_DEADZONE ? 0 : THREE.MathUtils.clamp(value, -1, 1)
+
+// Maps the right thumbstick + grip to car controls. Pushing the stick up
+// (xr-standard Y is negative up) drives forward; X steers right-positive; the
+// grip squeeze brakes. Pure so the sign/deadzone convention can be tested.
+export const mapVrDriveInput = (
+  rightStickX: number,
+  rightStickY: number,
+  gripBrake: number
+) => ({
+  throttle: applyDriveDeadzone(-rightStickY),
+  steer: applyDriveDeadzone(rightStickX),
+  brake: THREE.MathUtils.clamp(gripBrake, 0, 1)
+})
+
 type XrWatchInputFrame = {
   leftController: THREE.XRTargetRaySpace | null
   leftGrip: THREE.XRGripSpace | null
   rightController: THREE.XRTargetRaySpace | null
   rightTriggerPressed: boolean
   jumpPressed: boolean
+  // VR car controls: right stick Y = throttle, right stick X = steer, either
+  // grip squeeze = brake. Deadzoned/clamped, only meaningful while driving.
+  driveThrottle: number
+  driveSteer: number
+  driveBrake: number
 }
 
 export class XRInputMap {
@@ -75,7 +99,10 @@ export class XRInputMap {
         leftGrip: null,
         rightController: null,
         rightTriggerPressed: false,
-        jumpPressed: false
+        jumpPressed: false,
+        driveThrottle: 0,
+        driveSteer: 0,
+        driveBrake: 0
       }
     }
 
@@ -84,6 +111,9 @@ export class XRInputMap {
     let rightController: THREE.XRTargetRaySpace | null = null
     let rightTriggerPressed = false
     let jumpPressed = false
+    let rightStickX = 0
+    let rightStickY = 0
+    let driveBrake = 0
 
     for (const [controller, inputSource] of this.inputSourceByController) {
       const gamepad = inputSource.gamepad
@@ -91,6 +121,9 @@ export class XRInputMap {
       if (gamepad === null || gamepad === undefined) {
         continue
       }
+
+      // Either grip squeeze brakes the car.
+      driveBrake = Math.max(driveBrake, this.readGrip(gamepad))
 
       if (inputSource.handedness === 'left') {
         leftController = controller
@@ -102,6 +135,9 @@ export class XRInputMap {
         rightController = controller
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
         jumpPressed ||= gamepad.buttons[PRIMARY_BUTTON_INDEX]?.pressed ?? false
+        const [stickX, stickY] = this.readPrimaryStick(gamepad)
+        rightStickX = stickX
+        rightStickY = stickY
       }
     }
 
@@ -110,13 +146,36 @@ export class XRInputMap {
     const jumpEdge = jumpPressed && !this.previousJumpPressed
     this.previousJumpPressed = jumpPressed
 
+    const drive = mapVrDriveInput(rightStickX, rightStickY, driveBrake)
+
     return {
       leftController,
       leftGrip,
       rightController,
       rightTriggerPressed: rightTriggerEdge,
-      jumpPressed: jumpEdge
+      jumpPressed: jumpEdge,
+      driveThrottle: drive.throttle,
+      driveSteer: drive.steer,
+      driveBrake: drive.brake
     }
+  }
+
+  private readPrimaryStick(gamepad: Gamepad): readonly [number, number] {
+    const firstPair = [gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0] as const
+    const secondPair = [gamepad.axes[2] ?? 0, gamepad.axes[3] ?? 0] as const
+    const firstSq = firstPair[0] * firstPair[0] + firstPair[1] * firstPair[1]
+    const secondSq = secondPair[0] * secondPair[0] + secondPair[1] * secondPair[1]
+    return secondSq > firstSq ? secondPair : firstPair
+  }
+
+  private readGrip(gamepad: Gamepad) {
+    const grip = gamepad.buttons[1]
+
+    if (grip === undefined) {
+      return 0
+    }
+
+    return grip.value ?? (grip.pressed ? 1 : 0)
   }
 
   private readTriggerValue(gamepad: Gamepad) {

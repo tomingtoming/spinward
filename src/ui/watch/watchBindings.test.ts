@@ -37,6 +37,8 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
     observerMode: 'inertial-fixed',
     trailMode: 'both',
     ballCount: 3,
+    feltGravity: 9.80665,
+    feltSpeed: -1,
     absoluteVelocity: {
       x: 1.25,
       y: -2.5,
@@ -96,6 +98,8 @@ test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says 
     observerMode: 'colony-fixed',
     trailMode: 'rotating',
     ballCount: 0,
+    feltGravity: 0,
+    feltSpeed: -1,
     absoluteVelocity: {
       x: 0,
       y: 0,

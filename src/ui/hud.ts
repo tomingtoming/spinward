@@ -1,5 +1,6 @@
 import type { Vector3 } from 'three'
 import type { ObserverMode, TrailMode } from '../app/observerMode'
+import { EARTH_GRAVITY } from '../gameplay/vehicle'
 
 type HudSnapshot = {
   radius: number
@@ -18,6 +19,10 @@ type HudSnapshot = {
   watchMenuOpen: boolean
   region: 'inside' | 'outside'
   playerMode: 'grounded' | 'free-fly'
+  // Measured felt g-force (proper acceleration, m/s²) and the car's speed
+  // (m/s, or < 0 while on foot to hide the readout).
+  feltGravity: number
+  feltSpeed: number
   verification: {
     inertialVelocity: Vector3
     rotatingVelocity: Vector3
@@ -45,7 +50,8 @@ export type HudHandle = {
 
 const CONTROLS_TEXT =
   'PC - WASD: walk/jetpack | click: throw | Space: jump | 1/2/3: travel | F: launch | Shift: brake | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
-  'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel | right A: jump | right stick: snap turn\n' +
+  'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel / point at car to drive | right A: jump (exit car) | right stick: snap turn\n' +
+  'VR driving - right stick: gas (up/down) + steer (left/right) | either grip: brake | right A: get out\n' +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
 const makeChip = (className: string) => {
@@ -63,11 +69,12 @@ export const createHud = (): HudHandle => {
 
   const presetChip = makeChip('hud-chip--preset')
   const gravityChip = makeChip('')
+  const feltChip = makeChip('')
   const spinChip = makeChip('')
   const modeChip = makeChip('')
   const ballsChip = makeChip('')
   const dockChip = makeChip('')
-  chips.append(presetChip, gravityChip, spinChip, modeChip, ballsChip, dockChip)
+  chips.append(presetChip, gravityChip, feltChip, spinChip, modeChip, ballsChip, dockChip)
 
   const controls = document.createElement('details')
   controls.className = 'hud__drawer'
@@ -95,6 +102,11 @@ export const createHud = (): HudHandle => {
     update: (snapshot) => {
       presetChip.textContent = snapshot.presetName
       gravityChip.textContent = `g ${snapshot.gTarget.toFixed(2)} m/s²`
+      const feltG = snapshot.feltGravity / EARTH_GRAVITY
+      feltChip.textContent =
+        snapshot.feltSpeed >= 0
+          ? `felt ${feltG.toFixed(2)} g · ${snapshot.feltSpeed.toFixed(0)} m/s`
+          : `felt ${feltG.toFixed(2)} g`
       spinChip.textContent = `ω ${snapshot.rpm.toFixed(2)} rpm`
       modeChip.textContent = snapshot.playerMode === 'grounded' ? 'grounded' : 'free-fly'
       modeChip.className = `hud-chip ${

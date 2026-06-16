@@ -29,6 +29,10 @@ export type WatchRenderSnapshot = {
   omega: number
   wallSpeed: number
   surfaceGravity: number
+  // Measured felt g-force (proper acceleration, m/s²) and the car's speed
+  // (m/s, < 0 while on foot) — live readouts, not derived from the store.
+  feltGravity: number
+  feltSpeed: number
   simScale: number
   ballCount: number
   throwScale: number
@@ -61,6 +65,8 @@ export const createWatchRenderSnapshot = (
     observerMode: ObserverMode
     trailMode: TrailMode
     ballCount: number
+    feltGravity: number
+    feltSpeed: number
     absoluteVelocity: {
       x: number
       y: number
@@ -89,6 +95,8 @@ export const createWatchRenderSnapshot = (
   omega: rpmToOmega(settingsStore.habitat.rpm),
   wallSpeed: rpmToOmega(settingsStore.habitat.rpm) * settingsStore.habitat.radius,
   surfaceGravity: settingsStore.getSurfaceGravity(),
+  feltGravity: runtime.feltGravity,
+  feltSpeed: runtime.feltSpeed,
   simScale: settingsStore.habitat.simScale,
   ballCount: runtime.ballCount,
   throwScale: settingsStore.habitat.ballSpeedScale,

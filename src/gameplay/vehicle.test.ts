@@ -178,4 +178,35 @@ describe('stepVehicleDynamics', () => {
 
     expect(velocity.x).toBeCloseTo(2.5, 6)
   })
+
+  test('flooring it against the spin drains felt gravity to a near-float', () => {
+    // Couples the vehicle model to its own felt gravity the way driveRuntime
+    // does: surfaceGravity = (tangentSpeed - omega*R)^2 / R. Because rolling
+    // drag scales with grip, momentum carries the car to the wall speed and the
+    // pseudo-gravity all but vanishes — the headline experience. With a
+    // grip-independent drag it would instead stall near 0.36g and this fails.
+    const R = 3200
+    const omega = (2 * Math.PI) / 113.5 // Izma: ~177 m/s wall speed, 1g
+    const dt = 1 / 90
+    const basis = basisAtAzimuthZero()
+    const state = { heading: Math.PI / 2 } // drive along +tangent = anti-spin
+    const velocity = new THREE.Vector3()
+
+    const feltG = () => {
+      const inertialTangent = velocity.dot(basis.tangent) - omega * R
+      return (inertialTangent * inertialTangent) / R
+    }
+
+    expect(feltG() / EARTH_GRAVITY).toBeCloseTo(1, 1) // ~1g at rest on the wall
+
+    for (let i = 0; i < 90 * 60; i += 1) {
+      stepVehicleDynamics(state, velocity, basis, { throttle: 1, steer: 0, brake: 0 }, {
+        deltaSeconds: dt,
+        surfaceGravity: feltG(),
+        grounded: true
+      })
+    }
+
+    expect(feltG() / EARTH_GRAVITY).toBeLessThan(0.1)
+  })
 })

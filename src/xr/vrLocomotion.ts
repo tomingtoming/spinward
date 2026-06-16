@@ -99,7 +99,8 @@ export class VRLocomotion {
     xrActive: boolean,
     playerMode: PlayerTraversalMode,
     frameAngle: number,
-    omega: number
+    omega: number,
+    driving = false
   ) {
     intent.groundedAxis = 0
     intent.groundedTangent = 0
@@ -107,6 +108,17 @@ export class VRLocomotion {
     intent.freeFlyBrake = 0
     intent.detachRequested = false
     intent.detachLaunchVelocity.set(0, 0, 0)
+
+    if (xrActive && driving) {
+      // At the wheel: the sticks steer/throttle the car instead of walking,
+      // and the right stick must not also snap-turn the view. Hold the grounded
+      // view (snap yaw preserved) and emit no locomotion this frame.
+      resetHandClutchState(this.clutchState)
+      this.applyGroundedView()
+      this.previousPlayerMode = playerMode
+      this.clutchDebug.update(null, 'grounded')
+      return intent
+    }
 
     if (!xrActive) {
       resetJetpackAttitude(this.freeFlyAttitude)

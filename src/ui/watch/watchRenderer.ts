@@ -205,7 +205,8 @@ export const renderWatchExpanded = (
   ctx.fillStyle = TEXT_FAINT
   ctx.font = '400 15px "Avenir Next", sans-serif'
   ctx.fillText(
-    `|v| ${snapshot.absoluteSpeed.toFixed(2)} m/s · ${snapshot.region} · ${snapshot.habitatType} · sim ${snapshot.simScale.toFixed(3)}`,
+    (snapshot.feltSpeed >= 0 ? `car ${snapshot.feltSpeed.toFixed(0)} m/s · ` : '') +
+      `|v| ${snapshot.absoluteSpeed.toFixed(0)} m/s · nom g ${snapshot.surfaceGravity.toFixed(1)} · ${snapshot.region}`,
     left,
     130
   )
@@ -234,23 +235,24 @@ export const renderWatchExpanded = (
     hoveredAction
   )
 
-  // Gravity gauge: current surface gravity against 1g.
+  // Gravity gauge: the LIVE felt gravity (measured proper acceleration)
+  // against 1g — drive against the spin and watch this bar drain to zero.
   const gaugeX = left
   const gaugeWidth = layout.width - left - SECTION_PADDING.right - 20
   const gaugeY = layout.gravityGaugeY
-  const ratio = snapshot.surfaceGravity / EARTH_GRAVITY
+  const ratio = snapshot.feltGravity / EARTH_GRAVITY
   const fillRatio = Math.min(ratio / 1.25, 1)
 
   ctx.fillStyle = TEXT_DIM
   ctx.font = '600 15px "Avenir Next", sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillText('SURFACE GRAVITY', gaugeX, gaugeY - 24)
+  ctx.fillText('FELT GRAVITY', gaugeX, gaugeY - 24)
   ctx.fillStyle = TEXT_BRIGHT
   ctx.font = '700 26px "Avenir Next", sans-serif'
   ctx.textAlign = 'right'
   ctx.fillText(
-    `${snapshot.surfaceGravity.toFixed(2)} m/s² · ${(ratio * 100).toFixed(0)}%`,
+    `${snapshot.feltGravity.toFixed(2)} m/s² · ${(ratio * 100).toFixed(0)}%`,
     gaugeX + gaugeWidth,
     gaugeY - 32
   )
