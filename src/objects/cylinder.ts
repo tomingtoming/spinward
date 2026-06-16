@@ -227,14 +227,6 @@ export class CylinderHabitat {
     opacity: 0.72
   })
 
-  private readonly ribMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3a556a,
-    emissive: 0x0e1e2d,
-    roughness: 0.8,
-    metalness: 0.3,
-    side: THREE.DoubleSide
-  })
-
   // Outward-facing hull so the colony is opaque from space; the interior
   // shells are BackSide-only and vanish when seen from outside.
   private readonly hullMaterial = new THREE.MeshStandardMaterial({
@@ -292,7 +284,6 @@ export class CylinderHabitat {
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hazeShell: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
   private readonly landmarks = new THREE.Group()
-  private readonly ribs = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null
   private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private radius = 0
@@ -301,7 +292,6 @@ export class CylinderHabitat {
 
   constructor(dimensions: CylinderDimensions) {
     this.group.add(this.shellGroup)
-    this.group.add(this.ribs)
     this.group.add(this.landmarks)
     this.setDimensions(dimensions)
   }
@@ -312,7 +302,6 @@ export class CylinderHabitat {
 
     this.rebuildShells()
 
-    this.rebuildRibs(radius, length)
     this.rebuildStartMarker(radius)
     this.rebuildLandmarks(radius, length)
     this.rebuildEndCaps(radius, length)
@@ -552,46 +541,6 @@ export class CylinderHabitat {
     this.hazeMaterial.uniforms.hazeDensity.value = density
   }
 
-
-  private rebuildRibs(radius: number, length: number) {
-    this.disposeGroupGeometries(this.ribs)
-    this.ribs.clear()
-
-    const ribThickness = Math.min(1.5, Math.max(0.12, radius * 0.003))
-    // Mostly embedded in the wall: only a fixed ~20cm ridge shows, so big
-    // habitats do not run chest-high structure through the player.
-    const ribRadius = Math.max(0.5, radius + ribThickness - 0.2)
-    const ribCount = Math.min(5, Math.max(3, Math.round(length / (radius * 0.8))))
-    const ribSpacing = length / (ribCount + 1)
-
-    // Merge all ribs into a single geometry to avoid per-rib draw calls
-    const singleRib = new THREE.TorusGeometry(ribRadius, ribThickness, 4, 48)
-    singleRib.rotateX(Math.PI * 0.5)
-
-    const matrices: THREE.Matrix4[] = []
-
-    for (let i = 1; i <= ribCount; i++) {
-      const y = -length * 0.5 + ribSpacing * i
-      matrices.push(new THREE.Matrix4().makeTranslation(0, y, 0))
-    }
-
-    const ribGeometries = matrices.map((matrix) => {
-      const clone = singleRib.clone()
-      clone.applyMatrix4(matrix)
-      return clone
-    })
-
-    if (ribGeometries.length > 0) {
-      const mergedGeometry = mergeBufferGeometries(ribGeometries)
-      if (mergedGeometry !== null) {
-        const mesh = new THREE.Mesh(mergedGeometry, this.ribMaterial)
-        this.ribs.add(mesh)
-      }
-    }
-
-    singleRib.dispose()
-    for (const g of ribGeometries) g.dispose()
-  }
 
   private rebuildStartMarker(radius: number) {
     if (this.startMarker !== null) {
