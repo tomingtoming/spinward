@@ -105,7 +105,7 @@ export const createHud = (): HudHandle => {
       const feltG = snapshot.feltGravity / EARTH_GRAVITY
       feltChip.textContent =
         snapshot.feltSpeed >= 0
-          ? `felt ${feltG.toFixed(2)} g · ${snapshot.feltSpeed.toFixed(0)} m/s`
+          ? `felt ${feltG.toFixed(2)} g · ${(snapshot.feltSpeed * 3.6).toFixed(0)} km/h`
           : `felt ${feltG.toFixed(2)} g`
       spinChip.textContent = `ω ${snapshot.rpm.toFixed(2)} rpm`
       modeChip.textContent = snapshot.playerMode === 'grounded' ? 'grounded' : 'free-fly'

@@ -205,7 +205,7 @@ export const renderWatchExpanded = (
   ctx.fillStyle = TEXT_FAINT
   ctx.font = '400 15px "Avenir Next", sans-serif'
   ctx.fillText(
-    (snapshot.feltSpeed >= 0 ? `car ${snapshot.feltSpeed.toFixed(0)} m/s · ` : '') +
+    (snapshot.feltSpeed >= 0 ? `car ${(snapshot.feltSpeed * 3.6).toFixed(0)} km/h · ` : '') +
       `|v| ${snapshot.absoluteSpeed.toFixed(0)} m/s · nom g ${snapshot.surfaceGravity.toFixed(1)} · ${snapshot.region}`,
     left,
     130
