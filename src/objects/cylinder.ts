@@ -213,12 +213,6 @@ export class CylinderHabitat {
     metalness: 0.03
   })
 
-  private readonly guideMaterial = new THREE.LineBasicMaterial({
-    color: 0x6ee7f9,
-    transparent: true,
-    opacity: 0.28
-  })
-
   private readonly markerMaterial = new THREE.MeshBasicMaterial({
     color: 0x67e8f9,
     transparent: true,
@@ -297,7 +291,6 @@ export class CylinderHabitat {
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hazeShell: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
-  private readonly guides = new THREE.Group()
   private readonly landmarks = new THREE.Group()
   private readonly ribs = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null
@@ -308,7 +301,6 @@ export class CylinderHabitat {
 
   constructor(dimensions: CylinderDimensions) {
     this.group.add(this.shellGroup)
-    this.group.add(this.guides)
     this.group.add(this.ribs)
     this.group.add(this.landmarks)
     this.setDimensions(dimensions)
@@ -320,7 +312,6 @@ export class CylinderHabitat {
 
     this.rebuildShells()
 
-    this.rebuildGuides(radius, length)
     this.rebuildRibs(radius, length)
     this.rebuildStartMarker(radius)
     this.rebuildLandmarks(radius, length)
@@ -600,43 +591,6 @@ export class CylinderHabitat {
 
     singleRib.dispose()
     for (const g of ribGeometries) g.dispose()
-  }
-
-  private rebuildGuides(radius: number, length: number) {
-    this.disposeGroupGeometries(this.guides)
-    this.guides.clear()
-
-    const ringCount = 9
-    const verticalCount = 24
-
-    for (let index = 0; index < ringCount; index += 1) {
-      const y = -length / 2 + (length / (ringCount - 1)) * index
-      const points: THREE.Vector3[] = []
-
-      for (let segment = 0; segment <= 64; segment += 1) {
-        const angle = (segment / 64) * Math.PI * 2
-        points.push(new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius))
-      }
-
-      const ring = new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(points),
-        this.guideMaterial
-      )
-      this.guides.add(ring)
-    }
-
-    for (let index = 0; index < verticalCount; index += 1) {
-      const angle = (index / verticalCount) * Math.PI * 2
-      const points = [
-        new THREE.Vector3(Math.cos(angle) * radius, -length / 2, Math.sin(angle) * radius),
-        new THREE.Vector3(Math.cos(angle) * radius, length / 2, Math.sin(angle) * radius)
-      ]
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(points),
-        this.guideMaterial
-      )
-      this.guides.add(line)
-    }
   }
 
   private rebuildStartMarker(radius: number) {
