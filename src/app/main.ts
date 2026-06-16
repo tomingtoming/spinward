@@ -350,11 +350,16 @@ export const bootstrapApp = async () => {
   const playerFixedColliderPosition = new THREE.Vector3()
   const locomotionIntent = getIdleLocomotionIntent()
   const jumpLaunchVelocity = new THREE.Vector3()
+  // Dedicated long ray for aiming the right VR pointer at the car; the watch
+  // LaserPointer is capped at 1.8 m and non-recursive, so it can't reach it.
+  const carRaycaster = new THREE.Raycaster()
+  carRaycaster.far = 60
   let desktopThrowQueued = false
   let desktopJumpQueued = false
   let frameAngle = 0
   let settingsDirty = false
   let watchUiHot = false
+  let rightLaserOverCar = false
   let throwDebugTimer = 0
   const THROW_DEBUG_DURATION = 1.5
   let desktopUiCamera: THREE.PerspectiveCamera = camera
@@ -395,6 +400,14 @@ export const bootstrapApp = async () => {
     },
     onEmptySelectStart: (controller) => {
       if (vrLocomotion?.getHandedness(controller) !== 'right') {
+        return null
+      }
+
+      // Aiming the right pointer at the car climbs in instead of spawning a
+      // ball. Deciding it here — in the same select event that would otherwise
+      // spawn the ball — means one trigger pull can never do both.
+      if (!drive.driving && rightLaserOverCar) {
+        tryToggleDrive(true)
         return null
       }
 
@@ -528,19 +541,22 @@ export const bootstrapApp = async () => {
     audio.playClick()
   }
 
-  const tryToggleDrive = () => {
+  const tryToggleDrive = (viaPointer = false) => {
     if (drive.driving) {
       exitDrive()
       return
     }
 
+    // The VR pointer is its own spatial gate (you must aim the laser at the
+    // car), so it bypasses the walk-up proximity check that desktop/mobile use.
     if (
-      playerTraversal.mode !== 'grounded' ||
-      !drive.isPlayerNear(
-        playerTraversal.surface.azimuth,
-        playerTraversal.surface.axialPosition,
-        habitatConfig.radius
-      )
+      !viaPointer &&
+      (playerTraversal.mode !== 'grounded' ||
+        !drive.isPlayerNear(
+          playerTraversal.surface.azimuth,
+          playerTraversal.surface.axialPosition,
+          habitatConfig.radius
+        ))
     ) {
       return
     }
@@ -550,6 +566,18 @@ export const bootstrapApp = async () => {
       world: physicsWorld,
       units: getUnits()
     })
+    if (viaPointer) {
+      // Pointer entry can come from across the habitat; seat the rig at the car
+      // this frame so the driver view doesn't render once at the old spot.
+      resetPlayerToGrounded(playerTraversal, {
+        axialPosition: drive.surface.axialPosition,
+        azimuth: drive.surface.azimuth,
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      })
+      applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    }
     // Face the hood, not wherever you last looked while walking.
     desktopLookControls.resetLook()
     mobileControls?.resetLook()
@@ -952,6 +980,10 @@ export const bootstrapApp = async () => {
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
 
     const jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
+    // While driving, the VR jump button (right A) is the dismount, not a jump.
+    if (drive.driving && xrWatchInput.jumpPressed) {
+      exitDrive()
+    }
     desktopJumpQueued = false
 
     if (drive.driving) {
@@ -1313,6 +1345,21 @@ export const bootstrapApp = async () => {
       )?.uv ?? null
     )
     watchUiHot = renderer.xr.isPresenting && watchPanel.hasHover
+
+    // Aim the right pointer at the car to highlight it; pull the trigger to
+    // climb in. Gated off while the watch UI owns the laser or while driving.
+    rightLaserOverCar = false
+    if (
+      renderer.xr.isPresenting &&
+      xrWatchInput.rightController &&
+      !watchUiHot &&
+      !drive.driving
+    ) {
+      car.group.updateWorldMatrix(true, true)
+      carRaycaster.setFromXRController(xrWatchInput.rightController)
+      rightLaserOverCar = carRaycaster.intersectObject(car.group, true).length > 0
+    }
+    car.setHighlighted(rightLaserOverCar)
 
     if (renderer.xr.isPresenting && xrWatchInput.rightTriggerPressed) {
       watchPanel.clickHovered()

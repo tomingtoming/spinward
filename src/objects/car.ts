@@ -12,8 +12,14 @@ const forward = new THREE.Vector3()
 const right = new THREE.Vector3()
 const basis = new THREE.Matrix4()
 
+// Cyan glow laid over the body's emissive while the VR pointer is on the car.
+const HIGHLIGHT_EMISSIVE = new THREE.Color(0x2aa0b4)
+const BASE_EMISSIVE = new THREE.Color(0x000000)
+
 export class Car {
   readonly group = new THREE.Group()
+
+  private highlighted = false
 
   private readonly bodyMaterial = new THREE.MeshStandardMaterial({
     color: 0x67b7c4,
@@ -112,6 +118,16 @@ export class Car {
     basis.makeBasis(right, inward, forward)
     this.group.quaternion.setFromRotationMatrix(basis)
     this.group.position.copy(outward).multiplyScalar(radius).setY(axialPosition)
+  }
+
+  // Cyan glow when the right VR pointer is aimed at the car — signals it can be
+  // entered. Mutates the existing emissive in place; allocates nothing per call.
+  setHighlighted(on: boolean) {
+    if (on === this.highlighted) {
+      return
+    }
+    this.highlighted = on
+    this.bodyMaterial.emissive.copy(on ? HIGHLIGHT_EMISSIVE : BASE_EMISSIVE)
   }
 
   dispose() {
