@@ -1,4 +1,11 @@
+import {
+  ISLAND_THREE_TOPOLOGY,
+  type HabitatTopology,
+  type LandArc
+} from '../sim/habitatConfig'
+
 const TWO_PI = Math.PI * 2
+const ARC_EPSILON = 1e-6
 
 export type BuildingKind = 'block' | 'setback' | 'tower' | 'house'
 
@@ -59,6 +66,7 @@ export type CityPlanConfig = {
   length: number
   seed?: number
   maxBuildings?: number
+  topology?: HabitatTopology
 }
 
 export type WindowStripArc = {
@@ -110,6 +118,74 @@ export const getWindowStripArcs = (): WindowStripArc[] =>
 export const isAzimuthOnLandStrip = (azimuth: number) => {
   const shifted = ((azimuth + STRIP_ARC_RADIANS * 0.5) % TWO_PI + TWO_PI) % TWO_PI
   return Math.floor(shifted / STRIP_ARC_RADIANS) % 2 === 0
+}
+
+// ── Topology-aware land / window arcs ───────────────────────────────────
+// The land arcs are the single source of truth for habitable wall; windows
+// are derived as their azimuthal complement. The default reproduces the
+// legacy three-strip Island Three layout, so untouched callers and the
+// existing tests keep their exact behavior.
+
+export const getLandArcs = (
+  topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+): LandArc[] => topology.landArcs
+
+// Windows are the gaps between consecutive land arcs around the circle. A
+// single arc that spans the whole circle (Cooper) leaves no gaps, so there
+// are no windows.
+export const getWindowArcs = (
+  topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+): WindowStripArc[] => {
+  const arcs = getLandArcs(topology)
+
+  if (arcs.length === 0) {
+    return []
+  }
+
+  const covered = arcs.reduce((sum, arc) => sum + arc.arcRadians, 0)
+
+  if (covered >= TWO_PI - ARC_EPSILON) {
+    return []
+  }
+
+  const intervals = arcs
+    .map((arc) => ({
+      start: ((arc.centerAzimuth - arc.arcRadians * 0.5) % TWO_PI + TWO_PI) % TWO_PI,
+      length: arc.arcRadians
+    }))
+    .sort((a, b) => a.start - b.start)
+
+  const windows: WindowStripArc[] = []
+
+  for (let index = 0; index < intervals.length; index += 1) {
+    const current = intervals[index]
+    const next = intervals[(index + 1) % intervals.length]
+    const gapStart = current.start + current.length
+    const gapEnd = index + 1 < intervals.length ? next.start : next.start + TWO_PI
+    const gapSpan = gapEnd - gapStart
+
+    if (gapSpan > ARC_EPSILON) {
+      windows.push({
+        centerAzimuth: ((gapStart + gapSpan * 0.5) % TWO_PI + TWO_PI) % TWO_PI,
+        arcRadians: gapSpan
+      })
+    }
+  }
+
+  return windows
+}
+
+export const isAzimuthOnLandArc = (
+  azimuth: number,
+  topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+) => {
+  for (const arc of getLandArcs(topology)) {
+    if (Math.abs(wrapToPi(azimuth - arc.centerAzimuth)) <= arc.arcRadians * 0.5 + ARC_EPSILON) {
+      return true
+    }
+  }
+
+  return false
 }
 
 // City cell scale follows the smaller of the two habitat dimensions, so
@@ -465,7 +541,14 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // band near the surface. The absolute clamp keeps even giant habitats'
   // towers within a few percent of surface gravity.
   const heightBase = Math.min(radius * 0.22, cell * 2.4, 55)
-  const usableArc = STRIP_ARC_RADIANS * LAND_STRIP_USABLE_FRACTION
+  // Land coverage is data-driven: the default three-strip topology gives the
+  // exact legacy geometry, while a single full-circle arc (Cooper) wraps the
+  // whole circumference and skips the usable-fraction shrink (no window edges
+  // to keep buildings off). Uniform arcs let us size the grid off the first.
+  const landArcs = getLandArcs(config.topology)
+  const arcSpan = landArcs[0]?.arcRadians ?? STRIP_ARC_RADIANS
+  const wrapTangent = arcSpan >= TWO_PI - ARC_EPSILON
+  const usableArc = wrapTangent ? arcSpan : arcSpan * LAND_STRIP_USABLE_FRACTION
   const tangentExtent = usableArc * radius
   const axialHalf = Math.max(0, length * 0.5 - cell)
   const axialExtent = axialHalf * 2
@@ -504,7 +587,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
   }
   const candidateEstimate =
-    lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * LAND_STRIP_COUNT
+    lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * landArcs.length
   const keepProbability = Math.min(
     MAX_KEEP_PROBABILITY,
     candidateEstimate > 0 ? maxBuildings / candidateEstimate : 0
@@ -621,8 +704,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
   }
 
-  for (const stripCenter of getLandStripCenters()) {
+  for (const landArc of landArcs) {
+    const stripCenter = landArc.centerAzimuth
+
     for (let i = 0; i <= blocksTangentCount; i += 1) {
+      // On a full-circle arc the closing avenue lands on the same meridian as
+      // the opening one, so skip it to avoid a doubled seam road.
+      if (wrapTangent && i === blocksTangentCount) {
+        continue
+      }
+
       const kind = avenueKindAt(i)
       roads.push({
         azimuth: stripCenter + (-tangentExtent * 0.5 + i * blockWidth) / radius,

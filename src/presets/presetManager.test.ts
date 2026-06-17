@@ -55,3 +55,14 @@ test('canRespawnOnAxisEnd is enabled for all current presets', () => {
   expect(canRespawnOnAxisEnd(getPresetById('izma')?.type ?? 'ring')).toBe(true)
   expect(canRespawnOnAxisEnd(getPresetById('elysium')?.type ?? 'cylinder')).toBe(true)
 })
+
+test('Cooper carries a full-circle habitable wall; the rest keep three land strips', () => {
+  const settingsStore = createSettingsStore()
+
+  applyPresetToSettingsStore(settingsStore, 'cooper')
+  expect(settingsStore.habitat.topology.landArcs).toHaveLength(1)
+  expect(settingsStore.habitat.topology.landArcs[0].arcRadians).toBeCloseTo(Math.PI * 2, 6)
+
+  applyPresetToSettingsStore(settingsStore, 'izma')
+  expect(settingsStore.habitat.topology.landArcs).toHaveLength(3)
+})

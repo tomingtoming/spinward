@@ -1,4 +1,8 @@
-import type { HabitatType } from '../sim/habitatConfig'
+import {
+  FULL_360_TOPOLOGY,
+  type HabitatTopology,
+  type HabitatType
+} from '../sim/habitatConfig'
 import { omegaToRpm, periodToOmega } from '../units/units'
 
 export type Preset = {
@@ -22,6 +26,10 @@ export type Preset = {
     skybox?: 'izma' | 'elysium' | 'default'
     runwayStyle?: 'izma' | 'default'
   }
+  // Habitable-wall layout. Omitted = the default three-strip Island Three
+  // topology. A full-circle arc makes the entire inner wall habitable with
+  // no windows (Cooper Station).
+  topology?: HabitatTopology
   sourceQuality: 'verified' | 'official-uc-generic' | 'derived'
   notes: string[]
 }
@@ -94,10 +102,15 @@ export const HABITAT_PRESETS: Preset[] = [
       scale: 0.02,
       notes: 'Representative O’Neill cylinder sizing for a Cooper-like experience.'
     },
+    // The whole inner wall is habitable land — no longitudinal windows. Light
+    // is meant to enter axially through the end caps (a follow-up); for now
+    // this just yields the continuous full-circumference city and shell.
+    topology: FULL_360_TOPOLOGY,
     sourceQuality: 'derived',
     notes: [
       'Representative O’Neill cylinder dimensions are used because the film does not publish a strict canonical size.',
-      'Length uses the 20mi class cylinder reference.'
+      'Length uses the 20mi class cylinder reference.',
+      'Full-360 habitable wall (no window strips); axial end-cap daylighting is a follow-up.'
     ]
   },
   {

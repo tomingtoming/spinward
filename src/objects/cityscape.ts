@@ -1,11 +1,15 @@
 import * as THREE from 'three'
 
 import {
+  ISLAND_THREE_TOPOLOGY,
+  type HabitatTopology
+} from '../sim/habitatConfig'
+import {
   buildCityCollisionIndex,
   getArterialRoadWidth,
   getCityCellSize,
-  getLandStripCenters,
-  getWindowStripArcs,
+  getLandArcs,
+  getWindowArcs,
   planCity,
   type BuildingKind,
   type CityBuilding,
@@ -20,6 +24,7 @@ import { mergeBufferGeometries } from './cylinder'
 type CityscapeDimensions = {
   radius: number
   length: number
+  topology?: HabitatTopology
 }
 
 const fullTurn = Math.PI * 2
@@ -535,6 +540,7 @@ export class Cityscape {
   private axisSpine: THREE.Mesh | null = null
   private radius = 0
   private length = 0
+  private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
 
   private readonly maxBuildings: number | undefined
 
@@ -543,20 +549,28 @@ export class Cityscape {
     this.setDimensions(dimensions)
   }
 
-  setDimensions({ radius, length }: CityscapeDimensions) {
-    if (radius === this.radius && length === this.length) {
+  setDimensions({ radius, length, topology }: CityscapeDimensions) {
+    const nextTopology = topology ?? this.topology
+
+    if (radius === this.radius && length === this.length && nextTopology === this.topology) {
       return
     }
 
     this.radius = radius
     this.length = length
+    this.topology = nextTopology
     this.clear()
 
     if (radius <= 0 || length <= 0) {
       return
     }
 
-    const plan = planCity({ radius, length, maxBuildings: this.maxBuildings })
+    const plan = planCity({
+      radius,
+      length,
+      maxBuildings: this.maxBuildings,
+      topology: this.topology
+    })
     this.collisionBuildings =
       plan.tower !== null
         ? [...plan.buildings, this.getTowerFootprint(plan.tower)]
@@ -1201,7 +1215,9 @@ export class Cityscape {
     const geometries: THREE.BufferGeometry[] = []
     const transform = new THREE.Matrix4()
 
-    for (const stripCenter of getLandStripCenters()) {
+    for (const landArc of getLandArcs(this.topology)) {
+      const stripCenter = landArc.centerAzimuth
+
       for (const axialFraction of [-0.28, 0.28]) {
         const cos = Math.cos(stripCenter)
         const sin = Math.sin(stripCenter)
@@ -1267,7 +1283,7 @@ export class Cityscape {
     // (absolute clearance — there is no ground under the windows).
     const stripRadius = radius - 0.3
 
-    for (const arc of getWindowStripArcs()) {
+    for (const arc of getWindowArcs(this.topology)) {
       const geometry = new THREE.CylinderGeometry(
         stripRadius,
         stripRadius,
@@ -1291,6 +1307,11 @@ export class Cityscape {
     // Bridges continue the arterial cross-streets over the windows: same
     // axial rows as the streets, spanning road-end to road-end so you can
     // drive straight onto the next island.
+    // No windows (a full-circle land arc) means no gaps to bridge.
+    if (getWindowArcs(this.topology).length === 0) {
+      return
+    }
+
     const arterialStreets = roads.filter(
       (road) => road.kind === 'arterial' && road.tangentWidth > road.axialLength
     )
@@ -1308,7 +1329,7 @@ export class Cityscape {
     }
 
     const streetHalfArc = (arterialStreets[0].tangentWidth * 0.5) / radius
-    const stripCenters = getLandStripCenters()
+    const stripCenters = getLandArcs(this.topology).map((arc) => arc.centerAzimuth)
     const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
     const deckParts: THREE.BufferGeometry[] = []
     const edgeParts: THREE.BufferGeometry[] = []
@@ -1395,7 +1416,7 @@ export class Cityscape {
     const outwardDir = new THREE.Vector3()
     const normalDir = new THREE.Vector3()
 
-    for (const arc of getWindowStripArcs()) {
+    for (const arc of getWindowArcs(this.topology)) {
       const cos = Math.cos(arc.centerAzimuth)
       const sin = Math.sin(arc.centerAzimuth)
       outwardDir.set(cos, 0, sin)
