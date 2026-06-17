@@ -1,6 +1,10 @@
 import * as THREE from 'three'
 
-export const JUMP_SPEED = 3
+// Fixed takeoff speed (m/s), like a real pair of legs: it does NOT scale with
+// the habitat's gravity, so apex ≈ v²/(2g) — you jump lower under stronger spin
+// gravity, which is the point of the demo. Tuned so 1G still clears ~0.8 m while
+// the lighter presets stay pleasantly floaty (~1.6 m at 0.5G).
+export const JUMP_SPEED = 4
 // The player must rise clear of the surface before landing detection arms,
 // otherwise the takeoff frame would immediately re-attach.
 export const JUMP_ARM_CLEARANCE = 0.3

@@ -1,4 +1,4 @@
-import { isTouchDevice } from '../pc/mobileControls'
+import { isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 
 // Render-quality budget per device class. Phone GPUs are tile-based and
 // drown in fragment work: cap the backing-store resolution and thin the
@@ -8,9 +8,6 @@ export type QualityProfile = {
   maxBuildings: number | undefined
   cloudDensity: number
 }
-
-const isQuestBrowser = () =>
-  typeof navigator !== 'undefined' && /OculusBrowser|Quest/i.test(navigator.userAgent)
 
 export const getQualityProfile = (): QualityProfile => {
   // Budgets assume the azimuth-bucket LOD: only the near arc carries

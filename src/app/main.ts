@@ -63,7 +63,8 @@ import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
 import { getQualityProfile } from './quality'
-import { MobileControls, isTouchDevice } from '../pc/mobileControls'
+import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
+import { createFullscreenToggle } from '../pc/fullscreen'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
 import { respawnAxisEnd, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
@@ -210,27 +211,16 @@ export const bootstrapApp = async () => {
   renderer.xr.setReferenceSpaceType('local-floor')
   document.body.appendChild(renderer.domElement)
 
-  // Touch devices only get the VR button when a session is actually
-  // possible — a permanent "VR NOT SUPPORTED" pill is just clutter there.
-  if (!isTouchDevice()) {
-    document.body.appendChild(VRButton.createButton(renderer))
-  } else {
-    navigator.xr
-      ?.isSessionSupported('immersive-vr')
-      .then((supported) => {
-        if (supported) {
-          document.body.appendChild(VRButton.createButton(renderer))
-        }
-      })
-      .catch(() => {})
-  }
-  renderer.xr.addEventListener('sessionstart', () => audio.unlock())
+  const onQuest = isQuestBrowser()
 
   const desktopLookControls = new DesktopLookControls(
     playerRig,
     camera,
     renderer.domElement
   )
+  // The Quest browser reports as a touch device, so the on-screen controls are
+  // built there too: they remain the usable fallback if immersive VR turns out
+  // unavailable, and get switched off below once a VR session is confirmed.
   const mobileControls = isTouchDevice()
     ? new MobileControls(camera, renderer.domElement, {
         onThrow: () => requestDesktopThrow(),
@@ -250,6 +240,48 @@ export const bootstrapApp = async () => {
         isUiPointerBlocked: () => desktopQuickPanel.isVisible
       })
     : null
+
+  // VR entry + fullscreen affordances, by device class:
+  //  · PC (pointer): the VR button plus a corner fullscreen toggle.
+  //  · Touch: surface VR only once a session is actually possible — a permanent
+  //    "VR NOT SUPPORTED" pill is just clutter. On Quest a supported session
+  //    also goes VR-first: a big centered "ENTER VR" call-to-action with the
+  //    unreachable touch stick switched off. If immersive VR is unavailable the
+  //    touch controls stay put, so the headset is never a dead end.
+  const mountVrButton = () =>
+    document.body.appendChild(VRButton.createButton(renderer))
+  let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
+
+  if (!isTouchDevice()) {
+    mountVrButton()
+    fullscreenToggle = createFullscreenToggle()
+
+    if (fullscreenToggle !== null) {
+      document.body.appendChild(fullscreenToggle.button)
+    }
+  } else {
+    navigator.xr
+      ?.isSessionSupported('immersive-vr')
+      .then((supported) => {
+        if (!supported) {
+          return
+        }
+
+        mountVrButton()
+
+        if (onQuest) {
+          document.body.classList.add('is-vr-entry')
+          mobileControls?.setEnabled(false)
+          // Demote the CTA to a compact pill after the first entry, so it stops
+          // covering the flat-view scene once the user exits VR.
+          renderer.xr.addEventListener('sessionstart', () =>
+            document.body.classList.remove('is-vr-entry')
+          )
+        }
+      })
+      .catch(() => {})
+  }
+  renderer.xr.addEventListener('sessionstart', () => audio.unlock())
 
   const light = new THREE.HemisphereLight(0xdfeeff, 0x33404e, 1.1)
   scene.add(light)
@@ -1513,6 +1545,7 @@ export const bootstrapApp = async () => {
     spaceport.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()
+    fullscreenToggle?.dispose()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cityColliders.dispose()

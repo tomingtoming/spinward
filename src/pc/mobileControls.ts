@@ -1,10 +1,20 @@
 import * as THREE from 'three'
 
 import { computeDeviceOrientationQuaternion } from './deviceOrientation'
+import {
+  bindFullscreenButton,
+  isFullscreenSupported,
+  toggleFullscreen
+} from './fullscreen'
 
 export const isTouchDevice = () =>
   typeof window !== 'undefined' &&
   (navigator.maxTouchPoints > 0 || 'ontouchstart' in window)
+
+// The Meta Quest browser reports touch, but in a headset the on-screen stick
+// is unreachable — callers use this to route Quest to the VR entry instead.
+export const isQuestBrowser = () =>
+  typeof navigator !== 'undefined' && /OculusBrowser|Quest/i.test(navigator.userAgent)
 
 type MobileControlHandlers = {
   onThrow: () => void
@@ -66,6 +76,8 @@ export class MobileControls {
 
   private brakeHeld = false
   private driving = false
+  private enabled = true
+  private disposeFullscreen: (() => void) | null = null
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -111,6 +123,13 @@ export class MobileControls {
     this.gyroButton = makeButton('Gyro', () => this.toggleGyro())
     makeButton('⚙', () => this.handlers.onToggleSettings())
 
+    // Phones can request fullscreen (Android); iPhone Safari can't, so the
+    // button only appears where it actually works.
+    if (isFullscreenSupported()) {
+      const fullscreenButton = makeButton('⛶', () => toggleFullscreen())
+      this.disposeFullscreen = bindFullscreenButton(fullscreenButton)
+    }
+
     this.stickBase = document.createElement('div')
     this.stickBase.className = 'mobile-stick'
     this.stickNub = document.createElement('div')
@@ -125,6 +144,7 @@ export class MobileControls {
   }
 
   dispose() {
+    this.disposeFullscreen?.()
     this.overlay.remove()
     this.stickBase.remove()
     this.element.removeEventListener('pointerdown', this.handlePointerDown)
@@ -167,6 +187,27 @@ export class MobileControls {
 
   isBrakeHeld() {
     return this.brakeHeld
+  }
+
+  // Hide the touch overlay and ignore canvas pointers — used on Quest once a VR
+  // session is confirmed, so the unreachable on-screen stick stops competing
+  // with the controller laser for the same gestures.
+  setEnabled(enabled: boolean) {
+    if (this.enabled === enabled) {
+      return
+    }
+
+    this.enabled = enabled
+    this.overlay.classList.toggle('is-hidden', !enabled)
+    this.stickBase.classList.toggle('is-hidden', !enabled)
+
+    if (!enabled) {
+      this.movePointerId = null
+      this.lookPointerId = null
+      this.moveInput.forward = 0
+      this.moveInput.right = 0
+      this.hideStick()
+    }
   }
 
   setDriveAvailable(available: boolean) {
@@ -255,7 +296,11 @@ export class MobileControls {
   }
 
   private readonly handlePointerDown = (event: PointerEvent) => {
-    if (event.pointerType !== 'touch' || this.handlers.isUiPointerBlocked()) {
+    if (
+      !this.enabled ||
+      event.pointerType !== 'touch' ||
+      this.handlers.isUiPointerBlocked()
+    ) {
       return
     }
 

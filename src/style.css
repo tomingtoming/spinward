@@ -202,6 +202,12 @@ button {
   display: none;
 }
 
+/* Switched off entirely (e.g. once a Quest VR session is confirmed). */
+.mobile-controls.is-hidden,
+.mobile-stick.is-hidden {
+  display: none !important;
+}
+
 /* ── Floating virtual stick (appears where the left thumb lands) ── */
 
 .mobile-stick {
@@ -233,6 +239,37 @@ button {
   transform: translate(-50%, -50%);
 }
 
+/* ── Fullscreen toggle (PC corner button) ── */
+
+.fullscreen-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 18, 30, 0.78);
+  color: #dff3fb;
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  border-radius: 12px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: background 0.15s ease;
+}
+
+.fullscreen-toggle:hover {
+  background: rgba(15, 92, 115, 0.9);
+}
+
+.fullscreen-toggle.is-active {
+  border-color: rgba(103, 232, 249, 0.9);
+  color: #67e8f9;
+}
+
 /* ── three.js VRButton override ── */
 
 #VRButton {
@@ -243,6 +280,29 @@ button {
   border-radius: 12px !important;
   color: #dff3fb !important;
   backdrop-filter: blur(10px);
+}
+
+/* On Quest the shortcut opens fullscreen with no obvious way into VR — so
+   lift the VR button into a large, fully-opaque call-to-action dead centre,
+   above everything else, so a single controller click drops you into VR. The
+   class is dropped on the first session start, demoting it back to the compact
+   pill so it stops covering the scene once the user exits VR. */
+body.is-vr-entry #VRButton {
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%);
+  width: auto !important;
+  min-width: 240px !important;
+  padding: 20px 32px !important;
+  font-size: 19px !important;
+  letter-spacing: 0.14em !important;
+  opacity: 1 !important;
+  border-color: rgba(103, 232, 249, 0.9) !important;
+  background: rgba(8, 24, 38, 0.92) !important;
+  box-shadow: 0 0 44px rgba(103, 232, 249, 0.28);
+  z-index: 1200 !important;
 }
 
 /* ── Touch devices up to landscape-phone width ── */
