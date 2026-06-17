@@ -1,11 +1,6 @@
 import * as THREE from 'three'
 
 import { computeDeviceOrientationQuaternion } from './deviceOrientation'
-import {
-  bindFullscreenButton,
-  isFullscreenSupported,
-  toggleFullscreen
-} from './fullscreen'
 
 export const isTouchDevice = () =>
   typeof window !== 'undefined' &&
@@ -77,7 +72,6 @@ export class MobileControls {
   private brakeHeld = false
   private driving = false
   private enabled = true
-  private disposeFullscreen: (() => void) | null = null
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -123,13 +117,6 @@ export class MobileControls {
     this.gyroButton = makeButton('Gyro', () => this.toggleGyro())
     makeButton('⚙', () => this.handlers.onToggleSettings())
 
-    // Phones can request fullscreen (Android); iPhone Safari can't, so the
-    // button only appears where it actually works.
-    if (isFullscreenSupported()) {
-      const fullscreenButton = makeButton('⛶', () => toggleFullscreen())
-      this.disposeFullscreen = bindFullscreenButton(fullscreenButton)
-    }
-
     this.stickBase = document.createElement('div')
     this.stickBase.className = 'mobile-stick'
     this.stickNub = document.createElement('div')
@@ -144,7 +131,6 @@ export class MobileControls {
   }
 
   dispose() {
-    this.disposeFullscreen?.()
     this.overlay.remove()
     this.stickBase.remove()
     this.element.removeEventListener('pointerdown', this.handlePointerDown)

@@ -242,23 +242,29 @@ export const bootstrapApp = async () => {
     : null
 
   // VR entry + fullscreen affordances, by device class:
-  //  · PC (pointer): the VR button plus a corner fullscreen toggle.
-  //  · Touch: surface VR only once a session is actually possible — a permanent
-  //    "VR NOT SUPPORTED" pill is just clutter. On Quest a supported session
-  //    also goes VR-first: a big centered "ENTER VR" call-to-action with the
-  //    unreachable touch stick switched off. If immersive VR is unavailable the
-  //    touch controls stay put, so the headset is never a dead end.
+  //  · A corner fullscreen toggle on every non-Quest device that supports it
+  //    (createFullscreenToggle returns null on iPhone Safari, which has no
+  //    element Fullscreen API).
+  //  · PC (pointer) mounts the VR button immediately; touch devices only once a
+  //    session is actually possible — a permanent "VR NOT SUPPORTED" pill is
+  //    just clutter. On Quest a supported session goes VR-first: a big centered
+  //    "ENTER VR" call-to-action with the unreachable touch stick switched off.
+  //    If immersive VR is unavailable the touch controls stay, so the headset
+  //    is never a dead end.
   const mountVrButton = () =>
     document.body.appendChild(VRButton.createButton(renderer))
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
-  if (!isTouchDevice()) {
-    mountVrButton()
+  if (!onQuest) {
     fullscreenToggle = createFullscreenToggle()
 
     if (fullscreenToggle !== null) {
       document.body.appendChild(fullscreenToggle.button)
     }
+  }
+
+  if (!isTouchDevice()) {
+    mountVrButton()
   } else {
     navigator.xr
       ?.isSessionSupported('immersive-vr')
@@ -716,20 +722,27 @@ export const bootstrapApp = async () => {
 
   const hud = createHud()
 
-  const debugGui = createDebugGui({
-    config: habitatConfig,
-    reattachTuning,
-    debugVisuals,
-    onHabitatChange: () => {
-      syncHabitat()
-    },
-    onSettingsChange: () => {
-      settingsStore.notify()
-    },
-    onVisualChange: () => {
-      hud.setVisible(debugVisuals.showHud)
-    }
-  })
+  // The lil-gui tuning panel is a developer tool, off by default so the demo
+  // stays clean — append `?debug` to the URL to bring it back top-right.
+  const debugEnabled =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debug')
+  const debugGui = debugEnabled
+    ? createDebugGui({
+        config: habitatConfig,
+        reattachTuning,
+        debugVisuals,
+        onHabitatChange: () => {
+          syncHabitat()
+        },
+        onSettingsChange: () => {
+          settingsStore.notify()
+        },
+        onVisualChange: () => {
+          hud.setVisible(debugVisuals.showHud)
+        }
+      })
+    : null
   hud.setVisible(debugVisuals.showHud)
 
   // The thrower's own motion rides on the ball. While driving that is the CAR's
@@ -1391,7 +1404,7 @@ export const bootstrapApp = async () => {
               ready: reattachStatus.canAttach
             }
     })
-    debugGui.update()
+    debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
     desktopUiCamera = camera
 
@@ -1552,7 +1565,7 @@ export const bootstrapApp = async () => {
     cylinderWall.dispose()
     vrLocomotion?.clutchDebug.dispose()
     physicsWorld.free()
-    debugGui.destroy()
+    debugGui?.destroy()
   })
 
   console.info(

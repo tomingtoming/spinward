@@ -243,8 +243,11 @@ button {
 
 .fullscreen-toggle {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  /* Top-right: clear of the HUD (bottom-left), the control row and VR button
+     (bottom-centre), and the settings panel (which opens upper-left). It only
+     shares this corner with the debug GUI, which is hidden unless `?debug`. */
+  top: max(16px, env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
   z-index: 1000;
   width: 44px;
   height: 44px;

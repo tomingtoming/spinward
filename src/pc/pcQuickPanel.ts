@@ -12,7 +12,10 @@ import {
 } from '../ui/watch/watchLayout'
 import { renderWatchExpanded } from '../ui/watch/watchRenderer'
 
-const PANEL_OFFSET = new THREE.Vector3(-0.55, -0.02, -0.95)
+// Lifted toward the top so the open panel clears the bottom HUD and control
+// row — the DOM overlays always draw on top of this in-world plane, so they
+// would otherwise punch through its lower edge.
+const PANEL_OFFSET = new THREE.Vector3(-0.55, 0.16, -0.95)
 // Matches the canvas aspect so the panel is not squashed.
 const PANEL_SCALE = new THREE.Vector3(
   0.44,
