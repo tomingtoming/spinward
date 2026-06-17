@@ -137,18 +137,15 @@ const PLAYER_COLLISION_SUPPORT_RADIUS = PLAYER_COLLIDER_RADIUS
 
 // Physical walking: the body is a live dynamic sphere. Tangent/axial motion
 // is steered toward the intent with traction proportional to the EFFECTIVE
-// spin gravity (your co-rotation speed, not the habitat's). On the open floor
-// the radial axis is Rapier's real contact with the spinning wall (P2), so
-// grounding and felt-G emerge from the true normal force. Only on a rooftop —
-// an analytic box with no collider yet (P1) — does the radial axis still
-// follow the analytic surface to keep the body on the roof.
+// spin gravity (your co-rotation speed, not the habitat's). The radial axis is
+// Rapier's real contact — with the spinning wall on the open floor (P2) and
+// with the streamed building roof colliders on rooftops (P1) — so grounding and
+// felt-G emerge from the true normal force everywhere.
 const PLAYER_REST_SUPPORT = 0.32
 const GROUND_LOSS_GAP = 1.0
 const GROUND_CONTACT_GAP = 0.9
 const GROUND_CONTACT_MAX_RADIAL_SPEED = 1.8
 const WALK_TRACTION_ACCEL = 28
-const GROUND_FOLLOW_TIME = 0.12
-const GROUND_FOLLOW_MAX_SPEED = 3
 const walkOutward = new THREE.Vector3()
 const walkTangent = new THREE.Vector3()
 const walkDesired = new THREE.Vector3()
@@ -314,29 +311,13 @@ const stepGroundedPlayerPhysics = (
     tangentVelocity +
     THREE.MathUtils.clamp(desiredTangent - tangentVelocity, -maxDelta, maxDelta)
 
-  // Radial axis. On open cylinder floor (groundHeight 0) Rapier's contact with
-  // the spinning wall owns it: the body is pressed outward by its own
-  // co-rotation and held in by the panel ring's normal force, exactly as P0
-  // measured. We keep the body's actual radial velocity so grounding and the
-  // felt-G emerge from that real normal force instead of a scripted spring.
-  //
-  // On a rooftop (groundHeight > 0) the ground is an analytic box with no Rapier
-  // collider yet (P1), so the ground-follow still pins the body to the roof:
-  // pushing UP (inward) is the legs' normal force — unrestricted; settling DOWN
-  // (outward) is gravity's and is capped by the effective gravity.
-  let newRadial = radialVelocity
-  if (groundHeight > 0) {
-    const restRadial = getPlayerBodyRadius(surfaceRadius)
-    const maxSettleSpeed = Math.min(
-      GROUND_FOLLOW_MAX_SPEED,
-      effectiveGravity * GROUND_FOLLOW_TIME * 3
-    )
-    newRadial = THREE.MathUtils.clamp(
-      (restRadial - radialDistance) / GROUND_FOLLOW_TIME,
-      -GROUND_FOLLOW_MAX_SPEED,
-      maxSettleSpeed
-    )
-  }
+  // Radial axis is Rapier's contact, on the open floor AND on rooftops (P1: the
+  // buildings are real streamed colliders now). The body is pressed outward by
+  // its own co-rotation and held in by the wall — or a building roof — so we
+  // keep its actual radial velocity and let grounding and the felt-G emerge from
+  // that real normal force, never a scripted spring. The render stays pinned to
+  // radius - groundHeight, so any chord/seam ripple doesn't shake the view.
+  const newRadial = radialVelocity
 
   walkDesired
     .copy(walkTangent)

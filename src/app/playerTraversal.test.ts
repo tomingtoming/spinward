@@ -497,20 +497,27 @@ test('a free-fly drop lands on a rooftop and grounds at its height', async () =>
 })
 
 test('walking off a roof edge releases to free-fall', async () => {
+  // The walker rests on the real streamed roof collider (P1) — not an analytic
+  // follow — and walks off its edge; past the footprint the sampled ground
+  // drops to the street and the grounded check releases to free-fall.
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(1)
+  applyWorldLengthUnit(world, units)
   const radius = 30
   const length = 60
   const omega = 0.7
   const building: CityBuilding = {
     azimuth: 0,
     axial: 0,
-    width: 8,
-    depth: 8,
+    width: 12,
+    depth: 12,
     height: 6,
     tone: 0.5,
     kind: 'block'
   }
+  const index = buildCityCollisionIndex([building], radius, length)
+  const city = createRotatingCityColliders(rapier, world, { radius, index, units, omega, margin: 0.25 })
   const sample = (azimuth: number, axialPosition: number, altitude: number) =>
     getCityGroundHeight([building], radius, azimuth, axialPosition, altitude)
   const state = createPlayerTraversalState(
@@ -518,7 +525,7 @@ test('walking off a roof edge releases to free-fall', async () => {
     radius,
     0,
     omega,
-    { rapier, world }
+    { rapier, world, units }
   )
 
   resetPlayerToGrounded(state, {
@@ -548,17 +555,17 @@ test('walking off a roof edge releases to free-fall', async () => {
       frameAngleEnd: frameAngle,
       sampleGroundHeight: sample
     })
+    city.update(state.surface.azimuth, state.surface.axialPosition)
     world.timestep = deltaSeconds
     world.step()
     syncPlayerTraversalFromPhysics(state)
     syncGroundedSurfaceFromPhysics(state, frameAngle)
   }
 
-  // Past the footprint edge the sampled ground drops to the street and the
-  // walker leaves the roof in free-fall.
   expect(state.mode).toBe('free-fly')
   expect(Math.abs(state.surface.axialPosition)).toBeGreaterThan(building.depth * 0.5)
 
+  city.dispose()
   disposePlayerTraversalState(state)
   world.free()
 })
