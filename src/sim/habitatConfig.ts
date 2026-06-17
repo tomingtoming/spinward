@@ -10,27 +10,38 @@ export type LandArc = {
   arcRadians: number
 }
 
+// How the axial end faces are built: open docking rings (rim, hub and spokes
+// with the spoke gaps open to space — you can see stars through them and drift
+// out) or a closed cap (a solid annulus from the central hub aperture out to
+// the wall, so the cylinder reads as enclosed).
+export type EndStructure = 'docking-ring' | 'closed-cap'
+
 // How the habitable wall is laid out around the circumference. Everything
 // window-derived (the carved shell openings, the external mirrors, the glow
 // strips) is computed from `landArcs`, so flipping the arcs reshapes the
-// colony without forking the renderers.
+// colony without forking the renderers. `endStructure` is orthogonal: it
+// picks how the two axial ends are capped.
 export type HabitatTopology = {
   landArcs: LandArc[]
+  endStructure: EndStructure
 }
 
 // Island Three / Izma: three 60° land strips alternating with three 60°
-// windows. The historical default the whole simulator was built around.
+// windows, and closed end caps (a real Island Three cylinder is enclosed).
 export const ISLAND_THREE_TOPOLOGY: HabitatTopology = {
   landArcs: [0, 1, 2].map((index) => ({
     centerAzimuth: (index * TWO_PI) / 3,
     arcRadians: TWO_PI / 6
-  }))
+  })),
+  endStructure: 'closed-cap'
 }
 
 // A single arc spanning the whole circle: the entire inner wall is habitable
-// and there are no windows (Cooper Station-style end-lit cylinder).
+// and there are no windows (Cooper Station-style end-lit cylinder). The ends
+// keep the open docking rings until per-colony end glazing lands.
 export const FULL_360_TOPOLOGY: HabitatTopology = {
-  landArcs: [{ centerAzimuth: 0, arcRadians: TWO_PI }]
+  landArcs: [{ centerAzimuth: 0, arcRadians: TWO_PI }],
+  endStructure: 'docking-ring'
 }
 
 export type HabitatConfig = {
