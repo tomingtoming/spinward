@@ -25,6 +25,7 @@ import { getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { Accelerometer } from '../sim/accelerometer'
 import {
   inertialPositionToRotating,
   inertialVelocityToRotating,
@@ -298,6 +299,69 @@ test('physical walking holds co-rotation on the spinning wall at izma scale', as
   expect(rotatingVelocity.length()).toBeLessThan(0.5)
   expect(radius - radialDistance).toBeGreaterThan(0.2)
   expect(radius - radialDistance).toBeLessThan(0.8)
+
+  cylinder.dispose()
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('grounded walking feels a measured ~1g from the spinning wall contact', async () => {
+  // P2: on the open floor the radial axis is Rapier's wall contact, not an
+  // analytic ground-follow. So the felt gravity is differenced from the
+  // velocity Rapier integrates against the real normal force — emergent, not
+  // omega^2 R fed back in. Remove the wall and this body would fly off at 0 g.
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(0.02)
+  applyWorldLengthUnit(world, units)
+  const radius = 3200
+  const length = 32000
+  const omega = (Math.PI * 2) / 113.5
+  const expectedG = omega * omega * radius
+  const cylinder = createRotatingCylinderBody(rapier, world, { radius, length, units })
+  cylinder.setAngularVelocity(omega)
+
+  let frameAngle = 0
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    frameAngle,
+    omega,
+    { rapier, world, units }
+  )
+  const accelerometer = new Accelerometer()
+  const deltaSeconds = 1 / 72
+  let feltGravity = 0
+
+  for (let index = 0; index < 216; index += 1) {
+    frameAngle = THREE.MathUtils.euclideanModulo(
+      frameAngle + omega * deltaSeconds,
+      Math.PI * 2
+    )
+    stepGroundedPlayer(state, {
+      axisDistanceDelta: 0,
+      tangentDistanceDelta: 0,
+      radius,
+      length,
+      deltaSeconds,
+      omega,
+      frameAngleEnd: frameAngle
+    })
+    world.timestep = deltaSeconds
+    world.step()
+    syncGroundedSurfaceFromPhysics(state, frameAngle)
+    feltGravity = accelerometer.sample(state.inertialVelocity, state.inertialPosition, deltaSeconds)
+  }
+
+  expect(state.mode).toBe('grounded')
+  // Resting on the wall via contact (not free-flying outward, which the
+  // one-sided grounded check would not catch): the body sits just inside the
+  // inner face, and the felt weight is the real ~1g normal force.
+  const restingGap = radius - Math.hypot(state.inertialPosition.x, state.inertialPosition.z)
+  expect(restingGap).toBeGreaterThan(0.1)
+  expect(restingGap).toBeLessThan(0.8)
+  expect(feltGravity).toBeGreaterThan(0.85 * expectedG)
+  expect(feltGravity).toBeLessThan(1.15 * expectedG)
 
   cylinder.dispose()
   disposePlayerTraversalState(state)
