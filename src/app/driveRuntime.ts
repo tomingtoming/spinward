@@ -29,13 +29,12 @@ import type { UnitsContext } from '../units/units'
 // The car's physics body is a sphere: the body's rotation is locked while
 // "up" is radial and changes with azimuth, so an oriented box would lie
 // sideways at most azimuths (and plough metres into the wall). The sphere
-// hovers above the panels; radial ground-follow plays suspension.
+// rests on the wall panels via real Rapier contact at every azimuth, its
+// center one collider radius inside the inner face (P3 removed the analytic
+// suspension, so this radius is also where it settles and is seated on entry).
 const CAR_COLLIDER_RADIUS = 0.5
-const CAR_BODY_CENTER_HEIGHT = 0.91
 // Contact is "grounded" while the body center sits near its resting radius.
 const GROUND_TOLERANCE = 0.6
-const GROUND_FOLLOW_TIME = 0.15
-const GROUND_FOLLOW_MAX_SPEED = 3
 const ENTER_DISTANCE = 6
 
 export type DrivePhysicsContext = {
@@ -147,7 +146,7 @@ export class DriveRuntime {
     const sin = Math.sin(this.surface.azimuth)
     rotatingPosition
       .set(cos, 0, sin)
-      .multiplyScalar(radius - CAR_BODY_CENTER_HEIGHT)
+      .multiplyScalar(radius - CAR_COLLIDER_RADIUS)
       .setY(this.surface.axialPosition)
     rotatingPositionToInertial(rotatingPosition, frameAngle, inertialPosition)
     rotatingVelocity.set(0, 0, 0)
@@ -203,7 +202,7 @@ export class DriveRuntime {
 
     const azimuth = Math.atan2(rotatingPosition.z, rotatingPosition.x)
     const radialDistance = Math.hypot(rotatingPosition.x, rotatingPosition.z)
-    const restingRadial = config.radius - CAR_BODY_CENTER_HEIGHT
+    const restingRadial = config.radius - CAR_COLLIDER_RADIUS
     const grounded = Math.abs(radialDistance - restingRadial) <= GROUND_TOLERANCE
 
     surfaceOutward.set(Math.cos(azimuth), 0, Math.sin(azimuth))
@@ -230,23 +229,14 @@ export class DriveRuntime {
       }
     )
 
-    // Suspension: hold the body on the analytic surface so panel seams and
-    // soft-contact bias never lift or shake the car. Pushing up is the
-    // springs' job and stays unrestricted; settling down is gravity's and
-    // is capped by the effective g.
-    if (grounded) {
-      const radialVelocity = rotatingVelocity.dot(surfaceOutward)
-      const maxSettleSpeed = Math.min(
-        GROUND_FOLLOW_MAX_SPEED,
-        effectiveGravity * GROUND_FOLLOW_TIME * 3
-      )
-      const followVelocity = THREE.MathUtils.clamp(
-        (restingRadial - radialDistance) / GROUND_FOLLOW_TIME,
-        -GROUND_FOLLOW_MAX_SPEED,
-        maxSettleSpeed
-      )
-      rotatingVelocity.addScaledVector(surfaceOutward, followVelocity - radialVelocity)
-    }
+    // No suspension: the radial axis belongs to Rapier's contact with the
+    // spinning wall (P0/seam tests show the panel ring holds the car at ~1g
+    // and never launches it across seams up to 150 m/s relative). The tire
+    // model already leaves the radial component untouched, so grounding and
+    // the felt-G now emerge from the real normal force — drive against the
+    // spin and the wheels genuinely unload toward a float. Past the cylinder
+    // end there is no panel, so the car simply falls off instead of riding an
+    // infinite wall. Buildings are still analytic boxes (P1), handled below.
 
     // Building crash: push the footprint out, kill the velocity component
     // driving into the wall, and keep the slide along it (with a scrape).
@@ -254,7 +244,12 @@ export class DriveRuntime {
     this.surface.axialPosition = rotatingPosition.y
     this.lastCrashed = false
     this.lastGrounded = grounded
-    this.lastSpeed = rotatingVelocity.length()
+    // Report the in-plane driving speed only: the radial axis is real contact
+    // now, so its small settling wobble must not flicker the speedometer.
+    const radialSpeed = rotatingVelocity.dot(surfaceOutward)
+    this.lastSpeed = Math.sqrt(
+      Math.max(0, rotatingVelocity.lengthSq() - radialSpeed * radialSpeed)
+    )
     this.lastRadialGap = config.radius - radialDistance
     this.lastContacts = 0
     {
