@@ -82,7 +82,7 @@ export class VRLocomotion {
     controllers: XRControllerSpaces[],
     private readonly playerRig: THREE.Group,
     private readonly viewRig: THREE.Group,
-    _camera: THREE.PerspectiveCamera
+    private readonly camera: THREE.PerspectiveCamera
   ) {
     this.viewRig.rotation.order = 'YXZ'
 
@@ -368,9 +368,12 @@ export class VRLocomotion {
 
     const forwardInput = -stickY
     const rightInput = stickX
-    this.viewRig.updateWorldMatrix(true, false)
-    getForwardDirection(this.viewRig, viewForward)
-    viewRight.set(1, 0, 0).applyQuaternion(this.viewRig.getWorldQuaternion(viewWorldQuaternion))
+    // Move where you LOOK: the basis is the head (camera), not the snap-turn rig.
+    // So after a physical turn or a snap-turn the stick still drives you in your
+    // current view direction, the same head-relative feel as the desktop WASD.
+    this.camera.updateWorldMatrix(true, false)
+    getForwardDirection(this.camera, viewForward)
+    viewRight.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(viewWorldQuaternion))
     stickMove
       .copy(viewForward)
       .multiplyScalar(forwardInput)

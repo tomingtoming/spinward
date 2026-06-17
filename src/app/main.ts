@@ -679,6 +679,20 @@ export const bootstrapApp = async () => {
   })
   hud.setVisible(debugVisuals.showHud)
 
+  // The thrower's own motion rides on the ball. While driving that is the CAR's
+  // inertial velocity (it can be screaming along the wall) — NOT the seated
+  // player's co-rotation, which playerTraversal holds while driving; on foot it
+  // is the walker's live body. Converted into the rotating frame to add to the
+  // throw.
+  const fillCarrierRotatingVelocity = (target: THREE.Vector3) =>
+    inertialVelocityToRotating(
+      drive.driving ? drive.lastInertialPosition : playerTraversal.inertialPosition,
+      drive.driving ? drive.lastInertialVelocity : playerTraversal.inertialVelocity,
+      rpmToOmega(habitatConfig.rpm),
+      frameAngle,
+      target
+    )
+
   const spawnBall = ({
     origin,
     releasedByController
@@ -722,15 +736,10 @@ export const bootstrapApp = async () => {
           controllerParentQuaternion.identity()
         }
 
-        // The thrower's own motion rides on the ball in every mode — a
-        // grounded runner's body is a live physics body too.
-        inertialVelocityToRotating(
-          playerTraversal.inertialPosition,
-          playerTraversal.inertialVelocity,
-          omega,
-          frameAngle,
-          controllerCarrierVelocity
-        )
+        // The thrower's own motion rides on the ball in every mode — a grounded
+        // runner's body is a live physics body, and a driver carries the car's
+        // speed.
+        fillCarrierRotatingVelocity(controllerCarrierVelocity)
 
         computeThrowVelocityReal(
           controllerCarrierVelocity,
@@ -762,14 +771,8 @@ export const bootstrapApp = async () => {
     if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())
     } else {
-      // Desktop throws also inherit the thrower's motion.
-      inertialVelocityToRotating(
-        playerTraversal.inertialPosition,
-        playerTraversal.inertialVelocity,
-        rpmToOmega(habitatConfig.rpm),
-        frameAngle,
-        controllerCarrierVelocity
-      )
+      // Desktop throws also inherit the thrower's motion (walking or driving).
+      fillCarrierRotatingVelocity(controllerCarrierVelocity)
       worldVelocity
         .copy(worldForward)
         .multiplyScalar(8 * habitatConfig.ballSpeedScale)
