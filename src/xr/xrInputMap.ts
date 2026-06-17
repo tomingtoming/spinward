@@ -42,16 +42,17 @@ const DRIVE_DEADZONE = 0.12
 const applyDriveDeadzone = (value: number) =>
   Math.abs(value) < DRIVE_DEADZONE ? 0 : THREE.MathUtils.clamp(value, -1, 1)
 
-// Maps the right thumbstick + grip to car controls. Pushing the stick up
+// Maps a thumbstick + grip to car controls — the LEFT stick while driving, so
+// the right stick stays free to turn the view like it does on foot. Pushing up
 // (xr-standard Y is negative up) drives forward; X steers right-positive; the
 // grip squeeze brakes. Pure so the sign/deadzone convention can be tested.
 export const mapVrDriveInput = (
-  rightStickX: number,
-  rightStickY: number,
+  stickX: number,
+  stickY: number,
   gripBrake: number
 ) => ({
-  throttle: applyDriveDeadzone(-rightStickY),
-  steer: applyDriveDeadzone(rightStickX),
+  throttle: applyDriveDeadzone(-stickY),
+  steer: applyDriveDeadzone(stickX),
   brake: THREE.MathUtils.clamp(gripBrake, 0, 1)
 })
 
@@ -61,7 +62,7 @@ type XrWatchInputFrame = {
   rightController: THREE.XRTargetRaySpace | null
   rightTriggerPressed: boolean
   jumpPressed: boolean
-  // VR car controls: right stick Y = throttle, right stick X = steer, either
+  // VR car controls: left stick Y = throttle, left stick X = steer, either
   // grip squeeze = brake. Deadzoned/clamped, only meaningful while driving.
   driveThrottle: number
   driveSteer: number
@@ -111,8 +112,8 @@ export class XRInputMap {
     let rightController: THREE.XRTargetRaySpace | null = null
     let rightTriggerPressed = false
     let jumpPressed = false
-    let rightStickX = 0
-    let rightStickY = 0
+    let leftStickX = 0
+    let leftStickY = 0
     let driveBrake = 0
 
     for (const [controller, inputSource] of this.inputSourceByController) {
@@ -128,6 +129,11 @@ export class XRInputMap {
       if (inputSource.handedness === 'left') {
         leftController = controller
         leftGrip = this.gripByController.get(controller) ?? null
+        // The left stick drives the car (throttle/steer); the right stick is
+        // left to the locomotion turn, same as on foot.
+        const [stickX, stickY] = this.readPrimaryStick(gamepad)
+        leftStickX = stickX
+        leftStickY = stickY
         continue
       }
 
@@ -135,9 +141,6 @@ export class XRInputMap {
         rightController = controller
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
         jumpPressed ||= gamepad.buttons[PRIMARY_BUTTON_INDEX]?.pressed ?? false
-        const [stickX, stickY] = this.readPrimaryStick(gamepad)
-        rightStickX = stickX
-        rightStickY = stickY
       }
     }
 
@@ -146,7 +149,7 @@ export class XRInputMap {
     const jumpEdge = jumpPressed && !this.previousJumpPressed
     this.previousJumpPressed = jumpPressed
 
-    const drive = mapVrDriveInput(rightStickX, rightStickY, driveBrake)
+    const drive = mapVrDriveInput(leftStickX, leftStickY, driveBrake)
 
     return {
       leftController,

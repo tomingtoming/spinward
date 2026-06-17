@@ -51,7 +51,7 @@ export type HudHandle = {
 const CONTROLS_TEXT =
   'PC - WASD: walk/jetpack | click: throw | Space: jump | 1/2/3: travel | F: launch | Shift: brake | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
   'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel / point at car to drive | right A: jump (exit car) | right stick: snap turn\n' +
-  'VR driving - right stick: gas (up/down) + steer (left/right) | either grip: brake | right A: get out\n' +
+  'VR driving - left stick: gas (up/down) + steer (left/right) | right stick: turn | either grip: brake | right A: get out\n' +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
 const makeChip = (className: string) => {

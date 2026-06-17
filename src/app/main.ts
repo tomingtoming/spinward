@@ -585,6 +585,7 @@ export const bootstrapApp = async () => {
     // Face the hood, not wherever you last looked while walking.
     desktopLookControls.resetLook()
     mobileControls?.resetLook()
+    vrLocomotion?.faceForward()
     notifyTourEvent(tourGuide, 'drive')
     audio.playClick()
   }

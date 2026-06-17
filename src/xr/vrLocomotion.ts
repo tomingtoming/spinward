@@ -71,6 +71,13 @@ export class VRLocomotion {
     this.profile = profile
   }
 
+  // Reset the view to the rig's forward (snap yaw 0) — the VR counterpart of
+  // the desktop look reset, so climbing into the car faces the hood instead of
+  // whatever way you had snap-turned while walking.
+  faceForward() {
+    this.snapYaw = 0
+  }
+
   constructor(
     controllers: XRControllerSpaces[],
     private readonly playerRig: THREE.Group,
@@ -110,10 +117,35 @@ export class VRLocomotion {
     intent.detachLaunchVelocity.set(0, 0, 0)
 
     if (xrActive && driving) {
-      // At the wheel: the sticks steer/throttle the car instead of walking,
-      // and the right stick must not also snap-turn the view. Hold the grounded
-      // view (snap yaw preserved) and emit no locomotion this frame.
+      // At the wheel: the LEFT stick throttles/steers the car (read by
+      // XRInputMap), so here we leave the RIGHT stick doing its on-foot job —
+      // snap-turning the view — and emit no walking locomotion. The snap yaw
+      // rides on top of the car's heading, letting you look around while driving.
       resetHandClutchState(this.clutchState)
+      let snapAxisX = 0
+      let snapAxisMagnitudeSq = 0
+
+      for (const [, inputSource] of this.inputSourceByController) {
+        const gamepad = inputSource.gamepad
+
+        if (gamepad === null || gamepad === undefined || inputSource.handedness !== 'right') {
+          continue
+        }
+
+        const [axisX, axisY] = this.readPrimaryStick(gamepad)
+        const stickMagnitudeSq = axisX * axisX + axisY * axisY
+
+        if (stickMagnitudeSq > snapAxisMagnitudeSq) {
+          snapAxisMagnitudeSq = stickMagnitudeSq
+          snapAxisX = axisX
+        }
+      }
+
+      const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
+      if (snapIntent !== 0) {
+        this.snapYaw -= snapIntent * SNAP_TURN_RADIANS
+      }
+
       this.applyGroundedView()
       this.previousPlayerMode = playerMode
       this.clutchDebug.update(null, 'grounded')
