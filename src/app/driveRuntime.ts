@@ -237,6 +237,8 @@ export class DriveRuntime {
     // spin and the wheels genuinely unload toward a float. Past the cylinder
     // end there is no panel, so the car simply falls off instead of riding an
     // infinite wall. Buildings are still analytic boxes (P1), handled below.
+    // (The near-float felt-G jitter from the soft contact is smoothed in the
+    // readout, not in the physics — see the driving accelerometer time constant.)
 
     // Building crash: push the footprint out, kill the velocity component
     // driving into the wall, and keep the slide along it (with a scrape).

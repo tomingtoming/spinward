@@ -1275,8 +1275,12 @@ export const bootstrapApp = async () => {
     // Felt g-force: difference the active body's real inertial velocity (resync
     // across the walk↔drive handoff so the swap isn't read as a spike). It
     // reads ~1g on the wall and drains toward 0 as the car cancels the spin.
+    // Driving uses a longer low-pass: near float the wheels barely touch, so
+    // seam micro-bumps would jitter the readout; walking keeps the crisp one so
+    // landings still spike.
     if (drive.driving !== feltAccelDriving) {
       feltAccelerometer.resync()
+      feltAccelerometer.setSmoothingTime(drive.driving ? 0.7 : 0.2)
       feltAccelDriving = drive.driving
     }
     const feltGravity = feltAccelerometer.sample(

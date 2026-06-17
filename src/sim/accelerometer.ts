@@ -24,7 +24,15 @@ export class Accelerometer {
 
   // Low-pass time constant (seconds): long enough to swallow per-frame
   // numerical jitter, short enough that a bump or a crash still registers.
-  constructor(private readonly smoothingTime = 0.2) {}
+  constructor(private smoothingTime = 0.2) {}
+
+  // Retune the low-pass on the fly. Driving wants a longer constant: near float
+  // the spin gravity is almost gone, so per-frame seam micro-bumps off the wall
+  // would otherwise jitter the readout; walking wants the short one so landings
+  // still register.
+  setSmoothingTime(seconds: number) {
+    this.smoothingTime = Math.max(1e-3, seconds)
+  }
 
   // Forget the previous sample without dropping the smoothed reading. Call when
   // the measured body switches (walk <-> drive) so the velocity discontinuity

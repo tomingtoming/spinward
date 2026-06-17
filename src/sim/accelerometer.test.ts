@@ -49,6 +49,35 @@ test('a purely tangential acceleration does not register as gravity', () => {
   expect(reading).toBeCloseTo(0, 2)
 })
 
+test('setSmoothingTime lengthens the low-pass so a jittery readout steadies', () => {
+  // The driving readout near float: a longer time constant must swing less on
+  // the same per-frame contact jitter than the crisp on-foot one.
+  const pos = new THREE.Vector3(3200, 0, 0) // outward = +x ("down")
+  const crisp = new Accelerometer()
+  crisp.setSmoothingTime(0.05)
+  const smooth = new Accelerometer()
+  smooth.setSmoothingTime(0.8)
+  const v = new THREE.Vector3()
+  const crispReadings: number[] = []
+  const smoothReadings: number[] = []
+
+  // Alternate an inward radial jolt every other frame (a seam micro-bump). Warm
+  // up first so the long constant has reached its steady ripple, then measure —
+  // otherwise its slow rise to the mean would masquerade as a spread.
+  for (let i = 0; i < 900; i += 1) {
+    v.set(i % 2 === 0 ? 0 : -2, 0, 0)
+    const crispReading = crisp.sample(v, pos, DT)
+    const smoothReading = smooth.sample(v, pos, DT)
+    if (i >= 600) {
+      crispReadings.push(crispReading)
+      smoothReadings.push(smoothReading)
+    }
+  }
+
+  const spread = (xs: number[]) => Math.max(...xs) - Math.min(...xs)
+  expect(spread(smoothReadings)).toBeLessThan(spread(crispReadings))
+})
+
 test('resync re-seeds without differencing the discontinuity into a spike', () => {
   const accel = new Accelerometer(0.05)
   const pos = new THREE.Vector3(3200, 0, 0)
