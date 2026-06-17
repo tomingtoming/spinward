@@ -245,6 +245,8 @@ export class CylinderHabitat {
     color: 0x4a6478,
     emissive: 0x101a26,
     emissiveIntensity: 0.8,
+    // Visible from inside the colony (the closed cap is a flat annulus).
+    side: THREE.DoubleSide,
     roughness: 0.55,
     metalness: 0.4
   })
@@ -317,9 +319,11 @@ export class CylinderHabitat {
     this.rebuildEndCaps(radius, length)
   }
 
-  // Open docking structure at both ends: rim ring, central hub ring, and
-  // radial spokes. The center stays clear so players and balls can still
-  // drift out through the openings.
+  // Both ends carry a rim ring and a central hub ring. The space between them
+  // is either left open as radial docking spokes ('docking-ring' — you can see
+  // stars through the gaps and drift out) or filled with a solid annulus
+  // ('closed-cap' — an enclosed Island Three cylinder), keeping the central hub
+  // aperture clear in both cases so the docking port still reaches the axis.
   private rebuildEndCaps(radius: number, length: number) {
     if (this.endCaps !== null) {
       this.endCaps.geometry.dispose()
@@ -332,6 +336,7 @@ export class CylinderHabitat {
     const hubRadius = radius * 0.26
     const spokeLength = rimRadius - hubRadius
     const spokeCount = 8
+    const closed = this.topology.endStructure === 'closed-cap'
     const geometries: THREE.BufferGeometry[] = []
 
     for (const endSign of [-1, 1]) {
@@ -346,6 +351,16 @@ export class CylinderHabitat {
       hub.rotateX(Math.PI * 0.5)
       hub.translate(0, y, 0)
       geometries.push(hub)
+
+      if (closed) {
+        // Solid annulus from the hub aperture out to the wall, closing the
+        // gaps the spokes would leave open to space.
+        const cap = new THREE.RingGeometry(hubRadius, radius, 64)
+        cap.rotateX(Math.PI * 0.5)
+        cap.translate(0, y, 0)
+        geometries.push(cap)
+        continue
+      }
 
       for (let index = 0; index < spokeCount; index += 1) {
         const angle = (index / spokeCount) * fullTurn

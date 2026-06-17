@@ -56,13 +56,27 @@ test('canRespawnOnAxisEnd is enabled for all current presets', () => {
   expect(canRespawnOnAxisEnd(getPresetById('elysium')?.type ?? 'cylinder')).toBe(true)
 })
 
-test('Cooper carries a full-circle habitable wall; the rest keep three land strips', () => {
+test('full-floor presets carry one full-circle land arc; only Izma keeps three strips', () => {
   const settingsStore = createSettingsStore()
 
-  applyPresetToSettingsStore(settingsStore, 'cooper')
-  expect(settingsStore.habitat.topology.landArcs).toHaveLength(1)
-  expect(settingsStore.habitat.topology.landArcs[0].arcRadians).toBeCloseTo(Math.PI * 2, 6)
+  for (const presetId of ['playground', 'cooper', 'elysium']) {
+    applyPresetToSettingsStore(settingsStore, presetId)
+    expect(settingsStore.habitat.topology.landArcs).toHaveLength(1)
+    expect(settingsStore.habitat.topology.landArcs[0].arcRadians).toBeCloseTo(Math.PI * 2, 6)
+  }
 
   applyPresetToSettingsStore(settingsStore, 'izma')
   expect(settingsStore.habitat.topology.landArcs).toHaveLength(3)
+})
+
+test('only Izma closes its end caps; full-floor presets keep open docking rings', () => {
+  const settingsStore = createSettingsStore()
+
+  applyPresetToSettingsStore(settingsStore, 'izma')
+  expect(settingsStore.habitat.topology.endStructure).toBe('closed-cap')
+
+  for (const presetId of ['playground', 'cooper', 'elysium']) {
+    applyPresetToSettingsStore(settingsStore, presetId)
+    expect(settingsStore.habitat.topology.endStructure).toBe('docking-ring')
+  }
 })

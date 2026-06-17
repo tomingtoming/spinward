@@ -54,10 +54,13 @@ export const HABITAT_PRESETS: Preset[] = [
       skybox: 'default',
       runwayStyle: 'default'
     },
+    // Full-360 habitable wall, like Cooper: the whole inner surface is ground.
+    topology: FULL_360_TOPOLOGY,
     sourceQuality: 'derived',
     notes: [
       'Matches the original playground defaults shipped with the prototype.',
-      'Kept as a preset because the small-radius feel is useful for iteration and comparison.'
+      'Kept as a preset because the small-radius feel is useful for iteration and comparison.',
+      'Full-360 habitable wall (no window strips).'
     ]
   },
   {
@@ -133,10 +136,14 @@ export const HABITAT_PRESETS: Preset[] = [
       skybox: 'elysium',
       runwayStyle: 'default'
     },
+    // Full-360 habitable floor, like Cooper: an open ring is ground all the
+    // way around. (Open-sky daylighting is a follow-up.)
+    topology: FULL_360_TOPOLOGY,
     sourceQuality: 'verified',
     notes: [
       'Production crew references cite a 60km diameter and 2km thickness.',
-      'Current playground approximates the ring as a short axial band for the existing cylinder traversal model.'
+      'Current playground approximates the ring as a short axial band for the existing cylinder traversal model.',
+      'Full-360 habitable floor (no window strips).'
     ]
   }
 ]
