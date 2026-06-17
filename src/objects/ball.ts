@@ -3,6 +3,7 @@ import type { Collider, RigidBody, World } from '@dimforge/rapier3d-compat'
 
 import type { RapierModule } from '../physics/rapierContext'
 import {
+  BALL_COLLISION_GROUPS,
   createRigidBodyAtRealPose,
   readRigidBodyPoseAsReal,
   scaleLengthForRapier,
@@ -162,7 +163,11 @@ export class Ball {
     this.collider = this.world.createCollider(
       options.physics.rapier.ColliderDesc.ball(scaleLengthForRapier(this.radius, this.units))
         .setRestitution(options.physics.restitution)
-        .setFriction(0.8),
+        .setFriction(0.8)
+        // Keep the solver out of ball<->building contact; balls resolve
+        // buildings analytically (without this, the default all-ones groups let
+        // Rapier collide them with the streamed building colliders too).
+        .setCollisionGroups(BALL_COLLISION_GROUPS),
       this.rigidBody
     )
 

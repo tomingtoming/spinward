@@ -21,10 +21,15 @@ import {
   stepFreeFlyPlayer,
   updatePlayerGroundContact
 } from './playerTraversal'
-import { getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
+import {
+  buildCityCollisionIndex,
+  getCityGroundHeight,
+  type CityBuilding
+} from '../objects/cityLayout'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { Accelerometer } from '../sim/accelerometer'
 import {
   inertialPositionToRotating,
@@ -883,4 +888,152 @@ test('tryReattachPlayer stays in free-fly when wall-relative speed is too high',
 
   expect(grounded).toBe(false)
   expect(state.mode).toBe('free-fly')
+})
+
+test('a streamed building collider blocks the walker (P1), no analytic pushout', async () => {
+  // Walk a grounded player straight at a building and compare with an empty
+  // city: the streamed collider must stop the walker at the building face while
+  // an empty city lets the same walk carry far past it.
+  const walkAtBuilding = async (withBuilding: boolean) => {
+    const rapier = await initRapier()
+    const world = new rapier.World({ x: 0, y: 0, z: 0 })
+    const units = createUnitsContext(0.02)
+    applyWorldLengthUnit(world, units)
+    const radius = 3200
+    const length = 40000
+    const omega = (Math.PI * 2) / 113.5
+    const wall = createRotatingCylinderBody(rapier, world, { radius, length, units })
+    wall.setAngularVelocity(omega)
+
+    const buildings: CityBuilding[] = withBuilding
+      ? [{ azimuth: 0.005, axial: 0, width: 14, depth: 60, height: 30, tone: 0.5, kind: 'block' }]
+      : []
+    const index = buildCityCollisionIndex(buildings, radius, length)
+    const city = createRotatingCityColliders(rapier, world, {
+      radius,
+      index,
+      units,
+      omega,
+      margin: 0.25
+    })
+
+    let frameAngle = 0
+    const state = createPlayerTraversalState(
+      { axialPosition: 0, azimuth: 0 },
+      radius,
+      frameAngle,
+      omega,
+      { rapier, world, units }
+    )
+    const deltaSeconds = 1 / 72
+
+    for (let i = 0; i < Math.round(5 / deltaSeconds); i += 1) {
+      frameAngle = THREE.MathUtils.euclideanModulo(
+        frameAngle + omega * deltaSeconds,
+        Math.PI * 2
+      )
+      stepGroundedPlayer(state, {
+        axisDistanceDelta: 0,
+        tangentDistanceDelta: 6 * deltaSeconds, // walk +tangent toward the building
+        radius,
+        length,
+        deltaSeconds,
+        omega,
+        frameAngleEnd: frameAngle
+      })
+      city.update(state.surface.azimuth, state.surface.axialPosition)
+      world.timestep = deltaSeconds
+      world.step()
+      syncPlayerTraversalFromPhysics(state)
+      syncGroundedSurfaceFromPhysics(state, frameAngle)
+    }
+
+    const tangential = state.surface.azimuth * radius
+    const mode = state.mode
+    city.dispose()
+    wall.dispose()
+    disposePlayerTraversalState(state)
+    world.free()
+    return { tangential, mode }
+  }
+
+  const blocked = await walkAtBuilding(true)
+  const free = await walkAtBuilding(false)
+
+  // Near face ~ 0.005*3200 - (14/2 + 0.25 margin) = 8.75 m: the walker reaches
+  // it (not stalled at the start) and stops there, staying grounded, while an
+  // empty city lets the same walk carry well past it.
+  expect(blocked.mode).toBe('grounded')
+  expect(blocked.tangential).toBeGreaterThan(6)
+  expect(blocked.tangential).toBeLessThan(12)
+  expect(free.tangential).toBeGreaterThan(20)
+})
+
+test('a free-fly drop lands on a real building roof collider (P1, no analytic)', async () => {
+  // App-faithful: the deleted confinePlayerToCityBuildings is NOT used; the
+  // streamed roof collider must catch the falling body and updatePlayerGroundContact
+  // must ground it at the roof height.
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(1)
+  applyWorldLengthUnit(world, units)
+  const radius = 30
+  const length = 60
+  const omega = 0.7
+  const building: CityBuilding = {
+    azimuth: 0,
+    axial: 0,
+    width: 12,
+    depth: 12,
+    height: 6,
+    tone: 0.5,
+    kind: 'block'
+  }
+  const index = buildCityCollisionIndex([building], radius, length)
+  const city = createRotatingCityColliders(rapier, world, { radius, index, units, omega, margin: 0.25 })
+  const sample = (azimuth: number, axialPosition: number, altitude: number) =>
+    getCityGroundHeight([building], radius, azimuth, axialPosition, altitude)
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    omega,
+    { rapier, world, units }
+  )
+
+  // Co-rotating, a few metres above the roof: spin gravity pulls it onto the
+  // real roof collider.
+  resetPlayerToFreeFly(state, {
+    rotatingPosition: new THREE.Vector3(radius - building.height - 3, 0, 0),
+    frameAngle: 0,
+    omega
+  })
+
+  const deltaSeconds = 1 / 72
+  let frameAngle = 0
+  let landed = false
+
+  for (let i = 0; i < 1200 && !landed; i += 1) {
+    frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + omega * deltaSeconds, Math.PI * 2)
+    const rotating = inertialPositionToRotating(state.inertialPosition, frameAngle, new THREE.Vector3())
+    city.update(Math.atan2(rotating.z, rotating.x), rotating.y)
+    world.timestep = deltaSeconds
+    world.step()
+    syncPlayerTraversalFromPhysics(state)
+    landed = updatePlayerGroundContact(state, {
+      radius,
+      length,
+      frameAngle,
+      omega,
+      sampleGroundHeight: sample
+    })
+  }
+
+  expect(landed).toBe(true)
+  expect(state.mode).toBe('grounded')
+  expect(state.groundHeight).toBeCloseTo(building.height, 5)
+
+  city.dispose()
+  disposePlayerTraversalState(state)
+  world.free()
 })

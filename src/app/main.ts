@@ -21,7 +21,6 @@ import { Accelerometer } from '../sim/accelerometer'
 import { syncHabitatRuntime } from './habitatRuntime'
 import {
   applyPlayerTraversalState,
-  confinePlayerToCityBuildings,
   createPlayerTraversalState,
   detachPlayerToFreeFly,
   disposePlayerTraversalState,
@@ -295,7 +294,9 @@ export const bootstrapApp = async () => {
     index: cityscape.getCollisionIndex(),
     units: getUnits(),
     omega: rpmToOmega(habitatConfig.rpm),
-    margin: 0.8
+    // Compromise inflation for two collider sizes sharing one set: the car's
+    // 0.5 m sphere and the walker's 0.32 m sphere both stop near their bodies.
+    margin: 0.25
   })
   const car = new Car()
   nearLayer.add(car.group)
@@ -1101,29 +1102,11 @@ export const bootstrapApp = async () => {
     }
 
     if (playerTraversal.mode === 'grounded') {
-      if (
-        !drive.driving &&
-        resolveCitySurfaceCollision(
-          playerTraversal.surface,
-          cityscape.getCollisionIndex(),
-          habitatConfig.radius,
-          undefined,
-          // Standing on a roof: only taller neighbours are walls.
-          playerTraversal.groundHeight + 1
-        )
-      ) {
-        // Walking is physical: when a footprint pushes the surface state
-        // out of a building, the live body must follow (and stop).
-        resetPlayerToGrounded(playerTraversal, {
-          axialPosition: playerTraversal.surface.axialPosition,
-          azimuth: playerTraversal.surface.azimuth,
-          radius: habitatConfig.radius,
-          frameAngle,
-          omega,
-          groundHeight: playerTraversal.groundHeight
-        })
-      }
-
+      // Walking into a building is real now: the streamed building colliders
+      // (P1) block the live body during the step — height-aware, so you still
+      // walk over shorter neighbours — and the analytic footprint pushout is
+      // gone. (Rooftops keep the analytic radial follow for now; the colliders
+      // hold the body just under it without conflict.)
       getSurfacePosition(playerTraversal.surface, habitatConfig.radius, playerFixedColliderPosition)
     } else {
       inertialPositionToRotating(
@@ -1137,18 +1120,16 @@ export const bootstrapApp = async () => {
     habitat.setFocusAzimuth(playerAzimuth)
     cityscape.setFocusAzimuth(playerAzimuth)
 
-    // Stream the building colliders to the car's neighbourhood before stepping.
-    cityColliders.update(drive.surface.azimuth, drive.surface.axialPosition)
+    // Stream the building colliders to whatever we're controlling — the car
+    // while driving, otherwise the walker — before stepping.
+    cityColliders.update(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+    )
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
     syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
-    confinePlayerToCityBuildings(playerTraversal, {
-      buildings: cityscape.getCollisionIndex(),
-      radius: habitatConfig.radius,
-      frameAngle,
-      omega
-    })
 
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })

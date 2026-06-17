@@ -617,6 +617,9 @@ export const syncPlayerTraversalFromPhysics = (state: PlayerTraversalState) => {
   })
 }
 
+// UNUSED by the app since P1 (the spinning wall is a real Rapier collider; the
+// free-fly body is contained by contact). Kept exported for its tests/reference;
+// a candidate for deletion in P4.
 export const confinePlayerToHabitatInterior = (
   state: PlayerTraversalState,
   config: FreeFlyInteriorConstraintConfig
@@ -677,9 +680,10 @@ export const confinePlayerToHabitatInterior = (
 const wrapAngleToPi = (angle: number) =>
   THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI
 
-// Free-fly collision against the city: buildings are analytic boxes in
-// surface space (no Rapier colliders), so jumps and flights bounce off
-// walls and can come to rest on rooftops instead of clipping through.
+// Free-fly collision against the city in surface space. UNUSED by the app since
+// P1 (buildings are real streamed Rapier colliders now, so the free-fly body
+// bounces/lands by contact); kept exported for its tests/reference and as a
+// fallback, a candidate for deletion in P4.
 export const confinePlayerToCityBuildings = (
   state: PlayerTraversalState,
   config: {

@@ -107,6 +107,11 @@ export const createRotatingCityColliders = (
 
     // Stream the active set to the buildings within the window around the focus
     // (the car/walker surface position). Returns the active collider count.
+    // INVARIANT: per-frame travel must stay well under the window half-size
+    // (~cellRadius * 64 m) or a fast body can reach a building before its
+    // collider streams in and tunnel through (bodies run CCD-off). Today the
+    // car (<=~10 m/step at the dt cap) and walker (<=~0.25 m/step) clear the
+    // ~64 m buffer easily; revisit if a max speed or the dt cap is raised.
     update(focusAzimuth: number, focusAxial: number) {
       collectCityBuildingsInWindow(index, focusAzimuth, focusAxial, cellRadius, near)
 
