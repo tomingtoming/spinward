@@ -924,6 +924,10 @@ export const bootstrapApp = async () => {
       altitude
     )
 
+  // Seat height: on foot the eye is 1.6 m above the floor, but riding the rover
+  // you sit up on the chassis, so lift the view while driving for a commanding
+  // road view instead of a ground-level one.
+  const DRIVER_VIEW_RAISE = 0.6
   // Landing absorb: the camera dips with the impact speed and springs back.
   const LAND_DIP_STIFFNESS = 6
   let landDipOffset = 0
@@ -1212,7 +1216,7 @@ export const bootstrapApp = async () => {
         2 * LAND_DIP_STIFFNESS * landDipVelocity) *
       deltaSeconds
     landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
-    viewRig.position.y = landDipOffset
+    viewRig.position.y = landDipOffset + (drive.driving ? DRIVER_VIEW_RAISE : 0)
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
