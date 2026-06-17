@@ -1,5 +1,9 @@
 import * as THREE from 'three'
-import { getWindowStripArcs } from './cityLayout'
+import {
+  ISLAND_THREE_TOPOLOGY,
+  type HabitatTopology
+} from '../sim/habitatConfig'
+import { getWindowArcs } from './cityLayout'
 import {
   createCylinderSurfaceTexture,
   getCylinderSurfaceRepeat
@@ -8,6 +12,7 @@ import {
 type CylinderDimensions = {
   radius: number
   length: number
+  topology?: HabitatTopology
 }
 
 type CylinderShellArc = {
@@ -289,6 +294,7 @@ export class CylinderHabitat {
   private radius = 0
   private length = 0
   private focusAzimuth = 0
+  private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
 
   constructor(dimensions: CylinderDimensions) {
     this.group.add(this.shellGroup)
@@ -296,9 +302,13 @@ export class CylinderHabitat {
     this.setDimensions(dimensions)
   }
 
-  setDimensions({ radius, length }: CylinderDimensions) {
+  setDimensions({ radius, length, topology }: CylinderDimensions) {
     this.radius = radius
     this.length = length
+
+    if (topology !== undefined) {
+      this.topology = topology
+    }
 
     this.rebuildShells()
 
@@ -458,7 +468,7 @@ export class CylinderHabitat {
     this.farShellTexture.offset.set(0, 0)
     this.farShellTexture.needsUpdate = true
 
-    const windowHoles: ArcInterval[] = getWindowStripArcs().map((arc) => ({
+    const windowHoles: ArcInterval[] = getWindowArcs(this.topology).map((arc) => ({
       start: arc.centerAzimuth - arc.arcRadians * 0.5,
       length: arc.arcRadians
     }))

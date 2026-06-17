@@ -1,14 +1,23 @@
+import type { HabitatTopology } from '../sim/habitatConfig'
 import { rpmToOmega } from '../units/units'
 
 const MIN_CAMERA_FAR = 4000
 
 type HabitatLike = {
-  setDimensions: (dimensions: { radius: number; length: number }) => void
+  setDimensions: (dimensions: {
+    radius: number
+    length: number
+    topology?: HabitatTopology
+  }) => void
   setFocusAzimuth: (focusAzimuth: number) => void
 }
 
 type CityscapeLike = {
-  setDimensions: (dimensions: { radius: number; length: number }) => void
+  setDimensions: (dimensions: {
+    radius: number
+    length: number
+    topology?: HabitatTopology
+  }) => void
 }
 
 type CloudsLike = {
@@ -61,6 +70,7 @@ type SyncHabitatRuntimeConfig<TUnits> = {
   frameAngle: number
   focusAzimuth: number
   units: TUnits
+  topology: HabitatTopology
 }
 
 export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
@@ -69,12 +79,14 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
 ) => {
   dependencies.habitat.setDimensions({
     radius: config.radius,
-    length: config.span
+    length: config.span,
+    topology: config.topology
   })
   dependencies.habitat.setFocusAzimuth(config.focusAzimuth)
   dependencies.cityscape.setDimensions({
     radius: config.radius,
-    length: config.span
+    length: config.span,
+    topology: config.topology
   })
   dependencies.clouds.setDimensions({
     radius: config.radius,

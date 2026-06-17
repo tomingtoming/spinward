@@ -1,15 +1,22 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  FULL_360_TOPOLOGY,
+  ISLAND_THREE_TOPOLOGY
+} from '../sim/habitatConfig'
+import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
   getCityCellSize,
   getCityGroundHeight,
+  getLandArcs,
   getOverlookAltitude,
   getOverlookTowerClearance,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
+  getWindowArcs,
   getWindowStripArcs,
+  isAzimuthOnLandArc,
   isAzimuthOnLandStrip,
   isInsidePlaza,
   planCity,
@@ -60,6 +67,44 @@ describe('getWindowStripArcs', () => {
     for (const arc of arcs) {
       expect(isAzimuthOnLandStrip(arc.centerAzimuth)).toBe(false)
       expect(arc.arcRadians).toBeCloseTo(STRIP_ARC_RADIANS)
+    }
+  })
+})
+
+describe('topology-aware land and window arcs', () => {
+  test('the default topology reproduces the three Island Three strips and windows', () => {
+    expect(getLandArcs()).toHaveLength(LAND_STRIP_COUNT)
+
+    const windows = getWindowArcs()
+    expect(windows).toHaveLength(LAND_STRIP_COUNT)
+
+    for (const arc of windows) {
+      expect(isAzimuthOnLandStrip(arc.centerAzimuth)).toBe(false)
+      expect(arc.arcRadians).toBeCloseTo(STRIP_ARC_RADIANS)
+    }
+
+    // The derived windows match the legacy hardcoded strips by center.
+    const legacyCenters = getWindowStripArcs()
+      .map((arc) => arc.centerAzimuth)
+      .sort((a, b) => a - b)
+    const derivedCenters = windows.map((arc) => arc.centerAzimuth).sort((a, b) => a - b)
+    for (let index = 0; index < legacyCenters.length; index += 1) {
+      expect(derivedCenters[index]).toBeCloseTo(legacyCenters[index], 6)
+    }
+  })
+
+  test('a full-circle land arc has no windows and is habitable everywhere', () => {
+    expect(getLandArcs(FULL_360_TOPOLOGY)).toHaveLength(1)
+    expect(getWindowArcs(FULL_360_TOPOLOGY)).toEqual([])
+
+    for (const azimuth of [0, STRIP_ARC_RADIANS, Math.PI, (2 * TWO_PI) / 3, -0.7]) {
+      expect(isAzimuthOnLandArc(azimuth, FULL_360_TOPOLOGY)).toBe(true)
+    }
+  })
+
+  test('isAzimuthOnLandArc agrees with the legacy strip test on the default topology', () => {
+    for (const azimuth of [0, STRIP_ARC_RADIANS, Math.PI, (2 * TWO_PI) / 3, -0.1]) {
+      expect(isAzimuthOnLandArc(azimuth)).toBe(isAzimuthOnLandStrip(azimuth))
     }
   })
 })
@@ -432,5 +477,39 @@ describe('planCity', () => {
       (building) => Math.abs(wrapToPi(building.azimuth - (TWO_PI * 2) / 3)) < STRIP_ARC_RADIANS
     )
     expect(oppositeStrip.length).toBeGreaterThan(0)
+  })
+
+  test('an explicit Island Three topology reproduces the default city exactly', () => {
+    const base = planCity({ radius: 18, length: 120, seed: 7 })
+    const explicit = planCity({
+      radius: 18,
+      length: 120,
+      seed: 7,
+      topology: ISLAND_THREE_TOPOLOGY
+    })
+    expect(explicit).toEqual(base)
+  })
+
+  test('a full-circle topology wraps the city around the entire circumference', () => {
+    const { buildings, roads } = planCity({
+      radius: 3200,
+      length: 32000,
+      topology: FULL_360_TOPOLOGY
+    })
+
+    expect(buildings.length).toBeGreaterThan(0)
+    expect(roads.length).toBeGreaterThan(0)
+
+    // The city now fills the former window gaps — buildings appear off the
+    // three Island Three land strips.
+    const inFormerWindows = buildings.filter(
+      (building) => !isAzimuthOnLandStrip(building.azimuth)
+    )
+    expect(inFormerWindows.length).toBeGreaterThan(0)
+
+    // Every building still sits on the (now full-circle) habitable wall.
+    for (const building of buildings) {
+      expect(isAzimuthOnLandArc(building.azimuth, FULL_360_TOPOLOGY)).toBe(true)
+    }
   })
 })

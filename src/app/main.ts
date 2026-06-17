@@ -141,13 +141,15 @@ export const bootstrapApp = async () => {
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
-    length: getHabitatSpan(habitatConfig)
+    length: getHabitatSpan(habitatConfig),
+    topology: habitatConfig.topology
   })
   const quality = getQualityProfile()
   const cityscape = new Cityscape(
     {
       radius: habitatConfig.radius,
-      length: getHabitatSpan(habitatConfig)
+      length: getHabitatSpan(habitatConfig),
+      topology: habitatConfig.topology
     },
     { maxBuildings: quality.maxBuildings }
   )
@@ -703,7 +705,8 @@ export const bootstrapApp = async () => {
         rpm: habitatConfig.rpm,
         frameAngle,
         focusAzimuth: 0,
-        units: getUnits()
+        units: getUnits(),
+        topology: habitatConfig.topology
       }
     )
     // The city index was just rebuilt for the new dimensions; re-seat the

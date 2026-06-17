@@ -1,3 +1,4 @@
+import { ISLAND_THREE_TOPOLOGY } from '../sim/habitatConfig'
 import type { SettingsStore } from '../state/settingsStore'
 import { omegaToRpm, periodToOmega } from '../units/units'
 import { HABITAT_PRESETS, type Preset } from './presets'
@@ -40,7 +41,8 @@ export const applyPresetToSettingsStore = (
     thickness: preset.real.thickness_m ?? 0,
     rpm: getPresetRpm(preset),
     simScale: preset.sim.scale,
-    currentPresetId: preset.id
+    currentPresetId: preset.id,
+    topology: preset.topology ?? ISLAND_THREE_TOPOLOGY
   })
   return preset
 }
