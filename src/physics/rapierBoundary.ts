@@ -34,11 +34,17 @@ export const applyWorldLengthUnit = (world: World, units: UnitsContext | number)
   world.lengthUnit = resolveUnits(units).simScale
 }
 
-// Collision groups: (membership << 16) | filter. The driver sits inside the
-// car's collider while driving, so the two must never collide; both still
-// collide with the wall (bit 1) and thrown balls (bit 8).
+// Collision groups: (membership << 16) | filter. Bits: wall 0x1, player 0x2,
+// car 0x4, ball 0x8, building 0x10. The driver sits inside the car's collider
+// while driving, so the two must never collide; both still collide with the
+// wall and thrown balls. The car also collides with streamed building colliders
+// (P1); the walker still uses analytic building collision, so buildings are NOT
+// in the player filter yet.
 export const PLAYER_COLLISION_GROUPS = (0x0002 << 16) | (0x0001 | 0x0008)
-export const CAR_COLLISION_GROUPS = (0x0004 << 16) | (0x0001 | 0x0008)
+export const CAR_COLLISION_GROUPS = (0x0004 << 16) | (0x0001 | 0x0008 | 0x0010)
+// Streamed city building colliders: members of bit 0x10, colliding only with
+// the car for now (add the player bit when the walker migrates off analytic).
+export const BUILDING_COLLISION_GROUPS = (0x0010 << 16) | 0x0004
 
 export const scaleVector3ForRapier = (
   realVector: THREE.Vector3,

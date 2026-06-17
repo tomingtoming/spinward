@@ -5,7 +5,10 @@ import { DriveRuntime } from './driveRuntime'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { Accelerometer } from '../sim/accelerometer'
+import { buildCityCollisionIndex, type CityBuilding } from '../objects/cityLayout'
+import { inertialPositionToRotating } from '../sim/frameTransforms'
 import { createUnitsContext, periodToOmega } from '../units/units'
 
 // P3: the car's radial axis is Rapier's contact with the spinning wall, not an
@@ -50,7 +53,7 @@ test('a parked car rests on the spinning wall and feels a measured ~1g', async (
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + IZMA_OMEGA * dt, Math.PI * 2)
     drive.preStep(
       { throttle: 0, steer: 0, brake: 0 },
-      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, buildings: [], units }
+      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, units }
     )
     world.timestep = dt
     world.step()
@@ -95,7 +98,7 @@ test('entering the car settles to 1g without a freefall slam', async () => {
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + IZMA_OMEGA * dt, Math.PI * 2)
     drive.preStep(
       { throttle: 0, steer: 0, brake: 0 },
-      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, buildings: [], units }
+      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, units }
     )
     world.timestep = dt
     world.step()
@@ -139,7 +142,7 @@ test('flooring the car against the spin drains the felt-G toward a real float', 
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + IZMA_OMEGA * dt, Math.PI * 2)
     drive.preStep(
       { throttle: 1, steer: 0, brake: 0 },
-      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, buildings: [], units }
+      { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, units }
     )
     world.timestep = dt
     world.step()
@@ -164,4 +167,82 @@ test('flooring the car against the spin drains the felt-G toward a real float', 
   wall.dispose()
   drive.dispose()
   world.free()
+})
+
+test('the car stops at a streamed building via real contact (P1), not an analytic clamp', async () => {
+  // Drive the real preStep -> cityColliders.update -> step -> postStep loop at
+  // a building and compare with an empty city: the building must stream in and
+  // stop the car at its near face, and the crash haptic must fire on the hit
+  // (and never without a building).
+  const driveTowardBuilding = async (withBuilding: boolean) => {
+    const rapier = await initRapier()
+    const world = new rapier.World({ x: 0, y: 0, z: 0 })
+    const units = createUnitsContext(IZMA_SIM_SCALE)
+    applyWorldLengthUnit(world, units)
+    world.maxCcdSubsteps = 4
+    const wall = createRotatingCylinderBody(rapier, world, {
+      radius: IZMA_RADIUS,
+      length: IZMA_LENGTH,
+      units
+    })
+    wall.setAngularVelocity(IZMA_OMEGA)
+
+    const buildings: CityBuilding[] = withBuilding
+      ? [{ azimuth: 0.025, axial: 0, width: 30, depth: 200, height: 60, tone: 0.5, kind: 'block' }]
+      : []
+    const index = buildCityCollisionIndex(buildings, IZMA_RADIUS, IZMA_LENGTH)
+    const city = createRotatingCityColliders(rapier, world, {
+      radius: IZMA_RADIUS,
+      index,
+      units,
+      omega: IZMA_OMEGA,
+      margin: 0.8
+    })
+
+    const drive = new DriveRuntime()
+    drive.rebuild({ rapier, world, units })
+    let frameAngle = 0
+    drive.parkAt(0, 0, Math.PI / 2) // heading +tangent, toward the building
+    drive.enter(frameAngle, IZMA_OMEGA, IZMA_RADIUS, { rapier, world, units })
+
+    const dt = 1 / 60
+    const steps = Math.round(10 / dt)
+    let maxActive = 0
+    let crashedFrames = 0
+    let maxTangential = -Infinity
+
+    for (let i = 0; i < steps; i += 1) {
+      frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + IZMA_OMEGA * dt, Math.PI * 2)
+      drive.preStep(
+        { throttle: 1, steer: 0, brake: 0 },
+        { deltaSeconds: dt, frameAngle, omega: IZMA_OMEGA, radius: IZMA_RADIUS, units }
+      )
+      maxActive = Math.max(maxActive, city.update(drive.surface.azimuth, drive.surface.axialPosition))
+      world.timestep = dt
+      world.step()
+      drive.postStep({ frameAngle, units })
+      if (drive.lastCrashed) crashedFrames += 1
+      const rotating = inertialPositionToRotating(drive.lastInertialPosition, frameAngle)
+      maxTangential = Math.max(maxTangential, Math.atan2(rotating.z, rotating.x) * IZMA_RADIUS)
+    }
+
+    city.dispose()
+    wall.dispose()
+    drive.dispose()
+    world.free()
+    return { maxActive, crashedFrames, maxTangential }
+  }
+
+  const hit = await driveTowardBuilding(true)
+  const clear = await driveTowardBuilding(false)
+
+  // The building streams in, stops the car at its near face (~64 m), and trips
+  // the crash haptic.
+  expect(hit.maxActive).toBeGreaterThan(0)
+  expect(hit.crashedFrames).toBeGreaterThan(0)
+  expect(hit.maxTangential).toBeLessThan(80)
+  // With an empty city nothing streams, the car coasts far past, and no crash.
+  expect(clear.maxActive).toBe(0)
+  expect(clear.crashedFrames).toBe(0)
+  expect(clear.maxTangential).toBeGreaterThan(200)
 })

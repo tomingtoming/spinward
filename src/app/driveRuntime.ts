@@ -20,10 +20,6 @@ import {
   stepVehicleDynamics,
   type VehicleInput
 } from '../gameplay/vehicle'
-import {
-  resolveCitySurfaceCollision,
-  type CityBuildingSource
-} from '../objects/cityLayout'
 import type { UnitsContext } from '../units/units'
 
 // The car's physics body is a sphere: the body's rotation is locked while
@@ -80,6 +76,8 @@ export class DriveRuntime {
 
   private body: RigidBody | null = null
   private world: World | null = null
+  // Previous frame's planar speed, to spot a crash as a hard one-frame drop.
+  private prevPlanarSpeed = 0
 
   // (Re)creates the physics body — call on boot and whenever the habitat
   // (and therefore the sim scale) is rebuilt.
@@ -142,6 +140,7 @@ export class DriveRuntime {
     }
 
     this.driving = true
+    this.prevPlanarSpeed = 0
     const cos = Math.cos(this.surface.azimuth)
     const sin = Math.sin(this.surface.azimuth)
     rotatingPosition
@@ -175,7 +174,6 @@ export class DriveRuntime {
       frameAngle: number
       omega: number
       radius: number
-      buildings: CityBuildingSource
       units: UnitsContext
     }
   ): DriveFrame | null {
@@ -244,7 +242,6 @@ export class DriveRuntime {
     // driving into the wall, and keep the slide along it (with a scrape).
     this.surface.azimuth = azimuth
     this.surface.axialPosition = rotatingPosition.y
-    this.lastCrashed = false
     this.lastGrounded = grounded
     // Report the in-plane driving speed only: the radial axis is real contact
     // now, so its small settling wobble must not flicker the speedometer.
@@ -252,6 +249,11 @@ export class DriveRuntime {
     this.lastSpeed = Math.sqrt(
       Math.max(0, rotatingVelocity.lengthSq() - radialSpeed * radialSpeed)
     )
+    // Crash haptic from a hard one-frame deceleration — a real building hit
+    // resolved by Rapier contact last step. Braking is far gentler (well under
+    // 1 m/s per frame), so it never trips this.
+    this.lastCrashed = this.prevPlanarSpeed - this.lastSpeed > 5
+    this.prevPlanarSpeed = this.lastSpeed
     this.lastRadialGap = config.radius - radialDistance
     this.lastContacts = 0
     {
@@ -272,39 +274,10 @@ export class DriveRuntime {
       }
     }
 
-    if (
-      resolveCitySurfaceCollision(this.surface, config.buildings, config.radius, 1.3)
-    ) {
-      this.lastCrashed = true
-      const pushTangent = wrapDelta(this.surface.azimuth - azimuth) * config.radius
-      const pushAxial = this.surface.axialPosition - rotatingPosition.y
-      const pushLength = Math.hypot(pushTangent, pushAxial)
-
-      if (pushLength > 1e-9) {
-        const normalTangent = pushTangent / pushLength
-        const normalAxial = pushAxial / pushLength
-        const intoWall =
-          rotatingVelocity.dot(surfaceTangent) * normalTangent +
-          rotatingVelocity.y * normalAxial
-
-        if (intoWall < 0) {
-          rotatingVelocity.addScaledVector(surfaceTangent, -intoWall * normalTangent)
-          rotatingVelocity.y += -intoWall * normalAxial
-        }
-
-        rotatingVelocity.multiplyScalar(0.9)
-      }
-
-      const cos = Math.cos(this.surface.azimuth)
-      const sin = Math.sin(this.surface.azimuth)
-      rotatingPosition.set(
-        cos * radialDistance,
-        this.surface.axialPosition,
-        sin * radialDistance
-      )
-      rotatingPositionToInertial(rotatingPosition, frameAngleStart, inertialPosition)
-      setRigidBodyTranslationFromReal(this.body, inertialPosition, config.units, true)
-    }
+    // Buildings are real co-rotating Rapier colliders now (P1, streamed near
+    // the car): the world step stops the car against them, so the old analytic
+    // footprint pushout is gone. Only the tangential tire velocity is written
+    // back below; the building normal force lives in the solver.
 
     rotatingVelocityToInertial(
       rotatingPosition,

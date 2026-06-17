@@ -291,6 +291,48 @@ export const resolveBuildingsNear = (
     ? queryCityBuildingsNear(source, azimuth, axialPosition)
     : source
 
+// Collect every building within a square window of cells around (azimuth,
+// axialPosition), deduplicated into `out`. Used to stream a small active set of
+// Rapier colliders around the car/walker (a building can sit in several cells,
+// hence the Set). cellRadius 1 = a 3x3 cell window (~192 m at the 64 m grid).
+export const collectCityBuildingsInWindow = (
+  index: CityCollisionIndex,
+  azimuth: number,
+  axialPosition: number,
+  cellRadius: number,
+  out: Set<CityBuilding>
+): Set<CityBuilding> => {
+  out.clear()
+  const circumference = TWO_PI * index.radius
+  const tangent = positiveModulo(azimuth, TWO_PI) * index.radius
+  const centerColumn = Math.floor((tangent / circumference) * index.azimuthCellCount)
+  const centerRow = Math.floor((axialPosition - index.axialMin) / index.axialCellSize)
+
+  for (let dc = -cellRadius; dc <= cellRadius; dc += 1) {
+    const column =
+      (((centerColumn + dc) % index.azimuthCellCount) + index.azimuthCellCount) %
+      index.azimuthCellCount
+
+    for (let dr = -cellRadius; dr <= cellRadius; dr += 1) {
+      const row = centerRow + dr
+
+      if (row < 0 || row >= index.axialCellCount) {
+        continue
+      }
+
+      const bucket = index.cells.get(row * index.azimuthCellCount + column)
+
+      if (bucket !== undefined) {
+        for (const building of bucket) {
+          out.add(building)
+        }
+      }
+    }
+  }
+
+  return out
+}
+
 // Walking collision against building footprints, resolved in the unrolled
 // surface plane (tangent meters x axial meters). Pushes the position out of
 // any overlapped footprint along the axis of least penetration.

@@ -72,6 +72,7 @@ import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
+import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { applyPresetToSettingsStore, getPresetById, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
@@ -285,6 +286,17 @@ export const bootstrapApp = async () => {
     units: getUnits()
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
+  // Real co-rotating building colliders, streamed near the car (P1). Inflated a
+  // little so the car's small physics sphere stops near where its larger body
+  // would. Collides with the car only for now; the walker still uses analytic
+  // building collision. Rebuilt with the real city index in syncHabitat below.
+  const cityColliders = createRotatingCityColliders(rapier, physicsWorld, {
+    radius: habitatConfig.radius,
+    index: cityscape.getCollisionIndex(),
+    units: getUnits(),
+    omega: rpmToOmega(habitatConfig.rpm),
+    margin: 0.8
+  })
   const car = new Car()
   nearLayer.add(car.group)
   const drive = new DriveRuntime()
@@ -655,6 +667,14 @@ export const bootstrapApp = async () => {
         units: getUnits()
       }
     )
+    // The city index was just rebuilt for the new dimensions; re-seat the
+    // streamed building colliders onto it (and the new sim scale / spin).
+    cityColliders.rebuild({
+      radius: habitatConfig.radius,
+      index: cityscape.getCollisionIndex(),
+      units: getUnits()
+    })
+    cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
     // Noticeable haze at roughly one diameter, regardless of habitat scale.
     fog.density = 0.42 / habitatConfig.radius
   }
@@ -1028,7 +1048,6 @@ export const bootstrapApp = async () => {
           frameAngle,
           omega,
           radius: habitatConfig.radius,
-          buildings: cityscape.getCollisionIndex(),
           units: getUnits()
         }
       )
@@ -1118,6 +1137,8 @@ export const bootstrapApp = async () => {
     habitat.setFocusAzimuth(playerAzimuth)
     cityscape.setFocusAzimuth(playerAzimuth)
 
+    // Stream the building colliders to the car's neighbourhood before stepping.
+    cityColliders.update(drive.surface.azimuth, drive.surface.axialPosition)
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
     syncPlayerTraversalFromPhysics(playerTraversal)
@@ -1513,6 +1534,7 @@ export const bootstrapApp = async () => {
     mobileControls?.dispose()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
+    cityColliders.dispose()
     cylinderWall.dispose()
     vrLocomotion?.clutchDebug.dispose()
     physicsWorld.free()
