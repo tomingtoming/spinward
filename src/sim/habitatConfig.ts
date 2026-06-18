@@ -77,3 +77,29 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
 export const getHabitatSpan = (
   config: Pick<HabitatConfig, 'type' | 'length' | 'thickness'>
 ) => (config.type === 'ring' ? Math.max(config.thickness, config.length) : config.length)
+
+// Depth of the breathable air shell, measured inward from the floor toward the
+// spin axis. An O'Neill cylinder is pressurized across its whole bore, so the
+// air reaches ~the axis (depth ≈ radius). A ring (open torus, Elysium) holds
+// only a thin layer against its floor by spin alone — the bore out to the axis
+// is vacuum — so the air is about as deep as the rim (depth ≈ thickness).
+export const getAtmosphereDepth = (
+  config: Pick<HabitatConfig, 'type' | 'radius' | 'thickness'>
+) => (config.type === 'ring' ? config.thickness : config.radius)
+
+// Fraction of a straight cross-interior sightline (floor to the opposite floor:
+// a diameter chord) that actually passes through the air shell r ∈ [R−depth, R].
+// Along a diameter chord the radius runs R → 0 → R, so the in-air length is
+// 2·depth out of the 2·R chord: the fraction is depth / R. A full-bore cylinder
+// gives 1 — uniform haze, unchanged — while a thin ring shell gives a small
+// fraction, so the far rim shows through the vacuum bore instead of being
+// socked in. Used to scale the (uniform) fog density down for confined air.
+export const getAirColumnFraction = (
+  config: Pick<HabitatConfig, 'type' | 'radius' | 'thickness'>
+) => {
+  if (config.radius <= 0) {
+    return 0
+  }
+
+  return Math.min(1, Math.max(0, getAtmosphereDepth(config) / config.radius))
+}

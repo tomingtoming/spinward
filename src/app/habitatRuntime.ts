@@ -34,6 +34,10 @@ type StarfieldLike = {
   setFrameAngle: (frameAngle: number) => void
 }
 
+type SunLike = {
+  setDimensions: (dimensions: { radius: number; length: number }) => void
+}
+
 type CameraLike = {
   far: number
   updateProjectionMatrix: () => void
@@ -50,6 +54,7 @@ type SyncHabitatRuntimeDependencies<TPlayerRig, TPlayerTraversal, TUnits> = {
   clouds: CloudsLike
   spaceport: SpaceportLike
   starfield: StarfieldLike
+  sun: SunLike
   camera: CameraLike
   inertialObserverCamera: CameraLike
   cylinderWall: RotatingCylinderLike<TUnits>
@@ -97,6 +102,10 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     length: config.span
   })
   dependencies.starfield.setDimensions({
+    radius: config.radius,
+    length: config.span
+  })
+  dependencies.sun.setDimensions({
     radius: config.radius,
     length: config.span
   })

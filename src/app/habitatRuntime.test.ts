@@ -22,6 +22,9 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
     getSuggestedCameraFar: mock(() => 2800),
     setFrameAngle: mock(() => {})
   }
+  const sun = {
+    setDimensions: mock(() => {})
+  }
   const camera = {
     far: 0,
     updateProjectionMatrix: mock(() => {})
@@ -46,6 +49,7 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
       clouds,
       spaceport,
       starfield,
+      sun,
       camera,
       inertialObserverCamera,
       cylinderWall,
@@ -69,6 +73,7 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   expect(clouds.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(spaceport.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(starfield.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
+  expect(sun.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(starfield.setFrameAngle).toHaveBeenCalledWith(1.25)
   expect(camera.far).toBe(4000)
   expect(camera.updateProjectionMatrix).toHaveBeenCalledTimes(1)

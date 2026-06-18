@@ -5,6 +5,13 @@ type StarfieldDimensions = {
   length: number
 }
 
+// Radius of the inertial star shell. Big habitats would otherwise push the
+// shell inside the camera, so it is sized off whichever spans the scene: a
+// floor of 250, four habitat radii, or 2.5 lengths. The sun shares this so it
+// parks among the far stars rather than drifting off on its own scale.
+export const computeStarShellRadius = (radius: number, length: number) =>
+  Math.max(250, radius * 4, length * 2.5)
+
 const shellDirection = new THREE.Vector3()
 
 export class Starfield {
@@ -31,7 +38,7 @@ export class Starfield {
   }
 
   setDimensions({ radius, length }: StarfieldDimensions) {
-    this.radius = Math.max(250, radius * 4, length * 2.5)
+    this.radius = computeStarShellRadius(radius, length)
 
     if (this.stars !== null) {
       this.stars.geometry.dispose()
@@ -49,6 +56,10 @@ export class Starfield {
 
   getSuggestedCameraFar() {
     return this.radius * 1.25
+  }
+
+  getShellRadius() {
+    return this.radius
   }
 
   private buildStarsGeometry(radius: number, count: number) {
