@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import {
   ISLAND_THREE_TOPOLOGY,
-  type HabitatTopology
+  type HabitatTopology,
+  type HabitatType
 } from '../sim/habitatConfig'
 import { getWindowArcs } from './cityLayout'
 import {
@@ -13,6 +14,9 @@ type CylinderDimensions = {
   radius: number
   length: number
   topology?: HabitatTopology
+  // 'ring' (Elysium): an open torus, not an enclosed tube — it gets no axial
+  // end caps, just the band's rim edge.
+  type?: HabitatType
 }
 
 type CylinderShellArc = {
@@ -305,6 +309,7 @@ export class CylinderHabitat {
   private length = 0
   private focusAzimuth = 0
   private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+  private habitatType: HabitatType = 'cylinder'
 
   constructor(dimensions: CylinderDimensions) {
     this.group.add(this.shellGroup)
@@ -312,12 +317,16 @@ export class CylinderHabitat {
     this.setDimensions(dimensions)
   }
 
-  setDimensions({ radius, length, topology }: CylinderDimensions) {
+  setDimensions({ radius, length, topology, type }: CylinderDimensions) {
     this.radius = radius
     this.length = length
 
     if (topology !== undefined) {
       this.topology = topology
+    }
+
+    if (type !== undefined) {
+      this.habitatType = type
     }
 
     this.rebuildShells()
@@ -353,6 +362,9 @@ export class CylinderHabitat {
     // End-lit colonies (full-360, no longitudinal windows) glaze their sun-
     // facing end for daylight; side-lit ones keep both ends opaque.
     const endLit = getWindowArcs(this.topology).length === 0
+    // An open ring (Elysium) is not an enclosed tube: it has no axial end caps
+    // at all — only the band's rim edge — so it skips the bulkheads and panes.
+    const isRing = this.habitatType === 'ring'
     const geometries: THREE.BufferGeometry[] = []
     const hazeGeometries: THREE.BufferGeometry[] = []
 
@@ -391,6 +403,11 @@ export class CylinderHabitat {
       rim.rotateX(Math.PI * 0.5)
       rim.translate(0, y, 0)
       geometries.push(rim)
+
+      if (isRing) {
+        // No cap, no spokes, no pane — just the rim edge above.
+        continue
+      }
 
       if (!isPortEnd && endLit) {
         // Sun-facing daylight window of an end-lit colony: spoke mullions over a
