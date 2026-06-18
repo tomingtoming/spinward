@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { getWindowArcs } from '../objects/cityLayout'
 import { createSettingsStore } from '../state/settingsStore'
 import {
   applyPresetToSettingsStore,
@@ -69,14 +70,17 @@ test('full-floor presets carry one full-circle land arc; only Izma keeps three s
   expect(settingsStore.habitat.topology.landArcs).toHaveLength(3)
 })
 
-test('only Izma closes its end caps; full-floor presets keep open docking rings', () => {
+test('lighting type drives the end caps: only Izma is side-lit; full-floor presets are end-lit', () => {
+  // End-cap geometry is derived from whether the colony has longitudinal side
+  // windows (side-lit → both ends opaque) or not (end-lit → a glazed +Y daylight
+  // window). The legacy endStructure flag no longer drives it.
   const settingsStore = createSettingsStore()
 
   applyPresetToSettingsStore(settingsStore, 'izma')
-  expect(settingsStore.habitat.topology.endStructure).toBe('closed-cap')
+  expect(getWindowArcs(settingsStore.habitat.topology).length).toBeGreaterThan(0)
 
   for (const presetId of ['playground', 'cooper', 'elysium']) {
     applyPresetToSettingsStore(settingsStore, presetId)
-    expect(settingsStore.habitat.topology.endStructure).toBe('docking-ring')
+    expect(getWindowArcs(settingsStore.habitat.topology)).toHaveLength(0)
   }
 })

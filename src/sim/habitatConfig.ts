@@ -10,17 +10,17 @@ export type LandArc = {
   arcRadians: number
 }
 
-// How the axial end faces are built: open docking rings (rim, hub and spokes
-// with the spoke gaps open to space — you can see stars through them and drift
-// out) or a closed cap (a solid annulus from the central hub aperture out to
-// the wall, so the cylinder reads as enclosed).
+// Descriptive metadata only. The end caps no longer read this: CylinderHabitat
+// now derives each end from the sun side (the spaceport always sits on -Y) and
+// whether the colony is end-lit (no side windows → a glazed +Y daylight
+// window). Retained for preset readability and tests; safe to remove later.
 export type EndStructure = 'docking-ring' | 'closed-cap'
 
 // How the habitable wall is laid out around the circumference. Everything
 // window-derived (the carved shell openings, the external mirrors, the glow
 // strips) is computed from `landArcs`, so flipping the arcs reshapes the
-// colony without forking the renderers. `endStructure` is orthogonal: it
-// picks how the two axial ends are capped.
+// colony without forking the renderers. `endStructure` is vestigial metadata
+// (see above) and no longer affects how the ends are capped.
 export type HabitatTopology = {
   landArcs: LandArc[]
   endStructure: EndStructure
