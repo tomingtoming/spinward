@@ -62,6 +62,7 @@ import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
+import { Sun, getWindowSunPosition } from '../objects/sun'
 import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 import { createFullscreenToggle } from '../pc/fullscreen'
@@ -120,9 +121,15 @@ export const bootstrapApp = async () => {
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
-  // Aero perspective: the far side of town fades into a light haze. Density
-  // is rescaled to the habitat radius in syncHabitat.
-  const fog = new THREE.FogExp2(0x5f7587, 0.02)
+  // Aero perspective: the far side of town fades into haze. Haze is a property
+  // of the AIR — a fixed extinction per metre — not of the habitat, so the
+  // longer the sightline the hazier it gets: a giant colony's far wall (km of
+  // air) dissolves while a small one's stays crisp. (Earlier this was scaled by
+  // 1/radius, which made every habitat equally foggy at one diameter — wrong:
+  // more air should mean more haze.) Anchored so Izma (R=3200) keeps its tuned
+  // look (≈ the prior 0.7 / 3200). Raise it for thicker air everywhere.
+  const AIR_FOG_DENSITY = 2.2e-4
+  const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
   scene.fog = fog
   const fogDayColor = new THREE.Color(0x728ba0)
   const fogNightColor = new THREE.Color(0x1b2530)
@@ -168,7 +175,14 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  // The sun hangs on the +Y axis — the spaceport-free end — so that end always
+  // faces it. It lives in the inertial sky, not the rotating colony.
+  const sun = new Sun({
+    radius: habitatConfig.radius,
+    length: getHabitatSpan(habitatConfig)
+  })
   skyLayer.add(starfield.group)
+  skyLayer.add(sun.group)
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
   nearLayer.add(clouds.group)
@@ -296,16 +310,14 @@ export const bootstrapApp = async () => {
 
   // Sunlight enters through the three window strips: one directional light
   // per strip, pointing inward from the window's center azimuth. They live in
-  // nearLayer so they stay colony-fixed under the inertial observer mode.
+  // nearLayer so they stay colony-fixed under the inertial observer mode. Each
+  // is lifted toward +Y so the light rakes down from the sun end — agreeing
+  // with where the sun visibly hangs — rather than arriving dead flat.
   const windowSuns: THREE.DirectionalLight[] = []
 
   for (const arc of getWindowStripArcs()) {
     const windowSun = new THREE.DirectionalLight(0xfff2dd, 1.3)
-    windowSun.position.set(
-      Math.cos(arc.centerAzimuth) * 10,
-      0,
-      Math.sin(arc.centerAzimuth) * 10
-    )
+    windowSun.position.copy(getWindowSunPosition(arc.centerAzimuth))
     nearLayer.add(windowSun)
     nearLayer.add(windowSun.target)
     windowSuns.push(windowSun)
@@ -692,6 +704,7 @@ export const bootstrapApp = async () => {
         clouds,
         spaceport,
         starfield,
+        sun,
         camera,
         inertialObserverCamera,
         cylinderWall,
@@ -717,8 +730,8 @@ export const bootstrapApp = async () => {
       units: getUnits()
     })
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
-    // Noticeable haze at roughly one diameter, regardless of habitat scale.
-    fog.density = 0.42 / habitatConfig.radius
+    // Fog density is a fixed property of the air (AIR_FOG_DENSITY), not the
+    // habitat size, so it is set once at fog creation and not rescaled here.
   }
 
   syncHabitat()
@@ -1559,6 +1572,7 @@ export const bootstrapApp = async () => {
     cityscape.dispose()
     clouds.dispose()
     spaceport.dispose()
+    sun.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
