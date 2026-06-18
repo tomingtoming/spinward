@@ -1,6 +1,8 @@
-# Inertial Worlds
+# Spinward
 
-**回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。**
+**Held by the spin. Not by gravity.**
+
+回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。
 A WebXR experiment in rotating habitats.
 
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
@@ -61,9 +63,9 @@ GitHub repository secrets に以下を設定してください。
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 
-Cloudflare API token には Cloudflare Pages の edit 権限が必要です。Pages project name は `inertial-worlds` です。
+Cloudflare API token には Cloudflare Pages の edit 権限が必要です。Pages project name は `spinward` です。
 
-OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inertial-worlds.toming.app/`)と `public/og.png`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。
+OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og.png`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。
 
 ## Quest での注意
 
@@ -106,7 +108,7 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://inert
 - スマホ: 描画はモバイル品質(pixelRatio 上限 1.75、建物 6000 棟、雲 50%)に自動調整されます。着地や衝突で軽い振動フィードバックが入ります(Android)。ホーム画面に追加すればフルスクリーンの PWA として起動します。
 - HUD は左下のステータスチップ(preset / g / rpm / mode)と、折りたたみ式の `controls` / `debug` ドロワーに整理されています。デバッグ数値は `debug` を開くと見られます。
 - **音響**(全合成、アセットなし):ハビタットの環境音、スロー/バウンド/ジャンプ/着地/UIクリックのSFX。初回操作で有効化され、`M` でミュートできます。ボールのバウンド音は衝撃と距離で減衰します。
-- 起動時にはスプラッシュ(INERTIAL WORLDS)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。
+- 起動時にはスプラッシュ(SPINWARD)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。
 - GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。

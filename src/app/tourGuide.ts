@@ -20,7 +20,7 @@ const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'ju
 
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   start: {
-    title: 'INERTIAL WORLDS',
+    title: 'SPINWARD',
     body: [
       'You live on the inside of a spinning cylinder.',
       'The floor pushes you in a circle - that push is your "gravity".',

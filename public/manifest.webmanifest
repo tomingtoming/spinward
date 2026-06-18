@@ -1,7 +1,7 @@
 {
-  "name": "Inertial Worlds",
-  "short_name": "Inertial Worlds",
-  "description": "A WebXR experiment in rotating habitats: feel artificial gravity inside a spinning colony.",
+  "name": "Spinward",
+  "short_name": "Spinward",
+  "description": "Held by the spin. Not by gravity. A WebXR experiment in rotating habitats: feel artificial gravity inside a spinning colony.",
   "start_url": ".",
   "display": "fullscreen",
   "orientation": "landscape",

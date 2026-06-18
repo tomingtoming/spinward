@@ -2,7 +2,7 @@
   // Static-assets-only Worker: Vite builds the site to dist/ and Cloudflare
   // serves it directly. There is no Worker script (no `main`), so the deploy
   // command `wrangler versions upload` just uploads the built assets.
-  "name": "inertial-worlds",
+  "name": "spinward",
   "compatibility_date": "2026-06-17",
   "assets": {
     "directory": "./dist"
