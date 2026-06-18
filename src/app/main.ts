@@ -77,7 +77,7 @@ import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { applyPresetToSettingsStore, getPresetById, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
-import { getHabitatSpan } from '../sim/habitatConfig'
+import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createHud } from '../ui/hud'
@@ -127,7 +127,9 @@ export const bootstrapApp = async () => {
   // air) dissolves while a small one's stays crisp. (Earlier this was scaled by
   // 1/radius, which made every habitat equally foggy at one diameter — wrong:
   // more air should mean more haze.) Anchored so Izma (R=3200) keeps its tuned
-  // look (≈ the prior 0.7 / 3200). Raise it for thicker air everywhere.
+  // look (≈ the prior 0.7 / 3200). Raise it for thicker air everywhere. The
+  // confined-air case (a ring's vacuum bore) is handled in syncHabitat, which
+  // scales this by how much of a sightline is actually air (getAirColumnFraction).
   const AIR_FOG_DENSITY = 2.2e-4
   const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
   scene.fog = fog
@@ -730,8 +732,13 @@ export const bootstrapApp = async () => {
       units: getUnits()
     })
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
-    // Fog density is a fixed property of the air (AIR_FOG_DENSITY), not the
-    // habitat size, so it is set once at fog creation and not rescaled here.
+    // Haze is the fixed air extinction (AIR_FOG_DENSITY) scaled by how much of a
+    // cross-interior sightline actually lies in air. A cylinder is air to the
+    // axis (fraction 1, unchanged); an open ring like Elysium holds only a thin
+    // shell on its floor, so most of a cross-bore sightline is vacuum and the
+    // far rim stays visible instead of socking in. THREE's fog is uniform, so
+    // this is the representative-sightline approximation, not a per-ray integral.
+    fog.density = AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig)
   }
 
   syncHabitat()
