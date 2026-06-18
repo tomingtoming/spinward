@@ -293,6 +293,14 @@ export class CylinderHabitat {
   private readonly landmarks = new THREE.Group()
   private startMarker: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null
   private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
+  // The transparent pane glazing the sun-facing (+Y) daylight window of an
+  // end-lit colony (full-360, no longitudinal side windows). It shares the
+  // window haze material, so it stays clear up close — the sun and stars show
+  // through — yet veils to milky fog at distance, so the far opening reads as
+  // hazy air rather than a crisp hole to vacuum. The spaceport (-Y) end and a
+  // side-lit colony's +Y end are opaque bulkheads and get no pane (so this is
+  // null for side-lit colonies like Izma).
+  private endHazePanes: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
   private radius = 0
   private length = 0
   private focusAzimuth = 0
@@ -319,57 +327,95 @@ export class CylinderHabitat {
     this.rebuildEndCaps(radius, length)
   }
 
-  // Both ends carry a rim ring and a central hub ring. The space between them
-  // is either left open as radial docking spokes ('docking-ring' — you can see
-  // stars through the gaps and drift out) or filled with a solid annulus
-  // ('closed-cap' — an enclosed Island Three cylinder), keeping the central hub
-  // aperture clear in both cases so the docking port still reaches the axis.
+  // The far end faces are the colony's pressure hull. The spaceport end (-Y —
+  // the side opposite the sun) is always a solid, opaque bulkhead: there is no
+  // atmosphere to look through there, so no transparent pane. The sun-facing
+  // end (+Y) is opaque too on a side-lit colony (Izma draws daylight from the
+  // longitudinal window strips), but on an end-lit colony (full-360, no side
+  // windows) it becomes a glazed daylight window — a spoke frame over a
+  // transparent haze pane that lets the sun in and veils to fog at distance
+  // rather than reading as a crisp hole to vacuum.
   private rebuildEndCaps(radius: number, length: number) {
-    if (this.endCaps !== null) {
-      this.endCaps.geometry.dispose()
-      this.group.remove(this.endCaps)
-      this.endCaps = null
+    for (const mesh of [this.endCaps, this.endHazePanes]) {
+      if (mesh !== null) {
+        mesh.geometry.dispose()
+        this.group.remove(mesh)
+      }
     }
+    this.endCaps = null
+    this.endHazePanes = null
 
     const tube = Math.max(0.15, Math.min(radius * 0.012, length * 0.02))
     const rimRadius = radius - tube * 1.2
     const hubRadius = radius * 0.26
     const spokeLength = rimRadius - hubRadius
     const spokeCount = 8
-    const closed = this.topology.endStructure === 'closed-cap'
+    // End-lit colonies (full-360, no longitudinal windows) glaze their sun-
+    // facing end for daylight; side-lit ones keep both ends opaque.
+    const endLit = getWindowArcs(this.topology).length === 0
     const geometries: THREE.BufferGeometry[] = []
+    const hazeGeometries: THREE.BufferGeometry[] = []
+
+    const addHubRing = (y: number) => {
+      const hub = new THREE.TorusGeometry(hubRadius, tube, 6, 20)
+      hub.rotateX(Math.PI * 0.5)
+      hub.translate(0, y, 0)
+      geometries.push(hub)
+    }
+
+    // A solid, opaque end cap: the colony's structural bulkhead.
+    const addSolidCap = (y: number) => {
+      const cap = new THREE.CircleGeometry(radius, 64)
+      cap.rotateX(Math.PI * 0.5)
+      cap.translate(0, y, 0)
+      geometries.push(cap)
+    }
+
+    // A transparent haze pane glazing an end opening, parked just inside the end
+    // plane and facing outward so it shows from inside (the haze material is
+    // BackSide). It veils to fog at distance, stays clear up close.
+    const addHazePane = (y: number, endSign: number, paneRadius: number) => {
+      const pane = new THREE.CircleGeometry(paneRadius, 48)
+      pane.rotateX(-endSign * Math.PI * 0.5)
+      pane.translate(0, y - endSign * tube, 0)
+      hazeGeometries.push(pane)
+    }
 
     for (const endSign of [-1, 1]) {
       const y = endSign * length * 0.5
+      // The spaceport hub always sits on the -Y end (see Spaceport); that end —
+      // the side opposite the sun — is the opaque docking bulkhead.
+      const isPortEnd = endSign < 0
 
       const rim = new THREE.TorusGeometry(rimRadius, tube, 6, 48)
       rim.rotateX(Math.PI * 0.5)
       rim.translate(0, y, 0)
       geometries.push(rim)
 
-      const hub = new THREE.TorusGeometry(hubRadius, tube, 6, 20)
-      hub.rotateX(Math.PI * 0.5)
-      hub.translate(0, y, 0)
-      geometries.push(hub)
+      if (!isPortEnd && endLit) {
+        // Sun-facing daylight window of an end-lit colony: spoke mullions over a
+        // transparent haze pane.
+        addHubRing(y)
+        addHazePane(y, endSign, radius)
 
-      if (closed) {
-        // Solid annulus from the hub aperture out to the wall, closing the
-        // gaps the spokes would leave open to space.
-        const cap = new THREE.RingGeometry(hubRadius, radius, 64)
-        cap.rotateX(Math.PI * 0.5)
-        cap.translate(0, y, 0)
-        geometries.push(cap)
+        for (let index = 0; index < spokeCount; index += 1) {
+          const angle = (index / spokeCount) * fullTurn
+          const spoke = new THREE.BoxGeometry(spokeLength, tube * 1.6, tube * 1.6)
+          spoke.translate(hubRadius + spokeLength * 0.5, 0, 0)
+          spoke.rotateY(-angle)
+          spoke.translate(0, y, 0)
+          geometries.push(spoke)
+        }
+
         continue
       }
 
-      for (let index = 0; index < spokeCount; index += 1) {
-        const angle = (index / spokeCount) * fullTurn
-        const spoke = new THREE.BoxGeometry(spokeLength, tube * 1.6, tube * 1.6)
-        spoke.translate(hubRadius + spokeLength * 0.5, 0, 0)
-        spoke.rotateY(-angle)
-        spoke.translate(0, y, 0)
-        geometries.push(spoke)
+      // Opaque bulkhead: the spaceport (-Y) end, or a side-lit colony's +Y wall.
+      // The port end carries a hub ring as an airlock-hatch detail.
+      if (isPortEnd) {
+        addHubRing(y)
       }
+      addSolidCap(y)
     }
 
     const merged = mergeBufferGeometries(geometries)
@@ -378,12 +424,21 @@ export class CylinderHabitat {
       geometry.dispose()
     }
 
-    if (merged === null) {
-      return
+    if (merged !== null) {
+      this.endCaps = new THREE.Mesh(merged, this.endCapMaterial)
+      this.group.add(this.endCaps)
     }
 
-    this.endCaps = new THREE.Mesh(merged, this.endCapMaterial)
-    this.group.add(this.endCaps)
+    const mergedHaze = mergeBufferGeometries(hazeGeometries)
+
+    for (const geometry of hazeGeometries) {
+      geometry.dispose()
+    }
+
+    if (mergedHaze !== null) {
+      this.endHazePanes = new THREE.Mesh(mergedHaze, this.hazeMaterial)
+      this.group.add(this.endHazePanes)
+    }
   }
 
   setFocusAzimuth(focusAzimuth: number) {
