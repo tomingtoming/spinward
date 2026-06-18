@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "quest-three-vr",
+      "name": "spinward",
       "dependencies": {
         "@dimforge/rapier3d-compat": "^0.19.3",
         "lil-gui": "^0.20.0",
