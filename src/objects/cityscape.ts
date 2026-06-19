@@ -523,6 +523,17 @@ export class Cityscape {
     emissiveIntensity: 0.8
   })
 
+  // Distance fade for the dark linear infrastructure (roads + bridges). Thin,
+  // near-black bands go sub-pixel on the far side of the cylinder and break
+  // into a shimmering dashed pattern — that is geometry COVERAGE aliasing of a
+  // ~1px silhouette, which anisotropic filtering cannot touch. Dissolving them
+  // into the fog colour just before they get that small kills the shimmer,
+  // while the (light, low-contrast) building skyline — the "city overhead"
+  // reveal — stays crisp because it is left untouched. Shared uniform refs,
+  // retargeted to the habitat size in setDimensions.
+  private readonly fadeStart = { value: 1e9 }
+  private readonly fadeEnd = { value: 2e9 }
+
   private buildings: THREE.InstancedMesh | null = null
   private largeBuildings: THREE.InstancedMesh | null = null
   private farBuildings: THREE.InstancedMesh | null = null
@@ -552,7 +563,36 @@ export class Cityscape {
 
   constructor(dimensions: CityscapeDimensions, options?: { maxBuildings?: number }) {
     this.maxBuildings = options?.maxBuildings
+    // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
+    // on the far side; fade them out with distance. Buildings are deliberately
+    // excluded so the overhead skyline survives.
+    for (const material of [
+      this.roadMaterial,
+      this.localRoadMaterial,
+      this.bridgeMaterial,
+      this.bridgeEdgeMaterial
+    ]) {
+      this.installDistanceFade(material)
+    }
     this.setDimensions(dimensions)
+  }
+
+  // Mix the material's lit colour toward the scene fog colour over a distance
+  // window, on top of the normal exponential fog. Reuses the fog varyings
+  // (vFogDepth) and the fogColor uniform that three.js already injects, so it
+  // only needs the two fade-window uniforms. No-op if the material is unfogged.
+  private installDistanceFade(material: THREE.Material) {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uFadeStart = this.fadeStart
+      shader.uniforms.uFadeEnd = this.fadeEnd
+      shader.fragmentShader =
+        'uniform float uFadeStart;\nuniform float uFadeEnd;\n' +
+        shader.fragmentShader.replace(
+          '#include <fog_fragment>',
+          'gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, ' +
+            'smoothstep(uFadeStart, uFadeEnd, vFogDepth));\n#include <fog_fragment>'
+        )
+    }
   }
 
   setDimensions({ radius, length, topology }: CityscapeDimensions) {
@@ -565,6 +605,12 @@ export class Cityscape {
     this.radius = radius
     this.length = length
     this.topology = nextTopology
+    // Begin fading roads/bridges out past ~1.15 radii (so the opposite side of
+    // the cylinder, ~2 radii away, is well into the fade) and finish by ~1.9.
+    // Floored so small habitats — where nothing is far enough to alias — never
+    // fade. vFogDepth is camera-relative, so this tracks the player anywhere.
+    this.fadeStart.value = Math.max(radius * 1.15, 600)
+    this.fadeEnd.value = Math.max(radius * 1.9, 1200)
     this.clear()
 
     if (radius <= 0 || length <= 0) {
