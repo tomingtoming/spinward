@@ -5,12 +5,14 @@ import {
   type WatchRenderSnapshot
 } from '../ui/watch/watchBindings'
 import {
-  WATCH_EXPANDED_SIZE,
-  createWatchExpandedLayout,
+  WATCH_CANVAS_SIZE,
+  createAllWatchLayouts,
   getWatchButtonAtUv,
-  type WatchActionId
+  navTargetForAction,
+  type WatchActionId,
+  type WatchScreen
 } from '../ui/watch/watchLayout'
-import { renderWatchExpanded } from '../ui/watch/watchRenderer'
+import { renderWatch } from '../ui/watch/watchRenderer'
 
 // Lifted toward the top so the open panel clears the bottom HUD and control
 // row — the DOM overlays always draw on top of this in-world plane, so they
@@ -19,7 +21,7 @@ const PANEL_OFFSET = new THREE.Vector3(-0.55, 0.16, -0.95)
 // Matches the canvas aspect so the panel is not squashed.
 const PANEL_SCALE = new THREE.Vector3(
   0.44,
-  (0.44 * WATCH_EXPANDED_SIZE.height) / WATCH_EXPANDED_SIZE.width,
+  (0.44 * WATCH_CANVAS_SIZE.height) / WATCH_CANVAS_SIZE.width,
   1
 )
 const panelWorldPosition = new THREE.Vector3()
@@ -30,8 +32,8 @@ const pointerNdc = new THREE.Vector2()
 
 const createCanvas = () => {
   const canvas = document.createElement('canvas')
-  canvas.width = WATCH_EXPANDED_SIZE.width
-  canvas.height = WATCH_EXPANDED_SIZE.height
+  canvas.width = WATCH_CANVAS_SIZE.width
+  canvas.height = WATCH_CANVAS_SIZE.height
   const context = canvas.getContext('2d')
 
   if (context === null) {
@@ -47,10 +49,15 @@ export class PcQuickPanel {
   private readonly canvas = createCanvas()
   private readonly texture = new THREE.CanvasTexture(this.canvas.canvas)
   private readonly raycaster = new THREE.Raycaster()
-  private readonly layout = createWatchExpandedLayout()
+  private readonly layouts = createAllWatchLayouts()
+  private screen: WatchScreen = 'home'
   private snapshot: WatchRenderSnapshot | null = null
   private visible = false
   private hoveredAction: WatchActionId | null = null
+
+  private get layout() {
+    return this.layouts[this.screen]
+  }
 
   constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
     this.texture.colorSpace = THREE.SRGBColorSpace
@@ -83,6 +90,8 @@ export class PcQuickPanel {
 
     if (!visible) {
       this.hoveredAction = null
+      // Reopen at the top level rather than wherever it was last left.
+      this.screen = 'home'
     }
   }
 
@@ -104,7 +113,7 @@ export class PcQuickPanel {
     this.mesh.quaternion.copy(panelWorldQuaternion)
     this.mesh.visible = true
 
-    renderWatchExpanded(this.canvas.context, this.layout, snapshot, this.hoveredAction)
+    renderWatch(this.canvas.context, this.layout, snapshot, this.hoveredAction)
     this.texture.needsUpdate = true
   }
 
@@ -145,6 +154,15 @@ export class PcQuickPanel {
   applyHoveredAction() {
     if (this.hoveredAction === null) {
       return false
+    }
+
+    // nav-* buttons drill between screens inside the panel; everything else is
+    // a runtime action.
+    const target = navTargetForAction(this.hoveredAction)
+    if (target !== null) {
+      this.screen = target
+      this.hoveredAction = null
+      return true
     }
 
     return this.onAction(this.hoveredAction) ?? true

@@ -67,14 +67,16 @@ export const createHud = (): HudHandle => {
   const chips = document.createElement('div')
   chips.className = 'hud__chips'
 
+  // The live "felt g" is the readout that actually moves as you play; the
+  // nominal target g lives in the settings panel (and the debug drawer), so it
+  // is no longer duplicated as an always-on chip.
   const presetChip = makeChip('hud-chip--preset')
-  const gravityChip = makeChip('')
   const feltChip = makeChip('')
   const spinChip = makeChip('')
   const modeChip = makeChip('')
   const ballsChip = makeChip('')
   const dockChip = makeChip('')
-  chips.append(presetChip, gravityChip, feltChip, spinChip, modeChip, ballsChip, dockChip)
+  chips.append(presetChip, feltChip, spinChip, modeChip, ballsChip, dockChip)
 
   const controls = document.createElement('details')
   controls.className = 'hud__drawer'
@@ -101,7 +103,6 @@ export const createHud = (): HudHandle => {
     },
     update: (snapshot) => {
       presetChip.textContent = snapshot.presetName
-      gravityChip.textContent = `g ${snapshot.gTarget.toFixed(2)} m/s²`
       const feltG = snapshot.feltGravity / EARTH_GRAVITY
       feltChip.textContent =
         snapshot.feltSpeed >= 0
@@ -126,7 +127,8 @@ export const createHud = (): HudHandle => {
       const verification = snapshot.verification
       debugBody.textContent =
         `${snapshot.habitatType} R ${snapshot.radius.toFixed(0)}m span ${snapshot.span.toFixed(0)}m ` +
-        `sim ${snapshot.simScale.toFixed(3)} | view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
+        `sim ${snapshot.simScale.toFixed(3)} | nom g ${snapshot.gTarget.toFixed(2)} | ` +
+        `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
         `tracked ball ${snapshot.trackedBallSpeed.toFixed(2)} m/s | ` +
         `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | menu ${snapshot.watchMenuOpen ? 'open' : 'closed'} | ` +
         `${snapshot.region} | ${snapshot.xrActive ? 'XR' : 'desktop'}` +
