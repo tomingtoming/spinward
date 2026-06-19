@@ -36,6 +36,9 @@ export const stepHoldToggleState = (
 const UI_TRIGGER_THRESHOLD = 0.55
 // xr-standard gamepad mapping: buttons[4] is A on the right controller.
 const PRIMARY_BUTTON_INDEX = 4
+// buttons[5] is B on the right controller — unused elsewhere, so it cycles the
+// Surface/Overlook/Axis warp without aiming the laser at the wrist UI.
+const SECONDARY_BUTTON_INDEX = 5
 // Thumbstick rest jitter to ignore before it counts as a drive command.
 const DRIVE_DEADZONE = 0.12
 
@@ -62,6 +65,8 @@ type XrWatchInputFrame = {
   rightController: THREE.XRTargetRaySpace | null
   rightTriggerPressed: boolean
   jumpPressed: boolean
+  // Right B edge: cycle the Surface/Overlook/Axis warp without the wrist laser.
+  travelCyclePressed: boolean
   // VR car controls: left stick Y = throttle, left stick X = steer, either
   // grip squeeze = brake. Deadzoned/clamped, only meaningful while driving.
   driveThrottle: number
@@ -74,6 +79,7 @@ export class XRInputMap {
   private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
   private previousRightTriggerPressed = false
   private previousJumpPressed = false
+  private previousTravelCyclePressed = false
 
   constructor(controllers: XRControllerSpaces[]) {
     for (const { controller, grip } of controllers) {
@@ -95,12 +101,14 @@ export class XRInputMap {
     if (!xrActive) {
       this.previousRightTriggerPressed = false
       this.previousJumpPressed = false
+      this.previousTravelCyclePressed = false
       return {
         leftController: null,
         leftGrip: null,
         rightController: null,
         rightTriggerPressed: false,
         jumpPressed: false,
+        travelCyclePressed: false,
         driveThrottle: 0,
         driveSteer: 0,
         driveBrake: 0
@@ -112,6 +120,7 @@ export class XRInputMap {
     let rightController: THREE.XRTargetRaySpace | null = null
     let rightTriggerPressed = false
     let jumpPressed = false
+    let travelCyclePressed = false
     let leftStickX = 0
     let leftStickY = 0
     let driveBrake = 0
@@ -141,6 +150,7 @@ export class XRInputMap {
         rightController = controller
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
         jumpPressed ||= gamepad.buttons[PRIMARY_BUTTON_INDEX]?.pressed ?? false
+        travelCyclePressed ||= gamepad.buttons[SECONDARY_BUTTON_INDEX]?.pressed ?? false
       }
     }
 
@@ -148,6 +158,8 @@ export class XRInputMap {
     this.previousRightTriggerPressed = rightTriggerPressed
     const jumpEdge = jumpPressed && !this.previousJumpPressed
     this.previousJumpPressed = jumpPressed
+    const travelCycleEdge = travelCyclePressed && !this.previousTravelCyclePressed
+    this.previousTravelCyclePressed = travelCyclePressed
 
     const drive = mapVrDriveInput(leftStickX, leftStickY, driveBrake)
 
@@ -157,9 +169,39 @@ export class XRInputMap {
       rightController,
       rightTriggerPressed: rightTriggerEdge,
       jumpPressed: jumpEdge,
+      travelCyclePressed: travelCycleEdge,
       driveThrottle: drive.throttle,
       driveSteer: drive.steer,
       driveBrake: drive.brake
+    }
+  }
+
+  // Quest controller haptics. navigator.vibrate is a no-op in the headset, so
+  // throw / jump / land / crash feedback has to go through the gamepad's
+  // haptic actuators instead.
+  pulse(intensity: number, durationMs: number, hand: 'left' | 'right' | 'both' = 'both') {
+    const amplitude = THREE.MathUtils.clamp(intensity, 0, 1)
+
+    for (const inputSource of this.inputSourceByController.values()) {
+      if (hand !== 'both' && inputSource.handedness !== hand) {
+        continue
+      }
+
+      const gamepad = inputSource.gamepad
+
+      if (gamepad === null || gamepad === undefined) {
+        continue
+      }
+
+      // hapticActuators[].pulse is the WebXR shape Quest exposes; it is not in
+      // the standard Gamepad lib types, so reach for it through a cast.
+      const actuators = (
+        gamepad as unknown as {
+          hapticActuators?: ReadonlyArray<{ pulse?: (value: number, duration: number) => Promise<boolean> }>
+        }
+      ).hapticActuators
+
+      void actuators?.[0]?.pulse?.(amplitude, durationMs)
     }
   }
 

@@ -1053,11 +1053,23 @@ export const bootstrapApp = async () => {
   const fallProbePosition = new THREE.Vector3()
   const fallProbeVelocity = new THREE.Vector3()
 
-  // Haptics where available (Android Chrome; iOS Safari has no vibrate API).
+  // Haptics where available: navigator.vibrate (Android Chrome) for the phone,
+  // and the Quest controllers' actuators in VR (where navigator.vibrate is a
+  // no-op). Intensity scales with the event size.
   const vibrate = (milliseconds: number) => {
     navigator.vibrate?.(milliseconds)
+
+    if (renderer.xr.isPresenting) {
+      xrInputMap.pulse(THREE.MathUtils.clamp(milliseconds / 40, 0.25, 1), milliseconds)
+    }
   }
   let wasCarCrashed = false
+  const VR_TRAVEL_TARGETS = [
+    'respawn-inner-wall',
+    'respawn-overlook',
+    'respawn-axis-end'
+  ] as const
+  let vrTravelCycleIndex = 0
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
     if (settingsDirty) {
@@ -1089,6 +1101,14 @@ export const bootstrapApp = async () => {
     )
     const xrWatchInput = xrInputMap.update(deltaSeconds, renderer.xr.isPresenting)
     controllerVelocity.update(deltaSeconds)
+
+    // Right B cycles Surface → Overlook → Axis, so the demo's climax beats
+    // don't require aiming the throwing-hand laser at the wrist Travel buttons.
+    if (xrWatchInput.travelCyclePressed && !drive.driving) {
+      vrTravelCycleIndex = (vrTravelCycleIndex + 1) % VR_TRAVEL_TARGETS.length
+      handleWatchAction(VR_TRAVEL_TARGETS[vrTravelCycleIndex])
+      vibrate(10)
+    }
 
     if (throwDebugTimer > 0) {
       throwDebugTimer -= deltaSeconds
