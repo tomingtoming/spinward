@@ -6,14 +6,12 @@ import { HandClutchDebugView } from '../objects/handClutchDebug'
 import type { PlayerTraversalMode } from '../app/playerTraversal'
 import { inertialOrientationToRotating, rotatingOrientationToInertial } from '../sim/frameTransforms'
 import {
-  applyRotationAxisProfile,
   createGroundedClutchIntent,
   createHandClutchSample,
   createHandClutchState,
   createRotationClutchIntent,
   rebaseHandClutchState,
   resolveGroundedClutchIntent,
-  resolveFreeFlyClutchThrust,
   resolveRotationClutchIntent,
   resetHandClutchState,
   sampleHandClutch
@@ -22,8 +20,7 @@ import {
   createJetpackAttitudeState as createJetpackOrientationState,
   integrateJetpackAttitudeOrientation,
   resetJetpackAttitude,
-  seedJetpackAttitudeFromWorldAngularVelocity,
-  stepJetpackAttitudeAxes
+  seedJetpackAttitudeFromWorldAngularVelocity
 } from './freeFlyJetpack'
 import type { XRControllerSpaces } from './grabSystem'
 import {
@@ -51,7 +48,6 @@ const intent = createLocomotionIntent()
 const groundedClutchIntent = createGroundedClutchIntent()
 const clutchSample = createHandClutchSample()
 const clutchRotationIntent = createRotationClutchIntent()
-const freeFlyThrust = new THREE.Vector3()
 const FACE_BUTTON_THRESHOLD = 0.55
 const CLUTCH_THRESHOLD = 0.05
 const ATTACHED_YAW_SPEED = Math.PI * 0.6
@@ -59,6 +55,11 @@ const ATTACHED_YAW_SPEED = Math.PI * 0.6
 // (level read, not the edge-detected jump) it thrusts the jetpack "up" relative
 // to the view, mirroring PC Space. Jump/exit-car still use the edge in main.ts.
 const A_BUTTON_INDEX = 4
+// Point-and-throttle: the analog LEFT TRIGGER is the jetpack throttle. Ignore
+// rest jitter below the deadzone and reach full thrust a little before a hard
+// pull, so cruising does not require bottoming the trigger out.
+const THROTTLE_DEADZONE = 0.08
+const THROTTLE_FULL = 0.9
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
@@ -177,6 +178,8 @@ export class VRLocomotion {
     let leftLinearBrake = false
     let leftClutchActive = false
     let leftGripObject: THREE.XRGripSpace | null = null
+    let leftController: THREE.XRTargetRaySpace | null = null
+    let leftTriggerValue = 0
     let leftStickX = 0
     let leftStickY = 0
     let leftStickMagnitudeSq = 0
@@ -194,8 +197,9 @@ export class VRLocomotion {
       const [axisX, axisY] = this.readPrimaryStick(gamepad)
       const stickMagnitudeSq = axisX * axisX + axisY * axisY
 
+      // Right stick X arms snap turn, in grounded AND free-fly. (Driving snaps
+      // in its own branch above.)
       if (
-        playerMode === 'grounded' &&
         inputSource.handedness === 'right' &&
         stickMagnitudeSq > snapAxisMagnitudeSq
       ) {
@@ -212,8 +216,12 @@ export class VRLocomotion {
         continue
       }
 
+      leftController = controller
       leftGripObject = this.gripByController.get(controller) ?? null
       leftClutchActive ||= this.readSqueezeValue(gamepad) > CLUTCH_THRESHOLD
+      // Left trigger (analog) is the jetpack throttle. The left hand's
+      // select/grab is blocked (shouldBlockSelectStart), so the trigger is free.
+      leftTriggerValue = Math.max(leftTriggerValue, this.readTriggerValue(gamepad))
       leftAngularBrake ||= this.readFaceButton(gamepad, 4) > FACE_BUTTON_THRESHOLD
       leftLinearBrake ||= this.readFaceButton(gamepad, 5) > FACE_BUTTON_THRESHOLD
 
@@ -232,11 +240,11 @@ export class VRLocomotion {
       }
     }
 
-    const snapIntent = playerMode === 'grounded'
-      ? consumeSnapTurn(snapAxisX, this.snapTurnState)
-      : 0
+    const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
 
-    if (snapIntent !== 0) {
+    // Grounded snap rotates the yaw rig; free-fly snap rotates the jetpack
+    // attitude itself (handled in the free-fly branch below).
+    if (snapIntent !== 0 && playerMode !== 'free-fly') {
       this.snapYaw -= snapIntent * SNAP_TURN_RADIANS
     }
 
@@ -249,52 +257,38 @@ export class VRLocomotion {
     this.applyLeftStickMovement(leftStickX, leftStickY, playerMode)
 
     if (playerMode === 'free-fly') {
-      if (clutchInput !== null) {
-        resolveRotationClutchIntent(
-          clutchInput,
-          this.profile.rotation,
-          clutchRotationIntent
-        )
-        clutchRotationIntent.roll = applyRotationAxisProfile(
-          clutchRotationIntent.roll,
-          this.profile.rollDeadzone,
-          this.profile.rollGain
-        )
-      } else {
-        clutchRotationIntent.pitch = 0
-        clutchRotationIntent.yaw = 0
-        clutchRotationIntent.roll = 0
+      // Point-and-throttle flight. No hand-tilt steering (it coupled thrust to
+      // rotation and never settled). Turn with discrete snap; keep the
+      // spin-seeded attitude integration so the view stays stable in the
+      // rotating habitat and the horizon stays level — no roll, no pitch drift.
+      if (snapIntent !== 0) {
+        // Intrinsic yaw about the body's own up axis, the same axis the old
+        // hand-yaw drove, applied as one discrete step.
+        yawQuaternion.setFromAxisAngle(localUp, -snapIntent * SNAP_TURN_RADIANS)
+        this.freeFlyInertialOrientation.multiply(yawQuaternion).normalize()
       }
-
-      stepJetpackAttitudeAxes(
+      integrateJetpackAttitudeOrientation(
+        this.freeFlyInertialOrientation,
         this.freeFlyAttitude,
-        clutchRotationIntent.pitch,
-        clutchRotationIntent.yaw,
-        clutchRotationIntent.roll,
-        deltaSeconds,
-        leftAngularBrake,
-        this.profile.angularAcceleration,
-        this.profile.comfortDeadzone
+        deltaSeconds
       )
-      integrateJetpackAttitudeOrientation(this.freeFlyInertialOrientation, this.freeFlyAttitude, deltaSeconds)
       this.applyFreeFlyAttitude(frameAngle)
       this.previousPlayerMode = playerMode
       intent.freeFlyBrake = leftLinearBrake ? 1 : 0
 
-      if (clutchInput !== null) {
-        intent.freeFlyThrust.copy(
-          resolveFreeFlyClutchThrust(
-            clutchInput,
-            this.profile.freeFly,
-            freeFlyThrust
-          )
-        )
+      // Thrust along the LEFT controller's pointing ray, scaled by the analog
+      // left trigger (throttle). Release the trigger and thrust stops at once —
+      // no hidden anchor to return to. Adds to any left-stick thrust.
+      const throttle = this.normalizeThrottle(leftTriggerValue)
+      if (leftController !== null && throttle > 0) {
+        leftController.updateWorldMatrix(true, false)
+        getForwardDirection(leftController, viewForward)
+        intent.freeFlyThrust.addScaledVector(viewForward, throttle)
       }
 
       // Right A held thrusts "up" relative to the view, mirroring PC Space.
-      // Added on top of any clutch/stick thrust; mergeLocomotionIntent
-      // renormalises freeFlyThrust, so the combined magnitude never exceeds full
-      // jetpack acceleration.
+      // mergeLocomotionIntent renormalises the sum, so the combined magnitude
+      // never exceeds full jetpack acceleration.
       if (ascendHeld) {
         this.camera.updateWorldMatrix(true, false)
         viewUp
@@ -367,6 +361,29 @@ export class VRLocomotion {
     }
 
     return squeeze.value ?? (squeeze.pressed ? 1 : 0)
+  }
+
+  private readTriggerValue(gamepad: Gamepad) {
+    const trigger = gamepad.buttons[0]
+
+    if (trigger === undefined) {
+      return 0
+    }
+
+    return trigger.value ?? (trigger.pressed ? 1 : 0)
+  }
+
+  // Analog left trigger (0..1) -> jetpack throttle (0..1) with a rest deadzone.
+  private normalizeThrottle(triggerValue: number) {
+    if (triggerValue <= THROTTLE_DEADZONE) {
+      return 0
+    }
+
+    return THREE.MathUtils.clamp(
+      (triggerValue - THROTTLE_DEADZONE) / (THROTTLE_FULL - THROTTLE_DEADZONE),
+      0,
+      1
+    )
   }
 
   private readFaceButton(gamepad: Gamepad, index: number) {
