@@ -1510,7 +1510,7 @@ export const bootstrapApp = async () => {
 
     // Lightweight state probe for headless debugging.
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
-    ;(window as unknown as { __xr1?: unknown }).__xr1 = {
+    ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,

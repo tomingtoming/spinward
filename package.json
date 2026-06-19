@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "bun test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "bun run build && bunx wrangler versions upload"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
