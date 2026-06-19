@@ -89,6 +89,8 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
-  texture.anisotropy = 4
+  // The floor/wall grid is viewed at a grazing angle far away (right under the
+  // roads), so it shimmers at low anisotropy. Request the hardware max.
+  texture.anisotropy = 16
   return texture
 }

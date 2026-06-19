@@ -215,7 +215,10 @@ const createRoadTexture = (kind: 'arterial' | 'local') => {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.ClampToEdgeWrapping
   texture.wrapT = THREE.RepeatWrapping
-  texture.anisotropy = 4
+  // Distant roads are seen at a near-grazing angle, where the lane markings
+  // alias and shimmer. Roads are the canonical case for anisotropic filtering:
+  // request the hardware max (three.js clamps to the GPU's limit) instead of 4.
+  texture.anisotropy = 16
   return texture
 }
 
@@ -369,6 +372,9 @@ const createWindowTexture = (columns = 6, rows = 9) => {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
+  // The far side's lit windows are tiny and high-contrast across the colony, so
+  // they sparkle without anisotropic filtering. Request the hardware max.
+  texture.anisotropy = 16
   return texture
 }
 
