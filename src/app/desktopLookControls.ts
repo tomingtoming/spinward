@@ -22,7 +22,6 @@ const inverseRigQuaternion = new THREE.Quaternion()
 const worldRight = new THREE.Vector3()
 const detachLaunchVelocity = new THREE.Vector3()
 const freeFlyDelta = new THREE.Quaternion()
-const eulerTmp = new THREE.Euler(0, 0, 0, 'YXZ')
 const X_AXIS = new THREE.Vector3(1, 0, 0)
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
 const Z_AXIS = new THREE.Vector3(0, 0, 1)
@@ -112,17 +111,20 @@ export class DesktopLookControls {
     // jumps. Cached for the async drag handler too.
     this.freeFlyActive = freeFlyActive
     if (freeFlyActive && !this.wasFreeFly) {
-      // Grounded → free-fly: start the free attitude from the current view.
-      this.attitude.setFromEuler(eulerTmp.set(this.pitch, this.yaw, this.roll, 'YXZ'))
-      this.camera.quaternion.copy(this.attitude)
+      // Grounded → free-fly: hand the orientation to the RIG so the whole
+      // jetpack/body rolls, pitches and yaws (not just the eye). Seed it from
+      // the current world view, neutralise the camera, and the rig carries the
+      // attitude from here.
+      this.camera.getWorldQuaternion(this.attitude)
+      this.camera.rotation.set(0, 0, 0)
+      this.playerRig.quaternion.copy(this.attitude)
     } else if (!freeFlyActive && this.wasFreeFly) {
-      // Free-fly → grounded: collapse back to upright yaw/pitch (clamped); any
-      // residual bank eases to level below.
-      eulerTmp.setFromQuaternion(this.attitude, 'YXZ')
-      this.yaw = eulerTmp.y
-      this.pitch = THREE.MathUtils.clamp(eulerTmp.x, -MAX_PITCH, MAX_PITCH)
-      this.roll = eulerTmp.z
-      this.applyCameraRotation()
+      // Free-fly → grounded: stand back up. The surface rig re-orients the body
+      // upright this frame, so reset the camera to a level forward view.
+      this.yaw = 0
+      this.pitch = 0
+      this.roll = 0
+      this.camera.rotation.set(0, 0, 0)
     }
     this.wasFreeFly = freeFlyActive
 
@@ -314,7 +316,9 @@ export class DesktopLookControls {
       this.attitude.multiply(freeFlyDelta.setFromAxisAngle(Z_AXIS, rollDelta))
     }
     this.attitude.normalize()
-    this.camera.quaternion.copy(this.attitude)
+    // The rig carries the free-fly attitude, so the jetpack body rolls with the
+    // view (the camera stays neutral, parented under the rig).
+    this.playerRig.quaternion.copy(this.attitude)
   }
 
   private readonly handleContextMenu = (event: MouseEvent) => {
