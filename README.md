@@ -135,8 +135,8 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinw
 - 設定や HUD に出す寸法は `real` メートル系です。
 - Rapier world に渡す位置、速度、collider 寸法は `sim = real * simScale` です。
 - 描画と回転座標系変換は `real` 側で統一しています。Rapier 境界だけが `sim` を扱います。
-- 単位変換は [src/units/units.ts](/home/toming/xr1/src/units/units.ts) 経由のみです。
-- Rapier との境界は [src/physics/rapierBoundary.ts](/home/toming/xr1/src/physics/rapierBoundary.ts) へ集約しています。
+- 単位変換は [src/units/units.ts](src/units/units.ts) 経由のみです。
+- Rapier との境界は [src/physics/rapierBoundary.ts](src/physics/rapierBoundary.ts) へ集約しています。
 - runtime 側では raw `simScale` を直接ばら撒かず、`UnitsContext` を生成して boundary API へ渡します。
 - 球と `free-fly` プレイヤーの内部状態は慣性系で保持し、描画時に回転系へ戻しています。
 - `grounded` プレイヤーだけは内壁拘束ロジックを使います。
