@@ -256,7 +256,8 @@ export const bootstrapApp = async () => {
           ),
         onToggleDrive: () => tryToggleDrive(),
         onToggleSettings: () => desktopQuickPanel.toggle(),
-        isUiPointerBlocked: () => desktopQuickPanel.isVisible
+        isUiPointerBlocked: () => desktopQuickPanel.isVisible,
+        onUserInput: () => desktopLookControls.cancelIntroReveal()
       })
     : null
 
@@ -1555,6 +1556,11 @@ export const bootstrapApp = async () => {
   })
 
   notifyTourEvent(tourGuide, 'start')
+  // First-boot "look up" reveal: show the far side of the colony overhead
+  // before the player settles. Desktop/mobile only; XR is head-tracked.
+  if (!renderer.xr.isPresenting) {
+    desktopLookControls.startIntroReveal()
+  }
   gameLoop.start()
 
   const splash = document.getElementById('splash')
