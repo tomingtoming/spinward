@@ -7,6 +7,9 @@ import { createLocomotionIntent } from './locomotionIntent'
 const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
 const MAX_PITCH = Math.PI * 0.48
+const ROLL_SPEED = 2.2
+// How fast the bank eases back to level once you stop free-flying.
+const ROLL_LEVEL_RATE = 9
 
 const groundedForward = new THREE.Vector3()
 const groundedRight = new THREE.Vector3()
@@ -24,6 +27,7 @@ const DETACH_LAUNCH_SPEED = 6
 export class DesktopLookControls {
   private yaw = 0
   private pitch = 0
+  private roll = 0
   private dragging = false
   private readonly pressedKeys = new Set<string>()
   // One-shot boot "look up" reveal; null when idle or cancelled.
@@ -56,7 +60,8 @@ export class DesktopLookControls {
   update(
     deltaSeconds: number,
     xrActive: boolean,
-    touchMove?: { forward: number; right: number }
+    touchMove?: { forward: number; right: number },
+    freeFlyActive = false
   ) {
     intent.groundedAxis = 0
     intent.groundedTangent = 0
@@ -82,7 +87,7 @@ export class DesktopLookControls {
         this.introElapsed += deltaSeconds
         const done = this.introElapsed >= introRevealDurationSeconds()
         this.pitch = done ? 0 : introRevealPitch(this.introElapsed)
-        this.camera.rotation.set(this.pitch, this.yaw, 0)
+        this.camera.rotation.set(this.pitch, this.yaw, this.roll)
 
         if (done) {
           this.introElapsed = null
@@ -113,6 +118,32 @@ export class DesktopLookControls {
 
     if (yawDelta !== 0 || pitchDelta !== 0) {
       this.applyLookDelta(yawDelta, pitchDelta)
+    }
+
+    // Q/E bank the view around the look axis while free-flying (KSP-style roll).
+    // Because the camera uses YXZ Euler, roll only banks the horizon — it does
+    // not change where you look. On the ground the bank eases back to level.
+    let rollDelta = 0
+    if (freeFlyActive) {
+      if (this.pressedKeys.has('KeyQ')) {
+        rollDelta += ROLL_SPEED * deltaSeconds
+      }
+      if (this.pressedKeys.has('KeyE')) {
+        rollDelta -= ROLL_SPEED * deltaSeconds
+      }
+    }
+
+    const previousRoll = this.roll
+    if (freeFlyActive) {
+      this.roll += rollDelta
+    } else if (this.roll !== 0) {
+      this.roll =
+        Math.abs(this.roll) < 1e-3
+          ? 0
+          : this.roll * Math.exp(-ROLL_LEVEL_RATE * Math.max(0, deltaSeconds))
+    }
+    if (this.roll !== previousRoll) {
+      this.applyCameraRotation()
     }
 
     let forwardInput = 0
@@ -212,6 +243,7 @@ export class DesktopLookControls {
   resetLook() {
     this.yaw = 0
     this.pitch = 0
+    this.roll = 0
     this.camera.rotation.set(0, 0, 0)
   }
 
@@ -233,7 +265,12 @@ export class DesktopLookControls {
   private applyLookDelta(yawDelta: number, pitchDelta: number) {
     this.yaw += yawDelta
     this.pitch = THREE.MathUtils.clamp(this.pitch + pitchDelta, -MAX_PITCH, MAX_PITCH)
-    this.camera.rotation.set(this.pitch, this.yaw, 0)
+    this.applyCameraRotation()
+  }
+
+  private applyCameraRotation() {
+    // YXZ order: roll (Z) banks the horizon without moving the look direction.
+    this.camera.rotation.set(this.pitch, this.yaw, this.roll)
   }
 
   private readonly handleContextMenu = (event: MouseEvent) => {
@@ -276,6 +313,8 @@ export class DesktopLookControls {
       event.code !== 'KeyA' &&
       event.code !== 'KeyS' &&
       event.code !== 'KeyD' &&
+      event.code !== 'KeyQ' &&
+      event.code !== 'KeyE' &&
       event.code !== 'ArrowLeft' &&
       event.code !== 'ArrowRight' &&
       event.code !== 'ArrowUp' &&
