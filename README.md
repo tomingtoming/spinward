@@ -58,13 +58,15 @@ bun run preview -- --host 0.0.0.0
 
 本番は static-assets-only Worker(`wrangler.jsonc`、Worker スクリプトなし)で、Vite が `dist/` にビルドした成果物を Cloudflare がそのまま配信します。本番 URL は `https://spinward.toming.app/` です。
 
-GitHub Actions(`.github/workflows/ci.yml`)は `main` への push と PR で `bun test` と `bun run build` を実行する**だけ**で、デプロイはしません。本番反映は手元から手動で行います。
+デプロイは **Cloudflare Workers Builds**(Cloudflare 側で GitHub リポジトリに接続)が担います。`main` への push でビルド＋本番デプロイが自動実行され、PR では検証用ビルドが走ります(PR の `Workers Builds: spinward` チェック)。GitHub Actions(`.github/workflows/ci.yml`)は `bun test` と `bun run build` の品質ゲートのみで、デプロイはしません。
+
+手元から手動で反映したい場合:
 
 ```bash
 bun run deploy   # = bun run build && wrangler versions upload
 ```
 
-初回は `wrangler login`(または `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を環境変数に設定)で認証してください。Worker name は `wrangler.jsonc` の `spinward` です。
+初回は `wrangler login`(または `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を環境変数に設定)してください。Worker name は `wrangler.jsonc` の `spinward` です。
 
 OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og.png`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。
 
