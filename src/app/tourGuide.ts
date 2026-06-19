@@ -22,7 +22,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   start: {
     title: 'SPINWARD',
     body: [
-      'You live on the inside of a spinning cylinder.',
+      'You live inside a spinning cylinder. Look up — the city wraps overhead.',
       'The floor pushes you in a circle - that push is your "gravity".',
       'WASD / grip to move · click / trigger to throw · Space / A to jump',
       'Tour: throw → jump → ② Overlook → ③ Axis'

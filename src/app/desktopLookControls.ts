@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { getForwardDirection } from './forwardDirection'
+import { introRevealDurationSeconds, introRevealPitch } from './introReveal'
 import { createLocomotionIntent } from './locomotionIntent'
 
 const LOOK_SENSITIVITY = 0.003
@@ -23,6 +24,8 @@ export class DesktopLookControls {
   private pitch = 0
   private dragging = false
   private readonly pressedKeys = new Set<string>()
+  // One-shot boot "look up" reveal; null when idle or cancelled.
+  private introElapsed: number | null = null
 
   constructor(
     private readonly playerRig: THREE.Group,
@@ -61,7 +64,30 @@ export class DesktopLookControls {
     intent.detachLaunchVelocity.set(0, 0, 0)
 
     if (xrActive) {
+      this.introElapsed = null
       return intent
+    }
+
+    if (this.introElapsed !== null) {
+      const userTookControl =
+        this.dragging ||
+        this.pressedKeys.size > 0 ||
+        (touchMove !== undefined && (touchMove.forward !== 0 || touchMove.right !== 0))
+
+      if (userTookControl) {
+        this.introElapsed = null
+      } else {
+        this.introElapsed += deltaSeconds
+        const done = this.introElapsed >= introRevealDurationSeconds()
+        this.pitch = done ? 0 : introRevealPitch(this.introElapsed)
+        this.camera.rotation.set(this.pitch, this.yaw, 0)
+
+        if (done) {
+          this.introElapsed = null
+        }
+
+        return intent
+      }
     }
 
     let yawDelta = 0
@@ -169,6 +195,21 @@ export class DesktopLookControls {
     this.yaw = 0
     this.pitch = 0
     this.camera.rotation.set(0, 0, 0)
+  }
+
+  // First grounded boot only: tilt the view up to reveal the colony overhead,
+  // hold, then ease back to the horizon. No-op if the view has already moved.
+  startIntroReveal() {
+    if (this.dragging || this.pitch !== 0 || this.yaw !== 0) {
+      return
+    }
+    this.introElapsed = 0
+  }
+
+  // Let the reveal bow out the instant the player takes control by any means
+  // (including the separate mobile look/gyro path).
+  cancelIntroReveal() {
+    this.introElapsed = null
   }
 
   private applyLookDelta(yawDelta: number, pitchDelta: number) {

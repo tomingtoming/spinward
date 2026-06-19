@@ -19,6 +19,8 @@ type MobileControlHandlers = {
   onToggleSettings: () => void
   // True while a 2D UI (quick panel) should swallow canvas pointers.
   isUiPointerBlocked: () => boolean
+  // Any touch or gyro input; lets the boot "look up" reveal bow out at once.
+  onUserInput?: () => void
 }
 
 type DeviceOrientationPermissionRequester = {
@@ -264,6 +266,7 @@ export class MobileControls {
     this.gyroAlpha = THREE.MathUtils.degToRad(event.alpha)
     this.gyroBeta = THREE.MathUtils.degToRad(event.beta)
     this.gyroGamma = THREE.MathUtils.degToRad(event.gamma)
+    this.handlers.onUserInput?.()
   }
 
   private showStick(x: number, y: number) {
@@ -289,6 +292,8 @@ export class MobileControls {
     ) {
       return
     }
+
+    this.handlers.onUserInput?.()
 
     if (
       event.clientX < window.innerWidth * MOVE_ZONE_FRACTION &&
