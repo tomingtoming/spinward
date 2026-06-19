@@ -1085,7 +1085,8 @@ export const bootstrapApp = async () => {
     const desktopIntent = desktopLookControls.update(
       deltaSeconds,
       renderer.xr.isPresenting,
-      drive.driving ? undefined : touchMove
+      drive.driving ? undefined : touchMove,
+      playerTraversal.mode === 'free-fly' && !drive.driving
     )
     const vrIntent = vrLocomotion.update(
       deltaSeconds,
