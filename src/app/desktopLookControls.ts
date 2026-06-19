@@ -21,6 +21,11 @@ const cameraWorldQuaternion = new THREE.Quaternion()
 const inverseRigQuaternion = new THREE.Quaternion()
 const worldRight = new THREE.Vector3()
 const detachLaunchVelocity = new THREE.Vector3()
+const freeFlyDelta = new THREE.Quaternion()
+const eulerTmp = new THREE.Euler(0, 0, 0, 'YXZ')
+const X_AXIS = new THREE.Vector3(1, 0, 0)
+const Y_AXIS = new THREE.Vector3(0, 1, 0)
+const Z_AXIS = new THREE.Vector3(0, 0, 1)
 const intent = createLocomotionIntent()
 const DETACH_LAUNCH_SPEED = 6
 
@@ -28,6 +33,12 @@ export class DesktopLookControls {
   private yaw = 0
   private pitch = 0
   private roll = 0
+  // Free-fly uses a full quaternion attitude (no pitch clamp, no gimbal lock —
+  // look straight up, loop, fly inverted). Grounded stays on the clamped Euler
+  // above. We seed/recover between the two on mode changes.
+  private readonly attitude = new THREE.Quaternion()
+  private freeFlyActive = false
+  private wasFreeFly = false
   private dragging = false
   private readonly pressedKeys = new Set<string>()
   // One-shot boot "look up" reveal; null when idle or cancelled.
@@ -97,6 +108,24 @@ export class DesktopLookControls {
       }
     }
 
+    // Seed/recover the free-fly attitude across mode changes so the view never
+    // jumps. Cached for the async drag handler too.
+    this.freeFlyActive = freeFlyActive
+    if (freeFlyActive && !this.wasFreeFly) {
+      // Grounded → free-fly: start the free attitude from the current view.
+      this.attitude.setFromEuler(eulerTmp.set(this.pitch, this.yaw, this.roll, 'YXZ'))
+      this.camera.quaternion.copy(this.attitude)
+    } else if (!freeFlyActive && this.wasFreeFly) {
+      // Free-fly → grounded: collapse back to upright yaw/pitch (clamped); any
+      // residual bank eases to level below.
+      eulerTmp.setFromQuaternion(this.attitude, 'YXZ')
+      this.yaw = eulerTmp.y
+      this.pitch = THREE.MathUtils.clamp(eulerTmp.x, -MAX_PITCH, MAX_PITCH)
+      this.roll = eulerTmp.z
+      this.applyCameraRotation()
+    }
+    this.wasFreeFly = freeFlyActive
+
     let yawDelta = 0
     let pitchDelta = 0
 
@@ -116,34 +145,33 @@ export class DesktopLookControls {
       pitchDelta -= KEYBOARD_LOOK_SPEED * deltaSeconds
     }
 
-    if (yawDelta !== 0 || pitchDelta !== 0) {
-      this.applyLookDelta(yawDelta, pitchDelta)
-    }
-
-    // Q/E bank the view around the look axis while free-flying (KSP-style roll).
-    // Because the camera uses YXZ Euler, roll only banks the horizon — it does
-    // not change where you look. On the ground the bank eases back to level.
-    let rollDelta = 0
     if (freeFlyActive) {
+      // Full 6DOF: pitch/yaw/roll accumulate around the camera's OWN axes, so
+      // there is no pitch clamp and no gimbal lock. Q/E roll banks the view.
+      let rollDelta = 0
       if (this.pressedKeys.has('KeyQ')) {
         rollDelta += ROLL_SPEED * deltaSeconds
       }
       if (this.pressedKeys.has('KeyE')) {
         rollDelta -= ROLL_SPEED * deltaSeconds
       }
-    }
 
-    const previousRoll = this.roll
-    if (freeFlyActive) {
-      this.roll += rollDelta
-    } else if (this.roll !== 0) {
-      this.roll =
-        Math.abs(this.roll) < 1e-3
-          ? 0
-          : this.roll * Math.exp(-ROLL_LEVEL_RATE * Math.max(0, deltaSeconds))
-    }
-    if (this.roll !== previousRoll) {
-      this.applyCameraRotation()
+      if (yawDelta !== 0 || pitchDelta !== 0 || rollDelta !== 0) {
+        this.applyFreeFlyLook(yawDelta, pitchDelta, rollDelta)
+      }
+    } else {
+      if (yawDelta !== 0 || pitchDelta !== 0) {
+        this.applyLookDelta(yawDelta, pitchDelta)
+      }
+
+      // The grounded view stays upright: ease any residual bank back to level.
+      if (this.roll !== 0) {
+        this.roll =
+          Math.abs(this.roll) < 1e-3
+            ? 0
+            : this.roll * Math.exp(-ROLL_LEVEL_RATE * Math.max(0, deltaSeconds))
+        this.applyCameraRotation()
+      }
     }
 
     let forwardInput = 0
@@ -273,6 +301,22 @@ export class DesktopLookControls {
     this.camera.rotation.set(this.pitch, this.yaw, this.roll)
   }
 
+  // Free 6DOF look: rotate the attitude about the camera's OWN axes (intrinsic),
+  // so pitch never clamps and there is no gimbal lock.
+  private applyFreeFlyLook(yawDelta: number, pitchDelta: number, rollDelta: number) {
+    if (pitchDelta !== 0) {
+      this.attitude.multiply(freeFlyDelta.setFromAxisAngle(X_AXIS, pitchDelta))
+    }
+    if (yawDelta !== 0) {
+      this.attitude.multiply(freeFlyDelta.setFromAxisAngle(Y_AXIS, yawDelta))
+    }
+    if (rollDelta !== 0) {
+      this.attitude.multiply(freeFlyDelta.setFromAxisAngle(Z_AXIS, rollDelta))
+    }
+    this.attitude.normalize()
+    this.camera.quaternion.copy(this.attitude)
+  }
+
   private readonly handleContextMenu = (event: MouseEvent) => {
     event.preventDefault()
   }
@@ -304,7 +348,14 @@ export class DesktopLookControls {
       return
     }
 
-    this.applyLookDelta(-event.movementX * LOOK_SENSITIVITY, -event.movementY * LOOK_SENSITIVITY)
+    const yawDelta = -event.movementX * LOOK_SENSITIVITY
+    const pitchDelta = -event.movementY * LOOK_SENSITIVITY
+
+    if (this.freeFlyActive) {
+      this.applyFreeFlyLook(yawDelta, pitchDelta, 0)
+    } else {
+      this.applyLookDelta(yawDelta, pitchDelta)
+    }
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
