@@ -75,12 +75,13 @@ import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
-import { applyPresetToSettingsStore, getPresetById, getPresetName } from '../presets/presetManager'
+import { applyPresetToSettingsStore, canRespawnOnAxisEnd, getPresetById, getPresetName } from '../presets/presetManager'
 import { computeFrameVerification } from '../sim/frameVerification'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
+import { createBeatBar } from '../ui/beatBar'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -247,14 +248,6 @@ export const bootstrapApp = async () => {
         onJump: () => {
           desktopJumpQueued = true
         },
-        onTravel: (target) =>
-          handleWatchAction(
-            target === 'surface'
-              ? 'respawn-inner-wall'
-              : target === 'overlook'
-                ? 'respawn-overlook'
-                : 'respawn-axis-end'
-          ),
         onToggleDrive: () => tryToggleDrive(),
         onToggleSettings: () => desktopQuickPanel.toggle(),
         isUiPointerBlocked: () => desktopQuickPanel.isVisible,
@@ -762,6 +755,9 @@ export const bootstrapApp = async () => {
   syncHabitat()
 
   const hud = createHud()
+  // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
+  // payoff beats don't hide behind 1/2/3 and Tab.
+  const beatBar = createBeatBar((action) => handleWatchAction(action))
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
@@ -1476,6 +1472,12 @@ export const bootstrapApp = async () => {
               maxSurfaceSpeed: reattachTuning.maxSurfaceSpeed,
               ready: reattachStatus.canAttach
             }
+    })
+    beatBar.setVisible(!renderer.xr.isPresenting && !drive.driving)
+    beatBar.update({
+      rpm: habitatConfig.rpm,
+      feltGravity,
+      axisAvailable: canRespawnOnAxisEnd(habitatConfig.type)
     })
     debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
