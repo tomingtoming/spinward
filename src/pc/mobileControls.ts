@@ -14,7 +14,6 @@ export const isQuestBrowser = () =>
 type MobileControlHandlers = {
   onThrow: () => void
   onJump: () => void
-  onTravel: (target: 'surface' | 'overlook' | 'axis') => void
   onToggleDrive: () => void
   onToggleSettings: () => void
   // True while a 2D UI (quick panel) should swallow canvas pointers.
@@ -99,9 +98,7 @@ export class MobileControls {
     }
 
     this.jumpButton = makeButton('Jump', () => this.handlers.onJump())
-    makeButton('①', () => this.handlers.onTravel('surface'))
-    makeButton('②', () => this.handlers.onTravel('overlook'))
-    makeButton('③', () => this.handlers.onTravel('axis'))
+    // Travel (Surface/Overlook/Axis) now lives in the always-visible beat bar.
     this.driveButton = makeButton('Drive', () => this.handlers.onToggleDrive())
     this.driveButton.classList.add('is-hidden')
     this.brakeButton = makeButton('Brake', () => {})
