@@ -13,6 +13,8 @@ const groundedRight = new THREE.Vector3()
 const groundedMove = new THREE.Vector3()
 const freeFlyForward = new THREE.Vector3()
 const freeFlyMove = new THREE.Vector3()
+const freeFlyUp = new THREE.Vector3()
+const cameraWorldQuaternion = new THREE.Quaternion()
 const inverseRigQuaternion = new THREE.Quaternion()
 const worldRight = new THREE.Vector3()
 const detachLaunchVelocity = new THREE.Vector3()
@@ -138,6 +140,7 @@ export class DesktopLookControls {
       rightInput = THREE.MathUtils.clamp(rightInput + touchMove.right, -1, 1)
     }
 
+    // Grounded walk stays planar (camera-yaw relative). Space/Shift never walk.
     if (forwardInput !== 0 || rightInput !== 0) {
       inverseRigQuaternion.copy(this.playerRig.getWorldQuaternion(new THREE.Quaternion())).invert()
       groundedForward.copy(getForwardDirection(this.camera)).applyQuaternion(inverseRigQuaternion)
@@ -161,13 +164,32 @@ export class DesktopLookControls {
 
       intent.groundedAxis = groundedMove.x
       intent.groundedTangent = groundedMove.z
+    }
 
+    // Free-fly jetpack: KSP-style camera-relative 6DOF — WASD thrusts forward/
+    // back/left/right, Space thrusts up and Shift thrusts down, all relative to
+    // where you are looking. (Shift used to brake; you now stop by counter-
+    // thrusting, the way an RCS pack does.)
+    let upInput = 0
+
+    if (this.pressedKeys.has('Space')) {
+      upInput += 1
+    }
+
+    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
+      upInput -= 1
+    }
+
+    if (forwardInput !== 0 || rightInput !== 0 || upInput !== 0) {
+      this.camera.getWorldQuaternion(cameraWorldQuaternion)
       freeFlyForward.copy(getForwardDirection(this.camera))
-      worldRight.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion()))
+      worldRight.set(1, 0, 0).applyQuaternion(cameraWorldQuaternion)
+      freeFlyUp.set(0, 1, 0).applyQuaternion(cameraWorldQuaternion)
       freeFlyMove
         .copy(freeFlyForward)
         .multiplyScalar(forwardInput)
         .addScaledVector(worldRight, rightInput)
+        .addScaledVector(freeFlyUp, upInput)
 
       if (freeFlyMove.lengthSq() > 1) {
         freeFlyMove.normalize()
@@ -180,10 +202,6 @@ export class DesktopLookControls {
       detachLaunchVelocity.copy(getForwardDirection(this.camera)).multiplyScalar(DETACH_LAUNCH_SPEED)
       intent.detachRequested = true
       intent.detachLaunchVelocity.copy(detachLaunchVelocity)
-    }
-
-    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
-      intent.freeFlyBrake = 1
     }
 
     return intent
@@ -263,6 +281,7 @@ export class DesktopLookControls {
       event.code !== 'ArrowUp' &&
       event.code !== 'ArrowDown' &&
       event.code !== 'KeyF' &&
+      event.code !== 'Space' &&
       event.code !== 'ShiftLeft' &&
       event.code !== 'ShiftRight'
     ) {
