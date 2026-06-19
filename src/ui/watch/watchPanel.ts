@@ -5,17 +5,19 @@ import {
   type WatchRenderSnapshot
 } from './watchBindings'
 import {
-  WATCH_EXPANDED_SIZE,
-  createWatchExpandedLayout,
+  WATCH_CANVAS_SIZE,
+  createAllWatchLayouts,
   getWatchButtonAtUv,
-  type WatchActionId
+  navTargetForAction,
+  type WatchActionId,
+  type WatchScreen
 } from './watchLayout'
-import { renderWatchExpanded } from './watchRenderer'
+import { renderWatch } from './watchRenderer'
 
 // Matches the canvas aspect so wrist text is not squashed.
 const EXPANDED_SCALE = new THREE.Vector3(
   0.18,
-  (0.18 * WATCH_EXPANDED_SIZE.height) / WATCH_EXPANDED_SIZE.width,
+  (0.18 * WATCH_CANVAS_SIZE.height) / WATCH_CANVAS_SIZE.width,
   1
 )
 const WRIST_BACK_MARGIN = 0.10
@@ -67,17 +69,22 @@ export class WatchPanel {
   readonly group = new THREE.Group()
 
   private readonly expandedCanvas = createCanvas(
-    WATCH_EXPANDED_SIZE.width,
-    WATCH_EXPANDED_SIZE.height
+    WATCH_CANVAS_SIZE.width,
+    WATCH_CANVAS_SIZE.height
   )
   private readonly expandedTexture = new THREE.CanvasTexture(this.expandedCanvas.canvas)
   private readonly expandedMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
     createMaterial(this.expandedTexture)
   )
-  private readonly layout = createWatchExpandedLayout()
+  private readonly layouts = createAllWatchLayouts()
+  private screen: WatchScreen = 'home'
   private hoveredAction: WatchActionId | null = null
   private snapshot: WatchRenderSnapshot | null = null
+
+  private get layout() {
+    return this.layouts[this.screen]
+  }
 
   constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
     this.expandedTexture.colorSpace = THREE.SRGBColorSpace
@@ -132,7 +139,7 @@ export class WatchPanel {
     this.group.quaternion.copy(panelQuaternion)
     this.group.visible = true
 
-    renderWatchExpanded(
+    renderWatch(
       this.expandedCanvas.context,
       this.layout,
       snapshot,
@@ -157,6 +164,15 @@ export class WatchPanel {
   clickHovered() {
     if (this.hoveredAction === null) {
       return false
+    }
+
+    // nav-* buttons drill between screens inside the panel; everything else is
+    // a runtime action.
+    const target = navTargetForAction(this.hoveredAction)
+    if (target !== null) {
+      this.screen = target
+      this.hoveredAction = null
+      return true
     }
 
     return this.onAction(this.hoveredAction) ?? true

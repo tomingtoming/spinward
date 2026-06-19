@@ -2,7 +2,7 @@ import { isWatchActionDisabled, type WatchRenderSnapshot } from './watchBindings
 import type {
   WatchActionId,
   WatchButton,
-  WatchExpandedLayout,
+  WatchScreenLayout,
   WatchSection
 } from './watchLayout'
 import { SECTION_PADDING } from './watchLayout'
@@ -158,29 +158,23 @@ const isActiveProfileAction = (snapshot: WatchRenderSnapshot, action: WatchActio
   (action === 'profile-sim' && snapshot.locomotionProfileId === 'sim') ||
   (action === 'profile-expert' && snapshot.locomotionProfileId === 'expert')
 
-export const renderWatchExpanded = (
+const drawHomeHeader = (
   ctx: CanvasRenderingContext2D,
-  layout: WatchExpandedLayout,
-  snapshot: WatchRenderSnapshot,
-  hoveredAction: WatchActionId | null
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot
 ) => {
-  clearCanvas(ctx)
-  drawPanelBackground(ctx, layout.width, layout.height)
-
   const left = SECTION_PADDING.left + 20
 
-  // ── Header ──
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   ctx.fillStyle = ACCENT
   ctx.font = '700 16px "Avenir Next", sans-serif'
-  ctx.fillText('I N E R T I A L   W O R L D S', left, 26)
+  ctx.fillText('S P I N W A R D', left, 26)
 
   ctx.fillStyle = TEXT_BRIGHT
   ctx.font = '700 34px "Avenir Next", sans-serif'
   ctx.fillText(snapshot.currentPresetName, left, 52)
 
-  // Mode badge, right-aligned.
   const modeLabel = snapshot.playerMode === 'grounded' ? 'ATTACHED' : 'FREE-FLY'
   const modeColor = snapshot.playerMode === 'grounded' ? '#34d399' : '#c4b5fd'
   ctx.font = '700 19px "Avenir Next", sans-serif'
@@ -193,12 +187,10 @@ export const renderWatchExpanded = (
   ctx.fillStyle = modeColor
   ctx.fillText(modeLabel, badgeX + 18, 59)
 
-  // Key readouts line.
   ctx.fillStyle = TEXT_DIM
   ctx.font = '500 18px "Avenir Next", sans-serif'
   ctx.fillText(
-    `R ${snapshot.radius.toFixed(0)} m · span ${snapshot.span.toFixed(0)} m · ` +
-      `wall ${snapshot.wallSpeed.toFixed(0)} m/s · balls ${snapshot.ballCount}`,
+    `R ${snapshot.radius.toFixed(0)} m · wall ${snapshot.wallSpeed.toFixed(0)} m/s · balls ${snapshot.ballCount}`,
     left,
     102
   )
@@ -210,35 +202,42 @@ export const renderWatchExpanded = (
     left,
     130
   )
+}
 
-  // ── Travel ──
-  drawSectionCard(
-    ctx,
-    layout.width,
-    layout.travelSection,
-    'Surface = street level · Overlook = above the plaza · Axis = zero-g'
-  )
-
-  for (const button of layout.respawnButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      accent: true,
-      disabled: isWatchActionDisabled(snapshot, button.id)
-    })
+const drawSubHeader = (
+  ctx: CanvasRenderingContext2D,
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot,
+  hoveredAction: WatchActionId | null
+) => {
+  if (layout.backButton !== undefined) {
+    drawButton(ctx, layout.backButton, hoveredAction)
   }
 
-  // ── Spin & gravity ──
-  drawSectionCard(ctx, layout.width, layout.spinSection, 'g = ω² R — slow the spin, lighten the world')
-  drawStepperRow(
-    ctx,
-    layout.spinRow,
-    `${formatWatchParameterValue('rpm', snapshot)} rpm`,
-    hoveredAction
-  )
+  ctx.fillStyle = TEXT_BRIGHT
+  ctx.font = '700 30px "Avenir Next", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(layout.title ?? '', layout.width * 0.5, 52)
 
-  // Gravity gauge: the LIVE felt gravity (measured proper acceleration)
-  // against 1g — drive against the spin and watch this bar drain to zero.
-  const gaugeX = left
-  const gaugeWidth = layout.width - left - SECTION_PADDING.right - 20
+  ctx.fillStyle = TEXT_DIM
+  ctx.font = '500 17px "Avenir Next", sans-serif'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(snapshot.currentPresetName, layout.width - SECTION_PADDING.right - 18, 53)
+}
+
+const drawGravityGauge = (
+  ctx: CanvasRenderingContext2D,
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot
+) => {
+  if (layout.gravityGaugeY === undefined) {
+    return
+  }
+
+  const gaugeX = SECTION_PADDING.left + 20
+  const gaugeWidth = layout.width - gaugeX - SECTION_PADDING.right - 20
   const gaugeY = layout.gravityGaugeY
   const ratio = snapshot.feltGravity / EARTH_GRAVITY
   const fillRatio = Math.min(ratio / 1.25, 1)
@@ -273,7 +272,6 @@ export const renderWatchExpanded = (
     ctx.fill()
   }
 
-  // 1g marker.
   const markerX = gaugeX + gaugeWidth * (1 / 1.25)
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'
   ctx.lineWidth = 2
@@ -284,34 +282,72 @@ export const renderWatchExpanded = (
   ctx.fillStyle = TEXT_FAINT
   ctx.font = '600 13px "Avenir Next", sans-serif'
   ctx.fillText('1g', markerX + 6, gaugeY + 8)
+}
 
-  // ── Parameters ──
-  drawSectionCard(ctx, layout.width, layout.parameterSection)
+export const renderWatch = (
+  ctx: CanvasRenderingContext2D,
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot,
+  hoveredAction: WatchActionId | null
+) => {
+  clearCanvas(ctx)
+  drawPanelBackground(ctx, layout.width, layout.height)
 
-  for (const row of layout.rows) {
-    drawStepperRow(ctx, row, formatWatchParameterValue(row.key, snapshot), hoveredAction)
+  if (layout.screen === 'home') {
+    drawHomeHeader(ctx, layout, snapshot)
+
+    if (layout.travelSection !== undefined && layout.travelButtons !== undefined) {
+      drawSectionCard(
+        ctx,
+        layout.width,
+        layout.travelSection,
+        'Surface = street · Overlook = above the plaza · Axis = zero-g'
+      )
+      for (const button of layout.travelButtons) {
+        drawButton(ctx, button, hoveredAction, {
+          accent: true,
+          disabled: isWatchActionDisabled(snapshot, button.id)
+        })
+      }
+    }
+
+    if (layout.spinSection !== undefined && layout.spinRow !== undefined) {
+      drawSectionCard(ctx, layout.width, layout.spinSection, 'g = ω² R — slow the spin, lighten the world')
+      drawStepperRow(ctx, layout.spinRow, `${formatWatchParameterValue('rpm', snapshot)} rpm`, hoveredAction)
+      drawGravityGauge(ctx, layout, snapshot)
+    }
+
+    for (const button of layout.categoryButtons ?? []) {
+      drawButton(ctx, button, hoveredAction, { accent: true })
+    }
+
+    return
   }
 
-  // ── Locomotion ──
-  drawSectionCard(ctx, layout.width, layout.locomotionSection)
+  drawSubHeader(ctx, layout, snapshot, hoveredAction)
 
-  for (const button of layout.profileButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      active: isActiveProfileAction(snapshot, button.id)
-    })
+  if (layout.screen === 'habitat') {
+    if (layout.presetSection !== undefined && layout.presetButtons !== undefined) {
+      drawSectionCard(ctx, layout.width, layout.presetSection, 'Rebuilds the habitat and respawns on the surface')
+      for (const button of layout.presetButtons) {
+        drawButton(ctx, button, hoveredAction, { active: isActivePresetAction(snapshot, button.id) })
+      }
+    }
   }
 
-  // ── Presets ──
-  drawSectionCard(
-    ctx,
-    layout.width,
-    layout.presetSection,
-    'Rebuilds the habitat and respawns on the surface'
-  )
+  if (layout.screen === 'comfort') {
+    if (layout.profileSection !== undefined && layout.profileButtons !== undefined) {
+      drawSectionCard(ctx, layout.width, layout.profileSection, 'Comfort: Beginner = vignette · Expert = none')
+      for (const button of layout.profileButtons) {
+        drawButton(ctx, button, hoveredAction, { active: isActiveProfileAction(snapshot, button.id) })
+      }
+    }
+  }
 
-  for (const button of layout.presetButtons) {
-    drawButton(ctx, button, hoveredAction, {
-      active: isActivePresetAction(snapshot, button.id)
-    })
+  if (layout.rowsSection !== undefined && layout.rows !== undefined) {
+    drawSectionCard(ctx, layout.width, layout.rowsSection)
+    for (const row of layout.rows) {
+      drawStepperRow(ctx, row, formatWatchParameterValue(row.key, snapshot), hoveredAction)
+    }
   }
 }
