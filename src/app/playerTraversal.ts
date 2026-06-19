@@ -145,6 +145,10 @@ const PLAYER_REST_SUPPORT = 0.32
 const GROUND_LOSS_GAP = 1.0
 const GROUND_CONTACT_GAP = 0.9
 const GROUND_CONTACT_MAX_RADIAL_SPEED = 1.8
+// Stay airborne while moving fast relative to the wall (rotating-frame speed):
+// a fast tangential slide or high-speed arrival should keep flying, not snap
+// to a grounded stand.
+const GROUND_CONTACT_MAX_RELATIVE_SPEED = 6
 const WALK_TRACTION_ACCEL = 28
 const walkOutward = new THREE.Vector3()
 const walkTangent = new THREE.Vector3()
@@ -407,6 +411,10 @@ export const updatePlayerGroundContact = (
   )
 
   if (Math.abs(rotatingVelocity.dot(walkOutward)) > GROUND_CONTACT_MAX_RADIAL_SPEED) {
+    return false
+  }
+
+  if (rotatingVelocity.length() > GROUND_CONTACT_MAX_RELATIVE_SPEED) {
     return false
   }
 
