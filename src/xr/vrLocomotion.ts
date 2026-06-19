@@ -44,6 +44,7 @@ const desiredWorldOrientation = new THREE.Quaternion()
 const worldAngularVelocity = new THREE.Vector3()
 const viewForward = new THREE.Vector3()
 const viewRight = new THREE.Vector3()
+const viewUp = new THREE.Vector3()
 const stickMove = new THREE.Vector3()
 const viewWorldQuaternion = new THREE.Quaternion()
 const intent = createLocomotionIntent()
@@ -54,6 +55,10 @@ const freeFlyThrust = new THREE.Vector3()
 const FACE_BUTTON_THRESHOLD = 0.55
 const CLUTCH_THRESHOLD = 0.05
 const ATTACHED_YAW_SPEED = Math.PI * 0.6
+// xr-standard gamepad mapping: buttons[4] is A on the right controller. Held
+// (level read, not the edge-detected jump) it thrusts the jetpack "up" relative
+// to the view, mirroring PC Space. Jump/exit-car still use the edge in main.ts.
+const A_BUTTON_INDEX = 4
 
 export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
@@ -177,6 +182,7 @@ export class VRLocomotion {
     let leftStickMagnitudeSq = 0
     let snapAxisX = 0
     let snapAxisMagnitudeSq = 0
+    let ascendHeld = false
 
     for (const [controller, inputSource] of this.inputSourceByController) {
       const gamepad = inputSource.gamepad
@@ -195,6 +201,11 @@ export class VRLocomotion {
       ) {
         snapAxisMagnitudeSq = stickMagnitudeSq
         snapAxisX = axisX
+      }
+
+      // Right A held = jetpack ascend (consumed in the free-fly branch below).
+      if (inputSource.handedness === 'right') {
+        ascendHeld ||= gamepad.buttons[A_BUTTON_INDEX]?.pressed ?? false
       }
 
       if (inputSource.handedness !== 'left') {
@@ -278,6 +289,18 @@ export class VRLocomotion {
             freeFlyThrust
           )
         )
+      }
+
+      // Right A held thrusts "up" relative to the view, mirroring PC Space.
+      // Added on top of any clutch/stick thrust; mergeLocomotionIntent
+      // renormalises freeFlyThrust, so the combined magnitude never exceeds full
+      // jetpack acceleration.
+      if (ascendHeld) {
+        this.camera.updateWorldMatrix(true, false)
+        viewUp
+          .set(0, 1, 0)
+          .applyQuaternion(this.camera.getWorldQuaternion(viewWorldQuaternion))
+        intent.freeFlyThrust.add(viewUp)
       }
 
       this.clutchDebug.update(clutchInput, 'free-fly', {
