@@ -28,6 +28,7 @@ import {
   getIdleLocomotionIntent,
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
+  resetPlayerToFreeFly,
   resetPlayerToGrounded,
   syncGroundedSurfaceFromPhysics,
   syncPlayerTraversalFromPhysics,
@@ -595,14 +596,28 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const carExitVelocity = new THREE.Vector3()
+  const carExitPosition = new THREE.Vector3()
+  const PLAYER_DISMOUNT_HEIGHT = 1.1
+
   const exitDrive = () => {
+    const omega = rpmToOmega(habitatConfig.rpm)
+    // Step off carrying the car's momentum: leave on foot in free-fly with the
+    // car's rotating-frame velocity. A near-stopped car re-attaches next frame
+    // (the ground-contact gate sees a low relative speed); a moving one flings
+    // you forward, like stepping off a moving vehicle.
+    carExitVelocity.copy(drive.lastRotatingVelocity)
     drive.exit()
-    resetPlayerToGrounded(playerTraversal, {
-      axialPosition: drive.surface.axialPosition,
-      azimuth: drive.surface.azimuth + 2.6 / habitatConfig.radius,
-      radius: habitatConfig.radius,
+    const exitAzimuth = drive.surface.azimuth + 2.6 / habitatConfig.radius
+    carExitPosition
+      .set(Math.cos(exitAzimuth), 0, Math.sin(exitAzimuth))
+      .multiplyScalar(habitatConfig.radius - PLAYER_DISMOUNT_HEIGHT)
+      .setY(drive.surface.axialPosition)
+    resetPlayerToFreeFly(playerTraversal, {
+      rotatingPosition: carExitPosition,
+      rotatingVelocity: carExitVelocity,
       frameAngle,
-      omega: rpmToOmega(habitatConfig.rpm)
+      omega
     })
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
     car.setPose(
@@ -1024,6 +1039,16 @@ export const bootstrapApp = async () => {
   const LAND_DIP_STIFFNESS = 6
   let landDipOffset = 0
   let landDipVelocity = 0
+  // Smooths the free-fly→grounded eye handoff: seeded on landing with the
+  // measured view gap (projected onto the colonist's up) and decays to 0, so it
+  // can never leave a permanent offset. Desktop/mobile only — in XR a sudden
+  // view shift moves the floor under a standing user.
+  let landingSettle = 0
+  const LANDING_SETTLE_TAU = 0.16
+  let hasEyePrev = false
+  const eyeWorldPrev = new THREE.Vector3()
+  const eyeWorldNow = new THREE.Vector3()
+  const eyeUp = new THREE.Vector3()
   let fallSpeed = 0
   const fallProbePosition = new THREE.Vector3()
   const fallProbeVelocity = new THREE.Vector3()
@@ -1255,8 +1280,9 @@ export const bootstrapApp = async () => {
     // Walking is physics now: free-fly ends the moment the body has settled
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
+    let landed = false
     if (!drive.driving) {
-      const landed = updatePlayerGroundContact(playerTraversal, {
+      landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
         frameAngle,
@@ -1289,7 +1315,8 @@ export const bootstrapApp = async () => {
         2 * LAND_DIP_STIFFNESS * landDipVelocity) *
       deltaSeconds
     landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
-    viewRig.position.y = landDipOffset + (drive.driving ? DRIVER_VIEW_RAISE : 0)
+    landingSettle *= Math.exp(-Math.max(0, deltaSeconds) / LANDING_SETTLE_TAU)
+    viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0)
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
@@ -1297,6 +1324,26 @@ export const bootstrapApp = async () => {
       // Driver view: same surface anchor, but facing the car's heading.
       drive.getRigQuaternion(playerRig.quaternion)
     }
+
+    // Landing eye handoff: free-fly tracks the body's real position; grounded
+    // snaps to the pinned standing height. On the landing frame, seed the
+    // settle with the actual gap (last frame's free-fly eye vs this frame's
+    // pinned eye, projected onto the colonist's up) so the spring eases it away
+    // instead of popping. Skipped in XR (the head is tracked).
+    if (landed && hasEyePrev && !renderer.xr.isPresenting) {
+      camera.getWorldPosition(eyeWorldNow)
+      eyeUp.set(0, 1, 0).applyQuaternion(playerRig.quaternion).normalize()
+      landingSettle = THREE.MathUtils.clamp(
+        (eyeWorldPrev.x - eyeWorldNow.x) * eyeUp.x +
+          (eyeWorldPrev.y - eyeWorldNow.y) * eyeUp.y +
+          (eyeWorldPrev.z - eyeWorldNow.z) * eyeUp.z,
+        -2,
+        2
+      )
+      viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0)
+    }
+    camera.getWorldPosition(eyeWorldPrev)
+    hasEyePrev = true
 
     dockingGuide.update(
       computeDockingGuideState(playerTraversal, {

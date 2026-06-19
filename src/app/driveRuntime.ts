@@ -68,6 +68,9 @@ export class DriveRuntime {
   lastSpeed = 0
   lastRadialGap = 0
   lastContacts = 0
+  // The car's velocity in the rotating (colony) frame after the last step — a
+  // dismounting walker carries it so stepping out of a moving car keeps momentum.
+  readonly lastRotatingVelocity = new THREE.Vector3()
   // The body's measured inertial pose after the last settled step — the felt-G
   // accelerometer in the app loop differences the velocity and projects the
   // proper acceleration onto the radial "down" given by the position.
@@ -279,6 +282,7 @@ export class DriveRuntime {
     // footprint pushout is gone. Only the tangential tire velocity is written
     // back below; the building normal force lives in the solver.
 
+    this.lastRotatingVelocity.copy(rotatingVelocity)
     rotatingVelocityToInertial(
       rotatingPosition,
       rotatingVelocity,
