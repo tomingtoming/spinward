@@ -372,6 +372,9 @@ const createWindowTexture = (columns = 6, rows = 9) => {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
+  // The far side's lit windows are tiny and high-contrast across the colony, so
+  // they sparkle without anisotropic filtering. Request the hardware max.
+  texture.anisotropy = 16
   return texture
 }
 
