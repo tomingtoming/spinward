@@ -1209,7 +1209,11 @@ export const bootstrapApp = async () => {
         linearDamping: 0,
         brakeAmount: locomotionIntent.freeFlyBrake,
         brakeDamping: 6,
-        maxSpeed: 14
+        // Top speed scales with the colony, so a jetpack feels fast across a
+        // huge habitat (Izma R=3200 → ~48 m/s) without instantly overshooting a
+        // tiny one (Playground → the 16 floor). The old flat 14 m/s made
+        // crossing a km-scale colony a slog. Raise the factor for more speed.
+        maxSpeed: THREE.MathUtils.clamp(habitatConfig.radius * 0.015, 16, 80)
       })
     }
 
