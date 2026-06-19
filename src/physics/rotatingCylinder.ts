@@ -18,7 +18,8 @@ export type CylinderWallPanel = {
   halfExtents: THREE.Vector3
 }
 
-const radialAxis = new THREE.Vector3(0, 1, 0)
+// The colony spins about +Y (its longitudinal axis); panels co-rotate around it.
+const spinAxis = new THREE.Vector3(0, 1, 0)
 
 export const resolveCylinderWallSegmentCount = ({
   radius,
@@ -83,7 +84,7 @@ export const buildCylinderWallPanels = ({
       // its thickness axis to point outward there. The old +angle yawed
       // every panel by twice its azimuth, turning the wall into a saw blade
       // that snagged tangential drivers at every seam.
-      rotation: new THREE.Quaternion().setFromAxisAngle(radialAxis, -angle),
+      rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle),
       halfExtents: new THREE.Vector3(halfThickness, length * 0.5, panelWidth * 0.5)
     })
   }
@@ -173,7 +174,7 @@ export const createRotatingCylinderBody = (
     },
     syncToFrame(frameAngle: number) {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true)
-      const rotation = new THREE.Quaternion().setFromAxisAngle(radialAxis, frameAngle)
+      const rotation = new THREE.Quaternion().setFromAxisAngle(spinAxis, frameAngle)
       body.setRotation(rotation, true)
     },
     dispose() {
