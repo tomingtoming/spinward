@@ -1072,7 +1072,11 @@ export class Cityscape {
     // height on multi-kilometer habitats. Arterials and residential
     // streets get separate meshes so their surfaces read differently.
     for (const kind of ['arterial', 'local'] as const) {
-      const roadRadius = radius - 0.05
+      // Physically lift the road off the ground (and above the fields). The
+      // logarithmic depth buffer makes polygonOffset inert, so the coplanar land
+      // layers are separated by real radius instead: ground at R, fields at
+      // R-0.1, roads at R-0.2 — enough that log depth resolves them near and far.
+      const roadRadius = radius - 0.2
       const geometries: THREE.BufferGeometry[] = []
 
       for (const road of roads) {
@@ -1155,7 +1159,9 @@ export class Cityscape {
   }
 
   private buildPatches(patches: CityPatch[], radius: number, length: number) {
-    const bandRadius = radius - 0.04
+    // Lifted off the ground so log depth (which makes polygonOffset inert)
+    // resolves the field-vs-ground and field-vs-road seams. See buildRoads.
+    const bandRadius = radius - 0.1
     // Crop rows stay field-scale even on multi-km habitats.
     const stripeWorld = Math.min(getCityCellSize(radius, length) * 0.8, 30)
 
