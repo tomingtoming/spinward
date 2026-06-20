@@ -310,7 +310,10 @@ describe('planCity', () => {
   test('respects the instance cap at large scales', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
     expect(buildings.length).toBeLessThanOrEqual(12000)
-    expect(buildings.length).toBeGreaterThan(9000)
+    // The downtown/countryside urbanization field intentionally leaves the
+    // outskirts to fields and low-rise hamlets, so the city no longer saturates
+    // the cap — but it stays a substantial, dense-cored colony.
+    expect(buildings.length).toBeGreaterThan(4000)
   })
 
   test('assigns building archetypes with sane shapes', () => {
