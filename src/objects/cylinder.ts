@@ -7,6 +7,7 @@ import {
 import { getWindowArcs } from './cityLayout'
 import {
   createCylinderSurfaceTexture,
+  createHoneycombTexture,
   getCylinderSurfaceRepeat
 } from './cylinderSurface'
 
@@ -207,19 +208,21 @@ export class CylinderHabitat {
   // stars bleed through the floor and read as glass. Openness lives in the
   // carved window strips instead.
   private readonly nearShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0xa9adb2,
+    // Near-white so the terrain texture's earth/grass tones read true; the far
+    // shell stays a touch darker for aerial depth.
+    color: 0xeae8da,
     map: this.nearShellTexture,
     side: THREE.BackSide,
-    roughness: 0.92,
-    metalness: 0.04
+    roughness: 0.95,
+    metalness: 0.02
   })
 
   private readonly farShellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x8d9298,
+    color: 0xbdbcaf,
     map: this.farShellTexture,
     side: THREE.BackSide,
-    roughness: 0.95,
-    metalness: 0.03
+    roughness: 0.96,
+    metalness: 0.02
   })
 
   private readonly markerMaterial = new THREE.MeshBasicMaterial({
@@ -245,14 +248,19 @@ export class CylinderHabitat {
     side: THREE.FrontSide
   })
 
+  // Hexagonal honeycomb glazing so the end reads as the iconic O'Neill
+  // structural-glass bulkhead rather than a flat disc.
+  private readonly endCapTexture = createHoneycombTexture()
   private readonly endCapMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4a6478,
-    emissive: 0x101a26,
-    emissiveIntensity: 0.8,
+    color: 0xaab4c0,
+    map: this.endCapTexture,
+    emissive: new THREE.Color(0x2a3344),
+    emissiveMap: this.endCapTexture,
+    emissiveIntensity: 0.6,
     // Visible from inside the colony (the closed cap is a flat annulus).
     side: THREE.DoubleSide,
-    roughness: 0.55,
-    metalness: 0.4
+    roughness: 0.5,
+    metalness: 0.45
   })
 
   // The air itself: scene fog only tints surfaces, so the carved windows

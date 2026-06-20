@@ -552,6 +552,27 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const tangentExtent = usableArc * radius
   const axialHalf = Math.max(0, length * 0.5 - cell)
   const axialExtent = axialHalf * 2
+
+  // City "メリハリ": a downtown over the plaza (strip centre, axial 0) that falls
+  // off to pastoral countryside at the strip edges. Drives building height,
+  // density, archetype mix and farm-vs-built zoning so high-rises cluster where
+  // people concentrate and fields take the outskirts. Computed per land strip
+  // from a building/block's tangential + axial position, so it needs no RNG and
+  // never changes the deterministic roll order.
+  const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
+  const urbanizationAt = (tangentMeters: number, axialMeters: number) => {
+    const tNorm = tangentExtent > 0 ? tangentMeters / (tangentExtent * 0.5) : 0
+    const aNorm = axialHalf > 0 ? axialMeters / axialHalf : 0
+    // Broad downtown over the plaza, easing through suburb to countryside.
+    const core = Math.max(0, 1 - Math.hypot(tNorm, aNorm * 0.85) * 0.82)
+    // A secondary district offset down one end so it is not a lone bullseye.
+    const district = 0.7 * Math.max(0, 1 - Math.hypot((tNorm + 0.5) * 1.3, (aNorm - 0.55) * 1.1))
+    // Low-frequency ripple so the urban edge is ragged, not a clean circle.
+    const ripple = 0.12 * Math.cos(aNorm * 4.1) * Math.cos(tNorm * 3.3)
+    // A suburban baseline so the outskirts keep scattered hamlets between the
+    // fields rather than emptying to pure wilderness.
+    return clamp01(Math.max(core, district) + ripple + 0.2)
+  }
   // Even block counts put an avenue at the strip center and a street at
   // axial 0: the spawn point lands exactly on an arterial crossroads.
   // Habitats too small for two viable blocks keep a single one instead of
@@ -644,7 +665,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     edgeSide: 1 | -1,
     rowStart: number,
     rowEnd: number,
-    depthMax: number
+    depthMax: number,
+    urban: number
   ) => {
     const span = rowEnd - rowStart
     const count = Math.floor(span / lot)
@@ -666,7 +688,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const jitterRoll = random()
       const kindRoll = random()
 
-      if (keepRoll > keepProbability) {
+      // Downtown lots fill in; the countryside thins out toward fields.
+      if (keepRoll > keepProbability * (0.55 + urban * 0.45)) {
         continue
       }
 
@@ -674,22 +697,26 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       let depth = depthMax * (0.55 + depthRoll * 0.45)
       const alongCenter =
         rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
-      let height = heightBase * (0.25 + heightRoll * heightRoll * 1.1)
+      // Downtown stands tall; the outskirts stay low-rise.
+      let height = heightBase * (0.25 + heightRoll * heightRoll * 1.1) * (0.35 + urban * 0.65)
 
       // Building archetypes: low lots lean toward houses, tall rolls become
-      // slim towers or stepped setbacks, everything else stays a block.
+      // slim towers or stepped setbacks, everything else stays a block. Downtown
+      // skews the dice toward towers/setbacks; the countryside toward houses.
       let kind: BuildingKind = 'block'
+      const towerThreshold = 0.84 - urban * 0.26
+      const setbackThreshold = 0.62 - urban * 0.16
 
       if (height < heightBase * 0.45 && kindRoll < 0.55) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (kindRoll > 0.84) {
+      } else if (kindRoll > towerThreshold) {
         kind = 'tower'
         const slim = Math.min(along, depth) * 0.85
         along = slim
         depth = slim
         height = Math.min(height * 1.25, 78)
-      } else if (kindRoll > 0.62) {
+      } else if (kindRoll > setbackThreshold) {
         kind = 'setback'
         height = Math.min(height * 1.1, 76)
       }
@@ -767,9 +794,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         const zoneRoll = random()
         const blockCenterAzimuth = stripCenter + ((tangent0 + tangent1) * 0.5) / radius
         const blockCenterAxial = (axial0 + axial1) * 0.5
+        const blockUrban = urbanizationAt((tangent0 + tangent1) * 0.5, blockCenterAxial)
+        // The countryside turns mostly to farm fields; downtown keeps the
+        // original sparse green allotment.
+        const farmProbability = Math.min(0.58, FARM_BLOCK_PROBABILITY + (1 - blockUrban) * 0.42)
 
         if (
-          zoneRoll < PARK_BLOCK_PROBABILITY + FARM_BLOCK_PROBABILITY &&
+          zoneRoll < PARK_BLOCK_PROBABILITY + farmProbability &&
           !isInsidePlaza(blockCenterAzimuth, blockCenterAxial, radius)
         ) {
           const kind: CityPatchKind =
@@ -838,8 +869,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           }
 
           const ringDepth = Math.min(cell * 0.9, ringWidth * 0.35, ringLength * 0.35)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban)
           placeEdgeRow(
             stripCenter,
             'street',
@@ -847,7 +878,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             1,
             ringTangent0 + ringDepth + sidewalk,
             ringTangent1 - ringDepth - sidewalk,
-            ringDepth
+            ringDepth,
+            blockUrban
           )
           placeEdgeRow(
             stripCenter,
@@ -856,7 +888,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             -1,
             ringTangent0 + ringDepth + sidewalk,
             ringTangent1 - ringDepth - sidewalk,
-            ringDepth
+            ringDepth,
+            blockUrban
           )
 
           const inset = ringDepth + sidewalk * 1.5

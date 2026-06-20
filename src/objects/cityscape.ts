@@ -589,6 +589,10 @@ export class Cityscape {
   private radius = 0
   private length = 0
   private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+  // The current sky-grade haze colour, fed from main so the window-strip mirrors
+  // read as the same warm/violet dusk (or blue day) sky pouring in.
+  private readonly skyColor = new THREE.Color(0xffffff)
+  private readonly mirrorDayColor = new THREE.Color()
 
   private readonly maxBuildings: number | undefined
 
@@ -688,10 +692,23 @@ export class Cityscape {
 
   // Day/night dressing: the mirrors dim to night-side blue, facades and
   // street lamps take over as the light sources.
+  // The window-strip mirrors are the colony's "sky": tint them with the current
+  // grade so dusk pours warm/violet light through the strips, day pours blue.
+  setSkyColor(color: THREE.Color) {
+    this.skyColor.copy(color)
+  }
+
   setDaylight(daylight: number) {
     const night = 1 - daylight
-    this.mirrorMaterial.color.lerpColors(MIRROR_NIGHT, MIRROR_DAY, daylight)
-    this.windowStripMaterial.opacity = 0.05 + daylight * 0.12
+    // Mirror sky = the sky-grade colour, lifted toward white and brightened so
+    // the strips read as luminous light-admitting glass, dimming to night blue.
+    this.mirrorDayColor.copy(this.skyColor).lerp(MIRROR_DAY, 0.4).multiplyScalar(1.5)
+    this.mirrorMaterial.color.lerpColors(
+      MIRROR_NIGHT,
+      this.mirrorDayColor,
+      THREE.MathUtils.clamp(daylight + 0.15, 0, 1)
+    )
+    this.windowStripMaterial.opacity = 0.07 + daylight * 0.16
     this.buildingSideMaterial.emissiveIntensity = 0.6 + night * 0.85
     this.largeBuildingSideMaterial.emissiveIntensity =
       this.buildingSideMaterial.emissiveIntensity

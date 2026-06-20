@@ -5,9 +5,6 @@ type CylinderSurfaceRepeat = {
   axial: number
 }
 
-const minorGridDivisions = 8
-const majorGridStep = 4
-
 export const getCylinderSurfaceRepeat = (
   radius: number,
   length: number,
@@ -31,59 +28,33 @@ export const createCylinderSurfaceTexture = (size = 512) => {
     throw new Error('2D canvas context is required for cylinder surface texture')
   }
 
-  context.fillStyle = '#2f343a'
+  // Earthy base: muted grass/soil so the colony floor reads as land, not a tech
+  // deck. Roads, buildings, farms and parks are drawn on top of this.
+  context.fillStyle = '#5c6a40'
   context.fillRect(0, 0, size, size)
 
-  const tileSize = size / minorGridDivisions
+  // Seeded organic mottling — patches of grass, soil, dry field and shrub.
+  // Fine-grained so the 12 m tile does not obviously repeat across the bore.
+  let seed = 0x6e7a1c3d >>> 0
+  const random = () => {
+    seed = (1664525 * seed + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
 
-  for (let column = 0; column <= minorGridDivisions; column += 1) {
-    const x = Math.round(column * tileSize) + 0.5
-    const major = column % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(205, 212, 220, 0.22)' : 'rgba(185, 195, 205, 0.10)'
-    context.lineWidth = major ? 2 : 1
+  const patchColors = ['#4f5d38', '#67724a', '#7a7444', '#52492f', '#6f8050', '#454f30']
+
+  for (let patch = 0; patch < 1100; patch += 1) {
+    const x = random() * size
+    const y = random() * size
+    const r = 3 + random() * 20
+    context.globalAlpha = 0.1 + random() * 0.22
+    context.fillStyle = patchColors[Math.floor(random() * patchColors.length)]
     context.beginPath()
-    context.moveTo(x, 0)
-    context.lineTo(x, size)
-    context.stroke()
+    context.ellipse(x, y, r, r * (0.55 + random() * 0.9), random() * Math.PI, 0, Math.PI * 2)
+    context.fill()
   }
 
-  for (let row = 0; row <= minorGridDivisions; row += 1) {
-    const y = Math.round(row * tileSize) + 0.5
-    const major = row % majorGridStep === 0
-    context.strokeStyle = major ? 'rgba(205, 212, 220, 0.22)' : 'rgba(185, 195, 205, 0.10)'
-    context.lineWidth = major ? 2 : 1
-    context.beginPath()
-    context.moveTo(0, y)
-    context.lineTo(size, y)
-    context.stroke()
-  }
-
-  for (let row = 0; row < minorGridDivisions; row += 1) {
-    for (let column = 0; column < minorGridDivisions; column += 1) {
-      const x = column * tileSize
-      const y = row * tileSize
-      const inset = tileSize * 0.16
-      const tint = (row + column) % 2 === 0 ? 0.05 : 0.1
-      context.fillStyle = `rgba(228, 232, 236, ${tint})`
-      context.fillRect(
-        x + inset,
-        y + inset,
-        tileSize - inset * 2,
-        tileSize - inset * 2
-      )
-
-      if ((row + column) % majorGridStep === 0) {
-        context.strokeStyle = 'rgba(214, 182, 89, 0.28)'
-        context.lineWidth = 1.5
-        context.strokeRect(
-          x + tileSize * 0.28,
-          y + tileSize * 0.28,
-          tileSize * 0.44,
-          tileSize * 0.44
-        )
-      }
-    }
-  }
+  context.globalAlpha = 1
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -91,6 +62,76 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   texture.wrapT = THREE.RepeatWrapping
   // The floor/wall grid is viewed at a grazing angle far away (right under the
   // roads), so it shimmers at low anisotropy. Request the hardware max.
+  texture.anisotropy = 16
+  return texture
+}
+
+// Hexagonal honeycomb glazing for the colony end caps: a structural panel grid
+// of pointy-top hex cells in a dark mullion frame, with faintly varied glass
+// tints. Used as both the colour map and the emissive map so the end reads as a
+// lit structural-glass bulkhead (the iconic O'Neill end mirror), not a flat disc.
+export const createHoneycombTexture = (size = 256) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+
+  if (context === null) {
+    throw new Error('2D canvas context is required for the honeycomb texture')
+  }
+
+  // Dark mullion frame behind the cells.
+  context.fillStyle = '#1c2530'
+  context.fillRect(0, 0, size, size)
+
+  let seed = 0x9b4d2f7a >>> 0
+  const random = () => {
+    seed = (1664525 * seed + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
+
+  const hexRadius = size / 9
+  const hexHeight = Math.sqrt(3) * hexRadius
+  const columnStep = hexRadius * 1.5
+
+  const drawHex = (cx: number, cy: number) => {
+    context.beginPath()
+    for (let vertex = 0; vertex < 6; vertex += 1) {
+      const angle = (Math.PI / 180) * (60 * vertex)
+      const px = cx + hexRadius * 0.92 * Math.cos(angle)
+      const py = cy + hexRadius * 0.92 * Math.sin(angle)
+      if (vertex === 0) {
+        context.moveTo(px, py)
+      } else {
+        context.lineTo(px, py)
+      }
+    }
+    context.closePath()
+  }
+
+  context.lineWidth = Math.max(1.5, hexRadius * 0.12)
+  context.strokeStyle = 'rgba(12, 18, 26, 0.95)'
+
+  for (let column = -1; column * columnStep < size + hexRadius * 2; column += 1) {
+    const cx = column * columnStep
+    const offsetY = (((column % 2) + 2) % 2) * hexHeight * 0.5
+
+    for (let row = -1; row * hexHeight + offsetY < size + hexHeight; row += 1) {
+      const cy = row * hexHeight + offsetY
+      // Warm-to-cool glass variation so it shimmers like real panelled glass.
+      const warm = random()
+      const r = Math.round(150 + warm * 70)
+      const g = Math.round(140 + random() * 50)
+      const b = Math.round(150 + (1 - warm) * 80)
+      drawHex(cx, cy)
+      context.fillStyle = `rgb(${r}, ${g}, ${b})`
+      context.fill()
+      context.stroke()
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
   texture.anisotropy = 16
   return texture
 }

@@ -1617,6 +1617,7 @@ export const bootstrapApp = async () => {
     ;(scene.background as THREE.Color).copy(skyGrade.background)
     sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
     renderer.toneMappingExposure = skyGrade.exposure
+    cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
     clouds.setDaylight(daylight)
     clouds.update(deltaSeconds)
