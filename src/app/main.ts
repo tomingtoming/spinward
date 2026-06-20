@@ -228,7 +228,12 @@ export const bootstrapApp = async () => {
   viewRig.add(camera)
   scene.add(tourCardPanel.mesh)
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  // A logarithmic depth buffer: at colony scale the camera far plane is huge
+  // (km-deep bore + the distant star shell), so a linear depth buffer has almost
+  // no precision out there and coplanar surfaces — roads/fields on the ground,
+  // glass on the wall — z-fight. Log depth redistributes precision across the
+  // whole range and keeps the near plane small (so VR hands stay un-clipped).
+  const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
