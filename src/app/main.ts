@@ -228,7 +228,12 @@ export const bootstrapApp = async () => {
   viewRig.add(camera)
   scene.add(tourCardPanel.mesh)
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  // A logarithmic depth buffer: at colony scale the camera far plane is huge
+  // (km-deep bore + the distant star shell), so a linear depth buffer has almost
+  // no precision out there and coplanar surfaces — roads/fields on the ground,
+  // glass on the wall — z-fight. Log depth redistributes precision across the
+  // whole range and keeps the near plane small (so VR hands stay un-clipped).
+  const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
@@ -1379,6 +1384,13 @@ export const bootstrapApp = async () => {
     if (drive.driving) {
       // Driver view: same surface anchor, but facing the car's heading.
       drive.getRigQuaternion(playerRig.quaternion)
+    }
+
+    // Apply the landing heading on the SAME frame the body settles (the rig is
+    // now grounded), so the view never snaps to level forward for a frame before
+    // the stand-up ease. Head-tracked XR keeps its own orientation.
+    if (landed && !renderer.xr.isPresenting) {
+      desktopLookControls.notifyLanded()
     }
 
     // Landing eye handoff: free-fly tracks the body's real position; grounded

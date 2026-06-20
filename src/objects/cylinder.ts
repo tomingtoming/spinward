@@ -269,18 +269,24 @@ export class CylinderHabitat {
       hazeDensity: { value: 0.0001 }
     },
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       varying float vViewDistance;
       void main() {
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         vViewDistance = length(mvPosition.xyz);
         gl_Position = projectionMatrix * mvPosition;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform vec3 hazeColor;
       uniform float hazeDensity;
       varying float vViewDistance;
       void main() {
+        #include <logdepthbuf_fragment>
         float alpha = 1.0 - exp(-hazeDensity * vViewDistance);
         gl_FragColor = vec4(hazeColor, alpha);
         #include <tonemapping_fragment>

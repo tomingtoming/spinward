@@ -27,6 +27,17 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0)
 const Z_AXIS = new THREE.Vector3(0, 0, 1)
 const intent = createLocomotionIntent()
 const DETACH_LAUNCH_SPEED = 6
+// How fast the inherited free-fly pitch eases back to level after landing.
+const GROUNDING_PITCH_RATE = 8
+
+// Scratch for decomposing the free-fly attitude into the grounded surface frame
+// on landing (so the heading is kept and the tilt eases upright, not snapped).
+const groundUp = new THREE.Vector3()
+const groundTangent = new THREE.Vector3()
+const groundBasis = new THREE.Matrix4()
+const groundRigQuaternion = new THREE.Quaternion()
+const landingCameraQuaternion = new THREE.Quaternion()
+const landingEuler = new THREE.Euler(0, 0, 0, 'YXZ')
 
 export class DesktopLookControls {
   private yaw = 0
@@ -39,6 +50,8 @@ export class DesktopLookControls {
   private freeFlyActive = false
   private wasFreeFly = false
   private dragging = false
+  // True while easing the inherited free-fly pitch back to level after a landing.
+  private standingUp = false
   private readonly pressedKeys = new Set<string>()
   // One-shot boot "look up" reveal; null when idle or cancelled.
   private introElapsed: number | null = null
@@ -119,12 +132,10 @@ export class DesktopLookControls {
       this.camera.rotation.set(0, 0, 0)
       this.playerRig.quaternion.copy(this.attitude)
     } else if (!freeFlyActive && this.wasFreeFly) {
-      // Free-fly → grounded: stand back up. The surface rig re-orients the body
-      // upright this frame, so reset the camera to a level forward view.
-      this.yaw = 0
-      this.pitch = 0
-      this.roll = 0
-      this.camera.rotation.set(0, 0, 0)
+      // Fallback for non-landing free-fly→grounded (e.g. a respawn). A natural
+      // landing calls notifyLanded() a frame earlier, so the heading is applied
+      // on the SAME frame the body settles — no one-frame snap to level forward.
+      this.applyLandedOrientation()
     }
     this.wasFreeFly = freeFlyActive
 
@@ -164,6 +175,26 @@ export class DesktopLookControls {
     } else {
       if (yawDelta !== 0 || pitchDelta !== 0) {
         this.applyLookDelta(yawDelta, pitchDelta)
+      }
+
+      // Taking the look over (pitching, or dragging) ends the stand-up ease.
+      if (pitchDelta !== 0 || this.dragging) {
+        this.standingUp = false
+      }
+
+      // Stand up after landing: ease the inherited free-fly pitch back to level
+      // (roll eases just below), keeping the heading you flew in on.
+      if (this.standingUp) {
+        this.pitch =
+          Math.abs(this.pitch) < 1e-3
+            ? 0
+            : this.pitch * Math.exp(-GROUNDING_PITCH_RATE * Math.max(0, deltaSeconds))
+
+        if (this.pitch === 0) {
+          this.standingUp = false
+        }
+
+        this.applyCameraRotation()
       }
 
       // The grounded view stays upright: ease any residual bank back to level.
@@ -275,6 +306,33 @@ export class DesktopLookControls {
     this.pitch = 0
     this.roll = 0
     this.camera.rotation.set(0, 0, 0)
+  }
+
+  // Land facing the way you flew in: decompose the free-fly world attitude into
+  // the grounded surface frame (rig basis X=+Y axial, Y=inward "up", Z=tangent,
+  // matching applySurfaceRigState), keep the yaw (heading) and seed pitch/roll so
+  // the stand-up ease can level them out instead of snapping to a fixed forward.
+  private applyLandedOrientation() {
+    const azimuth = Math.atan2(this.playerRig.position.z, this.playerRig.position.x)
+    groundUp.set(-Math.cos(azimuth), 0, -Math.sin(azimuth))
+    groundTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))
+    groundBasis.makeBasis(Y_AXIS, groundUp, groundTangent)
+    groundRigQuaternion.setFromRotationMatrix(groundBasis)
+    landingCameraQuaternion.copy(groundRigQuaternion).invert().multiply(this.attitude)
+    landingEuler.setFromQuaternion(landingCameraQuaternion, 'YXZ')
+    this.yaw = landingEuler.y
+    this.pitch = THREE.MathUtils.clamp(landingEuler.x, -MAX_PITCH, MAX_PITCH)
+    this.roll = landingEuler.z
+    this.standingUp = true
+    this.applyCameraRotation()
+  }
+
+  // The runtime calls this the moment the body settles onto the wall, AFTER the
+  // grounded rig is posed, so the heading/tilt land on the same frame (no snap).
+  notifyLanded() {
+    this.applyLandedOrientation()
+    // Suppress the lagged free-fly→grounded fallback in update() this transition.
+    this.wasFreeFly = false
   }
 
   // First grounded boot only: tilt the view up to reveal the colony overhead,
