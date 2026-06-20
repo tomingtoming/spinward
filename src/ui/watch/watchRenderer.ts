@@ -7,6 +7,7 @@ import type {
 } from './watchLayout'
 import { SECTION_PADDING } from './watchLayout'
 import { formatWatchParameterValue } from './watchSchema'
+import { VR_CONTROL_LEGEND, VR_CONTROL_SUMMARY } from '../../xr/controlScheme'
 
 const ACCENT = '#67e8f9'
 const TEXT_BRIGHT = '#eef7fc'
@@ -284,6 +285,48 @@ const drawGravityGauge = (
   ctx.fillText('1g', markerX + 6, gaugeY + 8)
 }
 
+const drawLegendGroup = (
+  ctx: CanvasRenderingContext2D,
+  mode: 'grounded' | 'free-fly' | 'driving',
+  x: number,
+  top: number
+) => {
+  const group = VR_CONTROL_LEGEND.find((section) => section.mode === mode)
+  if (group === undefined) {
+    return
+  }
+
+  ctx.fillStyle = ACCENT
+  ctx.font = '700 19px "Avenir Next", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(group.title, x, top)
+
+  let y = top + 36
+  for (const binding of group.bindings) {
+    ctx.fillStyle = TEXT_DIM
+    ctx.font = '600 18px "Avenir Next", sans-serif'
+    ctx.fillText(binding.input, x, y)
+    ctx.fillStyle = TEXT_BRIGHT
+    ctx.font = '500 18px "Avenir Next", sans-serif'
+    ctx.fillText(binding.action, x + 134, y)
+    y += 40
+  }
+}
+
+const drawLegend = (ctx: CanvasRenderingContext2D, layout: WatchScreenLayout) => {
+  ctx.fillStyle = TEXT_DIM
+  ctx.font = '500 16px "Avenir Next", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  ctx.fillText(VR_CONTROL_SUMMARY, layout.width * 0.5, 90)
+
+  // Two main modes side by side, driving across the bottom.
+  drawLegendGroup(ctx, 'grounded', SECTION_PADDING.left + 20, 130)
+  drawLegendGroup(ctx, 'free-fly', layout.width * 0.5 + 16, 130)
+  drawLegendGroup(ctx, 'driving', SECTION_PADDING.left + 20, 462)
+}
+
 export const renderWatch = (
   ctx: CanvasRenderingContext2D,
   layout: WatchScreenLayout,
@@ -325,6 +368,11 @@ export const renderWatch = (
   }
 
   drawSubHeader(ctx, layout, snapshot, hoveredAction)
+
+  if (layout.screen === 'legend') {
+    drawLegend(ctx, layout)
+    return
+  }
 
   if (layout.screen === 'habitat') {
     if (layout.presetSection !== undefined && layout.presetButtons !== undefined) {

@@ -7,6 +7,8 @@ export type TourEventId =
   | 'surface'
   | 'spin-change'
   | 'drive'
+  | 'enter-freefly'
+  | 'enter-grounded'
 
 export type TourCard = {
   title: string
@@ -86,6 +88,18 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       'Slow the spin and the whole world gets lighter.'
     ],
     durationSeconds: 10
+  },
+  // Brief mode-transition flashes. Repeatable (not one-shot), short, and shown
+  // only when no richer card is already up — they double as a micro-hint.
+  'enter-freefly': {
+    title: 'FREE-FLY',
+    body: ['Floating free — squeeze left grip to stop'],
+    durationSeconds: 1.8
+  },
+  'enter-grounded': {
+    title: 'GROUNDED',
+    body: ['Back on the deck'],
+    durationSeconds: 1.4
   }
 }
 

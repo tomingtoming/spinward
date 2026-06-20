@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import type { XRControllerSpaces } from './grabSystem'
+import { XR_BUTTON } from './controlScheme'
 
 type HoldToggleState = {
   heldSeconds: number
@@ -34,11 +35,6 @@ export const stepHoldToggleState = (
   return false
 }
 const UI_TRIGGER_THRESHOLD = 0.55
-// xr-standard gamepad mapping: buttons[4] is A on the right controller.
-const PRIMARY_BUTTON_INDEX = 4
-// buttons[5] is B on the right controller — unused elsewhere, so it cycles the
-// Surface/Overlook/Axis warp without aiming the laser at the wrist UI.
-const SECONDARY_BUTTON_INDEX = 5
 // Thumbstick rest jitter to ignore before it counts as a drive command.
 const DRIVE_DEADZONE = 0.12
 
@@ -64,9 +60,12 @@ type XrWatchInputFrame = {
   leftGrip: THREE.XRGripSpace | null
   rightController: THREE.XRTargetRaySpace | null
   rightTriggerPressed: boolean
+  // A on EITHER hand: jump (grounded) / dismount (driving). "A = up" both hands.
   jumpPressed: boolean
   // Right B edge: cycle the Surface/Overlook/Axis warp without the wrist laser.
   travelCyclePressed: boolean
+  // Left B edge: recenter the view (the "menu" family verb on the left hand).
+  leftMenuPressed: boolean
   // VR car controls: left stick Y = throttle, left stick X = steer, either
   // grip squeeze = brake. Deadzoned/clamped, only meaningful while driving.
   driveThrottle: number
@@ -80,6 +79,7 @@ export class XRInputMap {
   private previousRightTriggerPressed = false
   private previousJumpPressed = false
   private previousTravelCyclePressed = false
+  private previousLeftMenuPressed = false
 
   constructor(controllers: XRControllerSpaces[]) {
     for (const { controller, grip } of controllers) {
@@ -102,6 +102,7 @@ export class XRInputMap {
       this.previousRightTriggerPressed = false
       this.previousJumpPressed = false
       this.previousTravelCyclePressed = false
+      this.previousLeftMenuPressed = false
       return {
         leftController: null,
         leftGrip: null,
@@ -109,6 +110,7 @@ export class XRInputMap {
         rightTriggerPressed: false,
         jumpPressed: false,
         travelCyclePressed: false,
+        leftMenuPressed: false,
         driveThrottle: 0,
         driveSteer: 0,
         driveBrake: 0
@@ -121,6 +123,7 @@ export class XRInputMap {
     let rightTriggerPressed = false
     let jumpPressed = false
     let travelCyclePressed = false
+    let leftMenuPressed = false
     let leftStickX = 0
     let leftStickY = 0
     let driveBrake = 0
@@ -134,6 +137,8 @@ export class XRInputMap {
 
       // Either grip squeeze brakes the car.
       driveBrake = Math.max(driveBrake, this.readGrip(gamepad))
+      // A = "up" on BOTH hands: jump on foot, dismount while driving.
+      jumpPressed ||= gamepad.buttons[XR_BUTTON.A]?.pressed ?? false
 
       if (inputSource.handedness === 'left') {
         leftController = controller
@@ -143,14 +148,16 @@ export class XRInputMap {
         const [stickX, stickY] = this.readPrimaryStick(gamepad)
         leftStickX = stickX
         leftStickY = stickY
+        // Left B = recenter (the "menu" verb on the left hand).
+        leftMenuPressed ||= gamepad.buttons[XR_BUTTON.B]?.pressed ?? false
         continue
       }
 
       if (inputSource.handedness === 'right') {
         rightController = controller
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
-        jumpPressed ||= gamepad.buttons[PRIMARY_BUTTON_INDEX]?.pressed ?? false
-        travelCyclePressed ||= gamepad.buttons[SECONDARY_BUTTON_INDEX]?.pressed ?? false
+        // Right B = cycle the Surface/Overlook/Axis warp.
+        travelCyclePressed ||= gamepad.buttons[XR_BUTTON.B]?.pressed ?? false
       }
     }
 
@@ -160,6 +167,8 @@ export class XRInputMap {
     this.previousJumpPressed = jumpPressed
     const travelCycleEdge = travelCyclePressed && !this.previousTravelCyclePressed
     this.previousTravelCyclePressed = travelCyclePressed
+    const leftMenuEdge = leftMenuPressed && !this.previousLeftMenuPressed
+    this.previousLeftMenuPressed = leftMenuPressed
 
     const drive = mapVrDriveInput(leftStickX, leftStickY, driveBrake)
 
@@ -170,6 +179,7 @@ export class XRInputMap {
       rightTriggerPressed: rightTriggerEdge,
       jumpPressed: jumpEdge,
       travelCyclePressed: travelCycleEdge,
+      leftMenuPressed: leftMenuEdge,
       driveThrottle: drive.throttle,
       driveSteer: drive.steer,
       driveBrake: drive.brake
@@ -214,7 +224,7 @@ export class XRInputMap {
   }
 
   private readGrip(gamepad: Gamepad) {
-    const grip = gamepad.buttons[1]
+    const grip = gamepad.buttons[XR_BUTTON.grip]
 
     if (grip === undefined) {
       return 0
@@ -224,7 +234,7 @@ export class XRInputMap {
   }
 
   private readTriggerValue(gamepad: Gamepad) {
-    const trigger = gamepad.buttons[0]
+    const trigger = gamepad.buttons[XR_BUTTON.trigger]
 
     if (trigger === undefined) {
       return 0
