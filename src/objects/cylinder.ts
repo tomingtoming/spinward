@@ -6,7 +6,10 @@ import {
 } from '../sim/habitatConfig'
 import { getWindowArcs } from './cityLayout'
 import {
+  createEndCapBulkheadTextureSet,
   createCylinderSurfaceTexture,
+  createExteriorHullTextureSet,
+  getCylinderHullRepeat,
   getCylinderSurfaceRepeat
 } from './cylinderSurface'
 
@@ -202,6 +205,8 @@ export class CylinderHabitat {
   readonly shellGroup = new THREE.Group()
   private readonly nearShellTexture = createCylinderSurfaceTexture()
   private readonly farShellTexture = createCylinderSurfaceTexture()
+  private readonly hullTextures = createExteriorHullTextureSet()
+  private readonly endCapTextures = createEndCapBulkheadTextureSet()
 
   // Solid ground: the land strips are opaque terrain — translucency made
   // stars bleed through the floor and read as glass. Openness lives in the
@@ -241,20 +246,26 @@ export class CylinderHabitat {
   // Outward-facing hull so the colony is opaque from space; the interior
   // shells are BackSide-only and vanish when seen from outside.
   private readonly hullMaterial = new THREE.MeshStandardMaterial({
-    color: 0x39434e,
-    roughness: 0.6,
-    metalness: 0.5,
+    color: 0xffffff,
+    map: this.hullTextures.albedo,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0.42,
+    emissiveMap: this.hullTextures.emissive,
+    roughness: 0.76,
+    metalness: 0.34,
     side: THREE.FrontSide
   })
 
   private readonly endCapMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4a6478,
-    emissive: 0x101a26,
-    emissiveIntensity: 0.8,
+    color: 0xffffff,
+    map: this.endCapTextures.albedo,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0.55,
+    emissiveMap: this.endCapTextures.emissive,
     // Visible from inside the colony (the closed cap is a flat annulus).
     side: THREE.DoubleSide,
-    roughness: 0.55,
-    metalness: 0.4
+    roughness: 0.78,
+    metalness: 0.24
   })
 
   // The air itself: scene fog only tints surfaces, so the carved windows
@@ -556,6 +567,7 @@ export class CylinderHabitat {
     }
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
+    const hullRepeat = getCylinderHullRepeat(this.radius, this.length)
     this.nearShellTexture.repeat.set(1, 1)
     this.nearShellTexture.offset.set(0, 0)
     this.nearShellTexture.needsUpdate = true
@@ -611,8 +623,8 @@ export class CylinderHabitat {
     const hullGeometry = this.buildShellGeometry(
       [...nearIntervals, ...farIntervals],
       farShellSegments / farArcRadians,
-      1,
-      1,
+      hullRepeat.circumferential,
+      hullRepeat.axial,
       this.radius + Math.max(0.5, this.radius * 0.001)
     )
 

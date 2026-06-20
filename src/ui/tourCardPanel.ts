@@ -8,6 +8,7 @@ const CANVAS_HEIGHT = 300
 // panel lazily follows the head instead of hard-locking to it.
 const PANEL_POSITION = new THREE.Vector3(0, -0.36, -1.05)
 const PANEL_SCALE = new THREE.Vector3(0.78, 0.78 * (CANVAS_HEIGHT / CANVAS_WIDTH), 1)
+const PANEL_VIEWPORT_MARGIN = 0.56
 const FOLLOW_RATE = 4
 
 type TourCardView = {
@@ -71,6 +72,8 @@ export class TourCardPanel {
       this.draw(card)
     }
 
+    this.applyResponsiveScale(view.camera)
+
     view.camera.getWorldPosition(this.cameraPosition)
     view.camera.getWorldQuaternion(this.cameraQuaternion)
     this.targetPosition
@@ -128,5 +131,27 @@ export class TourCardPanel {
     })
 
     this.texture.needsUpdate = true
+  }
+
+  private applyResponsiveScale(camera: THREE.Camera) {
+    let panelWidth = PANEL_SCALE.x
+    const perspectiveCamera = camera as THREE.PerspectiveCamera & {
+      isPerspectiveCamera?: boolean
+    }
+
+    if (perspectiveCamera.isPerspectiveCamera === true) {
+      const aspect =
+        typeof window !== 'undefined' && window.innerHeight > 0
+          ? window.innerWidth / window.innerHeight
+          : perspectiveCamera.aspect
+      const visibleHeight =
+        2 *
+        Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov * 0.5)) *
+        Math.abs(PANEL_POSITION.z)
+      const visibleWidth = visibleHeight * aspect
+      panelWidth = Math.min(panelWidth, visibleWidth * PANEL_VIEWPORT_MARGIN)
+    }
+
+    this.mesh.scale.set(panelWidth, panelWidth * (CANVAS_HEIGHT / CANVAS_WIDTH), 1)
   }
 }
