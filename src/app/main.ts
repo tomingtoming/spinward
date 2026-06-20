@@ -70,6 +70,7 @@ import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
 import { Sun, getWindowSunPosition } from '../objects/sun'
+import { AtmosphereGlow } from '../objects/atmosphereGlow'
 import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 import { createFullscreenToggle } from '../pc/fullscreen'
@@ -192,8 +193,14 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  // Airlight up the bore: a sky-tinted glow on the axis for atmospheric depth.
+  const atmosphereGlow = new AtmosphereGlow({
+    radius: habitatConfig.radius,
+    length: getHabitatSpan(habitatConfig)
+  })
   skyLayer.add(starfield.group)
   skyLayer.add(sun.group)
+  skyLayer.add(atmosphereGlow.group)
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
   nearLayer.add(clouds.group)
@@ -1616,6 +1623,12 @@ export const bootstrapApp = async () => {
     habitat.setAtmosphere(fog.color, fog.density)
     ;(scene.background as THREE.Color).copy(skyGrade.background)
     sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
+    atmosphereGlow.setDimensions({
+      radius: habitatConfig.radius,
+      length: getHabitatSpan(habitatConfig)
+    })
+    // The air column glows with the sky colour, brighter by day, faint at night.
+    atmosphereGlow.setGrade(skyGrade.fog, 0.08 + daylight * 0.24)
     renderer.toneMappingExposure = skyGrade.exposure
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
@@ -1713,6 +1726,7 @@ export const bootstrapApp = async () => {
     clouds.dispose()
     spaceport.dispose()
     sun.dispose()
+    atmosphereGlow.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
