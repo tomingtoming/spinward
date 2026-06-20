@@ -1386,6 +1386,13 @@ export const bootstrapApp = async () => {
       drive.getRigQuaternion(playerRig.quaternion)
     }
 
+    // Apply the landing heading on the SAME frame the body settles (the rig is
+    // now grounded), so the view never snaps to level forward for a frame before
+    // the stand-up ease. Head-tracked XR keeps its own orientation.
+    if (landed && !renderer.xr.isPresenting) {
+      desktopLookControls.notifyLanded()
+    }
+
     // Landing eye handoff: free-fly tracks the body's real position; grounded
     // snaps to the pinned standing height. On the landing frame, seed the
     // settle with the actual gap (last frame's free-fly eye vs this frame's
