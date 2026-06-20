@@ -6,6 +6,15 @@ import {
   type HabitatType
 } from '../sim/habitatConfig'
 import {
+  computeMirrorFrame,
+  mirrorThroughput,
+  openFactorToPhi,
+  reflectSun,
+  swingPetal,
+  type MirrorFrame
+} from './mirrorOptics'
+import { SUN_DIRECTION } from './sun'
+import {
   buildCityCollisionIndex,
   getArterialRoadWidth,
   getCityCellSize,
@@ -156,6 +165,23 @@ const ROAD_GLOW = new THREE.Color(0x39d6e0)
 const BEACON_COLOR = new THREE.Color(0xff2e2a)
 const WINDOW_WARM = new THREE.Color(0xffe2b8)
 const WINDOW_COOL = new THREE.Color(0xdfeaff)
+
+// Peak directional sun intensity, reached when a mirror is fully open (or, for
+// end-lit colonies, at noon). Matches the previous per-window light so the
+// daytime exposure/bloom balance is preserved.
+const DAY_SUN_INTENSITY = 1.3
+
+// A reflected-sun beam for one window mirror. The light's direction and
+// intensity are recomputed from the mirror's swung pose every frame, so the
+// mirror genuinely drives the lighting (see mirrorOptics).
+type SunBeam = {
+  light: THREE.DirectionalLight
+  mirror: THREE.Mesh
+  frame: MirrorFrame
+  hinge: THREE.Vector3
+  halfLen: number
+  radius: number
+}
 
 // Alternating crop stripes for farm blocks; one texture tile is a pair of
 // rows, repeated in world units via baked UVs.
@@ -584,6 +610,12 @@ export class Cityscape {
   private bridges: THREE.Mesh | null = null
   private bridgeEdges: THREE.Mesh | null = null
   private mirrors: THREE.Mesh[] = []
+  // The colony's real key light. Izma is mirror-lit (one reflected beam per
+  // window, posed from mirrorOptics each frame); the full-360 colonies
+  // (Cooper/Playground/Elysium) are end-lit by a single axial sun. Built and
+  // disposed alongside the mirrors so a preset switch re-rigs the daylighting.
+  private sunBeams: SunBeam[] = []
+  private endSun: THREE.DirectionalLight | null = null
   private roads: THREE.Mesh | null = null
   private localRoads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
@@ -691,6 +723,11 @@ export class Cityscape {
     this.buildWindowStrips(radius, length)
     this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
+    // No window strips → no mirrors → the sun reaches the interior through the
+    // +Y end instead. Rig the axial end-sun in that case.
+    if (this.sunBeams.length === 0) {
+      this.buildEndSun(length)
+    }
     // Central axis spine + cable trusses only belong to an open ring (Elysium);
     // a cylinder colony's bore is clear.
     if (this.habitatType === 'ring') {
@@ -879,6 +916,21 @@ export class Cityscape {
     }
 
     this.mirrors = []
+
+    // Tear down the daylighting rig so a preset switch rebuilds it for the new
+    // topology. The shared mirrorMaterial is owned by the class, not disposed.
+    for (const beam of this.sunBeams) {
+      this.group.remove(beam.light)
+      this.group.remove(beam.light.target)
+    }
+
+    this.sunBeams = []
+
+    if (this.endSun !== null) {
+      this.group.remove(this.endSun)
+      this.group.remove(this.endSun.target)
+      this.endSun = null
+    }
 
     if (this.roads !== null) {
       this.roads.geometry.dispose()
@@ -1619,45 +1671,89 @@ export class Cityscape {
     }
   }
 
-  // The three exterior sun mirrors, Island Three style: each is a long petal
-  // hinged at one end of the cylinder, spanning a window strip in width and
-  // tilted 45 degrees off the axis. Sunlight arriving parallel to the axis
-  // bounces 90 degrees off the petal and falls radially inward through the
-  // window — which is exactly the direction our per-window sun lights point.
+  // The exterior sun mirrors, Island Three style: each is a long petal hinged at
+  // the -Y rim, spanning a window strip in width and tilted 45° off the axis.
+  // Sunlight arriving parallel to the axis bounces 90° off the petal and falls
+  // radially inward through the window. Each mirror carries its own reflected-sun
+  // DirectionalLight: the beam direction and intensity are derived from the
+  // mirror's swung pose in setSunlight, so the mirror is the light source. When a
+  // colony has no window strips (Cooper/Playground/Elysium) there are no mirrors;
+  // setDimensions rigs a single axial end-sun instead.
   private buildMirrors(radius: number, length: number) {
     const mirrorWidth = radius * 1.05
     // Covers the full cylinder length when projected along the axis.
     const mirrorLength = length * Math.SQRT2 * 1.02
-    const basis = new THREE.Matrix4()
-    const along = new THREE.Vector3()
-    const axis = new THREE.Vector3(0, 1, 0)
-    const tangentDir = new THREE.Vector3()
-    const outwardDir = new THREE.Vector3()
-    const normalDir = new THREE.Vector3()
+    const halfLen = mirrorLength * 0.5
 
     for (const arc of getWindowArcs(this.topology)) {
-      const cos = Math.cos(arc.centerAzimuth)
-      const sin = Math.sin(arc.centerAzimuth)
-      outwardDir.set(cos, 0, sin)
-      tangentDir.set(-sin, 0, cos)
-      // 45 degrees between the axis and the outward radial direction.
-      along.copy(axis).add(outwardDir).multiplyScalar(Math.SQRT1_2)
-      normalDir.crossVectors(tangentDir, along)
-      basis.makeBasis(tangentDir, along, normalDir)
-
+      const frame = computeMirrorFrame(arc.centerAzimuth)
       const mirror = new THREE.Mesh(
         new THREE.PlaneGeometry(mirrorWidth, mirrorLength),
         this.mirrorMaterial
       )
-      mirror.quaternion.setFromRotationMatrix(basis)
       // Hinged at the rim of the -Y end, leaning out over its window.
-      mirror.position
-        .copy(outwardDir)
-        .multiplyScalar(radius)
-        .setY(-length * 0.5)
-        .addScaledVector(along, mirrorLength * 0.5)
+      const hinge = frame.outward.clone().multiplyScalar(radius).setY(-length * 0.5)
+
+      const light = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY)
+      this.group.add(light)
+      this.group.add(light.target)
       this.mirrors.push(mirror)
       this.group.add(mirror)
+
+      const beam: SunBeam = { light, mirror, frame, hinge, halfLen, radius }
+      this.sunBeams.push(beam)
+      // Pose once at the open (noon) state so the rig reads correctly before the
+      // first setSunlight call.
+      this.poseBeam(beam, 0)
+    }
+  }
+
+  // Swing one mirror to the petal angle `phi`, re-derive its reflected beam, and
+  // return the posed face normal so callers can size the beam from it.
+  private poseBeam(beam: SunBeam, phi: number): THREE.Vector3 {
+    const { along, normal } = swingPetal(beam.frame, phi)
+    beam.mirror.quaternion.setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(beam.frame.tangent, along, normal)
+    )
+    // Keep the hinge pinned at the rim; the petal swings about it.
+    beam.mirror.position.copy(beam.hinge).addScaledVector(along, beam.halfLen)
+    // DirectionalLight shines from light → target; aim the target along the
+    // reflected beam so the lit patch tracks the mirror angle.
+    const reflected = reflectSun(normal)
+    beam.light.position.copy(beam.frame.outward).multiplyScalar(beam.radius)
+    beam.light.target.position.copy(beam.light.position).addScaledVector(reflected, beam.radius)
+    return normal
+  }
+
+  // The full-360 colonies have no side windows: the sun reaches them through the
+  // +Y end. A single DirectionalLight on the axis, shining -Y (the sun sits on
+  // +Y), stands in for that aperture.
+  private buildEndSun(length: number) {
+    const sun = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY)
+    sun.position.copy(SUN_DIRECTION).multiplyScalar(length * 0.5)
+    sun.target.position.set(0, 0, 0)
+    this.endSun = sun
+    this.group.add(sun)
+    this.group.add(sun.target)
+  }
+
+  // Drive the daylighting from the day/night clock. `daylight` (0 midnight, 1
+  // noon) sets the mirror swing for Izma and the axial intensity for the end-lit
+  // colonies; `color` tints the beam to match the visible sun. Mirror intensity
+  // falls out of the geometry (mirrorThroughput is the open-pose-normalized sun
+  // catch), so there is no hand-tuned intensity curve.
+  setSunlight(daylight: number, color: THREE.Color) {
+    const phi = openFactorToPhi(daylight)
+
+    for (const beam of this.sunBeams) {
+      const normal = this.poseBeam(beam, phi)
+      beam.light.intensity = DAY_SUN_INTENSITY * mirrorThroughput(normal)
+      beam.light.color.copy(color)
+    }
+
+    if (this.endSun !== null) {
+      this.endSun.intensity = DAY_SUN_INTENSITY * THREE.MathUtils.clamp(daylight, 0, 1)
+      this.endSun.color.copy(color)
     }
   }
 
