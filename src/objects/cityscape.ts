@@ -1072,11 +1072,6 @@ export class Cityscape {
     // height on multi-kilometer habitats. Arterials and residential
     // streets get separate meshes so their surfaces read differently.
     for (const kind of ['arterial', 'local'] as const) {
-      // Physically lift the road off the ground (and above the fields). The
-      // logarithmic depth buffer makes polygonOffset inert, so the coplanar land
-      // layers are separated by real radius instead: ground at R, fields at
-      // R-0.1, roads at R-0.2 — enough that log depth resolves them near and far.
-      const roadRadius = radius - 0.2
       const geometries: THREE.BufferGeometry[] = []
 
       for (const road of roads) {
@@ -1084,6 +1079,15 @@ export class Cityscape {
           continue
         }
 
+        // Avenues run along the axis; cross streets run along the arc.
+        const isAvenue = road.axialLength > road.tangentWidth
+        // Physically lift the road off the ground (and above the fields); the
+        // logarithmic depth buffer makes polygonOffset inert, so the coplanar
+        // land layers are separated by REAL radius: ground at R, fields at R-0.1.
+        // Crossing roads (avenue × street) share a radius and would z-fight at
+        // every junction, so avenues ride a hair higher (R-0.23) and pass
+        // cleanly OVER the cross streets (R-0.2) — no intersection z-fighting.
+        const roadRadius = radius - (isAvenue ? 0.23 : 0.2)
         const arcRadians = road.tangentWidth / radius
         const segments = getArcSegments(arcRadians, radius)
         const geometry = new THREE.CylinderGeometry(
@@ -1097,8 +1101,6 @@ export class Cityscape {
           arcRadians
         )
         geometry.translate(0, road.axial, 0)
-        // Avenues run along the axis; cross streets run along the arc.
-        const isAvenue = road.axialLength > road.tangentWidth
         bakeRoadUvs(
           geometry,
           isAvenue ? road.axialLength : road.tangentWidth,
@@ -1548,7 +1550,9 @@ export class Cityscape {
     const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
     const deckParts: THREE.BufferGeometry[] = []
     const edgeParts: THREE.BufferGeometry[] = []
-    const deckRadius = radius - 0.05
+    // Match the cross streets the bridges continue (R-0.2) so the road carries
+    // onto the bridge without a step at the window edge.
+    const deckRadius = radius - 0.2
     const edgeWidth = Math.max(0.25, deckWidth * 0.08)
 
     for (let index = 0; index < stripCenters.length; index += 1) {
