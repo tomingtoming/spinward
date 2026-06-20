@@ -1106,6 +1106,9 @@ export const bootstrapApp = async () => {
     'respawn-axis-end'
   ] as const
   let vrTravelCycleIndex = 0
+  // Paces the continuous throttle/brake hand-rumble so we don't fire a haptic
+  // pulse on every single frame.
+  let feedbackHapticAccumulator = 0
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
     if (settingsDirty) {
@@ -1128,6 +1131,10 @@ export const bootstrapApp = async () => {
       drive.driving ? undefined : touchMove,
       playerTraversal.mode === 'free-fly' && !drive.driving
     )
+    // Snapshot the mode before any detach/landing so we can announce a
+    // grounded<->free-fly transition (VR has no DOM mode chip).
+    const modeAtFrameStart = playerTraversal.mode
+    let justJumped = false
     const vrIntent = vrLocomotion.update(
       deltaSeconds,
       renderer.xr.isPresenting,
@@ -1145,6 +1152,30 @@ export const bootstrapApp = async () => {
       vrTravelCycleIndex = (vrTravelCycleIndex + 1) % VR_TRAVEL_TARGETS.length
       handleWatchAction(VR_TRAVEL_TARGETS[vrTravelCycleIndex])
       vibrate(10)
+    }
+
+    // Left B = recenter the view — the "menu" verb on the left hand.
+    if (xrWatchInput.leftMenuPressed) {
+      vrLocomotion.faceForward()
+      vibrate(8)
+    }
+
+    // Continuous VR feedback so analog inputs are felt and heard, not silently
+    // applied: a jetpack tone tracking the throttle, a paced throttle/brake
+    // rumble on the left hand, and a tick on each snap turn.
+    const vrFeedback = vrLocomotion.feedback
+    audio.setJetpackThrottle(vrFeedback.throttle)
+    if (renderer.xr.isPresenting) {
+      const leftRumble = Math.max(vrFeedback.throttle, vrFeedback.brakeAmount)
+      feedbackHapticAccumulator += deltaSeconds
+      if (leftRumble > 0.04 && feedbackHapticAccumulator >= 0.05) {
+        feedbackHapticAccumulator = 0
+        xrInputMap.pulse(0.05 + leftRumble * 0.3, 40, 'left')
+      }
+      if (vrFeedback.snapped) {
+        xrInputMap.pulse(0.5, 12, 'right')
+        audio.playClick()
+      }
     }
 
     if (throwDebugTimer > 0) {
@@ -1218,6 +1249,7 @@ export const bootstrapApp = async () => {
       notifyTourEvent(tourGuide, 'jump')
       audio.playJump()
       vibrate(12)
+      justJumped = true
     }
 
     if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
@@ -1357,6 +1389,20 @@ export const bootstrapApp = async () => {
         // Knees flex with the impact: a brief view dip, springing back.
         landDipVelocity -= THREE.MathUtils.clamp((fallSpeed - 1) * 0.35, 0, 4.5)
         fallSpeed = 0
+      }
+    }
+
+    // Announce a grounded<->free-fly transition. Flash a brief label (only when
+    // no richer card is up, so the first-jump tutorial still wins), and add a
+    // generic cue when jump/landing did not already sound the change.
+    if (playerTraversal.mode !== modeAtFrameStart) {
+      const enteredFreeFly = playerTraversal.mode === 'free-fly'
+      if (tourGuide.activeEvent === null) {
+        notifyTourEvent(tourGuide, enteredFreeFly ? 'enter-freefly' : 'enter-grounded')
+      }
+      if (!justJumped && !landed) {
+        audio.playModeChange()
+        vibrate(14)
       }
     }
 

@@ -28,6 +28,7 @@ import {
   type LocomotionProfile
 } from './locomotionProfile'
 import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
+import { XR_BUTTON } from './controlScheme'
 
 const SNAP_TURN_RADIANS = Math.PI / 6
 const localUp = new THREE.Vector3(0, 1, 0)
@@ -48,13 +49,11 @@ const intent = createLocomotionIntent()
 const groundedClutchIntent = createGroundedClutchIntent()
 const clutchSample = createHandClutchSample()
 const clutchRotationIntent = createRotationClutchIntent()
-const FACE_BUTTON_THRESHOLD = 0.55
 const CLUTCH_THRESHOLD = 0.05
 const ATTACHED_YAW_SPEED = Math.PI * 0.6
-// xr-standard gamepad mapping: buttons[4] is A on the right controller. Held
-// (level read, not the edge-detected jump) it thrusts the jetpack "up" relative
-// to the view, mirroring PC Space. Jump/exit-car still use the edge in main.ts.
-const A_BUTTON_INDEX = 4
+// Scheme C: A is "up" on BOTH hands. Held (level read, not the edge-detected
+// jump in main.ts) it thrusts the jetpack "up" relative to the view, mirroring
+// PC Space. The button index lives in controlScheme.ts (XR_BUTTON.A).
 // Point-and-throttle: the analog LEFT TRIGGER is the jetpack throttle. Ignore
 // rest jitter below the deadzone and reach full thrust a little before a hard
 // pull, so cruising does not require bottoming the trigger out.
@@ -72,9 +71,23 @@ export class VRLocomotion {
   private previousPlayerMode: PlayerTraversalMode = 'grounded'
   private snapYaw = 0
   private profile: LocomotionProfile = SIM_PROFILE
+  // Lift-launch take-off (raise the clutched hand to detach) is OFF by default;
+  // jump (A on either hand) is the one obvious launch. Restorable via settings.
+  private liftLaunchEnabled = false
+  // Per-frame feedback surface for haptics/audio, read by main.ts after update().
+  readonly feedback = {
+    throttle: 0,
+    brakeAmount: 0,
+    snapped: false,
+    modeChanged: false
+  }
 
   setProfile(profile: LocomotionProfile) {
     this.profile = profile
+  }
+
+  setLiftLaunchEnabled(enabled: boolean) {
+    this.liftLaunchEnabled = enabled
   }
 
   // Reset the view to the rig's forward (snap yaw 0) — the VR counterpart of
@@ -153,6 +166,7 @@ export class VRLocomotion {
       }
 
       this.applyGroundedView()
+      this.setFeedback(0, 0, snapIntent !== 0, playerMode !== this.previousPlayerMode)
       this.previousPlayerMode = playerMode
       this.clutchDebug.update(null, 'grounded')
       return intent
@@ -164,6 +178,7 @@ export class VRLocomotion {
       this.freeFlyInertialOrientation.identity()
       this.previousPlayerMode = 'grounded'
       this.applyGroundedView()
+      this.setFeedback(0, 0, false, false)
       this.clutchDebug.update(null, 'grounded')
       return intent
     }
@@ -174,8 +189,7 @@ export class VRLocomotion {
       this.captureFreeFlyInertialOrientation(frameAngle, omega)
     }
 
-    let leftAngularBrake = false
-    let leftLinearBrake = false
+    let leftSqueezeValue = 0
     let leftClutchActive = false
     let leftGripObject: THREE.XRGripSpace | null = null
     let leftController: THREE.XRTargetRaySpace | null = null
@@ -207,10 +221,9 @@ export class VRLocomotion {
         snapAxisX = axisX
       }
 
-      // Right A held = jetpack ascend (consumed in the free-fly branch below).
-      if (inputSource.handedness === 'right') {
-        ascendHeld ||= gamepad.buttons[A_BUTTON_INDEX]?.pressed ?? false
-      }
+      // A held on EITHER hand = jetpack ascend ("up" on both hands; consumed in
+      // the free-fly branch below). The edge-detected jump lives in xrInputMap.
+      ascendHeld ||= gamepad.buttons[XR_BUTTON.A]?.pressed ?? false
 
       if (inputSource.handedness !== 'left') {
         continue
@@ -218,12 +231,13 @@ export class VRLocomotion {
 
       leftController = controller
       leftGripObject = this.gripByController.get(controller) ?? null
-      leftClutchActive ||= this.readSqueezeValue(gamepad) > CLUTCH_THRESHOLD
+      // Left grip squeeze (analog): clutch-climb on the ground, STOP in flight.
+      const squeeze = this.readSqueezeValue(gamepad)
+      leftSqueezeValue = Math.max(leftSqueezeValue, squeeze)
+      leftClutchActive ||= squeeze > CLUTCH_THRESHOLD
       // Left trigger (analog) is the jetpack throttle. The left hand's
       // select/grab is blocked (shouldBlockSelectStart), so the trigger is free.
       leftTriggerValue = Math.max(leftTriggerValue, this.readTriggerValue(gamepad))
-      leftAngularBrake ||= this.readFaceButton(gamepad, 4) > FACE_BUTTON_THRESHOLD
-      leftLinearBrake ||= this.readFaceButton(gamepad, 5) > FACE_BUTTON_THRESHOLD
 
       if (stickMagnitudeSq > leftStickMagnitudeSq) {
         leftStickMagnitudeSq = stickMagnitudeSq
@@ -248,12 +262,12 @@ export class VRLocomotion {
       this.snapYaw -= snapIntent * SNAP_TURN_RADIANS
     }
 
-    const clutchInput = this.sampleLeftGripClutch(
-      leftClutchActive,
-      leftGripObject,
-      playerMode,
-      deltaSeconds
-    )
+    // On the ground the left grip is the clutch (climb/pull). In flight it is the
+    // STOP brake instead, so we do not sample the clutch there.
+    const clutchInput =
+      playerMode === 'grounded'
+        ? this.sampleLeftGripClutch(leftClutchActive, leftGripObject, playerMode, deltaSeconds)
+        : null
     this.applyLeftStickMovement(leftStickX, leftStickY, playerMode)
 
     if (playerMode === 'free-fly') {
@@ -274,7 +288,10 @@ export class VRLocomotion {
       )
       this.applyFreeFlyAttitude(frameAngle)
       this.previousPlayerMode = playerMode
-      intent.freeFlyBrake = leftLinearBrake ? 1 : 0
+      // Left grip = STOP: an analog brake on linear drift only. We deliberately
+      // do NOT damp the seeded spin (omega) — keeping it holds the colony stable
+      // in view; killing it would make the colony whirl and is more nauseating.
+      intent.freeFlyBrake = leftSqueezeValue
 
       // Thrust along the LEFT controller's pointing ray, scaled by the analog
       // left trigger (throttle). Release the trigger and thrust stops at once —
@@ -297,9 +314,9 @@ export class VRLocomotion {
         intent.freeFlyThrust.add(viewUp)
       }
 
-      this.clutchDebug.update(clutchInput, 'free-fly', {
-        linearBrake: leftLinearBrake,
-        angularBrake: leftAngularBrake
+      this.setFeedback(throttle, leftSqueezeValue, snapIntent !== 0, modeChanged)
+      this.clutchDebug.update(null, 'free-fly', {
+        linearBrake: leftSqueezeValue > CLUTCH_THRESHOLD
       })
       return intent
     }
@@ -321,7 +338,8 @@ export class VRLocomotion {
       )
       intent.groundedAxis = groundedClutchIntent.axis
       intent.groundedTangent = groundedClutchIntent.tangent
-      intent.detachRequested = groundedClutchIntent.detachRequested
+      // Lift-launch take-off is gated off by default; jump (A) is the launch.
+      intent.detachRequested = this.liftLaunchEnabled && groundedClutchIntent.detachRequested
       intent.detachLaunchVelocity.copy(groundedClutchIntent.detachLaunchVelocity)
       this.snapYaw += clutchRotationIntent.yaw * ATTACHED_YAW_SPEED * deltaSeconds
     } else {
@@ -335,10 +353,11 @@ export class VRLocomotion {
       clutchRotationIntent.roll = 0
     }
 
+    this.setFeedback(0, 0, snapIntent !== 0, modeChanged)
     this.clutchDebug.update(clutchInput, 'grounded', {
-      detachReady: groundedClutchIntent.detachRequested || groundedClutchIntent.lift >= 0.85,
-      linearBrake: leftLinearBrake,
-      angularBrake: leftAngularBrake
+      detachReady:
+        this.liftLaunchEnabled &&
+        (groundedClutchIntent.detachRequested || groundedClutchIntent.lift >= 0.85)
     })
     return intent
   }
@@ -386,14 +405,16 @@ export class VRLocomotion {
     )
   }
 
-  private readFaceButton(gamepad: Gamepad, index: number) {
-    const button = gamepad.buttons[index]
-
-    if (button === undefined) {
-      return 0
-    }
-
-    return button.value ?? (button.pressed ? 1 : 0)
+  private setFeedback(
+    throttle: number,
+    brakeAmount: number,
+    snapped: boolean,
+    modeChanged: boolean
+  ) {
+    this.feedback.throttle = throttle
+    this.feedback.brakeAmount = brakeAmount
+    this.feedback.snapped = snapped
+    this.feedback.modeChanged = modeChanged
   }
 
   private applyLeftStickMovement(

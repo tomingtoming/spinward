@@ -11,9 +11,14 @@ import {
 // (Travel + Spin/gravity) one tap away, and the tinkering lives behind three
 // category screens reached from HOME, each with a Back button. This keeps any
 // single screen short enough to aim a laser at comfortably.
-export type WatchScreen = 'home' | 'habitat' | 'tweaks' | 'comfort'
+export type WatchScreen = 'home' | 'habitat' | 'tweaks' | 'comfort' | 'legend'
 
-export type WatchNavActionId = 'nav-home' | 'nav-habitat' | 'nav-tweaks' | 'nav-comfort'
+export type WatchNavActionId =
+  | 'nav-home'
+  | 'nav-habitat'
+  | 'nav-tweaks'
+  | 'nav-comfort'
+  | 'nav-legend'
 
 export type WatchActionId =
   | WatchNavActionId
@@ -155,6 +160,8 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
       return 'tweaks'
     case 'nav-comfort':
       return 'comfort'
+    case 'nav-legend':
+      return 'legend'
     default:
       return null
   }
@@ -174,12 +181,15 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   const spinRow = makeParameterRow('rpm', spinSection.top + 40, width)
   const gravityGaugeY = spinSection.top + 180
 
-  const categoryWidth = 206
+  const categoryWidth = 150
+  const categoryGap = 10
   const categoryY = 576
+  const categoryStep = categoryWidth + categoryGap
   const categoryButtons = [
-    makeActionButton('nav-habitat', 'Habitat ›', CONTENT_LEFT, categoryY, categoryWidth, 66),
-    makeActionButton('nav-tweaks', 'Tweaks ›', CONTENT_LEFT + (categoryWidth + 10), categoryY, categoryWidth, 66),
-    makeActionButton('nav-comfort', 'Comfort ›', CONTENT_LEFT + (categoryWidth + 10) * 2, categoryY, categoryWidth, 66)
+    makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT, categoryY, categoryWidth, 64),
+    makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
+    makeActionButton('nav-comfort', 'Comfort', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64),
+    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 3, categoryY, categoryWidth, 64)
   ]
 
   return {
@@ -280,6 +290,21 @@ const createComfortLayout = (width: number, height: number): WatchScreenLayout =
   }
 }
 
+// The legend is a passive reference page — only the Back button is interactive.
+// Its rows are drawn straight from VR_CONTROL_LEGEND (controlScheme.ts) so the
+// printed map can never drift from the actual bindings.
+const createLegendLayout = (width: number, height: number): WatchScreenLayout => {
+  const backButton = makeBackButton()
+  return {
+    screen: 'legend',
+    width,
+    height,
+    backButton,
+    title: 'CONTROLS',
+    buttons: [backButton]
+  }
+}
+
 export const createWatchLayout = (
   screen: WatchScreen,
   width = WATCH_CANVAS_SIZE.width,
@@ -294,6 +319,8 @@ export const createWatchLayout = (
       return createTweaksLayout(width, height)
     case 'comfort':
       return createComfortLayout(width, height)
+    case 'legend':
+      return createLegendLayout(width, height)
     default: {
       const exhaustive: never = screen
       return exhaustive
@@ -308,7 +335,8 @@ export const createAllWatchLayouts = (
   home: createWatchLayout('home', width, height),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),
-  comfort: createWatchLayout('comfort', width, height)
+  comfort: createWatchLayout('comfort', width, height),
+  legend: createWatchLayout('legend', width, height)
 })
 
 export const SECTION_PADDING = { left: SECTION_LEFT, right: SECTION_RIGHT }

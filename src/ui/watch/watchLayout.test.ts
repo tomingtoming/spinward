@@ -28,7 +28,8 @@ test('home screen keeps travel, spin and the category nav one tap away', () => {
   expect(layout.categoryButtons?.map((button) => button.id)).toEqual([
     'nav-habitat',
     'nav-tweaks',
-    'nav-comfort'
+    'nav-comfort',
+    'nav-legend'
   ])
   // The tinkering parameters are no longer on home.
   expect(layout.rows).toBeUndefined()
@@ -117,6 +118,7 @@ test('navTargetForAction maps nav buttons to screens and ignores actions', () =>
   expect(navTargetForAction('nav-habitat')).toBe('habitat')
   expect(navTargetForAction('nav-tweaks')).toBe('tweaks')
   expect(navTargetForAction('nav-comfort')).toBe('comfort')
+  expect(navTargetForAction('nav-legend')).toBe('legend')
   expect(navTargetForAction('rpm-fine-increment')).toBeNull()
   expect(navTargetForAction('preset-apply-izma')).toBeNull()
 })
@@ -124,7 +126,14 @@ test('navTargetForAction maps nav buttons to screens and ignores actions', () =>
 test('createAllWatchLayouts returns one layout per screen', () => {
   const layouts = createAllWatchLayouts()
 
-  expect(Object.keys(layouts).sort()).toEqual(['comfort', 'habitat', 'home', 'tweaks'])
+  expect(Object.keys(layouts).sort()).toEqual([
+    'comfort',
+    'habitat',
+    'home',
+    'legend',
+    'tweaks'
+  ])
   expect(layouts.home.screen).toBe('home')
   expect(layouts.tweaks.screen).toBe('tweaks')
+  expect(layouts.legend.screen).toBe('legend')
 })

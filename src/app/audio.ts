@@ -9,6 +9,10 @@ export class GameAudio {
   private master: GainNode | null = null
   private ambienceGain: GainNode | null = null
   private muted = false
+  // Sustained jetpack voice (built lazily, modulated each frame by throttle).
+  // The looping noise source stays alive via its graph connection to master.
+  private jetFilter: BiquadFilterNode | null = null
+  private jetGain: GainNode | null = null
 
   // Call from a user-gesture handler; safe to call repeatedly.
   unlock() {
@@ -165,6 +169,85 @@ export class GameAudio {
     gain.connect(master)
     ping.start(now)
     ping.stop(now + 0.14)
+  }
+
+  // Distinct rising chirp when locomotion flips grounded<->free-fly.
+  playModeChange() {
+    const ctx = this.context
+    const master = this.master
+
+    if (ctx === null || master === null) {
+      return
+    }
+
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(330, now)
+    osc.frequency.exponentialRampToValueAtTime(660, now + 0.16)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+
+    osc.connect(gain)
+    gain.connect(master)
+    osc.start(now)
+    osc.stop(now + 0.24)
+  }
+
+  // Sustained jetpack hiss whose level + brightness track the throttle (0..1).
+  // Call every frame; the gain ramps to silence at zero so it never clicks, and
+  // the voice is built lazily on first use.
+  setJetpackThrottle(throttle: number) {
+    const ctx = this.context
+    const master = this.master
+
+    if (ctx === null || master === null) {
+      return
+    }
+
+    const level = Math.max(0, Math.min(1, throttle))
+
+    if (this.jetGain === null || this.jetFilter === null) {
+      // Don't build the sustained voice until the jetpack is actually used.
+      if (level <= 0) {
+        return
+      }
+
+      const seconds = 2
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let index = 0; index < data.length; index += 1) {
+        data[index] = Math.random() * 2 - 1
+      }
+
+      const noise = ctx.createBufferSource()
+      noise.buffer = buffer
+      noise.loop = true
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.value = 240
+      filter.Q.value = 0.7
+
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+
+      noise.connect(filter)
+      filter.connect(gain)
+      gain.connect(master)
+      noise.start()
+
+      this.jetFilter = filter
+      this.jetGain = gain
+    }
+
+    const now = ctx.currentTime
+    // setTargetAtTime smooths per-frame updates so the level/brightness glides.
+    this.jetGain.gain.setTargetAtTime(level * 0.16, now, 0.05)
+    this.jetFilter.frequency.setTargetAtTime(240 + level * 1600, now, 0.05)
   }
 
   playClick() {
