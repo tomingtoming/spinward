@@ -130,16 +130,16 @@ export const bootstrapApp = async () => {
   }
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x08131d)
-  // Aero perspective: the far side of town fades into haze. Haze is a property
-  // of the AIR — a fixed extinction per metre — not of the habitat, so the
-  // longer the sightline the hazier it gets: a giant colony's far wall (km of
-  // air) dissolves while a small one's stays crisp. (Earlier this was scaled by
-  // 1/radius, which made every habitat equally foggy at one diameter — wrong:
-  // more air should mean more haze.) Anchored so Izma (R=3200) keeps its tuned
-  // look (≈ the prior 0.7 / 3200). Raise it for thicker air everywhere. The
-  // confined-air case (a ring's vacuum bore) is handled in syncHabitat, which
-  // scales this by how much of a sightline is actually air (getAirColumnFraction).
-  const AIR_FOG_DENSITY = 2.2e-4
+  // Aero perspective: the far side of town softens into haze — but the air is
+  // kept fairly CLEAR so the colony interior reads THROUGH it (the far cities
+  // arching overhead, the night grid, the curvature), rather than being socked
+  // in fog. Haze is a property of the AIR — a fixed extinction per metre — so a
+  // giant colony's far wall (km of air) still softens while a small one stays
+  // crisp. Lowered from 2.2e-4 to reveal the far side; the remaining far-rim
+  // shimmer is dissolved by the cityscape distance fade (pushed to ~2.9 radii)
+  // rather than by blanket fog. The confined-air case (a ring's vacuum bore) is
+  // handled in syncHabitat, which scales this by getAirColumnFraction.
+  const AIR_FOG_DENSITY = 1.0e-4
   const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
   scene.fog = fog
   // The day/night colour grade (fog/background/sun/exposure) is a per-look

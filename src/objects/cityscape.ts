@@ -640,12 +640,13 @@ export class Cityscape {
     this.radius = radius
     this.length = length
     this.topology = nextTopology
-    // Begin fading roads/bridges out past ~1.15 radii (so the opposite side of
-    // the cylinder, ~2 radii away, is well into the fade) and finish by ~1.9.
-    // Floored so small habitats — where nothing is far enough to alias — never
-    // fade. vFogDepth is camera-relative, so this tracks the player anywhere.
-    this.fadeStart.value = Math.max(radius * 1.15, 600)
-    this.fadeEnd.value = Math.max(radius * 1.9, 1200)
+    // With the air kept clear, the opposite side of the cylinder (~2 radii away)
+    // should READ rather than dissolve, so the fade is pushed out to ~1.7..2.9
+    // radii: the far wall stays visible and only the very-far rim — where road
+    // silhouettes go sub-pixel and shimmer — dissolves. Floored so small
+    // habitats never fade. vFogDepth is camera-relative, so it tracks the player.
+    this.fadeStart.value = Math.max(radius * 1.7, 800)
+    this.fadeEnd.value = Math.max(radius * 2.9, 1600)
     this.clear()
 
     if (radius <= 0 || length <= 0) {
@@ -721,11 +722,12 @@ export class Cityscape {
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
-    // Let the glowing night grid arch overhead and dim into haze (push the fade
-    // window out at night); keep it tight in daylight to kill asphalt shimmer.
+    // Keep the far side readable through the clear air; the fade only dissolves
+    // the very-far rim. Night pushes it out a touch further so the glowing grid
+    // arches overhead and dims into haze rather than cutting off.
     if (this.radius > 0) {
-      this.fadeStart.value = Math.max(this.radius * (1.15 + night * 0.55), 600)
-      this.fadeEnd.value = Math.max(this.radius * (1.9 + night * 1.2), 1200)
+      this.fadeStart.value = Math.max(this.radius * (1.7 + night * 0.5), 800)
+      this.fadeEnd.value = Math.max(this.radius * (2.9 + night * 1.0), 1600)
     }
   }
 
