@@ -2,7 +2,8 @@ import * as THREE from 'three'
 
 import {
   ISLAND_THREE_TOPOLOGY,
-  type HabitatTopology
+  type HabitatTopology,
+  type HabitatType
 } from '../sim/habitatConfig'
 import {
   buildCityCollisionIndex,
@@ -26,6 +27,7 @@ type CityscapeDimensions = {
   radius: number
   length: number
   topology?: HabitatTopology
+  type?: HabitatType
 }
 
 const fullTurn = Math.PI * 2
@@ -595,6 +597,9 @@ export class Cityscape {
   private radius = 0
   private length = 0
   private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
+  // Only an open ring (Elysium) keeps the central spine + cable trusses; the
+  // cylinder colonies (Izma/Cooper/Playground) have no visible axis structure.
+  private habitatType: HabitatType = 'cylinder'
   // The current sky-grade haze colour, fed from main so the window-strip mirrors
   // read as the same warm/violet dusk (or blue day) sky pouring in.
   private readonly skyColor = new THREE.Color(0xffffff)
@@ -636,16 +641,23 @@ export class Cityscape {
     }
   }
 
-  setDimensions({ radius, length, topology }: CityscapeDimensions) {
+  setDimensions({ radius, length, topology, type }: CityscapeDimensions) {
     const nextTopology = topology ?? this.topology
+    const nextType = type ?? this.habitatType
 
-    if (radius === this.radius && length === this.length && nextTopology === this.topology) {
+    if (
+      radius === this.radius &&
+      length === this.length &&
+      nextTopology === this.topology &&
+      nextType === this.habitatType
+    ) {
       return
     }
 
     this.radius = radius
     this.length = length
     this.topology = nextTopology
+    this.habitatType = nextType
     // With the air kept clear, the opposite side of the cylinder (~2 radii away)
     // should READ rather than dissolve, so the fade is pushed out to ~1.7..2.9
     // radii: the far wall stays visible and only the very-far rim — where road
@@ -679,9 +691,13 @@ export class Cityscape {
     this.buildWindowStrips(radius, length)
     this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
-    this.buildCables(radius, length)
-    this.buildSpineRings(radius, length)
-    this.buildAxisSpine(radius, length)
+    // Central axis spine + cable trusses only belong to an open ring (Elysium);
+    // a cylinder colony's bore is clear.
+    if (this.habitatType === 'ring') {
+      this.buildCables(radius, length)
+      this.buildSpineRings(radius, length)
+      this.buildAxisSpine(radius, length)
+    }
 
     if (plan.tower !== null) {
       this.buildTower(plan.tower, radius)

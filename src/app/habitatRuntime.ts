@@ -18,11 +18,8 @@ type CityscapeLike = {
     radius: number
     length: number
     topology?: HabitatTopology
+    type?: HabitatType
   }) => void
-}
-
-type CloudsLike = {
-  setDimensions: (dimensions: { radius: number; length: number }) => void
 }
 
 type SpaceportLike = {
@@ -52,7 +49,6 @@ type RotatingCylinderLike<TUnits> = {
 type SyncHabitatRuntimeDependencies<TPlayerRig, TPlayerTraversal, TUnits> = {
   habitat: HabitatLike
   cityscape: CityscapeLike
-  clouds: CloudsLike
   spaceport: SpaceportLike
   starfield: StarfieldLike
   sun: SunLike
@@ -94,11 +90,8 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
   dependencies.cityscape.setDimensions({
     radius: config.radius,
     length: config.span,
-    topology: config.topology
-  })
-  dependencies.clouds.setDimensions({
-    radius: config.radius,
-    length: config.span
+    topology: config.topology,
+    type: config.type
   })
   dependencies.spaceport.setDimensions({
     radius: config.radius,
