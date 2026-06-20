@@ -50,7 +50,7 @@ export type HudHandle = {
 
 const CONTROLS_TEXT =
   'PC - WASD: walk / fly | click: throw | Space: jump / fly up | Shift: fly down | Q/E: roll (flying) | 1/2/3: travel | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
-  'VR - left grip: move clutch (lift outward to launch) | right trigger: throw / click panel / point at car to drive | right A: jump (exit car) | right stick: snap turn\n' +
+  'VR - left trigger: jetpack throttle — point & pull to thrust | left grip: lift to launch (on the ground) | left stick: move | right stick: snap turn | right A: jump / hold to ascend when flying / exit car | right trigger: throw / UI / point at car to drive | right B: travel\n' +
   'VR driving - left stick: gas (up/down) + steer (left/right) | right stick: turn | either grip: brake | right A: get out\n' +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
