@@ -20,6 +20,7 @@ import {
   type CityTree
 } from './cityLayout'
 import { mergeBufferGeometries } from './cylinder'
+import { createWindowGlassTexture } from './cylinderSurface'
 
 type CityscapeDimensions = {
   radius: number
@@ -420,10 +421,15 @@ export class Cityscape {
 
   // Faint glass tint: the cutout in the shell shows space and the mirrors,
   // this band just hints at the glazing.
+  // The longitudinal windows: hexagonal structural glass. The hex cells are
+  // near-transparent (the mirror sky shows through); the mullions read as the
+  // O'Neill window frame. Tiled per strip size in buildWindowStrips.
+  private readonly windowGlassTexture = createWindowGlassTexture()
   private readonly windowStripMaterial = new THREE.MeshBasicMaterial({
-    color: 0xbcd8f2,
+    color: 0xffffff,
+    map: this.windowGlassTexture,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0.6,
     side: THREE.BackSide,
     depthWrite: false,
     toneMapped: false
@@ -709,7 +715,9 @@ export class Cityscape {
       this.mirrorDayColor,
       THREE.MathUtils.clamp(daylight + 0.15, 0, 1)
     )
-    this.windowStripMaterial.opacity = 0.07 + daylight * 0.16
+    // Higher opacity so the mullions read; the cells stay see-through via the
+    // texture's own alpha, so the mirror sky still pours through the glass.
+    this.windowStripMaterial.opacity = 0.45 + daylight * 0.3
     this.buildingSideMaterial.emissiveIntensity = 0.6 + night * 0.85
     this.largeBuildingSideMaterial.emissiveIntensity =
       this.buildingSideMaterial.emissiveIntensity
@@ -752,6 +760,7 @@ export class Cityscape {
     this.buildingRoofMaterial.dispose()
     this.windowTexture.dispose()
     this.largeWindowTexture.dispose()
+    this.windowStripMaterial.map?.dispose()
     this.windowStripMaterial.dispose()
     this.mirrorMaterial.map?.dispose()
     this.mirrorMaterial.dispose()
@@ -1454,7 +1463,19 @@ export class Cityscape {
     // (absolute clearance — there is no ground under the windows).
     const stripRadius = radius - 0.3
 
-    for (const arc of getWindowArcs(this.topology)) {
+    // Tile the hex glass so the structural panels are a sensible real size that
+    // scales with the colony (a handful of panels per ~0.22-radius tile).
+    const windowArcs = getWindowArcs(this.topology)
+    const firstArc = windowArcs[0]
+    if (firstArc !== undefined) {
+      const tileMeters = Math.max(radius * 0.22, 4)
+      this.windowGlassTexture.repeat.set(
+        Math.max(1, Math.round((firstArc.arcRadians * radius) / tileMeters)),
+        Math.max(1, Math.round(length / tileMeters))
+      )
+    }
+
+    for (const arc of windowArcs) {
       const geometry = new THREE.CylinderGeometry(
         stripRadius,
         stripRadius,
