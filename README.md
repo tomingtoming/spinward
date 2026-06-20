@@ -21,15 +21,17 @@ A WebXR experiment in rotating habitats.
 
 ## 操作(主要)
 
+VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) にまとめています（合言葉は「左手が飛ばし、右手が世界に触る。A＝上・B＝メニュー」）。
+
 | 操作 | PC | Quest | スマホ |
 | --- | --- | --- | --- |
-| 移動 | WASD | 左 grip クラッチ | —(ワープで移動) |
+| 移動 | WASD | 左スティック(grip で登攀クラッチ) | —(ワープで移動) |
 | 視線 | 右ドラッグ / 矢印キー | 頭 + 右スティック snap turn | ドラッグ / Gyro ボタンでジャイロ |
 | 投げる | 左クリック | 右トリガー(チャージ可) | タップ |
-| ジャンプ | Space | 右手 A ボタン | Jump ボタン |
-| ワープ | 1 / 2 / 3(地表 / 展望 / 軸) | wrist UI の Travel | ① ② ③ ボタン |
-| メニュー | Tab | 左手首の watch UI | — |
-| 離陸(free-fly) | F | 左手を外向きへ持ち上げ | — |
+| ジャンプ | Space | A ボタン(左右どちらでも) | Jump ボタン |
+| ワープ | 1 / 2 / 3(地表 / 展望 / 軸) | 右手 B / wrist UI の Travel | ① ② ③ ボタン |
+| メニュー | Tab | 左手首の watch UI(左 B でリセンター) | — |
+| 離陸(free-fly) | F | A(ジャンプ) | — |
 
 スマホはタッチデバイス検出時のみ画面下にボタン列が出ます。iOS ではジャイロ使用時に Gyro ボタンから許可ダイアログが出ます。
 
@@ -79,16 +81,16 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinw
 ## 操作
 
 - VR: 右手だけが球生成と投擲を担当します。何もない空間で右トリガーを引くと手元に球を生成し、そのまま掴みます。
-- VR: 左 grip を押している間が locomotion clutch です。手元に出る小さな軸とラインが、今の相対入力を示します。
-- VR: `grounded` 中は、左 grip を握ったまま手を壁面に沿って動かすか、左スティックを倒すと歩行します。手首を左右へひねると yaw で向きを変えられます。手を壁法線の外向きへ約 30cm 強く持ち上げると、そのまま `free-fly` へ離陸します。
-- VR: `free-fly` 中は、左 grip を握ったまま手を前後左右上下へずらすか、左スティックを倒すと、その方向へ推進します。手首の pitch / yaw / roll 差分はそのまま回転入力になります。
-- VR: `free-fly` 中は左 `X` で回転 brake、左 `Y` で平行移動 brake を掛けられます。
+- VR: ロコモーションは「左手＝移動、右手＝世界。A＝上・B＝メニュー(両手共通)」。全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) を参照。
+- VR: `grounded` 中は左スティックで歩きます。左 grip を握って手を壁面に沿って動かすと、クラッチで登攀／引き寄せできます(手元に出る小さな軸とラインが相対入力を示します)。A ボタン(左右どちらでも)で `free-fly` へ離陸します。
+- VR: `free-fly` 中は左トリガー(左コントローラの指す方向へ、アナログ・スロットル)と左スティックで推進し、A 長押しで上昇します。向きは右スティックの snap turn で変えます。
+- VR: `free-fly` 中は左 grip を握ると停止(アナログのブレーキ)します。止めるのは直線ドリフトだけで、自転 ω は保持されるためコロニーは視界で回らず安定したままです。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / jetpack / reattach` を変更できます。
 - VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
 - VR: wrist UI の Travel から `Surface / Overlook / Axis` の 3 地点へワープできます。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
-- VR: 右スティック左右の `snap turn` は `grounded` 中だけ有効です。`free-fly` では右手を投擲や UI へ残します。
+- VR: 右スティック左右の `snap turn` は `grounded` / `free-fly` の両方で効きます。右手のトリガー(投擲・UI)とは独立です。
 - VR: 球のトリガーを離すと放します。投げ速度は右手の相対運動と前方チャージから決めます。
 - VR: 球はトリガー長押しで前方チャージされ、短押しではプレーヤーに対して相対速度 0 から始まります。
 - VR: 球を握っている間は、チャージ量に応じて色がオレンジから水色へ変わります。
