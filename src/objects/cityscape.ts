@@ -180,6 +180,10 @@ const FACET_FILL = 0.9
 // space blue at the free end (multiplies the day/night facet colour).
 const FACET_WARM = new THREE.Color(0xf7ead0)
 const FACET_COOL = new THREE.Color(0x3a4c64)
+// How hard the facet array blazes at full sun-catch. The day tint is pushed this
+// far into HDR so the array clips bright (reads as glowing even in VR, where
+// bloom is off) and haloes hard under desktop bloom.
+const FACET_BLAZE_GAIN = 7
 
 // Facets pivot about the panel-local tangent (localX). Reused per pose to avoid
 // per-frame allocation across thousands of instances.
@@ -725,15 +729,18 @@ export class Cityscape {
 
   setDaylight(daylight: number) {
     const night = 1 - daylight
-    // Facet sky = the sky-grade colour, lifted toward white and brightened so
-    // the facets read as luminous sun-catching tiles, dimming to night blue.
-    // (Per-facet instanceColor adds the hinge→free-end warm/cool gradient.)
-    this.mirrorDayColor.copy(this.skyColor).lerp(MIRROR_DAY, 0.4).multiplyScalar(1.5)
-    this.facetMaterial.color.lerpColors(
-      MIRROR_NIGHT,
-      this.mirrorDayColor,
-      THREE.MathUtils.clamp(daylight + 0.15, 0, 1)
-    )
+    // The facet array BLAZES when it catches the sun: the day tint (sky grade
+    // lifted toward white) is pushed deep into HDR by the sun catch, so the
+    // facets clip bright — glowing even in VR (bloom is desktop-only) and haloing
+    // hard under desktop bloom — and fall to a dim mirror at night. Per-facet
+    // instanceColor keeps the hinge→free-end warm/cool gradient, so the sun-
+    // facing end goes white-hot while the free end stays space-blue. The dark
+    // truss is left untouched so the lit facets pop against it.
+    const sunCatch = THREE.MathUtils.clamp(daylight, 0, 1)
+    this.mirrorDayColor.copy(this.skyColor).lerp(MIRROR_DAY, 0.5)
+    this.facetMaterial.color
+      .lerpColors(MIRROR_NIGHT, this.mirrorDayColor, THREE.MathUtils.clamp(daylight + 0.15, 0, 1))
+      .multiplyScalar(0.4 + sunCatch * sunCatch * FACET_BLAZE_GAIN)
     // Enough opacity that the thin mullions read, but kept low so the glass is
     // mostly transparent and the mirror sky pours through (cells stay see-through
     // via the texture's own alpha regardless).
