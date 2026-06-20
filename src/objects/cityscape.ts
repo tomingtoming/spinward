@@ -159,9 +159,9 @@ const LAMP_DAY = new THREE.Color(0x6b5a40)
 const LAMP_NIGHT = new THREE.Color(0xffe2b0)
 const SPINE_DAY = new THREE.Color(0xffeec4)
 const SPINE_NIGHT = new THREE.Color(0x8a7f63)
-// Night city signature: an emissive teal road grid, red rooftop beacons, and
-// windows that cool from warm dusk amber toward white/cyan at deep night.
-const ROAD_GLOW = new THREE.Color(0x39d6e0)
+// Night city signature: luminous road veins, red rooftop beacons, and windows
+// that cool from warm dusk amber toward white/cyan at deep night.
+const ROAD_GLOW = new THREE.Color(0xbff7ff)
 const BEACON_COLOR = new THREE.Color(0xff2e2a)
 const WINDOW_WARM = new THREE.Color(0xffe2b8)
 const WINDOW_COOL = new THREE.Color(0xdfeaff)
@@ -318,93 +318,330 @@ const buildingTone = (tone: number, target: THREE.Color) => {
   return target.setHSL(hue, 0.16, lightness)
 }
 
-// Facade texture shared by buildings: a window grid where a portion of the
-// windows are lit. Used as the emissive map on the side faces. Large
-// buildings get a denser grid so their windows stay window-sized.
-const createWindowTexture = (columns = 6, rows = 9) => {
-  const size = 128
+type TextureSet = {
+  albedo: THREE.CanvasTexture
+  emissive: THREE.CanvasTexture
+}
+
+type FacadeTextureVariant = 'warm' | 'dense' | 'tower' | 'far'
+
+const createSeededRandom = (initialSeed: number) => {
+  let seed = initialSeed >>> 0
+
+  return () => {
+    seed = (1664525 * seed + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
+}
+
+const createCanvas = (size: number) => {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const context = canvas.getContext('2d')
 
   if (context === null) {
-    throw new Error('2D canvas context is required for the building window texture')
+    throw new Error('2D canvas context is required for city textures')
   }
 
-  let seed = 0x2c1b3a5d >>> 0
-  const random = () => {
-    seed = (1664525 * seed + 1013904223) >>> 0
-    return seed / 0xffffffff
-  }
+  return { canvas, context }
+}
 
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, size, size)
-
-  const cellWidth = size / columns
-  const cellHeight = size / rows
-
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      if (random() > 0.42) {
-        continue
-      }
-
-      const tone = random()
-      context.fillStyle = tone < 0.7 ? '#ffd9a0' : '#cfe6ff'
-      context.globalAlpha = 0.55 + random() * 0.45
-      context.fillRect(
-        column * cellWidth + cellWidth * 0.22,
-        row * cellHeight + cellHeight * 0.24,
-        cellWidth * 0.56,
-        cellHeight * 0.5
-      )
-    }
-  }
-
-  context.globalAlpha = 1
+const finishTexture = (canvas: HTMLCanvasElement) => {
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
-  // The far side's lit windows are tiny and high-contrast across the colony, so
-  // they sparkle without anisotropic filtering. Request the hardware max.
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.magFilter = THREE.LinearFilter
+  // Facades and rooftops are usually viewed across the cylinder at glancing
+  // angles, exactly where mip anisotropy pays for itself.
   texture.anisotropy = 16
   return texture
+}
+
+const drawEmissiveRect = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  color: string,
+  alpha: number
+) => {
+  context.globalAlpha = alpha * 0.18
+  context.fillStyle = color
+  context.fillRect(x - width * 0.35, y - height * 0.35, width * 1.7, height * 1.7)
+  context.globalAlpha = alpha * 0.82
+  context.fillRect(x, y, width, height)
+  context.globalAlpha = 1
+}
+
+const createFacadeTextureSet = (
+  columns: number,
+  rows: number,
+  variant: FacadeTextureVariant,
+  seed: number
+): TextureSet => {
+  const size = variant === 'far' ? 512 : 256
+  const { canvas: albedoCanvas, context: albedo } = createCanvas(size)
+  const { canvas: emissiveCanvas, context: emissive } = createCanvas(size)
+  const random = createSeededRandom(seed)
+  const isTower = variant === 'tower'
+  const isDense = variant === 'dense' || variant === 'far'
+  const cellWidth = size / columns
+  const cellHeight = size / rows
+  const base = isTower ? '#151b24' : variant === 'warm' ? '#39404a' : '#262d37'
+  const rib = isTower ? '#0c1118' : variant === 'warm' ? '#5f5860' : '#1a2029'
+  const seam = isTower ? 'rgba(177, 198, 216, 0.08)' : 'rgba(255, 218, 183, 0.08)'
+
+  albedo.fillStyle = base
+  albedo.fillRect(0, 0, size, size)
+  emissive.fillStyle = '#000000'
+  emissive.fillRect(0, 0, size, size)
+
+  const warmWash = albedo.createLinearGradient(0, 0, size, size)
+  warmWash.addColorStop(0, isTower ? 'rgba(255, 150, 96, 0.08)' : 'rgba(255, 160, 108, 0.18)')
+  warmWash.addColorStop(0.55, 'rgba(42, 48, 60, 0.04)')
+  warmWash.addColorStop(1, 'rgba(0, 12, 26, 0.24)')
+  albedo.fillStyle = warmWash
+  albedo.fillRect(0, 0, size, size)
+
+  for (let column = 0; column < columns; column += 1) {
+    const x = column * cellWidth
+    const ribWidth = Math.max(1, cellWidth * (isTower ? 0.14 : 0.08))
+    albedo.fillStyle = rib
+    albedo.globalAlpha = isTower ? 0.72 : 0.42
+    albedo.fillRect(x, 0, ribWidth, size)
+    albedo.fillRect(x + cellWidth - ribWidth * 0.65, 0, ribWidth * 0.65, size)
+  }
+
+  albedo.globalAlpha = 1
+  albedo.strokeStyle = seam
+  albedo.lineWidth = 1
+
+  for (let row = 0; row <= rows; row += 1) {
+    const y = row * cellHeight
+    albedo.beginPath()
+    albedo.moveTo(0, y)
+    albedo.lineTo(size, y)
+    albedo.stroke()
+  }
+
+  for (let column = 0; column <= columns; column += 1) {
+    const x = column * cellWidth
+    albedo.beginPath()
+    albedo.moveTo(x, 0)
+    albedo.lineTo(x, size)
+    albedo.stroke()
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const x = column * cellWidth
+      const y = row * cellHeight
+      const windowWidth = cellWidth * (isTower ? 0.42 : isDense ? 0.5 : 0.58)
+      const windowHeight = cellHeight * (isDense ? 0.5 : 0.44)
+      const offsetX = cellWidth * (isTower ? 0.34 : 0.23) + (random() - 0.5) * cellWidth * 0.08
+      const offsetY = cellHeight * 0.26 + (random() - 0.5) * cellHeight * 0.08
+      const litChance =
+        variant === 'far' ? 0.58 : variant === 'dense' ? 0.48 : isTower ? 0.42 : 0.34
+      const stripChance = isTower ? 0.18 : 0.04
+      const lit = random() < litChance
+      const color = random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
+
+      albedo.fillStyle = lit ? 'rgba(255, 216, 166, 0.5)' : 'rgba(6, 12, 20, 0.75)'
+      albedo.fillRect(x + offsetX, y + offsetY, windowWidth, windowHeight)
+      albedo.fillStyle = 'rgba(255, 255, 255, 0.08)'
+      albedo.fillRect(x + offsetX + windowWidth * 0.12, y + offsetY, windowWidth * 0.12, windowHeight)
+
+      if (lit) {
+        drawEmissiveRect(
+          emissive,
+          x + offsetX,
+          y + offsetY,
+          windowWidth,
+          windowHeight,
+          color,
+          0.42 + random() * 0.36
+        )
+      }
+
+      if (random() < stripChance) {
+        const stripX = x + cellWidth * (0.46 + random() * 0.08)
+        const stripWidth = Math.max(1.5, cellWidth * 0.12)
+        albedo.fillStyle = 'rgba(185, 224, 255, 0.14)'
+        albedo.fillRect(stripX, y + cellHeight * 0.08, stripWidth, cellHeight * 0.82)
+        drawEmissiveRect(
+          emissive,
+          stripX,
+          y + cellHeight * 0.08,
+          stripWidth,
+          cellHeight * 0.82,
+          random() < 0.5 ? '#e8f6ff' : '#ffd38a',
+          0.35
+        )
+      }
+
+      if (isDense && random() < 0.04) {
+        drawEmissiveRect(
+          emissive,
+          x + cellWidth * 0.78,
+          y + cellHeight * 0.15,
+          Math.max(1.5, cellWidth * 0.1),
+          Math.max(1.5, cellHeight * 0.1),
+          '#ff302b',
+          0.75
+        )
+      }
+    }
+  }
+
+  for (let index = 0; index < (variant === 'far' ? 900 : 140); index += 1) {
+    const x = random() * size
+    const y = random() * size
+    const width = Math.max(1, size * (variant === 'far' ? 0.004 : 0.006))
+    const height = Math.max(1, size * (variant === 'far' ? 0.012 : 0.018))
+    albedo.fillStyle = random() < 0.5 ? 'rgba(255, 167, 112, 0.13)' : 'rgba(159, 244, 255, 0.1)'
+    albedo.fillRect(x, y, width, height)
+
+    if (variant === 'far' && random() < 0.45) {
+      drawEmissiveRect(
+        emissive,
+        x,
+        y,
+        width,
+        height,
+        random() < 0.62 ? '#ffd8a2' : '#dff4ff',
+        0.5
+      )
+    }
+  }
+
+  return {
+    albedo: finishTexture(albedoCanvas),
+    emissive: finishTexture(emissiveCanvas)
+  }
+}
+
+const createRoofTextureSet = (): TextureSet => {
+  const size = 256
+  const { canvas: albedoCanvas, context: albedo } = createCanvas(size)
+  const { canvas: emissiveCanvas, context: emissive } = createCanvas(size)
+  const random = createSeededRandom(0x8e2c5f91)
+
+  albedo.fillStyle = '#303943'
+  albedo.fillRect(0, 0, size, size)
+  emissive.fillStyle = '#000000'
+  emissive.fillRect(0, 0, size, size)
+
+  for (let y = 0; y < size; y += 32) {
+    for (let x = 0; x < size; x += 32) {
+      albedo.fillStyle = random() < 0.5 ? '#26303b' : '#3a4350'
+      albedo.fillRect(x + 1, y + 1, 30, 30)
+      albedo.strokeStyle = 'rgba(255, 220, 180, 0.08)'
+      albedo.strokeRect(x + 1.5, y + 1.5, 29, 29)
+
+      if (random() < 0.42) {
+        const unitX = x + 6 + random() * 12
+        const unitY = y + 6 + random() * 12
+        albedo.fillStyle = '#697582'
+        albedo.fillRect(unitX, unitY, 8 + random() * 10, 5 + random() * 8)
+        albedo.fillStyle = 'rgba(6, 12, 18, 0.45)'
+        albedo.fillRect(unitX + 2, unitY + 2, 8, 2)
+      }
+
+      if (random() < 0.08) {
+        drawEmissiveRect(
+          emissive,
+          x + 14 + random() * 6,
+          y + 14 + random() * 6,
+          3,
+          3,
+          '#ff302b',
+          0.9
+        )
+      }
+    }
+  }
+
+  for (let index = 0; index < 18; index += 1) {
+    const y = random() * size
+    albedo.fillStyle = 'rgba(225, 235, 245, 0.16)'
+    albedo.fillRect(0, y, size, 1)
+    drawEmissiveRect(emissive, 0, y, size, 1, random() < 0.5 ? '#9ff4ff' : '#ffd49a', 0.12)
+  }
+
+  return {
+    albedo: finishTexture(albedoCanvas),
+    emissive: finishTexture(emissiveCanvas)
+  }
+}
+
+const disposeTextureSet = (textures: TextureSet) => {
+  textures.albedo.dispose()
+  textures.emissive.dispose()
 }
 
 export class Cityscape {
   readonly group = new THREE.Group()
 
-  private readonly windowTexture = createWindowTexture()
-  private readonly largeWindowTexture = createWindowTexture(14, 20)
+  private readonly smallFacadeTextures = createFacadeTextureSet(7, 10, 'warm', 0x2c1b3a5d)
+  private readonly largeFacadeTextures = createFacadeTextureSet(14, 20, 'dense', 0x7b42a8e3)
+  private readonly towerFacadeTextures = createFacadeTextureSet(10, 18, 'tower', 0x4d6b91f0)
+  private readonly farFacadeTextures = createFacadeTextureSet(26, 38, 'far', 0xd65128bf)
+  private readonly roofTextures = createRoofTextureSet()
 
   // Side faces carry the lit-window emissive map; roof and foundation stay
   // plain so towers do not glow from above.
   private readonly buildingSideMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
+    map: this.smallFacadeTextures.albedo,
     roughness: 0.85,
     metalness: 0.1,
     emissive: new THREE.Color(0xffe2b8),
     emissiveIntensity: 0.65,
-    emissiveMap: this.windowTexture
+    emissiveMap: this.smallFacadeTextures.emissive
   })
 
   private readonly largeBuildingSideMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
+    map: this.largeFacadeTextures.albedo,
     roughness: 0.85,
     metalness: 0.1,
     emissive: new THREE.Color(0xffe2b8),
     emissiveIntensity: 0.65,
-    emissiveMap: this.largeWindowTexture
+    emissiveMap: this.largeFacadeTextures.emissive
+  })
+
+  private readonly towerBuildingSideMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: this.towerFacadeTextures.albedo,
+    roughness: 0.72,
+    metalness: 0.22,
+    emissive: new THREE.Color(0xffe2b8),
+    emissiveIntensity: 0.75,
+    emissiveMap: this.towerFacadeTextures.emissive
+  })
+
+  private readonly farBuildingSideMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: this.farFacadeTextures.albedo,
+    roughness: 0.9,
+    metalness: 0.08,
+    emissive: new THREE.Color(0xffe2b8),
+    emissiveIntensity: 0.85,
+    emissiveMap: this.farFacadeTextures.emissive
   })
 
   private readonly buildingRoofMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
+    map: this.roofTextures.albedo,
     roughness: 0.9,
     metalness: 0.08,
-    emissive: new THREE.Color(0x141c26),
-    emissiveIntensity: 0.5
+    emissive: new THREE.Color(0xd8ecff),
+    emissiveMap: this.roofTextures.emissive,
+    emissiveIntensity: 0.22
   })
 
   // Faint glass tint: the cutout in the shell shows space and the mirrors,
@@ -745,15 +982,20 @@ export class Cityscape {
     // mostly transparent and the mirror sky pours through (cells stay see-through
     // via the texture's own alpha regardless).
     this.windowStripMaterial.opacity = 0.28 + daylight * 0.2
-    this.buildingSideMaterial.emissiveIntensity = 0.6 + night * 0.85
-    this.largeBuildingSideMaterial.emissiveIntensity =
-      this.buildingSideMaterial.emissiveIntensity
+    this.buildingSideMaterial.emissiveIntensity = 0.45 + night * 0.72
+    this.largeBuildingSideMaterial.emissiveIntensity = 0.65 + night * 1.15
+    this.towerBuildingSideMaterial.emissiveIntensity = 0.62 + night * 1.05
+    this.farBuildingSideMaterial.emissiveIntensity = 0.85 + night * 1.35
+    this.buildingRoofMaterial.emissiveIntensity = 0.12 + night * 0.34
     // Windows cool from warm dusk amber toward white/cyan as night falls.
     this.buildingSideMaterial.emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
     this.largeBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
-    // Roads glow teal at night; arterials brighter than residential locals.
-    this.roadMaterial.emissiveIntensity = night * 1.15
-    this.localRoadMaterial.emissiveIntensity = night * 0.7
+    this.towerBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
+    this.farBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
+    // Roads become pale light veins at night; arterials brighter than
+    // residential locals so the far-side city reads like a dense network.
+    this.roadMaterial.emissiveIntensity = night * 1.55
+    this.localRoadMaterial.emissiveIntensity = night * 0.95
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
@@ -784,9 +1026,14 @@ export class Cityscape {
     this.clear()
     this.buildingSideMaterial.dispose()
     this.largeBuildingSideMaterial.dispose()
+    this.towerBuildingSideMaterial.dispose()
+    this.farBuildingSideMaterial.dispose()
     this.buildingRoofMaterial.dispose()
-    this.windowTexture.dispose()
-    this.largeWindowTexture.dispose()
+    disposeTextureSet(this.smallFacadeTextures)
+    disposeTextureSet(this.largeFacadeTextures)
+    disposeTextureSet(this.towerFacadeTextures)
+    disposeTextureSet(this.farFacadeTextures)
+    disposeTextureSet(this.roofTextures)
     this.windowStripMaterial.map?.dispose()
     this.windowStripMaterial.dispose()
     this.facetMaterial.dispose()
@@ -977,7 +1224,7 @@ export class Cityscape {
       }
     }
 
-    this.farBuildings = this.buildBuildingBatch(far, this.largeBuildingSideMaterial)
+    this.farBuildings = this.buildBuildingBatch(far, this.farBuildingSideMaterial)
   }
 
   private buildArchetypeBatch(
@@ -997,7 +1244,11 @@ export class Cityscape {
     // Houses are small: the coarse window grid fits; the tall shapes use
     // the dense one.
     const sideMaterial =
-      kind === 'house' ? this.buildingSideMaterial : this.largeBuildingSideMaterial
+      kind === 'house'
+        ? this.buildingSideMaterial
+        : kind === 'tower'
+          ? this.towerBuildingSideMaterial
+          : this.largeBuildingSideMaterial
     const mesh = new THREE.InstancedMesh(
       geometry,
       [sideMaterial, this.buildingRoofMaterial],
