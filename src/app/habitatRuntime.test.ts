@@ -11,9 +11,6 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   const cityscape = {
     setDimensions: mock(() => {})
   }
-  const clouds = {
-    setDimensions: mock(() => {})
-  }
   const spaceport = {
     setDimensions: mock(() => {})
   }
@@ -46,7 +43,6 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
     {
       habitat,
       cityscape,
-      clouds,
       spaceport,
       starfield,
       sun,
@@ -70,7 +66,6 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   expect(habitat.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(habitat.setFocusAzimuth).toHaveBeenCalledWith(0.5)
   expect(cityscape.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
-  expect(clouds.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(spaceport.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(starfield.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })
   expect(sun.setDimensions).toHaveBeenCalledWith({ radius: 18, length: 120 })

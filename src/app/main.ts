@@ -56,7 +56,6 @@ import {
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
 import { Car } from '../objects/car'
-import { Clouds } from '../objects/clouds'
 import {
   getCityGroundHeight,
   getPlazaTangentHalfWidth,
@@ -168,16 +167,10 @@ export const bootstrapApp = async () => {
     {
       radius: habitatConfig.radius,
       length: getHabitatSpan(habitatConfig),
-      topology: habitatConfig.topology
+      topology: habitatConfig.topology,
+      type: habitatConfig.type
     },
     { maxBuildings: quality.maxBuildings }
-  )
-  const clouds = new Clouds(
-    {
-      radius: habitatConfig.radius,
-      length: getHabitatSpan(habitatConfig)
-    },
-    { densityScale: quality.cloudDensity }
   )
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,
@@ -203,7 +196,6 @@ export const bootstrapApp = async () => {
   skyLayer.add(atmosphereGlow.group)
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
-  nearLayer.add(clouds.group)
   nearLayer.add(spaceport.group)
 
   const playerRig = new THREE.Group()
@@ -757,7 +749,6 @@ export const bootstrapApp = async () => {
       {
         habitat,
         cityscape,
-        clouds,
         spaceport,
         starfield,
         sun,
@@ -1632,8 +1623,6 @@ export const bootstrapApp = async () => {
     renderer.toneMappingExposure = skyGrade.exposure
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
-    clouds.setDaylight(daylight)
-    clouds.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 
     // Lightweight state probe for headless debugging.
@@ -1723,7 +1712,6 @@ export const bootstrapApp = async () => {
     drive.dispose()
     car.dispose()
     cityscape.dispose()
-    clouds.dispose()
     spaceport.dispose()
     sun.dispose()
     atmosphereGlow.dispose()

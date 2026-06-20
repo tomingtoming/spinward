@@ -7,7 +7,6 @@ import {
 import { getWindowArcs } from './cityLayout'
 import {
   createCylinderSurfaceTexture,
-  createHoneycombTexture,
   getCylinderSurfaceRepeat
 } from './cylinderSurface'
 
@@ -248,19 +247,14 @@ export class CylinderHabitat {
     side: THREE.FrontSide
   })
 
-  // Hexagonal honeycomb glazing so the end reads as the iconic O'Neill
-  // structural-glass bulkhead rather than a flat disc.
-  private readonly endCapTexture = createHoneycombTexture()
   private readonly endCapMaterial = new THREE.MeshStandardMaterial({
-    color: 0xaab4c0,
-    map: this.endCapTexture,
-    emissive: new THREE.Color(0x2a3344),
-    emissiveMap: this.endCapTexture,
-    emissiveIntensity: 0.6,
+    color: 0x4a6478,
+    emissive: 0x101a26,
+    emissiveIntensity: 0.8,
     // Visible from inside the colony (the closed cap is a flat annulus).
     side: THREE.DoubleSide,
-    roughness: 0.5,
-    metalness: 0.45
+    roughness: 0.55,
+    metalness: 0.4
   })
 
   // The air itself: scene fog only tints surfaces, so the carved windows

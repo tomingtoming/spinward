@@ -66,40 +66,42 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   return texture
 }
 
-// Hexagonal honeycomb glazing for the colony end caps: a structural panel grid
-// of pointy-top hex cells in a dark mullion frame, with faintly varied glass
-// tints. Used as both the colour map and the emissive map so the end reads as a
-// lit structural-glass bulkhead (the iconic O'Neill end mirror), not a flat disc.
-export const createHoneycombTexture = (size = 256) => {
+// Hexagonal structural glazing for the colony's longitudinal WINDOW strips (the
+// real O'Neill windows you look through to the mirrors/space — not the end caps).
+// The hex CELLS are near-transparent so the mirror sky shows through; only the
+// MULLIONS are a semi-opaque metallic frame. Used as the map on the window glass.
+export const createWindowGlassTexture = (size = 256) => {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const context = canvas.getContext('2d')
 
   if (context === null) {
-    throw new Error('2D canvas context is required for the honeycomb texture')
+    throw new Error('2D canvas context is required for the window glass texture')
   }
 
-  // Dark mullion frame behind the cells.
-  context.fillStyle = '#1c2530'
-  context.fillRect(0, 0, size, size)
+  // Transparent base: the sky/mirror behind the glass shows through the cells.
+  context.clearRect(0, 0, size, size)
 
-  let seed = 0x9b4d2f7a >>> 0
-  const random = () => {
-    seed = (1664525 * seed + 1013904223) >>> 0
-    return seed / 0xffffffff
-  }
+  // SEAMLESSLY TILEABLE flat-top hex lattice. An even column count makes the
+  // horizontal offset pattern wrap at the side edges; rounding to an integer row
+  // count makes it wrap top/bottom. The hex is stretched vertically by vScale (a
+  // few %) to stay regular-looking against the rounded row height. Every hex is
+  // also drawn shifted by ±size, so a cell crossing one edge reappears on the
+  // opposite edge — the repeats join with no broken seam.
+  const cols = 6
+  const columnStep = size / cols
+  const hexRadius = columnStep / 1.5
+  const rows = Math.max(1, Math.round(size / (Math.sqrt(3) * hexRadius)))
+  const hexHeight = size / rows
+  const vScale = hexHeight / (Math.sqrt(3) * hexRadius)
 
-  const hexRadius = size / 9
-  const hexHeight = Math.sqrt(3) * hexRadius
-  const columnStep = hexRadius * 1.5
-
-  const drawHex = (cx: number, cy: number) => {
+  const traceHex = (cx: number, cy: number) => {
     context.beginPath()
     for (let vertex = 0; vertex < 6; vertex += 1) {
       const angle = (Math.PI / 180) * (60 * vertex)
-      const px = cx + hexRadius * 0.92 * Math.cos(angle)
-      const py = cy + hexRadius * 0.92 * Math.sin(angle)
+      const px = cx + hexRadius * 0.96 * Math.cos(angle)
+      const py = cy + hexRadius * 0.96 * Math.sin(angle) * vScale
       if (vertex === 0) {
         context.moveTo(px, py)
       } else {
@@ -109,29 +111,40 @@ export const createHoneycombTexture = (size = 256) => {
     context.closePath()
   }
 
-  context.lineWidth = Math.max(1.5, hexRadius * 0.12)
-  context.strokeStyle = 'rgba(12, 18, 26, 0.95)'
-
-  for (let column = -1; column * columnStep < size + hexRadius * 2; column += 1) {
-    const cx = column * columnStep
-    const offsetY = (((column % 2) + 2) % 2) * hexHeight * 0.5
-
-    for (let row = -1; row * hexHeight + offsetY < size + hexHeight; row += 1) {
-      const cy = row * hexHeight + offsetY
-      // Warm-to-cool glass variation so it shimmers like real panelled glass.
-      const warm = random()
-      const r = Math.round(150 + warm * 70)
-      const g = Math.round(140 + random() * 50)
-      const b = Math.round(150 + (1 - warm) * 80)
-      drawHex(cx, cy)
-      context.fillStyle = `rgb(${r}, ${g}, ${b})`
-      context.fill()
-      context.stroke()
+  const forEachHex = (visit: (cx: number, cy: number) => void) => {
+    for (let column = 0; column < cols; column += 1) {
+      const baseX = column * columnStep
+      const offsetY = (column % 2) * hexHeight * 0.5
+      for (let row = 0; row < rows; row += 1) {
+        const baseY = row * hexHeight + offsetY
+        for (const dx of [-size, 0, size]) {
+          for (const dy of [-size, 0, size]) {
+            visit(baseX + dx, baseY + dy)
+          }
+        }
+      }
     }
   }
 
+  // Pass 1: a whisper of cool glass sheen in each cell (mostly transparent).
+  context.fillStyle = 'rgba(190, 216, 242, 0.06)'
+  forEachHex((cx, cy) => {
+    traceHex(cx, cy)
+    context.fill()
+  })
+
+  // Pass 2: the mullion frame — a thin, soft metallic edge over every cell.
+  context.lineWidth = Math.max(1, hexRadius * 0.06)
+  context.strokeStyle = 'rgba(122, 142, 172, 0.5)'
+  forEachHex((cx, cy) => {
+    traceHex(cx, cy)
+    context.stroke()
+  })
+
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
   texture.anisotropy = 16
   return texture
 }
