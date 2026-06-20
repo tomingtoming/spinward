@@ -83,16 +83,25 @@ export const createWindowGlassTexture = (size = 256) => {
   // Transparent base: the sky/mirror behind the glass shows through the cells.
   context.clearRect(0, 0, size, size)
 
-  const hexRadius = size / 4.2 // a few big structural panels per tile
-  const hexHeight = Math.sqrt(3) * hexRadius
-  const columnStep = hexRadius * 1.5
+  // SEAMLESSLY TILEABLE flat-top hex lattice. An even column count makes the
+  // horizontal offset pattern wrap at the side edges; rounding to an integer row
+  // count makes it wrap top/bottom. The hex is stretched vertically by vScale (a
+  // few %) to stay regular-looking against the rounded row height. Every hex is
+  // also drawn shifted by ±size, so a cell crossing one edge reappears on the
+  // opposite edge — the repeats join with no broken seam.
+  const cols = 6
+  const columnStep = size / cols
+  const hexRadius = columnStep / 1.5
+  const rows = Math.max(1, Math.round(size / (Math.sqrt(3) * hexRadius)))
+  const hexHeight = size / rows
+  const vScale = hexHeight / (Math.sqrt(3) * hexRadius)
 
-  const tracePointyHex = (cx: number, cy: number) => {
+  const traceHex = (cx: number, cy: number) => {
     context.beginPath()
     for (let vertex = 0; vertex < 6; vertex += 1) {
       const angle = (Math.PI / 180) * (60 * vertex)
-      const px = cx + hexRadius * 0.94 * Math.cos(angle)
-      const py = cy + hexRadius * 0.94 * Math.sin(angle)
+      const px = cx + hexRadius * 0.96 * Math.cos(angle)
+      const py = cy + hexRadius * 0.96 * Math.sin(angle) * vScale
       if (vertex === 0) {
         context.moveTo(px, py)
       } else {
@@ -103,27 +112,32 @@ export const createWindowGlassTexture = (size = 256) => {
   }
 
   const forEachHex = (visit: (cx: number, cy: number) => void) => {
-    for (let column = -1; column * columnStep < size + hexRadius * 2; column += 1) {
-      const cx = column * columnStep
-      const offsetY = (((column % 2) + 2) % 2) * hexHeight * 0.5
-      for (let row = -1; row * hexHeight + offsetY < size + hexHeight; row += 1) {
-        visit(cx, row * hexHeight + offsetY)
+    for (let column = 0; column < cols; column += 1) {
+      const baseX = column * columnStep
+      const offsetY = (column % 2) * hexHeight * 0.5
+      for (let row = 0; row < rows; row += 1) {
+        const baseY = row * hexHeight + offsetY
+        for (const dx of [-size, 0, size]) {
+          for (const dy of [-size, 0, size]) {
+            visit(baseX + dx, baseY + dy)
+          }
+        }
       }
     }
   }
 
-  // Pass 1: a faint cool glass sheen in each cell (mostly transparent).
-  context.fillStyle = 'rgba(190, 216, 242, 0.1)'
+  // Pass 1: a whisper of cool glass sheen in each cell (mostly transparent).
+  context.fillStyle = 'rgba(190, 216, 242, 0.06)'
   forEachHex((cx, cy) => {
-    tracePointyHex(cx, cy)
+    traceHex(cx, cy)
     context.fill()
   })
 
-  // Pass 2: the mullion frame — a semi-opaque metallic edge over every cell.
-  context.lineWidth = Math.max(2, hexRadius * 0.09)
-  context.strokeStyle = 'rgba(96, 116, 146, 0.85)'
+  // Pass 2: the mullion frame — a thin, soft metallic edge over every cell.
+  context.lineWidth = Math.max(1, hexRadius * 0.06)
+  context.strokeStyle = 'rgba(122, 142, 172, 0.5)'
   forEachHex((cx, cy) => {
-    tracePointyHex(cx, cy)
+    traceHex(cx, cy)
     context.stroke()
   })
 

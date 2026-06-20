@@ -715,9 +715,10 @@ export class Cityscape {
       this.mirrorDayColor,
       THREE.MathUtils.clamp(daylight + 0.15, 0, 1)
     )
-    // Higher opacity so the mullions read; the cells stay see-through via the
-    // texture's own alpha, so the mirror sky still pours through the glass.
-    this.windowStripMaterial.opacity = 0.45 + daylight * 0.3
+    // Enough opacity that the thin mullions read, but kept low so the glass is
+    // mostly transparent and the mirror sky pours through (cells stay see-through
+    // via the texture's own alpha regardless).
+    this.windowStripMaterial.opacity = 0.28 + daylight * 0.2
     this.buildingSideMaterial.emissiveIntensity = 0.6 + night * 0.85
     this.largeBuildingSideMaterial.emissiveIntensity =
       this.buildingSideMaterial.emissiveIntensity
@@ -1468,7 +1469,7 @@ export class Cityscape {
     const windowArcs = getWindowArcs(this.topology)
     const firstArc = windowArcs[0]
     if (firstArc !== undefined) {
-      const tileMeters = Math.max(radius * 0.22, 4)
+      const tileMeters = Math.max(radius * 0.09, 4)
       this.windowGlassTexture.repeat.set(
         Math.max(1, Math.round((firstArc.arcRadians * radius) / tileMeters)),
         Math.max(1, Math.round(length / tileMeters))
