@@ -11,11 +11,13 @@ import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
+import { getDaylight, stepDayNightPhase } from './dayNight'
 import {
-  INITIAL_DAY_NIGHT_PHASE,
-  getDaylight,
-  stepDayNightPhase
-} from './dayNight'
+  createSkyGrade,
+  getInitialDayNightPhase,
+  getSkyLook,
+  sampleSkyGrade
+} from './skyGrade'
 import { DriveRuntime } from './driveRuntime'
 import { Accelerometer } from '../sim/accelerometer'
 import { syncHabitatRuntime } from './habitatRuntime'
@@ -135,11 +137,11 @@ export const bootstrapApp = async () => {
   const AIR_FOG_DENSITY = 2.2e-4
   const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
   scene.fog = fog
-  const fogDayColor = new THREE.Color(0x728ba0)
-  const fogNightColor = new THREE.Color(0x1b2530)
-  const backgroundDayColor = new THREE.Color(0x08131d)
-  const backgroundNightColor = new THREE.Color(0x040810)
-  let dayNightPhase = INITIAL_DAY_NIGHT_PHASE
+  // The day/night colour grade (fog/background/sun/exposure) is a per-look
+  // keyframed profile; Izma wears a warm dusk, other presets keep the cool
+  // legacy grade. Boot at the look's chosen time of day.
+  const skyGrade = createSkyGrade()
+  let dayNightPhase = getInitialDayNightPhase(habitatConfig.skyLook)
   const audio = new GameAudio()
   const sunNoonColor = new THREE.Color(0xfff2dd)
   const sunLowColor = new THREE.Color(0xffbe82)
@@ -1571,13 +1573,15 @@ export const bootstrapApp = async () => {
       windowSun.color.lerpColors(sunLowColor, sunNoonColor, Math.min(1, daylight * 2))
     }
 
-    fog.color.lerpColors(fogNightColor, fogDayColor, daylight)
+    // Colour grade from the active look's keyframed profile (warm dusk for
+    // Izma, cool legacy for the rest). Light intensities stay on `daylight`
+    // above; this drives only the haze/space/sun colour and exposure.
+    sampleSkyGrade(dayNightPhase, getSkyLook(habitatConfig.skyLook), skyGrade)
+    fog.color.copy(skyGrade.fog)
     habitat.setAtmosphere(fog.color, fog.density)
-    ;(scene.background as THREE.Color).lerpColors(
-      backgroundNightColor,
-      backgroundDayColor,
-      daylight
-    )
+    ;(scene.background as THREE.Color).copy(skyGrade.background)
+    sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
+    renderer.toneMappingExposure = skyGrade.exposure
     cityscape.setDaylight(daylight)
     clouds.setDaylight(daylight)
     clouds.update(deltaSeconds)

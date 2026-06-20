@@ -147,6 +147,12 @@ const LAMP_DAY = new THREE.Color(0x6b5a40)
 const LAMP_NIGHT = new THREE.Color(0xffe2b0)
 const SPINE_DAY = new THREE.Color(0xffeec4)
 const SPINE_NIGHT = new THREE.Color(0x8a7f63)
+// Night city signature: an emissive teal road grid, red rooftop beacons, and
+// windows that cool from warm dusk amber toward white/cyan at deep night.
+const ROAD_GLOW = new THREE.Color(0x39d6e0)
+const BEACON_COLOR = new THREE.Color(0xff2e2a)
+const WINDOW_WARM = new THREE.Color(0xffe2b8)
+const WINDOW_COOL = new THREE.Color(0xdfeaff)
 
 // Alternating crop stripes for farm blocks; one texture tile is a pair of
 // rows, repeated in world units via baked UVs.
@@ -451,16 +457,33 @@ export class Cityscape {
     side: THREE.DoubleSide
   })
 
-  private readonly localRoadMaterial = new THREE.MeshBasicMaterial({
-    map: createRoadTexture('local'),
+  // Roads light up at night as an emissive teal grid — the colony's signature
+  // night signal. The asphalt texture doubles as the emissive mask so the lane
+  // lines glow brightest; emissiveIntensity ramps from 0 (day) up at night
+  // (setDaylight). The texture is shared between albedo and emissive map.
+  private readonly arterialRoadTexture = createRoadTexture('arterial')
+  private readonly localRoadTexture = createRoadTexture('local')
+
+  private readonly localRoadMaterial = new THREE.MeshStandardMaterial({
+    map: this.localRoadTexture,
+    emissive: ROAD_GLOW.clone(),
+    emissiveMap: this.localRoadTexture,
+    emissiveIntensity: 0,
+    roughness: 0.9,
+    metalness: 0,
     side: THREE.BackSide,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2
   })
 
-  private readonly roadMaterial = new THREE.MeshBasicMaterial({
-    map: createRoadTexture('arterial'),
+  private readonly roadMaterial = new THREE.MeshStandardMaterial({
+    map: this.arterialRoadTexture,
+    emissive: ROAD_GLOW.clone(),
+    emissiveMap: this.arterialRoadTexture,
+    emissiveIntensity: 0,
+    roughness: 0.9,
+    metalness: 0,
     side: THREE.BackSide,
     polygonOffset: true,
     polygonOffsetFactor: -2,
@@ -509,6 +532,13 @@ export class Cityscape {
     toneMapped: false
   })
 
+  // Red aviation warning lights on the tallest rooftops. Unlit and always on
+  // (real beacons burn day and night); they read instantly at dusk and night.
+  private readonly beaconMaterial = new THREE.MeshBasicMaterial({
+    color: BEACON_COLOR.clone(),
+    toneMapped: false
+  })
+
   private readonly cableMaterial = new THREE.MeshStandardMaterial({
     color: 0xaab8c8,
     roughness: 0.4,
@@ -551,6 +581,7 @@ export class Cityscape {
   private patchMeshes: THREE.Mesh[] = []
   private trees: THREE.InstancedMesh | null = null
   private lamps: THREE.InstancedMesh | null = null
+  private beacons: THREE.InstancedMesh | null = null
   private towerGroup: THREE.Group | null = null
   private cables: THREE.Mesh | null = null
   private spineRings: THREE.Mesh | null = null
@@ -633,6 +664,7 @@ export class Cityscape {
     this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
     this.buildLamps(plan.roads, radius, length)
+    this.buildBeacons(plan.buildings, radius, length)
     this.buildWindowStrips(radius, length)
     this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
@@ -657,14 +689,27 @@ export class Cityscape {
   // Day/night dressing: the mirrors dim to night-side blue, facades and
   // street lamps take over as the light sources.
   setDaylight(daylight: number) {
+    const night = 1 - daylight
     this.mirrorMaterial.color.lerpColors(MIRROR_NIGHT, MIRROR_DAY, daylight)
     this.windowStripMaterial.opacity = 0.05 + daylight * 0.12
-    this.buildingSideMaterial.emissiveIntensity = 0.6 + (1 - daylight) * 0.85
+    this.buildingSideMaterial.emissiveIntensity = 0.6 + night * 0.85
     this.largeBuildingSideMaterial.emissiveIntensity =
       this.buildingSideMaterial.emissiveIntensity
+    // Windows cool from warm dusk amber toward white/cyan as night falls.
+    this.buildingSideMaterial.emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
+    this.largeBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
+    // Roads glow teal at night; arterials brighter than residential locals.
+    this.roadMaterial.emissiveIntensity = night * 1.15
+    this.localRoadMaterial.emissiveIntensity = night * 0.7
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
+    // Let the glowing night grid arch overhead and dim into haze (push the fade
+    // window out at night); keep it tight in daylight to kill asphalt shimmer.
+    if (this.radius > 0) {
+      this.fadeStart.value = Math.max(this.radius * (1.15 + night * 0.55), 600)
+      this.fadeEnd.value = Math.max(this.radius * (1.9 + night * 1.2), 1200)
+    }
   }
 
   // The tower's walking/ball collision proxy: a slim box around the column.
@@ -704,6 +749,7 @@ export class Cityscape {
     this.farmMaterial.dispose()
     this.treeMaterial.dispose()
     this.lampMaterial.dispose()
+    this.beaconMaterial.dispose()
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
     this.cableMaterial.dispose()
@@ -745,6 +791,7 @@ export class Cityscape {
     for (const single of [
       this.trees,
       this.lamps,
+      this.beacons,
       this.cables,
       this.spineRings,
       this.bridges,
@@ -759,6 +806,7 @@ export class Cityscape {
 
     this.trees = null
     this.lamps = null
+    this.beacons = null
     this.cables = null
     this.spineRings = null
     this.bridges = null
@@ -1211,6 +1259,58 @@ export class Cityscape {
 
     mesh.instanceMatrix.needsUpdate = true
     this.lamps = mesh
+    this.group.add(mesh)
+  }
+
+  // Red rooftop aviation beacons on the tallest buildings: a sparse, instantly
+  // legible night/dusk cue. Only buildings within ~55% of the tallest get one,
+  // capped so a dense colony stays cheap. Small habitats get none.
+  private buildBeacons(buildings: CityBuilding[], radius: number, length: number) {
+    if (buildings.length === 0) {
+      return
+    }
+
+    let maxHeight = 0
+    for (const building of buildings) {
+      if (building.height > maxHeight) {
+        maxHeight = building.height
+      }
+    }
+
+    const minHeight = Math.max(18, maxHeight * 0.55)
+    const tall = buildings
+      .filter((building) => building.height >= minHeight)
+      .sort((a, b) => b.height - a.height)
+      .slice(0, 700)
+
+    if (tall.length === 0) {
+      return
+    }
+
+    const cell = getCityCellSize(radius, length)
+    const beaconRadius = THREE.MathUtils.clamp(cell * 0.04, 0.4, 3)
+    const mesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 6, 5),
+      this.beaconMaterial,
+      tall.length
+    )
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+    instanceQuaternion.identity()
+    instanceScale.setScalar(beaconRadius)
+
+    for (let index = 0; index < tall.length; index += 1) {
+      const building = tall[index]
+      instancePosition
+        .set(Math.cos(building.azimuth), 0, Math.sin(building.azimuth))
+        .multiplyScalar(radius - building.height - beaconRadius)
+        .setY(building.axial)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+    this.beacons = mesh
     this.group.add(mesh)
   }
 

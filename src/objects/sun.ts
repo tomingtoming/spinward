@@ -109,6 +109,9 @@ export class Sun {
   private coreSprite: THREE.Sprite | null = null
   private glowSprite: THREE.Sprite | null = null
   private distance = 0
+  // The halo swells toward dusk (driven by the sky grade) for a bigger, softer
+  // low-sun. 1 = the default angular size set in setDimensions.
+  private glowScale = 1
 
   constructor(dimensions: SunDimensions) {
     this.glowSprite = this.buildSprite(
@@ -160,16 +163,38 @@ export class Sun {
   setDimensions({ radius, length }: SunDimensions) {
     this.distance = getSunDistance(radius, length)
     this.group.position.set(0, this.distance, 0)
+    this.applySpriteSizes()
+  }
 
+  private applySpriteSizes() {
     if (this.coreSprite !== null) {
       const size = this.distance * SUN_CORE_SIZE
       this.coreSprite.scale.set(size, size, 1)
     }
 
     if (this.glowSprite !== null) {
-      const size = this.distance * SUN_GLOW_SIZE
+      const size = this.distance * SUN_GLOW_SIZE * this.glowScale
       this.glowSprite.scale.set(size, size, 1)
     }
+  }
+
+  // Day/night colour grade: re-tint the core and halo and swell the halo at low
+  // sun. Driven by the sky-grade profile so dusk gets a big reddened sun.
+  setGrade(
+    coreColor: THREE.ColorRepresentation,
+    glowColor: THREE.ColorRepresentation,
+    glowScale = 1
+  ) {
+    if (this.coreSprite !== null) {
+      this.coreSprite.material.color.set(coreColor)
+    }
+
+    if (this.glowSprite !== null) {
+      this.glowSprite.material.color.set(glowColor)
+    }
+
+    this.glowScale = glowScale
+    this.applySpriteSizes()
   }
 
   dispose() {
