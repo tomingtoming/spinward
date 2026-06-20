@@ -1,5 +1,10 @@
 export type HabitatType = 'cylinder' | 'ring'
 
+// Which sky/atmosphere colour grade a habitat wears. Carried from a preset's
+// flavor.skybox so per-colony looks (e.g. Izma's warm dusk) can diverge without
+// forking the renderer. See app/skyGrade.ts for the profiles.
+export type SkyLookId = 'default' | 'izma' | 'elysium'
+
 const TWO_PI = Math.PI * 2
 
 // A habitable wall coverage arc, centered on `centerAzimuth` (radians) and
@@ -53,6 +58,7 @@ export type HabitatConfig = {
   simScale: number
   currentPresetId: string
   topology: HabitatTopology
+  skyLook: SkyLookId
   ballSpeedScale: number
   jetpackAcceleration: number
   ballLifetimeSeconds: number
@@ -68,6 +74,7 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
   simScale: 1,
   currentPresetId: 'playground',
   topology: ISLAND_THREE_TOPOLOGY,
+  skyLook: 'default',
   ballSpeedScale: 1,
   jetpackAcceleration: 12,
   ballLifetimeSeconds: 30,

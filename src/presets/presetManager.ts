@@ -42,7 +42,9 @@ export const applyPresetToSettingsStore = (
     rpm: getPresetRpm(preset),
     simScale: preset.sim.scale,
     currentPresetId: preset.id,
-    topology: preset.topology ?? ISLAND_THREE_TOPOLOGY
+    topology: preset.topology ?? ISLAND_THREE_TOPOLOGY,
+    // Revive the previously-dead flavor.skybox hook as the per-colony sky grade.
+    skyLook: preset.flavor?.skybox ?? 'default'
   })
   return preset
 }

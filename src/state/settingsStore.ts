@@ -222,7 +222,7 @@ export const createSettingsStore = (
     },
     setHabitatConfig(nextValues: Partial<Pick<
       HabitatConfig,
-      'type' | 'radius' | 'length' | 'thickness' | 'rpm' | 'simScale' | 'currentPresetId' | 'topology'
+      'type' | 'radius' | 'length' | 'thickness' | 'rpm' | 'simScale' | 'currentPresetId' | 'topology' | 'skyLook'
     >>) {
       if (nextValues.type !== undefined) {
         habitat.type = nextValues.type
@@ -247,6 +247,9 @@ export const createSettingsStore = (
       }
       if (nextValues.topology !== undefined) {
         habitat.topology = nextValues.topology
+      }
+      if (nextValues.skyLook !== undefined) {
+        habitat.skyLook = nextValues.skyLook
       }
       notify()
     },
