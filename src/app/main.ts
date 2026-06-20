@@ -1,5 +1,9 @@
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
 import {
   computeInertialObserverPose,
@@ -232,6 +236,37 @@ export const bootstrapApp = async () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
   renderer.xr.setReferenceSpaceType('local-floor')
+
+  // Bloom makes the night city glow (windows, teal road grid, beacons, the sun).
+  // EffectComposer does NOT compose with WebXR's multi-view rendering, so bloom
+  // is desktop/flat-screen only (quality.bloom; off on phone/Quest); in XR we
+  // render directly. MSAA + HalfFloat keep edge AA and HDR for the glow. Strength
+  // ramps up at night so daytime keeps a subtle sun glow, not a washout.
+  const BLOOM_BASE_STRENGTH = 0.9
+  let bloomComposer: EffectComposer | null = null
+  let bloomRenderPass: RenderPass | null = null
+  let bloomPass: UnrealBloomPass | null = null
+  if (quality.bloom) {
+    const drawingSize = renderer.getDrawingBufferSize(new THREE.Vector2())
+    const bloomTarget = new THREE.WebGLRenderTarget(drawingSize.x, drawingSize.y, {
+      type: THREE.HalfFloatType,
+      samples: 4
+    })
+    bloomComposer = new EffectComposer(renderer, bloomTarget)
+    bloomComposer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
+    bloomComposer.setSize(window.innerWidth, window.innerHeight)
+    bloomRenderPass = new RenderPass(scene, camera)
+    bloomComposer.addPass(bloomRenderPass)
+    bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      BLOOM_BASE_STRENGTH,
+      0.5,
+      0.55
+    )
+    bloomComposer.addPass(bloomPass)
+    // OutputPass applies the renderer's ACES tone map + sRGB once, at the end.
+    bloomComposer.addPass(new OutputPass())
+  }
   document.body.appendChild(renderer.domElement)
 
   const onQuest = isQuestBrowser()
@@ -1630,7 +1665,16 @@ export const bootstrapApp = async () => {
       deltaSeconds,
       xrActive: renderer.xr.isPresenting
     })
-    renderer.render(scene, desktopUiCamera)
+    if (bloomComposer !== null && bloomRenderPass !== null && !renderer.xr.isPresenting) {
+      bloomRenderPass.camera = desktopUiCamera
+      if (bloomPass !== null) {
+        // Subtle by day (sun glow), full at night (city lights).
+        bloomPass.strength = BLOOM_BASE_STRENGTH * (0.25 + (1 - daylight) * 0.75)
+      }
+      bloomComposer.render()
+    } else {
+      renderer.render(scene, desktopUiCamera)
+    }
   })
 
   notifyTourEvent(tourGuide, 'start')
@@ -1654,12 +1698,14 @@ export const bootstrapApp = async () => {
     inertialObserverCamera.aspect = window.innerWidth / window.innerHeight
     inertialObserverCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
+    bloomComposer?.setSize(window.innerWidth, window.innerHeight)
   })
 
   window.addEventListener('beforeunload', () => {
     // Stop ticking before freeing physics, or a final frame races the
     // disposed Rapier world.
     renderer.setAnimationLoop(null)
+    bloomComposer?.dispose()
     drive.dispose()
     car.dispose()
     cityscape.dispose()
