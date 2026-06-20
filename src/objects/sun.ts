@@ -36,24 +36,6 @@ export const getSunPosition = (
   target = new THREE.Vector3()
 ) => target.set(0, getSunDistance(radius, length), 0)
 
-// Window sunlight rakes in from the +Y (sun) end as well as radially inward, so
-// the interior shading agrees with where the sun visibly hangs. The radial span
-// is kept (it sets which strip is lit / how the floor reads); the +Y lift only
-// adds a downward component, which tilts the light off Y-facing surfaces
-// (building tops, end caps, terrain) without touching the purely-radial floor.
-export const WINDOW_SUN_RADIAL = 10
-export const WINDOW_SUN_LIFT = 5
-
-export const getWindowSunPosition = (
-  centerAzimuth: number,
-  target = new THREE.Vector3()
-) =>
-  target.set(
-    Math.cos(centerAzimuth) * WINDOW_SUN_RADIAL,
-    WINDOW_SUN_LIFT,
-    Math.sin(centerAzimuth) * WINDOW_SUN_RADIAL
-  )
-
 // Soft radial-gradient disc used for both the core and the glow halo. White at
 // the center fading to transparent, so additive blending stacks into a warm
 // bloom. Returns null where there is no DOM (e.g. headless test/SSR); callers

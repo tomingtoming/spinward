@@ -59,7 +59,6 @@ import { Car } from '../objects/car'
 import {
   getCityGroundHeight,
   getPlazaTangentHalfWidth,
-  getWindowStripArcs,
   resolveCitySurfaceCollision
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
@@ -68,7 +67,7 @@ import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
-import { Sun, getWindowSunPosition } from '../objects/sun'
+import { Sun } from '../objects/sun'
 import { AtmosphereGlow } from '../objects/atmosphereGlow'
 import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
@@ -149,6 +148,7 @@ export const bootstrapApp = async () => {
   const audio = new GameAudio()
   const sunNoonColor = new THREE.Color(0xfff2dd)
   const sunLowColor = new THREE.Color(0xffbe82)
+  const sunBeamColor = new THREE.Color()
   const worldRoot = new THREE.Group()
   const skyLayer = new THREE.Group()
   const farLayer = new THREE.Group()
@@ -344,23 +344,13 @@ export const bootstrapApp = async () => {
   }
   renderer.xr.addEventListener('sessionstart', () => audio.unlock())
 
+  // Ambient fill only — the colony's directional sunlight is owned by the
+  // cityscape, which rigs it to the actual daylighting geometry (mirror-reflected
+  // beams for Izma, an axial end-sun for the full-360 colonies) and re-rigs it on
+  // a preset switch. This hemisphere stands in for the soft earthshine/city
+  // bounce that keeps the night side from going pitch black.
   const light = new THREE.HemisphereLight(0xdfeeff, 0x33404e, 1.1)
   scene.add(light)
-
-  // Sunlight enters through the three window strips: one directional light
-  // per strip, pointing inward from the window's center azimuth. They live in
-  // nearLayer so they stay colony-fixed under the inertial observer mode. Each
-  // is lifted toward +Y so the light rakes down from the sun end — agreeing
-  // with where the sun visibly hangs — rather than arriving dead flat.
-  const windowSuns: THREE.DirectionalLight[] = []
-
-  for (const arc of getWindowStripArcs()) {
-    const windowSun = new THREE.DirectionalLight(0xfff2dd, 1.3)
-    windowSun.position.copy(getWindowSunPosition(arc.centerAzimuth))
-    nearLayer.add(windowSun)
-    nearLayer.add(windowSun.target)
-    windowSuns.push(windowSun)
-  }
 
   const rapier = await initRapier()
   const physicsWorld = new rapier.World({ x: 0, y: 0, z: 0 })
@@ -1612,11 +1602,12 @@ export const bootstrapApp = async () => {
     const daylight = getDaylight(dayNightPhase)
     light.intensity = 0.22 + daylight * 0.9
 
-    for (const windowSun of windowSuns) {
-      windowSun.intensity = 0.06 + daylight * 1.25
-      // Color temperature drops toward sunset: warm low sun, white noon.
-      windowSun.color.lerpColors(sunLowColor, sunNoonColor, Math.min(1, daylight * 2))
-    }
+    // Color temperature drops toward sunset: warm low sun, white noon. The
+    // cityscape drives the directional sun from this — mirror swing (Izma) or
+    // axial intensity (Cooper/Playground/Elysium) — so the beam direction and
+    // strength come from the daylighting geometry rather than a fixed curve.
+    sunBeamColor.lerpColors(sunLowColor, sunNoonColor, Math.min(1, daylight * 2))
+    cityscape.setSunlight(daylight, sunBeamColor)
 
     // Colour grade from the active look's keyframed profile (warm dusk for
     // Izma, cool legacy for the rest). Light intensities stay on `daylight`

@@ -6,6 +6,15 @@ import {
   type HabitatType
 } from '../sim/habitatConfig'
 import {
+  computeMirrorFrame,
+  mirrorThroughput,
+  openFactorToPhi,
+  reflectSun,
+  swingPetal,
+  type MirrorFrame
+} from './mirrorOptics'
+import { SUN_DIRECTION } from './sun'
+import {
   buildCityCollisionIndex,
   getArterialRoadWidth,
   getCityCellSize,
@@ -157,6 +166,53 @@ const BEACON_COLOR = new THREE.Color(0xff2e2a)
 const WINDOW_WARM = new THREE.Color(0xffe2b8)
 const WINDOW_COOL = new THREE.Color(0xdfeaff)
 
+// Peak directional sun intensity, reached when a mirror is fully open (or, for
+// end-lit colonies, at noon). Matches the previous per-window light so the
+// daytime exposure/bloom balance is preserved.
+const DAY_SUN_INTENSITY = 1.3
+
+// Target facet grid per window mirror, capped so the huge Izma panel stays
+// instanced-cheap. Real facet count is fitted to the panel aspect under this.
+const MAX_FACETS = 4000
+// Fraction of each grid cell the facet fills; the remainder is the truss gap.
+const FACET_FILL = 0.9
+// Per-facet tint gradient: warm reflected sun near the hinge, cooling to deep
+// space blue at the free end (multiplies the day/night facet colour).
+const FACET_WARM = new THREE.Color(0xf7ead0)
+const FACET_COOL = new THREE.Color(0x3a4c64)
+// How hard the facet array blazes at full sun-catch. The day tint is pushed this
+// far into HDR so the array clips bright (reads as glowing even in VR, where
+// bloom is off) and haloes hard under desktop bloom.
+const FACET_BLAZE_GAIN = 7
+
+// Facets pivot about the panel-local tangent (localX). Reused per pose to avoid
+// per-frame allocation across thousands of instances.
+const LOCAL_TANGENT = new THREE.Vector3(1, 0, 0)
+const UNIT_SCALE = new THREE.Vector3(1, 1, 1)
+const facetTilt = new THREE.Quaternion()
+const facetMatrix = new THREE.Matrix4()
+
+// A reflected-sun beam for one window mirror, realized as a static truss panel
+// carrying a steerable grid of heliostat facets. The facets tilt as a group
+// each frame (poseBeam) to re-aim the sun, and the aggregate beam — a single
+// collimated DirectionalLight — is derived from that shared facet normal, so the
+// facet array genuinely drives the lighting (see mirrorOptics).
+type SunBeam = {
+  light: THREE.DirectionalLight
+  panel: THREE.Group
+  facets: THREE.InstancedMesh
+  facetPositions: THREE.Vector3[]
+  frame: MirrorFrame
+  radius: number
+  // Last facet tilt actually written to the GPU; the slow day cycle lets us skip
+  // re-uploading thousands of instance matrices on sub-threshold changes.
+  lastPhi: number
+}
+
+// Facet tilt change below this (radians) skips the instance-matrix rewrite. The
+// light still re-aims every frame; only the ~thousands of facet matrices wait.
+const FACET_TILT_EPSILON = 0.0015
+
 // Alternating crop stripes for farm blocks; one texture tile is a pair of
 // rows, repeated in world units via baked UVs.
 const createFarmTexture = () => {
@@ -260,76 +316,6 @@ const buildingTone = (tone: number, target: THREE.Color) => {
   const hue = tone > 0.85 ? 0.07 : 0.58
   const lightness = 0.38 + tone * 0.34
   return target.setHSL(hue, 0.16, lightness)
-}
-
-// Sun reflection gradient for the exterior mirrors: hot near the hinge end
-// (closest to the habitat), fading to deep space blue at the free end.
-const createMirrorTexture = () => {
-  const size = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const context = canvas.getContext('2d')
-
-  if (context === null) {
-    throw new Error('2D canvas context is required for the mirror texture')
-  }
-
-  // CanvasTexture flips Y, so v=0 (the hinge end of the plane) samples the
-  // bottom of the canvas — start the bright end there.
-  // The whole panel reflects the sun, so it stays warm for most of its
-  // length and only cools toward the far free end.
-  const gradient = context.createLinearGradient(0, size, 0, 0)
-  gradient.addColorStop(0, '#f7ead0')
-  gradient.addColorStop(0.55, '#ecd7a4')
-  gradient.addColorStop(0.85, '#a8bcd4')
-  gradient.addColorStop(1, '#3a4c64')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, size, size)
-
-  // Panel seams so the mirror reads as a segmented structure, not a blob.
-  context.strokeStyle = 'rgba(10, 18, 28, 0.35)'
-  context.lineWidth = 2
-
-  for (let offset = 0; offset <= size; offset += 16) {
-    context.beginPath()
-    context.moveTo(0, offset + 0.5)
-    context.lineTo(size, offset + 0.5)
-    context.stroke()
-  }
-
-  for (let offset = 0; offset <= size; offset += 32) {
-    context.beginPath()
-    context.moveTo(offset + 0.5, 0)
-    context.lineTo(offset + 0.5, size)
-    context.stroke()
-  }
-
-  // Reflected starfield: the mirror is what you see through the windows,
-  // so the night sky lives on its surface. Denser toward the space end.
-  let seed = 0x51c0ffee >>> 0
-  const random = () => {
-    seed = (1664525 * seed + 1013904223) >>> 0
-    return seed / 0xffffffff
-  }
-
-  for (let star = 0; star < 240; star += 1) {
-    const x = random() * size
-    const y = random() * size
-    // Canvas top = far (dark) end of the petal.
-    const weight = 1 - y / size
-    const alpha = (0.3 + random() * 0.7) * (0.35 + weight * 0.65)
-    const dot = random() < 0.06 ? 2.4 : 1.4
-    context.globalAlpha = alpha
-    context.fillStyle = '#ffffff'
-    context.fillRect(x, y, dot, dot)
-  }
-
-  context.globalAlpha = 1
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  return texture
 }
 
 // Facade texture shared by buildings: a window grid where a portion of the
@@ -437,9 +423,19 @@ export class Cityscape {
     toneMapped: false
   })
 
-  private readonly mirrorMaterial = new THREE.MeshBasicMaterial({
-    map: createMirrorTexture(),
+  // The individual heliostat facets: small reflective tiles, tinted by the sky
+  // grade in setDaylight and given a hinge→free-end warm/cool gradient per-facet
+  // via instanceColor. Steerable as a group (see poseBeam), so the array re-aims
+  // the sun rather than the whole panel folding shut.
+  private readonly facetMaterial = new THREE.MeshBasicMaterial({
     side: THREE.DoubleSide,
+    toneMapped: false,
+    fog: false
+  })
+
+  // The static space-frame the facets ride on: dark structural lattice.
+  private readonly trussMaterial = new THREE.MeshBasicMaterial({
+    color: 0x1b2026,
     toneMapped: false,
     fog: false
   })
@@ -583,7 +579,12 @@ export class Cityscape {
   private windowStrips: THREE.Mesh[] = []
   private bridges: THREE.Mesh | null = null
   private bridgeEdges: THREE.Mesh | null = null
-  private mirrors: THREE.Mesh[] = []
+  // The colony's real key light. Izma is mirror-lit (one steerable facet array
+  // per window, posed from mirrorOptics each frame); the full-360 colonies
+  // (Cooper/Playground/Elysium) are end-lit by a single axial sun. Built and
+  // disposed alongside the geometry so a preset switch re-rigs the daylighting.
+  private sunBeams: SunBeam[] = []
+  private endSun: THREE.DirectionalLight | null = null
   private roads: THREE.Mesh | null = null
   private localRoads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
@@ -691,6 +692,11 @@ export class Cityscape {
     this.buildWindowStrips(radius, length)
     this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
+    // No window strips → no mirrors → the sun reaches the interior through the
+    // +Y end instead. Rig the axial end-sun in that case.
+    if (this.sunBeams.length === 0) {
+      this.buildEndSun(length)
+    }
     // Central axis spine + cable trusses only belong to an open ring (Elysium);
     // a cylinder colony's bore is clear.
     if (this.habitatType === 'ring') {
@@ -723,14 +729,18 @@ export class Cityscape {
 
   setDaylight(daylight: number) {
     const night = 1 - daylight
-    // Mirror sky = the sky-grade colour, lifted toward white and brightened so
-    // the strips read as luminous light-admitting glass, dimming to night blue.
-    this.mirrorDayColor.copy(this.skyColor).lerp(MIRROR_DAY, 0.4).multiplyScalar(1.5)
-    this.mirrorMaterial.color.lerpColors(
-      MIRROR_NIGHT,
-      this.mirrorDayColor,
-      THREE.MathUtils.clamp(daylight + 0.15, 0, 1)
-    )
+    // The facet array BLAZES when it catches the sun: the day tint (sky grade
+    // lifted toward white) is pushed deep into HDR by the sun catch, so the
+    // facets clip bright — glowing even in VR (bloom is desktop-only) and haloing
+    // hard under desktop bloom — and fall to a dim mirror at night. Per-facet
+    // instanceColor keeps the hinge→free-end warm/cool gradient, so the sun-
+    // facing end goes white-hot while the free end stays space-blue. The dark
+    // truss is left untouched so the lit facets pop against it.
+    const sunCatch = THREE.MathUtils.clamp(daylight, 0, 1)
+    this.mirrorDayColor.copy(this.skyColor).lerp(MIRROR_DAY, 0.5)
+    this.facetMaterial.color
+      .lerpColors(MIRROR_NIGHT, this.mirrorDayColor, THREE.MathUtils.clamp(daylight + 0.15, 0, 1))
+      .multiplyScalar(0.4 + sunCatch * sunCatch * FACET_BLAZE_GAIN)
     // Enough opacity that the thin mullions read, but kept low so the glass is
     // mostly transparent and the mirror sky pours through (cells stay see-through
     // via the texture's own alpha regardless).
@@ -779,8 +789,8 @@ export class Cityscape {
     this.largeWindowTexture.dispose()
     this.windowStripMaterial.map?.dispose()
     this.windowStripMaterial.dispose()
-    this.mirrorMaterial.map?.dispose()
-    this.mirrorMaterial.dispose()
+    this.facetMaterial.dispose()
+    this.trussMaterial.dispose()
     this.axisSpineMaterial.dispose()
     this.roadMaterial.map?.dispose()
     this.roadMaterial.dispose()
@@ -873,12 +883,27 @@ export class Cityscape {
 
     this.windowStrips = []
 
-    for (const mirror of this.mirrors) {
-      mirror.geometry.dispose()
-      this.group.remove(mirror)
+    // Tear down the daylighting rig so a preset switch rebuilds it for the new
+    // topology. Facet/truss geometries are per-beam; the shared facet/truss
+    // materials are class-owned and not disposed here.
+    for (const beam of this.sunBeams) {
+      beam.facets.dispose()
+      // Disposes both the facet geometry and the truss geometry (panel children).
+      for (const child of beam.panel.children) {
+        ;(child as THREE.Mesh).geometry?.dispose()
+      }
+      this.group.remove(beam.panel)
+      this.group.remove(beam.light)
+      this.group.remove(beam.light.target)
     }
 
-    this.mirrors = []
+    this.sunBeams = []
+
+    if (this.endSun !== null) {
+      this.group.remove(this.endSun)
+      this.group.remove(this.endSun.target)
+      this.endSun = null
+    }
 
     if (this.roads !== null) {
       this.roads.geometry.dispose()
@@ -1619,45 +1644,179 @@ export class Cityscape {
     }
   }
 
-  // The three exterior sun mirrors, Island Three style: each is a long petal
-  // hinged at one end of the cylinder, spanning a window strip in width and
-  // tilted 45 degrees off the axis. Sunlight arriving parallel to the axis
-  // bounces 90 degrees off the petal and falls radially inward through the
-  // window — which is exactly the direction our per-window sun lights point.
+  // The exterior sun mirrors, Island Three style: each spans a window strip in
+  // width, runs the cylinder's length, and is tilted 45° off the axis so axial
+  // sunlight bounces radially inward through the window. It is not a single panel
+  // but a static truss carrying a grid of small heliostat facets (see the GQX
+  // reference): the facets tilt as a group to re-aim the sun — day/night is the
+  // array steering its reflection in and out of the window, not the whole panel
+  // folding. The aggregate is a single collimated DirectionalLight derived from
+  // the shared facet normal, so the facet array drives the lighting. Full-360
+  // colonies have no window strips; setDimensions rigs an axial end-sun instead.
   private buildMirrors(radius: number, length: number) {
-    const mirrorWidth = radius * 1.05
+    const panelWidth = radius * 1.05
     // Covers the full cylinder length when projected along the axis.
-    const mirrorLength = length * Math.SQRT2 * 1.02
-    const basis = new THREE.Matrix4()
-    const along = new THREE.Vector3()
-    const axis = new THREE.Vector3(0, 1, 0)
-    const tangentDir = new THREE.Vector3()
-    const outwardDir = new THREE.Vector3()
-    const normalDir = new THREE.Vector3()
+    const panelLength = length * Math.SQRT2 * 1.02
+    const halfWidth = panelWidth * 0.5
+    const halfLen = panelLength * 0.5
+
+    // Fit a facet grid to the panel aspect under the cap. The panel is far
+    // longer than wide, so most facets run along its length.
+    const aspect = panelLength / panelWidth
+    const cols = Math.max(1, Math.round(Math.sqrt(MAX_FACETS / aspect)))
+    const rows = Math.max(1, Math.min(Math.floor(MAX_FACETS / cols), Math.round(cols * aspect)))
+    const count = cols * rows
+    const cellW = panelWidth / cols
+    const cellL = panelLength / rows
+    const facetGeometry = new THREE.PlaneGeometry(cellW * FACET_FILL, cellL * FACET_FILL)
+
+    // Coarse structural lattice behind the facets; far fewer beams than facets.
+    const trussCols = Math.min(cols + 1, 25)
+    const trussRows = Math.min(rows + 1, 60)
+    const beamThick = Math.min(cellW, cellL) * 0.1
+    const beamDepth = Math.min(cellW, cellL) * 0.5
 
     for (const arc of getWindowArcs(this.topology)) {
-      const cos = Math.cos(arc.centerAzimuth)
-      const sin = Math.sin(arc.centerAzimuth)
-      outwardDir.set(cos, 0, sin)
-      tangentDir.set(-sin, 0, cos)
-      // 45 degrees between the axis and the outward radial direction.
-      along.copy(axis).add(outwardDir).multiplyScalar(Math.SQRT1_2)
-      normalDir.crossVectors(tangentDir, along)
-      basis.makeBasis(tangentDir, along, normalDir)
-
-      const mirror = new THREE.Mesh(
-        new THREE.PlaneGeometry(mirrorWidth, mirrorLength),
-        this.mirrorMaterial
+      const frame = computeMirrorFrame(arc.centerAzimuth)
+      // The panel's rest frame: localX = tangent (the facet tilt axis), localY =
+      // along0 (up the panel), localZ = normal0 (faces the sun when open). Hinged
+      // at the -Y rim, leaning out over its window.
+      const panel = new THREE.Group()
+      panel.quaternion.setFromRotationMatrix(
+        new THREE.Matrix4().makeBasis(frame.tangent, frame.along0, frame.normal0)
       )
-      mirror.quaternion.setFromRotationMatrix(basis)
-      // Hinged at the rim of the -Y end, leaning out over its window.
-      mirror.position
-        .copy(outwardDir)
+      panel.position
+        .copy(frame.outward)
         .multiplyScalar(radius)
         .setY(-length * 0.5)
-        .addScaledVector(along, mirrorLength * 0.5)
-      this.mirrors.push(mirror)
-      this.group.add(mirror)
+        .addScaledVector(frame.along0, halfLen)
+
+      const facets = new THREE.InstancedMesh(facetGeometry, this.facetMaterial, count)
+      facets.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      // The instance bounds span the whole panel, but InstancedMesh derives its
+      // bounding sphere from the single facet geometry — disable culling so the
+      // array never wrongly vanishes when the panel center leaves the frustum.
+      facets.frustumCulled = false
+      const facetPositions: THREE.Vector3[] = []
+      const tint = new THREE.Color()
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          const x = (col + 0.5) * cellW - halfWidth
+          const y = (row + 0.5) * cellL - halfLen
+          const index = row * cols + col
+          facetPositions.push(new THREE.Vector3(x, y, 0))
+          // Warm near the hinge (-Y end), cooling toward the free end.
+          tint.copy(FACET_WARM).lerp(FACET_COOL, (y + halfLen) / panelLength)
+          facets.setColorAt(index, tint)
+        }
+      }
+      if (facets.instanceColor !== null) {
+        facets.instanceColor.needsUpdate = true
+      }
+      panel.add(facets)
+      panel.add(this.buildTruss(panelWidth, panelLength, trussCols, trussRows, beamThick, beamDepth))
+
+      const light = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY)
+      this.group.add(light)
+      this.group.add(light.target)
+      this.group.add(panel)
+
+      const beam: SunBeam = {
+        light,
+        panel,
+        facets,
+        facetPositions,
+        frame,
+        radius,
+        lastPhi: Number.NaN
+      }
+      this.sunBeams.push(beam)
+      // Pose once at the open (noon) state so the rig reads before the first
+      // setSunlight call.
+      this.poseBeam(beam, 0)
+    }
+  }
+
+  // A flat lattice of crossing beams in the panel-local XY plane, sunk just
+  // behind the facets (negative local Z), merged into one mesh.
+  private buildTruss(
+    width: number,
+    length: number,
+    cols: number,
+    rows: number,
+    thick: number,
+    depth: number
+  ): THREE.Mesh {
+    const parts: THREE.BufferGeometry[] = []
+    const z = -depth * 0.5
+    for (let col = 0; col < cols; col += 1) {
+      const x = cols > 1 ? (col / (cols - 1) - 0.5) * width : 0
+      parts.push(new THREE.BoxGeometry(thick, length, depth).translate(x, 0, z))
+    }
+    for (let row = 0; row < rows; row += 1) {
+      const y = rows > 1 ? (row / (rows - 1) - 0.5) * length : 0
+      parts.push(new THREE.BoxGeometry(width, thick, depth).translate(0, y, z))
+    }
+    const merged = mergeBufferGeometries(parts)
+    for (const part of parts) {
+      part.dispose()
+    }
+    return new THREE.Mesh(merged ?? new THREE.BufferGeometry(), this.trussMaterial)
+  }
+
+  // Steer one facet array to the tilt angle `phi` (about the panel-local tangent
+  // axis), re-derive the aggregate reflected beam, and return the posed face
+  // normal so callers can size the beam from it. The truss stays put; only the
+  // facets pivot, so the array re-aims rather than folding shut.
+  private poseBeam(beam: SunBeam, phi: number): THREE.Vector3 {
+    if (Number.isNaN(beam.lastPhi) || Math.abs(phi - beam.lastPhi) >= FACET_TILT_EPSILON) {
+      facetTilt.setFromAxisAngle(LOCAL_TANGENT, phi)
+      for (let index = 0; index < beam.facetPositions.length; index += 1) {
+        facetMatrix.compose(beam.facetPositions[index], facetTilt, UNIT_SCALE)
+        beam.facets.setMatrixAt(index, facetMatrix)
+      }
+      beam.facets.instanceMatrix.needsUpdate = true
+      beam.lastPhi = phi
+    }
+
+    // DirectionalLight shines from light → target; aim the target along the
+    // reflected beam so the lit patch tracks the facet angle.
+    const { normal } = swingPetal(beam.frame, phi)
+    const reflected = reflectSun(normal)
+    beam.light.position.copy(beam.frame.outward).multiplyScalar(beam.radius)
+    beam.light.target.position.copy(beam.light.position).addScaledVector(reflected, beam.radius)
+    return normal
+  }
+
+  // The full-360 colonies have no side windows: the sun reaches them through the
+  // +Y end. A single DirectionalLight on the axis, shining -Y (the sun sits on
+  // +Y), stands in for that aperture.
+  private buildEndSun(length: number) {
+    const sun = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY)
+    sun.position.copy(SUN_DIRECTION).multiplyScalar(length * 0.5)
+    sun.target.position.set(0, 0, 0)
+    this.endSun = sun
+    this.group.add(sun)
+    this.group.add(sun.target)
+  }
+
+  // Drive the daylighting from the day/night clock. `daylight` (0 midnight, 1
+  // noon) sets the mirror swing for Izma and the axial intensity for the end-lit
+  // colonies; `color` tints the beam to match the visible sun. Mirror intensity
+  // falls out of the geometry (mirrorThroughput is the open-pose-normalized sun
+  // catch), so there is no hand-tuned intensity curve.
+  setSunlight(daylight: number, color: THREE.Color) {
+    const phi = openFactorToPhi(daylight)
+
+    for (const beam of this.sunBeams) {
+      const normal = this.poseBeam(beam, phi)
+      beam.light.intensity = DAY_SUN_INTENSITY * mirrorThroughput(normal)
+      beam.light.color.copy(color)
+    }
+
+    if (this.endSun !== null) {
+      this.endSun.intensity = DAY_SUN_INTENSITY * THREE.MathUtils.clamp(daylight, 0, 1)
+      this.endSun.color.copy(color)
     }
   }
 

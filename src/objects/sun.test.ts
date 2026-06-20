@@ -2,14 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { getSpaceportDimensions } from './spaceport'
 import { computeStarShellRadius } from './starfield'
-import {
-  SUN_DIRECTION,
-  WINDOW_SUN_LIFT,
-  WINDOW_SUN_RADIAL,
-  getSunDistance,
-  getSunPosition,
-  getWindowSunPosition
-} from './sun'
+import { SUN_DIRECTION, getSunDistance, getSunPosition } from './sun'
 
 // Mirror of habitatRuntime's camera-far floor, so the far-plane guard exercises
 // the real expression rather than a tautological multiple of the star shell.
@@ -58,32 +51,6 @@ describe('sun placement', () => {
       const sunY = getSunPosition(radius, length).y
       const hubY = getSpaceportDimensions(radius, length).hubCenterY
       expect(Math.sign(sunY)).toBe(-Math.sign(hubY))
-    }
-  })
-})
-
-describe('window sunlight direction', () => {
-  test('light rakes in from the +Y (sun) end with the radial span preserved', () => {
-    // Each strip light is lifted toward +Y (so the toward-center direction
-    // descends — sunlight from the spaceport-free end) while keeping its full
-    // radial reach (which sets which strip is lit / how the floor reads).
-    for (const azimuth of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
-      const position = getWindowSunPosition(azimuth)
-      expect(position.y).toBe(WINDOW_SUN_LIFT)
-      expect(WINDOW_SUN_LIFT).toBeGreaterThan(0)
-      // Radial magnitude is load-bearing: a collapse here would flatten the
-      // strip lighting even though the bearing angle would still pass.
-      expect(Math.hypot(position.x, position.z)).toBeCloseTo(WINDOW_SUN_RADIAL, 6)
-    }
-  })
-
-  test('the radial bearing tracks the window azimuth', () => {
-    // Assert the radial components directly rather than via atan2, which wraps
-    // at 3*PI/2 — this pins both the bearing and the magnitude at every azimuth.
-    for (const azimuth of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
-      const position = getWindowSunPosition(azimuth)
-      expect(position.x).toBeCloseTo(Math.cos(azimuth) * WINDOW_SUN_RADIAL, 6)
-      expect(position.z).toBeCloseTo(Math.sin(azimuth) * WINDOW_SUN_RADIAL, 6)
     }
   })
 })
