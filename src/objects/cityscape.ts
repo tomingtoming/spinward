@@ -318,6 +318,35 @@ const buildingTone = (tone: number, target: THREE.Color) => {
   return target.setHSL(hue, 0.16, lightness)
 }
 
+// Window grid baked into each facade texture variant. The same numbers drive
+// both the canvas drawing and the per-instance UV scaling, so windows stay a
+// constant real size instead of stretching with the building box.
+type FacadeGrid = { columns: number; rows: number }
+const GRID_WARM: FacadeGrid = { columns: 7, rows: 10 }
+const GRID_DENSE: FacadeGrid = { columns: 14, rows: 20 }
+const GRID_TOWER: FacadeGrid = { columns: 10, rows: 18 }
+const GRID_FAR: FacadeGrid = { columns: 26, rows: 38 }
+// Target real-world size of one facade bay (window column) and floor (window
+// row). Per-instance UV repeat = building extent / (grid cells × these), so a
+// short, wide block tiles more windows across instead of stretching a few.
+const FACADE_BAY_METERS = 4.2
+const FACADE_FLOOR_METERS = 3.4
+
+// Fill out[offset..offset+1] with the (U, V) texture repeat for one building so
+// its windows read at FACADE_BAY/FLOOR size regardless of the box dimensions.
+// U maps to the footprint (averaged over width/depth, since one instance scale
+// must serve all four walls), V to the height.
+const writeFacadeUvScale = (
+  footprint: number,
+  height: number,
+  grid: FacadeGrid,
+  out: Float32Array,
+  offset: number
+) => {
+  out[offset] = Math.max(0.5, footprint / (grid.columns * FACADE_BAY_METERS))
+  out[offset + 1] = Math.max(0.5, height / (grid.rows * FACADE_FLOOR_METERS))
+}
+
 type TextureSet = {
   albedo: THREE.CanvasTexture
   emissive: THREE.CanvasTexture
@@ -586,10 +615,30 @@ const disposeTextureSet = (textures: TextureSet) => {
 export class Cityscape {
   readonly group = new THREE.Group()
 
-  private readonly smallFacadeTextures = createFacadeTextureSet(7, 10, 'warm', 0x2c1b3a5d)
-  private readonly largeFacadeTextures = createFacadeTextureSet(14, 20, 'dense', 0x7b42a8e3)
-  private readonly towerFacadeTextures = createFacadeTextureSet(10, 18, 'tower', 0x4d6b91f0)
-  private readonly farFacadeTextures = createFacadeTextureSet(26, 38, 'far', 0xd65128bf)
+  private readonly smallFacadeTextures = createFacadeTextureSet(
+    GRID_WARM.columns,
+    GRID_WARM.rows,
+    'warm',
+    0x2c1b3a5d
+  )
+  private readonly largeFacadeTextures = createFacadeTextureSet(
+    GRID_DENSE.columns,
+    GRID_DENSE.rows,
+    'dense',
+    0x7b42a8e3
+  )
+  private readonly towerFacadeTextures = createFacadeTextureSet(
+    GRID_TOWER.columns,
+    GRID_TOWER.rows,
+    'tower',
+    0x4d6b91f0
+  )
+  private readonly farFacadeTextures = createFacadeTextureSet(
+    GRID_FAR.columns,
+    GRID_FAR.rows,
+    'far',
+    0xd65128bf
+  )
   private readonly roofTextures = createRoofTextureSet()
 
   // Side faces carry the lit-window emissive map; roof and foundation stay
@@ -773,8 +822,13 @@ export class Cityscape {
     toneMapped: false
   })
 
-  // Red aviation warning lights on the tallest rooftops. Unlit and always on
-  // (real beacons burn day and night); they read instantly at dusk and night.
+  // Red aviation warning lights on the tallest rooftops. Each beacon strobes on
+  // its own phase (per-instance aBlinkPhase), driven by a shared time uniform —
+  // so the city overhead twinkles with independent red flashes rather than one
+  // synchronized blink. Unlit/toneMapped:false so the flash clips into HDR and
+  // haloes under desktop bloom; the steady-on floor keeps them readable between
+  // flashes.
+  private readonly beaconTime = { value: 0 }
   private readonly beaconMaterial = new THREE.MeshBasicMaterial({
     color: BEACON_COLOR.clone(),
     toneMapped: false
@@ -858,7 +912,64 @@ export class Cityscape {
     ]) {
       this.installDistanceFade(material)
     }
+    // Facades carry a per-instance UV repeat so windows keep a constant real
+    // size; only the side materials get it (roofs share their own material).
+    for (const material of [
+      this.buildingSideMaterial,
+      this.largeBuildingSideMaterial,
+      this.towerBuildingSideMaterial,
+      this.farBuildingSideMaterial
+    ]) {
+      this.installFacadeUvScale(material)
+    }
+    this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
+  }
+
+  // Scale each instance's window texture by its own aUvScale attribute. The map
+  // and emissive (lit-window) maps share the building's UV channel, so both
+  // varyings are scaled in lockstep right after three computes them.
+  private installFacadeUvScale(material: THREE.MeshStandardMaterial) {
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader =
+        'attribute vec2 aUvScale;\n' +
+        shader.vertexShader.replace(
+          '#include <uv_vertex>',
+          '#include <uv_vertex>\n' +
+            '#ifdef USE_MAP\n  vMapUv *= aUvScale;\n#endif\n' +
+            '#ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv *= aUvScale;\n#endif'
+        )
+    }
+  }
+
+  // Per-instance strobing for the aviation beacons: a short bright flash on each
+  // beacon's own phase, over a dim steady-red floor. Pushed into HDR so it reads
+  // day and night and blooms on desktop.
+  private installBeaconBlink(material: THREE.MeshBasicMaterial) {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = this.beaconTime
+      shader.vertexShader =
+        'attribute float aBlinkPhase;\nvarying float vBlinkPhase;\n' +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n  vBlinkPhase = aBlinkPhase;'
+        )
+      shader.fragmentShader =
+        'uniform float uTime;\nvarying float vBlinkPhase;\n' +
+        shader.fragmentShader.replace(
+          '#include <opaque_fragment>',
+          '#include <opaque_fragment>\n' +
+            '  float beaconCycle = fract(uTime * 0.62 + vBlinkPhase);\n' +
+            '  float beaconFlash = smoothstep(0.0, 0.04, beaconCycle) *\n' +
+            '    (1.0 - smoothstep(0.05, 0.2, beaconCycle));\n' +
+            '  gl_FragColor.rgb *= 0.16 + beaconFlash * 4.5;'
+        )
+    }
+  }
+
+  // Advance the beacon strobe. Called once per frame from the render loop.
+  update(deltaSeconds: number) {
+    this.beaconTime.value += deltaSeconds
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
@@ -982,11 +1093,25 @@ export class Cityscape {
     // mostly transparent and the mirror sky pours through (cells stay see-through
     // via the texture's own alpha regardless).
     this.windowStripMaterial.opacity = 0.28 + daylight * 0.2
-    this.buildingSideMaterial.emissiveIntensity = 0.45 + night * 0.72
-    this.largeBuildingSideMaterial.emissiveIntensity = 0.65 + night * 1.15
-    this.towerBuildingSideMaterial.emissiveIntensity = 0.62 + night * 1.05
-    this.farBuildingSideMaterial.emissiveIntensity = 0.85 + night * 1.35
-    this.buildingRoofMaterial.emissiveIntensity = 0.12 + night * 0.34
+    // Window glow is a night signal: ramp it on with night² so daylight facades
+    // stay genuinely dark-windowed (no nocturnal glow at noon) and the lights
+    // come up through dusk into night.
+    const windowGlow = night * night
+    this.buildingSideMaterial.emissiveIntensity = windowGlow * 1.2
+    this.largeBuildingSideMaterial.emissiveIntensity = windowGlow * 1.75
+    this.towerBuildingSideMaterial.emissiveIntensity = windowGlow * 1.6
+    this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
+    this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
+    // The facade albedo is authored dark (a night base + lit-window cut-outs);
+    // lift it through the day so sunlit walls read as a daytime city rather than
+    // the dim night skin. Roofs lift too, and dim below 1 at night so only the
+    // emissive rooftop details carry.
+    const facadeLift = 1 + daylight * 1.7
+    this.buildingSideMaterial.color.setScalar(facadeLift)
+    this.largeBuildingSideMaterial.color.setScalar(facadeLift)
+    this.towerBuildingSideMaterial.color.setScalar(facadeLift)
+    this.farBuildingSideMaterial.color.setScalar(facadeLift)
+    this.buildingRoofMaterial.color.setScalar(0.55 + daylight * 1.15)
     // Windows cool from warm dusk amber toward white/cyan as night falls.
     this.buildingSideMaterial.emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
     this.largeBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
@@ -1210,8 +1335,12 @@ export class Cityscape {
     const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
     const large = blocks.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
 
-    this.buildings = this.buildBuildingBatch(small, this.buildingSideMaterial)
-    this.largeBuildings = this.buildBuildingBatch(large, this.largeBuildingSideMaterial)
+    this.buildings = this.buildBuildingBatch(small, this.buildingSideMaterial, GRID_WARM)
+    this.largeBuildings = this.buildBuildingBatch(
+      large,
+      this.largeBuildingSideMaterial,
+      GRID_DENSE
+    )
 
     for (const kind of ['setback', 'tower', 'house'] as const) {
       const batch = this.buildArchetypeBatch(
@@ -1224,7 +1353,7 @@ export class Cityscape {
       }
     }
 
-    this.farBuildings = this.buildBuildingBatch(far, this.farBuildingSideMaterial)
+    this.farBuildings = this.buildBuildingBatch(far, this.farBuildingSideMaterial, GRID_FAR)
   }
 
   private buildArchetypeBatch(
@@ -1249,6 +1378,8 @@ export class Cityscape {
         : kind === 'tower'
           ? this.towerBuildingSideMaterial
           : this.largeBuildingSideMaterial
+    const grid =
+      kind === 'house' ? GRID_WARM : kind === 'tower' ? GRID_TOWER : GRID_DENSE
     const mesh = new THREE.InstancedMesh(
       geometry,
       [sideMaterial, this.buildingRoofMaterial],
@@ -1256,6 +1387,7 @@ export class Cityscape {
     )
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     mesh.frustumCulled = false
+    const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
       const building = plan[index]
@@ -1274,8 +1406,16 @@ export class Cityscape {
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(index, buildingTone(building.tone, instanceColor))
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        building.height,
+        grid,
+        uvScales,
+        index * 2
+      )
     }
 
+    geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
     mesh.instanceMatrix.needsUpdate = true
 
     if (mesh.instanceColor !== null) {
@@ -1288,7 +1428,8 @@ export class Cityscape {
 
   private buildBuildingBatch(
     plan: CityBuilding[],
-    sideMaterial: THREE.MeshStandardMaterial
+    sideMaterial: THREE.MeshStandardMaterial,
+    grid: FacadeGrid
   ): THREE.InstancedMesh | null {
     if (plan.length === 0) {
       return null
@@ -1308,6 +1449,7 @@ export class Cityscape {
     const mesh = new THREE.InstancedMesh(geometry, materials, plan.length)
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     mesh.frustumCulled = false
+    const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
       const building = plan[index]
@@ -1329,7 +1471,16 @@ export class Cityscape {
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(index, buildingTone(building.tone, instanceColor))
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        building.height,
+        grid,
+        uvScales,
+        index * 2
+      )
     }
+
+    geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
 
     mesh.instanceMatrix.needsUpdate = true
 
@@ -1618,15 +1769,16 @@ export class Cityscape {
 
     const cell = getCityCellSize(radius, length)
     const beaconRadius = THREE.MathUtils.clamp(cell * 0.04, 0.4, 3)
-    const mesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(1, 6, 5),
-      this.beaconMaterial,
-      tall.length
-    )
+    const geometry = new THREE.SphereGeometry(1, 6, 5)
+    const mesh = new THREE.InstancedMesh(geometry, this.beaconMaterial, tall.length)
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     mesh.frustumCulled = false
     instanceQuaternion.identity()
     instanceScale.setScalar(beaconRadius)
+    // Spread each beacon's strobe across the cycle so the overhead city flashes
+    // out of step (see installBeaconBlink). Seeded for a stable layout.
+    const random = createSeededRandom(0x51c0bea0)
+    const phases = new Float32Array(tall.length)
 
     for (let index = 0; index < tall.length; index += 1) {
       const building = tall[index]
@@ -1636,8 +1788,10 @@ export class Cityscape {
         .setY(building.axial)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
+      phases[index] = random()
     }
 
+    geometry.setAttribute('aBlinkPhase', new THREE.InstancedBufferAttribute(phases, 1))
     mesh.instanceMatrix.needsUpdate = true
     this.beacons = mesh
     this.group.add(mesh)
