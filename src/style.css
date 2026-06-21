@@ -84,15 +84,18 @@ button {
   right: 0;
   bottom: max(10px, env(safe-area-inset-bottom, 0px));
   display: flex;
-  align-items: center;
-  gap: 6px;
+  /* Two clusters pinned to the bottom corners; each may grow upward to a 2nd
+     row when it runs out of width. */
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
   padding: 0 max(10px, env(safe-area-inset-left, 0px)) 0
     max(10px, env(safe-area-inset-right, 0px));
   z-index: 50;
   color: #d8ebf4;
   font-size: 13px;
   /* The bar is just a layout frame; only its pills capture pointer events, so
-     the gaps between clusters stay click-through to the canvas. */
+     the gap between clusters stays click-through to the canvas. */
   pointer-events: none;
 }
 
@@ -103,10 +106,10 @@ button {
 .dock__cluster {
   display: flex;
   align-items: center;
+  /* Overflow stacks into a row ABOVE the bottom one (cluster is bottom-pinned). */
   flex-wrap: wrap;
-  gap: 5px;
-  /* Sides size to their content; the centre grows to fill, keeping Travel/Spin/
-     VR centred between them on one row. */
+  align-content: flex-end;
+  gap: 6px 5px;
   flex: 0 1 auto;
   min-width: 0;
   pointer-events: none;
@@ -114,11 +117,6 @@ button {
 
 .dock__left {
   justify-content: flex-start;
-}
-
-.dock__center {
-  flex: 1 1 auto;
-  justify-content: center;
 }
 
 .dock__right {
@@ -214,7 +212,8 @@ button {
 .dock-popover {
   position: fixed;
   left: max(12px, env(safe-area-inset-left, 0px));
-  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  /* Clears the dock even when its left cluster has wrapped to two rows. */
+  bottom: calc(82px + env(safe-area-inset-bottom, 0px));
   max-width: min(680px, calc(100vw - 24px));
   margin: 0;
   padding: 8px 14px 12px;
@@ -235,7 +234,7 @@ button {
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
 
 /* display:contents keeps the wrapper out of layout so its buttons sit directly
-   in the dock center cluster. */
+   in the dock's right cluster. */
 .beat-bar {
   display: contents;
 }
@@ -410,7 +409,7 @@ button {
 /* ── three.js VRButton override ── */
 
 /* three.js inlines position/size on the button; override so it flows inline in
-   the dock center cluster (the Quest VR-entry rule below re-pins it to centre). */
+   the dock's right cluster (the Quest VR-entry rule below re-pins it to centre). */
 #VRButton {
   position: static !important;
   inset: auto !important;
@@ -488,23 +487,12 @@ body.is-vr-entry #VRButton {
   cursor: pointer;
 }
 
-/* ── Keep the dock to one row by shedding the least-essential bits as the
-   window narrows (applies to every pointer type). ── */
-
-@media (max-width: 1200px) {
+/* Tiny windows: drop the least-essential bits (advanced toggles + secondary
+   readouts) so the dock stays within two rows. */
+@media (max-width: 680px) {
+  .dock-toggle,
+  .hud-chip--metric,
   .beat-bar .beat-label {
-    display: none;
-  }
-}
-
-@media (max-width: 1040px) {
-  .dock-toggle {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .hud-chip--metric {
     display: none;
   }
 }
@@ -526,9 +514,9 @@ body.is-vr-entry #VRButton {
     font-size: 28px;
   }
 
-  /* Lift the gameplay buttons clear of the dock bar at the very bottom. */
+  /* Lift the gameplay buttons clear of the dock bar (up to two rows tall). */
   .mobile-controls {
-    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-controls button {

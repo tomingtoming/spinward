@@ -310,14 +310,16 @@ export const bootstrapApp = async () => {
   // One bottom row holds everything: the ☰ opens the same config panel as Tab.
   const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
 
-  const mountVrButton = () => dock.center.appendChild(VRButton.createButton(renderer))
+  // VR is a right-hand action → right cluster. Fullscreen is a system toggle →
+  // grouped with the menu in the left cluster (right after ☰).
+  const mountVrButton = () => dock.right.appendChild(VRButton.createButton(renderer))
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
   if (!onQuest) {
     fullscreenToggle = createFullscreenToggle()
 
     if (fullscreenToggle !== null) {
-      dock.right.appendChild(fullscreenToggle.button)
+      dock.left.appendChild(fullscreenToggle.button)
     }
   }
 
@@ -790,8 +792,9 @@ export const bootstrapApp = async () => {
 
   const hud = createHud(dock.left)
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
-  // payoff beats don't hide behind 1/2/3 and Tab. Mounted into the dock centre.
-  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.center)
+  // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
+  // so they live in the right cluster (prepended before the VR button).
+  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right)
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
