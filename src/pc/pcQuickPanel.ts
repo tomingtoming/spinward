@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { Vector2 } from 'three'
 
 import {
   isWatchActionDisabled,
@@ -14,45 +14,20 @@ import {
 } from '../ui/watch/watchLayout'
 import { renderWatch } from '../ui/watch/watchRenderer'
 
-// Lifted toward the top so the open panel clears the bottom HUD and control
-// row — the DOM overlays always draw on top of this in-world plane, so they
-// would otherwise punch through its lower edge.
-const PANEL_OFFSET = new THREE.Vector3(-0.55, 0.16, -0.95)
-// Matches the canvas aspect so the panel is not squashed.
-const PANEL_SCALE = new THREE.Vector3(
-  0.44,
-  (0.44 * WATCH_CANVAS_SIZE.height) / WATCH_CANVAS_SIZE.width,
-  1
-)
-const panelWorldPosition = new THREE.Vector3()
-const panelWorldQuaternion = new THREE.Quaternion()
-const cameraPosition = new THREE.Vector3()
-const cameraQuaternion = new THREE.Quaternion()
-const pointerNdc = new THREE.Vector2()
-
-const createCanvas = () => {
-  const canvas = document.createElement('canvas')
-  canvas.width = WATCH_CANVAS_SIZE.width
-  canvas.height = WATCH_CANVAS_SIZE.height
-  const context = canvas.getContext('2d')
-
-  if (context === null) {
-    throw new Error('2D canvas context is required for the desktop quick panel')
-  }
-
-  return { canvas, context }
-}
-
+// The flat-screen settings panel. It reuses the wrist-watch canvas renderer, but
+// instead of a 3D plane in front of the camera it lives in a window-pinned DOM
+// drawer that slides in from the left. Clicks map straight from canvas pixels to
+// the layout's UV hit-boxes — no raycast, no camera.
 export class PcQuickPanel {
-  readonly mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
-
-  private readonly canvas = createCanvas()
-  private readonly texture = new THREE.CanvasTexture(this.canvas.canvas)
-  private readonly raycaster = new THREE.Raycaster()
+  private readonly root: HTMLDivElement
+  private readonly canvas: HTMLCanvasElement
+  private readonly context: CanvasRenderingContext2D
   private readonly layouts = createAllWatchLayouts()
+  private readonly uv = new Vector2()
   private screen: WatchScreen = 'home'
   private snapshot: WatchRenderSnapshot | null = null
   private visible = false
+  private active = true
   private hoveredAction: WatchActionId | null = null
 
   private get layout() {
@@ -60,20 +35,27 @@ export class PcQuickPanel {
   }
 
   constructor(private readonly onAction: (action: WatchActionId) => boolean | void) {
-    this.texture.colorSpace = THREE.SRGBColorSpace
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({
-        map: this.texture,
-        transparent: true,
-        depthWrite: false,
-        depthTest: false,
-        toneMapped: false
-      })
-    )
-    this.mesh.scale.copy(PANEL_SCALE)
-    this.mesh.renderOrder = 25
-    this.mesh.visible = false
+    this.root = document.createElement('div')
+    this.root.className = 'quick-drawer'
+
+    this.canvas = document.createElement('canvas')
+    this.canvas.className = 'quick-drawer__canvas'
+    this.canvas.width = WATCH_CANVAS_SIZE.width
+    this.canvas.height = WATCH_CANVAS_SIZE.height
+    const context = this.canvas.getContext('2d')
+
+    if (context === null) {
+      throw new Error('2D canvas context is required for the quick drawer')
+    }
+
+    this.context = context
+    this.root.append(this.canvas)
+    document.body.append(this.root)
+
+    this.canvas.addEventListener('pointermove', this.onPointerMove)
+    this.canvas.addEventListener('pointerdown', this.onPointerDown)
+    // Keep clicks inside the drawer from falling through to the canvas (throw).
+    this.root.addEventListener('pointerdown', (event) => event.stopPropagation())
   }
 
   get isVisible() {
@@ -86,112 +68,114 @@ export class PcQuickPanel {
 
   setVisible(visible: boolean) {
     this.visible = visible
-    this.mesh.visible = visible
 
     if (!visible) {
       this.hoveredAction = null
       // Reopen at the top level rather than wherever it was last left.
       this.screen = 'home'
     }
+
+    this.syncOpen()
   }
 
-  update(camera: THREE.PerspectiveCamera, snapshot: WatchRenderSnapshot, active: boolean) {
+  // Called every frame. `active` is false in VR (or whenever the flat-screen UI
+  // should stand down), where the DOM drawer must not show.
+  update(snapshot: WatchRenderSnapshot, active: boolean) {
     this.snapshot = snapshot
 
-    if (!active || !this.visible) {
-      this.mesh.visible = false
+    if (active !== this.active) {
+      this.active = active
+
+      if (!active) {
+        this.setVisible(false)
+        return
+      }
+    }
+
+    if (this.visible && this.active) {
+      this.render()
+    }
+  }
+
+  destroy() {
+    this.root.remove()
+  }
+
+  private syncOpen() {
+    const open = this.visible && this.active
+    this.root.classList.toggle('is-open', open)
+
+    if (open) {
+      this.render()
+    }
+  }
+
+  private render() {
+    if (this.snapshot === null) {
       return
     }
 
-    camera.updateWorldMatrix(true, false)
-    camera.getWorldPosition(cameraPosition)
-    camera.getWorldQuaternion(cameraQuaternion)
-    panelWorldPosition.copy(PANEL_OFFSET).applyQuaternion(cameraQuaternion).add(cameraPosition)
-    // The plane's +Z must point back at the camera, or backface culling hides it.
-    panelWorldQuaternion.copy(cameraQuaternion)
-    this.mesh.position.copy(panelWorldPosition)
-    this.mesh.quaternion.copy(panelWorldQuaternion)
-    this.mesh.visible = true
-
-    renderWatch(this.canvas.context, this.layout, snapshot, this.hoveredAction)
-    this.texture.needsUpdate = true
+    renderWatch(this.context, this.layout, this.snapshot, this.hoveredAction)
   }
 
-  handlePointerMove(
-    event: PointerEvent,
-    camera: THREE.PerspectiveCamera,
-    element: HTMLElement
-  ) {
-    if (!this.visible || !this.mesh.visible) {
-      this.hoveredAction = null
-      return false
-    }
-
-    const hit = this.raycast(event.clientX, event.clientY, camera, element)
-    this.hoveredAction = hit?.id ?? null
-    return hit !== null
-  }
-
-  handlePointerDown(
-    event: PointerEvent,
-    camera: THREE.PerspectiveCamera,
-    element: HTMLElement
-  ) {
-    if (!this.visible || !this.mesh.visible || event.button !== 0) {
-      return false
-    }
-
-    const hit = this.raycast(event.clientX, event.clientY, camera, element)
-
-    if (hit === null) {
-      return false
-    }
-
-    this.hoveredAction = hit.id
-    return this.applyHoveredAction()
-  }
-
-  applyHoveredAction() {
-    if (this.hoveredAction === null) {
-      return false
-    }
-
-    // nav-* buttons drill between screens inside the panel; everything else is
-    // a runtime action.
-    const target = navTargetForAction(this.hoveredAction)
-    if (target !== null) {
-      this.screen = target
-      this.hoveredAction = null
-      return true
-    }
-
-    return this.onAction(this.hoveredAction) ?? true
-  }
-
-  private raycast(
-    clientX: number,
-    clientY: number,
-    camera: THREE.PerspectiveCamera,
-    element: HTMLElement
-  ) {
-    const rect = element.getBoundingClientRect()
-    pointerNdc.set(
-      ((clientX - rect.left) / rect.width) * 2 - 1,
-      -((clientY - rect.top) / rect.height) * 2 + 1
+  private toUv(event: PointerEvent) {
+    const rect = this.canvas.getBoundingClientRect()
+    this.uv.set(
+      (event.clientX - rect.left) / rect.width,
+      1 - (event.clientY - rect.top) / rect.height
     )
-    this.raycaster.setFromCamera(pointerNdc, camera)
-    const hit = this.raycaster.intersectObject(this.mesh, false)[0]
+    return this.uv
+  }
 
-    if (hit === undefined || hit.uv === undefined) {
+  private buttonAt(event: PointerEvent) {
+    const button = getWatchButtonAtUv(this.layout, this.toUv(event))
+
+    if (button === null || this.snapshot === null) {
       return null
     }
 
-    const button = getWatchButtonAtUv(this.layout, hit.uv)
+    return isWatchActionDisabled(this.snapshot, button.id) ? null : button
+  }
 
-    if (button === null || this.snapshot === null) {
-      return button
+  private readonly onPointerMove = (event: PointerEvent) => {
+    if (!this.visible) {
+      return
     }
 
-    return isWatchActionDisabled(this.snapshot, button.id) ? null : button
+    const next = this.buttonAt(event)?.id ?? null
+
+    if (next !== this.hoveredAction) {
+      this.hoveredAction = next
+      this.render()
+    }
+  }
+
+  private readonly onPointerDown = (event: PointerEvent) => {
+    if (!this.visible || event.button !== 0) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const button = this.buttonAt(event)
+
+    if (button === null) {
+      return
+    }
+
+    // nav-* buttons drill between screens inside the panel; everything else is a
+    // runtime action.
+    const target = navTargetForAction(button.id)
+
+    if (target !== null) {
+      this.screen = target
+      this.hoveredAction = null
+      this.render()
+      return
+    }
+
+    this.onAction(button.id)
+    this.render()
   }
 }

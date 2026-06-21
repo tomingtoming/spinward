@@ -23,8 +23,6 @@ export type BeatBarHandle = {
   update: (snapshot: BeatBarSnapshot) => void
 }
 
-const EARTH_GRAVITY = 9.80665
-
 const makeButton = (label: string, className: string, onTap: () => void) => {
   const button = document.createElement('button')
   button.textContent = label
@@ -45,7 +43,13 @@ const makeLabel = (text: string) => {
   return span
 }
 
-export const createBeatBar = (onAction: (action: BeatBarAction) => void): BeatBarHandle => {
+// `mount` is the dock's centre cluster. We prepend so Travel + Spin sit before
+// the VR button (which is mounted into the same cluster). The live rpm·g readout
+// is dropped here — it is already shown by the dock's ω and felt-g chips.
+export const createBeatBar = (
+  onAction: (action: BeatBarAction) => void,
+  mount: HTMLElement
+): BeatBarHandle => {
   const root = document.createElement('div')
   root.className = 'beat-bar'
 
@@ -57,8 +61,6 @@ export const createBeatBar = (onAction: (action: BeatBarAction) => void): BeatBa
   separator.className = 'beat-sep'
 
   const spinDown = makeButton('−', 'beat-btn beat-btn--step', () => onAction('rpm-coarse-decrement'))
-  const readout = document.createElement('span')
-  readout.className = 'beat-readout'
   const spinUp = makeButton('+', 'beat-btn beat-btn--step', () => onAction('rpm-coarse-increment'))
 
   root.append(
@@ -69,10 +71,9 @@ export const createBeatBar = (onAction: (action: BeatBarAction) => void): BeatBa
     separator,
     makeLabel('Spin'),
     spinDown,
-    readout,
     spinUp
   )
-  document.body.append(root)
+  mount.prepend(root)
 
   return {
     destroy: () => root.remove(),
@@ -80,8 +81,6 @@ export const createBeatBar = (onAction: (action: BeatBarAction) => void): BeatBa
       root.hidden = !visible
     },
     update: (snapshot) => {
-      readout.textContent =
-        `${snapshot.rpm.toFixed(2)} rpm · ${(snapshot.feltGravity / EARTH_GRAVITY).toFixed(2)} g`
       axis.disabled = !snapshot.axisAvailable
     }
   }

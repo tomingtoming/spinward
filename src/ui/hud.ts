@@ -60,46 +60,96 @@ const makeChip = (className: string) => {
   return chip
 }
 
-export const createHud = (): HudHandle => {
+// `mount` is the dock's left cluster. The HUD's pieces flow inline there; the
+// CONTROL / DEBUG drawers become pill toggles whose text pops up ABOVE the bar.
+export const createHud = (mount: HTMLElement): HudHandle => {
   const root = document.createElement('div')
+  // display:contents — the wrapper exists only so setVisible can hide the group.
   root.className = 'hud'
 
-  const chips = document.createElement('div')
-  chips.className = 'hud__chips'
+  const popovers: HTMLElement[] = []
+  const toggles: HTMLButtonElement[] = []
+
+  const closeAllPopovers = () => {
+    for (const popover of popovers) {
+      popover.hidden = true
+    }
+    for (const toggle of toggles) {
+      toggle.classList.remove('is-active')
+    }
+  }
+
+  const makeToggle = (label: string, popover: HTMLElement) => {
+    const button = document.createElement('button')
+    button.className = 'dock-toggle'
+    button.textContent = label
+    button.addEventListener('pointerdown', (event) => event.stopPropagation())
+    button.addEventListener('click', (event) => {
+      event.preventDefault()
+      const open = popover.hidden
+      closeAllPopovers()
+      if (open) {
+        popover.hidden = false
+        button.classList.add('is-active')
+      }
+    })
+    popovers.push(popover)
+    toggles.push(button)
+    return button
+  }
+
+  const makePopover = (text: string) => {
+    const pre = document.createElement('pre')
+    pre.className = 'dock-popover'
+    pre.hidden = true
+    pre.textContent = text
+    return pre
+  }
+
+  const controlsPopover = makePopover(CONTROLS_TEXT)
+  const debugPopover = makePopover('')
+  const controlsToggle = makeToggle('CONTROL', controlsPopover)
+  const debugToggle = makeToggle('DEBUG', debugPopover)
 
   // The live "felt g" is the readout that actually moves as you play; the
-  // nominal target g lives in the settings panel (and the debug drawer), so it
+  // nominal target g lives in the settings panel (and the debug popover), so it
   // is no longer duplicated as an always-on chip.
   const presetChip = makeChip('hud-chip--preset')
-  const feltChip = makeChip('')
-  const spinChip = makeChip('')
+  // Secondary readouts — first to be dropped when the window gets narrow.
+  const feltChip = makeChip('hud-chip--metric')
+  const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
-  const ballsChip = makeChip('')
+  const ballsChip = makeChip('hud-chip--metric')
   const dockChip = makeChip('')
-  chips.append(presetChip, feltChip, spinChip, modeChip, ballsChip, dockChip)
 
-  const controls = document.createElement('details')
-  controls.className = 'hud__drawer'
-  const controlsSummary = document.createElement('summary')
-  controlsSummary.textContent = 'controls'
-  const controlsBody = document.createElement('pre')
-  controlsBody.textContent = CONTROLS_TEXT
-  controls.append(controlsSummary, controlsBody)
+  root.append(
+    controlsToggle,
+    debugToggle,
+    presetChip,
+    feltChip,
+    spinChip,
+    modeChip,
+    ballsChip,
+    dockChip
+  )
+  // Popovers are fixed-positioned above the bar, so they live on body, not in
+  // the display:contents wrapper.
+  document.body.append(controlsPopover, debugPopover)
+  mount.append(root)
 
-  const debug = document.createElement('details')
-  debug.className = 'hud__drawer'
-  const debugSummary = document.createElement('summary')
-  debugSummary.textContent = 'debug'
-  const debugBody = document.createElement('pre')
-  debug.append(debugSummary, debugBody)
-
-  root.append(chips, controls, debug)
-  document.body.append(root)
+  const debugBody = debugPopover
 
   return {
-    destroy: () => root.remove(),
+    destroy: () => {
+      root.remove()
+      controlsPopover.remove()
+      debugPopover.remove()
+    },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
+      if (!visible) {
+        closeAllPopovers()
+      }
     },
     update: (snapshot) => {
       presetChip.textContent = snapshot.presetName

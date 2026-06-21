@@ -87,6 +87,7 @@ import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
+import { createDockBar } from '../ui/dockBar'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -306,15 +307,19 @@ export const bootstrapApp = async () => {
   //    "ENTER VR" call-to-action with the unreachable touch stick switched off.
   //    If immersive VR is unavailable the touch controls stay, so the headset
   //    is never a dead end.
-  const mountVrButton = () =>
-    document.body.appendChild(VRButton.createButton(renderer))
+  // One bottom row holds everything: the ☰ opens the same config panel as Tab.
+  const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
+
+  // VR is a right-hand action → right cluster. Fullscreen is a system toggle →
+  // grouped with the menu in the left cluster (right after ☰).
+  const mountVrButton = () => dock.right.appendChild(VRButton.createButton(renderer))
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
   if (!onQuest) {
     fullscreenToggle = createFullscreenToggle()
 
     if (fullscreenToggle !== null) {
-      document.body.appendChild(fullscreenToggle.button)
+      dock.left.appendChild(fullscreenToggle.button)
     }
   }
 
@@ -531,9 +536,10 @@ export const bootstrapApp = async () => {
   const xrInputMap = new XRInputMap(grabSystem.getControllers())
   const watchPanel = new WatchPanel((action) => handleWatchAction(action))
   const laserPointer = new LaserPointer()
+  // Flat-screen settings live in a window-pinned DOM drawer (PcQuickPanel), not
+  // in the scene — so nothing to add to the 3D world here.
   const desktopQuickPanel = new PcQuickPanel((action) => handleWatchAction(action))
   scene.add(watchPanel.group)
-  scene.add(desktopQuickPanel.mesh)
   vrLocomotion.setProfile(settingsStore.getLocomotionProfile())
   settingsStore.subscribe(() => {
     settingsDirty = true
@@ -784,10 +790,11 @@ export const bootstrapApp = async () => {
 
   syncHabitat()
 
-  const hud = createHud()
+  const hud = createHud(dock.left)
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
-  // payoff beats don't hide behind 1/2/3 and Tab.
-  const beatBar = createBeatBar((action) => handleWatchAction(action))
+  // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
+  // so they live in the right cluster (prepended before the VR button).
+  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right)
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
@@ -964,6 +971,11 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (event.code === 'Escape' && desktopQuickPanel.isVisible) {
+      desktopQuickPanel.setVisible(false)
+      return
+    }
+
     if (event.repeat) {
       return
     }
@@ -1019,14 +1031,6 @@ export const bootstrapApp = async () => {
     if (event.code === 'Space') driveKeys.brake = false
   })
 
-  renderer.domElement.addEventListener('pointermove', (event) => {
-    if (renderer.xr.isPresenting) {
-      return
-    }
-
-    desktopQuickPanel.handlePointerMove(event, desktopUiCamera, renderer.domElement)
-  })
-
   renderer.domElement.addEventListener('pointerdown', (event) => {
     audio.unlock()
 
@@ -1034,9 +1038,11 @@ export const bootstrapApp = async () => {
       return
     }
 
+    // The settings drawer owns its own canvas clicks; a click on the scene
+    // behind it just dismisses it.
     if (!renderer.xr.isPresenting && desktopQuickPanel.isVisible) {
       event.preventDefault()
-      desktopQuickPanel.handlePointerDown(event, desktopUiCamera, renderer.domElement)
+      desktopQuickPanel.setVisible(false)
       return
     }
 
@@ -1581,7 +1587,8 @@ export const bootstrapApp = async () => {
               ready: reattachStatus.canAttach
             }
     })
-    beatBar.setVisible(!renderer.xr.isPresenting && !drive.driving)
+    // The whole dock hides in VR; Travel/Spin stay reachable while driving.
+    dock.setVisible(!renderer.xr.isPresenting)
     beatBar.update({
       rpm: habitatConfig.rpm,
       feltGravity,
@@ -1712,7 +1719,7 @@ export const bootstrapApp = async () => {
       }
     }
 
-    desktopQuickPanel.update(desktopUiCamera, watchSnapshot, !renderer.xr.isPresenting)
+    desktopQuickPanel.update(watchSnapshot, !renderer.xr.isPresenting)
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
       mobileControls.setDriving(drive.driving)
@@ -1781,6 +1788,10 @@ export const bootstrapApp = async () => {
     tourCardPanel.dispose()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
+    hud.destroy()
+    beatBar.destroy()
+    dock.destroy()
+    desktopQuickPanel.destroy()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cityColliders.dispose()
