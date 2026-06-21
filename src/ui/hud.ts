@@ -115,10 +115,11 @@ export const createHud = (mount: HTMLElement): HudHandle => {
   // nominal target g lives in the settings panel (and the debug popover), so it
   // is no longer duplicated as an always-on chip.
   const presetChip = makeChip('hud-chip--preset')
-  const feltChip = makeChip('')
-  const spinChip = makeChip('')
+  // Secondary readouts — first to be dropped when the window gets narrow.
+  const feltChip = makeChip('hud-chip--metric')
+  const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
-  const ballsChip = makeChip('')
+  const ballsChip = makeChip('hud-chip--metric')
   const dockChip = makeChip('')
 
   root.append(
