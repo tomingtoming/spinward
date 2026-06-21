@@ -1672,6 +1672,7 @@ export const bootstrapApp = async () => {
     renderer.toneMappingExposure = skyGrade.exposure
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
+    cityscape.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 
     // Lightweight state probe for headless debugging.
