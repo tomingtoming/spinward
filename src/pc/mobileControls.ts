@@ -114,7 +114,8 @@ export class MobileControls {
     this.brakeButton.addEventListener('pointercancel', releaseBrake)
     this.brakeButton.addEventListener('pointerleave', releaseBrake)
     this.gyroButton = makeButton('Gyro', () => this.toggleGyro())
-    makeButton('⚙', () => this.handlers.onToggleSettings())
+    // Settings now live behind the dock's ☰ hamburger (shown on touch too), so
+    // the gameplay row no longer carries its own ⚙.
 
     this.stickBase = document.createElement('div')
     this.stickBase.className = 'mobile-stick'

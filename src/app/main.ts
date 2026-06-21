@@ -87,6 +87,7 @@ import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
+import { createDockBar } from '../ui/dockBar'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -306,15 +307,17 @@ export const bootstrapApp = async () => {
   //    "ENTER VR" call-to-action with the unreachable touch stick switched off.
   //    If immersive VR is unavailable the touch controls stay, so the headset
   //    is never a dead end.
-  const mountVrButton = () =>
-    document.body.appendChild(VRButton.createButton(renderer))
+  // One bottom row holds everything: the ☰ opens the same config panel as Tab.
+  const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
+
+  const mountVrButton = () => dock.center.appendChild(VRButton.createButton(renderer))
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
   if (!onQuest) {
     fullscreenToggle = createFullscreenToggle()
 
     if (fullscreenToggle !== null) {
-      document.body.appendChild(fullscreenToggle.button)
+      dock.right.appendChild(fullscreenToggle.button)
     }
   }
 
@@ -784,10 +787,10 @@ export const bootstrapApp = async () => {
 
   syncHabitat()
 
-  const hud = createHud()
+  const hud = createHud(dock.left)
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
-  // payoff beats don't hide behind 1/2/3 and Tab.
-  const beatBar = createBeatBar((action) => handleWatchAction(action))
+  // payoff beats don't hide behind 1/2/3 and Tab. Mounted into the dock centre.
+  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.center)
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
@@ -1581,7 +1584,8 @@ export const bootstrapApp = async () => {
               ready: reattachStatus.canAttach
             }
     })
-    beatBar.setVisible(!renderer.xr.isPresenting && !drive.driving)
+    // The whole dock hides in VR; Travel/Spin stay reachable while driving.
+    dock.setVisible(!renderer.xr.isPresenting)
     beatBar.update({
       rpm: habitatConfig.rpm,
       feltGravity,
@@ -1781,6 +1785,9 @@ export const bootstrapApp = async () => {
     tourCardPanel.dispose()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
+    hud.destroy()
+    beatBar.destroy()
+    dock.destroy()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cityColliders.dispose()

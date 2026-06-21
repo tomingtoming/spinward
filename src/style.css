@@ -76,35 +76,96 @@ button {
   }
 }
 
-/* ── HUD ── */
+/* ── Dock bar: one bottom row holding everything (non-VR) ── */
 
-.hud {
+.dock {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
-  max-width: min(680px, calc(100vw - 32px));
+  left: 0;
+  right: 0;
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 10;
+  align-items: center;
+  gap: 6px;
+  padding: 0 max(10px, env(safe-area-inset-left, 0px)) 0
+    max(10px, env(safe-area-inset-right, 0px));
+  z-index: 50;
   color: #d8ebf4;
   font-size: 13px;
+  /* The bar is just a layout frame; only its pills capture pointer events, so
+     the gaps between clusters stay click-through to the canvas. */
+  pointer-events: none;
 }
 
-.hud__chips {
+.dock[hidden] {
+  display: none;
+}
+
+.dock__cluster {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
+  /* Sides size to their content; the centre grows to fill, keeping Travel/Spin/
+     VR centred between them on one row. */
+  flex: 0 1 auto;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.dock__left {
+  justify-content: flex-start;
+}
+
+.dock__center {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.dock__right {
+  justify-content: flex-end;
+}
+
+/* Only the visible pills are interactive. */
+.dock .hud-chip,
+.dock button,
+.dock .dock-popover {
+  pointer-events: auto;
+}
+
+/* HUD pieces now flow inline inside the left cluster (display:contents keeps
+   the wrapper out of the flex layout). */
+.hud {
+  display: contents;
+}
+
+.dock-hamburger {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: rgba(6, 18, 30, 0.78);
+  color: #dff3fb;
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  border-radius: 11px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: background 0.15s ease;
+}
+
+.dock-hamburger:hover {
+  background: rgba(15, 92, 115, 0.9);
 }
 
 .hud-chip {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: rgba(6, 18, 28, 0.78);
   border: 1px solid rgba(103, 232, 249, 0.22);
   backdrop-filter: blur(10px);
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 11.5px;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -124,62 +185,61 @@ button {
   border-color: rgba(196, 181, 253, 0.4);
 }
 
-.hud__drawer {
-  width: fit-content;
-  max-width: 100%;
-  border-radius: 12px;
-  background: rgba(6, 18, 28, 0.72);
-  border: 1px solid rgba(130, 168, 192, 0.18);
+/* CONTROL / DEBUG: pill toggles in the bar that open a popover ABOVE it. */
+.dock-toggle {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(6, 18, 28, 0.78);
+  border: 1px solid rgba(130, 168, 192, 0.28);
   backdrop-filter: blur(10px);
-}
-
-.hud__drawer summary {
-  cursor: pointer;
-  padding: 5px 12px;
-  font-size: 11.5px;
+  color: rgba(190, 215, 230, 0.72);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(190, 215, 230, 0.6);
-  user-select: none;
-  list-style-position: inside;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.hud__drawer summary:hover {
+.dock-toggle:hover {
   color: #67e8f9;
 }
 
-.hud__drawer pre {
+.dock-toggle.is-active {
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.6);
+  background: rgba(15, 92, 115, 0.9);
+}
+
+.dock-popover {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  max-width: min(680px, calc(100vw - 24px));
   margin: 0;
-  padding: 4px 14px 12px;
+  padding: 8px 14px 12px;
+  border-radius: 12px;
+  background: rgba(6, 18, 28, 0.92);
+  border: 1px solid rgba(130, 168, 192, 0.22);
+  backdrop-filter: blur(12px);
   font: 12px/1.6 'SF Mono', 'Cascadia Code', monospace;
   white-space: pre-wrap;
-  color: rgba(216, 235, 244, 0.82);
+  color: rgba(216, 235, 244, 0.88);
+  z-index: 51;
 }
 
-/* ── Beat bar: always-visible self-driving nav (non-VR, top-center) ── */
+.dock-popover[hidden] {
+  display: none;
+}
 
+/* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
+
+/* display:contents keeps the wrapper out of layout so its buttons sit directly
+   in the dock center cluster. */
 .beat-bar {
-  position: fixed;
-  top: max(12px, env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 7px;
-  padding: 7px 11px;
-  border-radius: 14px;
-  background: rgba(6, 18, 28, 0.8);
-  border: 1px solid rgba(103, 232, 249, 0.24);
-  backdrop-filter: blur(10px);
-  max-width: calc(100vw - 20px);
-  z-index: 50;
-  color: #d8ebf4;
+  display: contents;
 }
 
-/* `display: flex` above would otherwise beat the UA [hidden] rule. */
 .beat-bar[hidden] {
   display: none;
 }
@@ -188,7 +248,9 @@ button {
   font-size: 10.5px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(190, 215, 230, 0.55);
+  color: rgba(206, 226, 238, 0.82);
+  /* No panel backs the bare labels anymore, so anchor them against the scene. */
+  text-shadow: 0 1px 4px rgba(2, 8, 14, 0.85);
 }
 
 .beat-bar .beat-btn {
@@ -196,9 +258,9 @@ button {
   color: #dff3fb;
   border: 1px solid rgba(103, 232, 249, 0.4);
   border-radius: 10px;
-  padding: 8px 13px;
+  padding: 6px 11px;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 12.5px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -213,10 +275,10 @@ button {
 }
 
 .beat-bar .beat-btn--step {
-  min-width: 40px;
-  font-size: 19px;
+  min-width: 32px;
+  font-size: 16px;
   line-height: 1;
-  padding: 5px 12px;
+  padding: 4px 9px;
 }
 
 .beat-bar .beat-readout {
@@ -318,25 +380,18 @@ button {
   transform: translate(-50%, -50%);
 }
 
-/* ── Fullscreen toggle (PC corner button) ── */
+/* ── Fullscreen toggle (now in the dock's right cluster) ── */
 
 .fullscreen-toggle {
-  position: fixed;
-  /* Top-right: clear of the HUD (bottom-left), the control row and VR button
-     (bottom-centre), and the settings panel (which opens upper-left). It only
-     shares this corner with the debug GUI, which is hidden unless `?debug`. */
-  top: max(16px, env(safe-area-inset-top, 0px));
-  right: max(16px, env(safe-area-inset-right, 0px));
-  z-index: 1000;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   background: rgba(6, 18, 30, 0.78);
   color: #dff3fb;
   border: 1px solid rgba(103, 232, 249, 0.45);
-  border-radius: 12px;
-  font-size: 18px;
+  border-radius: 11px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   backdrop-filter: blur(10px);
@@ -354,9 +409,19 @@ button {
 
 /* ── three.js VRButton override ── */
 
+/* three.js inlines position/size on the button; override so it flows inline in
+   the dock center cluster (the Quest VR-entry rule below re-pins it to centre). */
 #VRButton {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 8px 12px !important;
   font-family: inherit !important;
   font-weight: 600 !important;
+  font-size: 12px !important;
   background: rgba(6, 18, 30, 0.78) !important;
   border: 1px solid rgba(103, 232, 249, 0.45) !important;
   border-radius: 12px !important;
@@ -390,22 +455,23 @@ body.is-vr-entry #VRButton {
 /* ── Touch devices up to landscape-phone width ── */
 
 @media (pointer: coarse) and (max-width: 1100px) {
-  .hud {
-    padding: max(8px, env(safe-area-inset-top, 0px)) 8px 0
-      max(8px, env(safe-area-inset-left, 0px));
-  }
-
   .hud-chip {
     padding: 4px 9px;
     font-size: 11px;
   }
 
-  .hud__drawer {
+  /* CONTROL / DEBUG popovers are desktop-only. */
+  .dock-toggle {
     display: none;
   }
 
   .splash h1 {
     font-size: 28px;
+  }
+
+  /* Lift the gameplay buttons clear of the dock bar at the very bottom. */
+  .mobile-controls {
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-controls button {
