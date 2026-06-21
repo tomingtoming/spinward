@@ -1098,6 +1098,15 @@ export class Cityscape {
     return this.collisionBuildings
   }
 
+  // True when the colony is lit by steerable window mirrors (Izma) rather than an
+  // axial end-sun. The mirror beams are radial, so the ambient fill must NOT
+  // carry an axial (spin-axis) gradient — that would read as light from the
+  // occluded axial sun and fight the mirrors. Callers flatten the hemisphere
+  // fill in this case. See buildMirrors / buildEndSun.
+  isMirrorLit(): boolean {
+    return this.sunBeams.length > 0
+  }
+
   // O(1) spatial lookups for the per-frame collision queries.
   getCollisionIndex(): CityCollisionIndex {
     return this.collisionIndex

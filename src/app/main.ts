@@ -1648,6 +1648,19 @@ export const bootstrapApp = async () => {
     const daylight = getDaylight(dayNightPhase)
     light.intensity = 0.22 + daylight * 0.9
 
+    // Izma is mirror-lit: its key light is the radial window-mirror beams owned
+    // by the cityscape. A hemisphere fill graded along the spin axis would read
+    // as light from the occluded axial sun and fight the mirrors, so flatten it
+    // to a near-uniform fill there and let the beams shape the shading. The
+    // axial end-lit colonies keep the graded fill — it agrees with their sun.
+    if (cityscape.isMirrorLit()) {
+      light.color.setHex(0xccdaec)
+      light.groundColor.setHex(0xb7c4d6)
+    } else {
+      light.color.setHex(0xdfeeff)
+      light.groundColor.setHex(0x33404e)
+    }
+
     // Color temperature drops toward sunset: warm low sun, white noon. The
     // cityscape drives the directional sun from this — mirror swing (Izma) or
     // axial intensity (Cooper/Playground/Elysium) — so the beam direction and
