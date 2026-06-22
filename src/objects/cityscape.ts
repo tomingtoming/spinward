@@ -747,12 +747,23 @@ export class Cityscape {
   // The individual heliostat facets: small reflective tiles, tinted by the sky
   // grade in setDaylight and given a hinge→free-end warm/cool gradient per-facet
   // via instanceColor. Steerable as a group (see poseBeam), so the array re-aims
-  // the sun rather than the whole panel folding shut.
-  private readonly facetMaterial = new THREE.MeshBasicMaterial({
-    side: THREE.DoubleSide,
-    toneMapped: false,
-    fog: false
-  })
+  // the sun rather than the whole panel folding shut. Two-sided, but only the
+  // reflective FRONT (+Z, the face that catches the sun) shows the tint — the
+  // back is painted black, like the dark backing of a real mirror.
+  private readonly facetMaterial = (() => {
+    const material = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      fog: false
+    })
+    material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'vec4 diffuseColor = vec4( diffuse, opacity );',
+        'vec4 diffuseColor = vec4( gl_FrontFacing ? diffuse : vec3( 0.0 ), opacity );'
+      )
+    }
+    return material
+  })()
 
   // The static space-frame the facets ride on: dark structural lattice.
   private readonly trussMaterial = new THREE.MeshBasicMaterial({
