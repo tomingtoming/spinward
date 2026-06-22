@@ -261,6 +261,11 @@ const createFarmTexture = () => {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
+  // Crop rows tile many times across a field and are seen at grazing angles —
+  // right at your feet and, per-eye in VR, badly. Without anisotropic filtering
+  // the stripes shimmer/moiré and read like the road↔field surfaces z-fighting.
+  // Match the road and ground textures, which already filter at 16x.
+  texture.anisotropy = 16
   return texture
 }
 
