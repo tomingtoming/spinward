@@ -286,16 +286,17 @@ export class DesktopLookControls {
       intent.groundedTangent = groundedMove.z
     }
 
-    // Free-fly jetpack: KSP-style camera-relative 6DOF — WASD thrusts forward/
-    // back/left/right, Shift thrusts up and Ctrl thrusts down (KSP throttle
-    // keys), all relative to where you are looking. Space stays the jump only.
+    // Free-fly jetpack: camera-relative 6DOF — WASD thrusts forward/back/left/
+    // right, Space thrusts up and Shift thrusts down, all relative to where you
+    // are looking. Space is the same key that jumps when grounded (see main.ts):
+    // hold it through a jump to keep rising; Shift sinks you back down.
     let upInput = 0
 
-    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
+    if (this.pressedKeys.has('Space')) {
       upInput += 1
     }
 
-    if (this.pressedKeys.has('ControlLeft') || this.pressedKeys.has('ControlRight')) {
+    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
       upInput -= 1
     }
 
@@ -463,9 +464,7 @@ export class DesktopLookControls {
       event.code !== 'KeyF' &&
       event.code !== 'Space' &&
       event.code !== 'ShiftLeft' &&
-      event.code !== 'ShiftRight' &&
-      event.code !== 'ControlLeft' &&
-      event.code !== 'ControlRight'
+      event.code !== 'ShiftRight'
     ) {
       return
     }
