@@ -3,11 +3,20 @@ import * as THREE from 'three'
 import { getForwardDirection } from './forwardDirection'
 import { introRevealDurationSeconds, introRevealPitch } from './introReveal'
 import { createLocomotionIntent } from './locomotionIntent'
+import {
+  createJetpackAttitudeState,
+  integrateJetpackAttitudeOrientation,
+  resetJetpackAttitude,
+  stepJetpackAttitudeAxes
+} from '../xr/freeFlyJetpack'
 
 const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
 const MAX_PITCH = Math.PI * 0.48
-const ROLL_SPEED = 2.2
+// Q/E roll is rate-based (KSP-style): holding a key spins up a roll rate that
+// persists/coasts on release; B damps it back to rest. This is the build-up
+// angular ACCELERATION (rad/s²) — gentle, so fine banking is easy.
+const ROLL_ANGULAR_ACCEL = Math.PI * 0.4
 // How fast the bank eases back to level once you stop free-flying.
 const ROLL_LEVEL_RATE = 9
 
@@ -47,6 +56,9 @@ export class DesktopLookControls {
   // look straight up, loop, fly inverted). Grounded stays on the clamped Euler
   // above. We seed/recover between the two on mode changes.
   private readonly attitude = new THREE.Quaternion()
+  // Q/E roll accumulates a roll rate here (only the z component is used) and
+  // integrates into `attitude`, so the bank persists after the key is released.
+  private readonly rollAttitude = createJetpackAttitudeState()
   private freeFlyActive = false
   private wasFreeFly = false
   private dragging = false
@@ -127,11 +139,14 @@ export class DesktopLookControls {
       // Grounded → free-fly: hand the orientation to the RIG so the whole
       // jetpack/body rolls, pitches and yaws (not just the eye). Seed it from
       // the current world view, neutralise the camera, and the rig carries the
-      // attitude from here.
+      // attitude from here. Start with no inherited roll rate.
       this.camera.getWorldQuaternion(this.attitude)
       this.camera.rotation.set(0, 0, 0)
       this.playerRig.quaternion.copy(this.attitude)
+      resetJetpackAttitude(this.rollAttitude)
     } else if (!freeFlyActive && this.wasFreeFly) {
+      // Landing kills any coasting roll so the stand-up ease starts from rest.
+      resetJetpackAttitude(this.rollAttitude)
       // Fallback for non-landing free-fly→grounded (e.g. a respawn). A natural
       // landing calls notifyLanded() a frame earlier, so the heading is applied
       // on the SAME frame the body settles — no one-frame snap to level forward.
@@ -160,18 +175,31 @@ export class DesktopLookControls {
 
     if (freeFlyActive) {
       // Full 6DOF: pitch/yaw/roll accumulate around the camera's OWN axes, so
-      // there is no pitch clamp and no gimbal lock. Q/E roll banks the view.
-      let rollDelta = 0
-      if (this.pressedKeys.has('KeyQ')) {
-        rollDelta += ROLL_SPEED * deltaSeconds
-      }
-      if (this.pressedKeys.has('KeyE')) {
-        rollDelta -= ROLL_SPEED * deltaSeconds
+      // there is no pitch clamp and no gimbal lock. Q/E build a roll RATE (KSP
+      // RCS style): holding spins it up, releasing keeps it coasting.
+      const rollInput =
+        (this.pressedKeys.has('KeyQ') ? 1 : 0) - (this.pressedKeys.has('KeyE') ? 1 : 0)
+      // B damps the roll rate back toward rest (the RCS angular brake).
+      const rollBraking = this.pressedKeys.has('KeyB')
+      stepJetpackAttitudeAxes(
+        this.rollAttitude,
+        0,
+        0,
+        rollInput,
+        deltaSeconds,
+        rollBraking,
+        ROLL_ANGULAR_ACCEL
+      )
+
+      // Keyboard arrows still nudge yaw/pitch directly (mouse drag does too).
+      if (yawDelta !== 0 || pitchDelta !== 0) {
+        this.applyFreeFlyLook(yawDelta, pitchDelta, 0)
       }
 
-      if (yawDelta !== 0 || pitchDelta !== 0 || rollDelta !== 0) {
-        this.applyFreeFlyLook(yawDelta, pitchDelta, rollDelta)
-      }
+      // Integrate the coasting roll rate into the attitude and apply.
+      integrateJetpackAttitudeOrientation(this.attitude, this.rollAttitude, deltaSeconds)
+      this.attitude.normalize()
+      this.playerRig.quaternion.copy(this.attitude)
     } else {
       if (yawDelta !== 0 || pitchDelta !== 0) {
         this.applyLookDelta(yawDelta, pitchDelta)
@@ -427,6 +455,7 @@ export class DesktopLookControls {
       event.code !== 'KeyD' &&
       event.code !== 'KeyQ' &&
       event.code !== 'KeyE' &&
+      event.code !== 'KeyB' &&
       event.code !== 'ArrowLeft' &&
       event.code !== 'ArrowRight' &&
       event.code !== 'ArrowUp' &&

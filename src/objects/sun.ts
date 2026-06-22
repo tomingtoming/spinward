@@ -69,7 +69,7 @@ const buildSunTexture = (
   )
   gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
   gradient.addColorStop(innerStop, midColor)
-  gradient.addColorStop(1, 'rgba(255, 196, 120, 0)')
+  gradient.addColorStop(1, 'rgba(255, 226, 198, 0)')
   context.fillStyle = gradient
   context.fillRect(0, 0, size, size)
 
@@ -97,13 +97,13 @@ export class Sun {
 
   constructor(dimensions: SunDimensions) {
     this.glowSprite = this.buildSprite(
-      buildSunTexture(0.35, 'rgba(255, 214, 150, 0.55)'),
-      0xffdca0,
+      buildSunTexture(0.35, 'rgba(255, 234, 214, 0.55)'),
+      0xffe8d4,
       0.85
     )
     this.coreSprite = this.buildSprite(
-      buildSunTexture(0.5, 'rgba(255, 240, 214, 0.95)'),
-      0xfff4e2,
+      buildSunTexture(0.5, 'rgba(255, 248, 240, 0.95)'),
+      0xfff6ee,
       1
     )
     this.setDimensions(dimensions)

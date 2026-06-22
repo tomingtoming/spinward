@@ -63,8 +63,16 @@ describe('day/night from mirror swing', () => {
     }
   })
 
-  test('openFactorToPhi maps noon to open and midnight to folded', () => {
+  test('openFactorToPhi maps noon to open and midnight to the sun-facing fold', () => {
     expect(openFactorToPhi(1)).toBeCloseTo(0, 6)
-    expect(openFactorToPhi(0)).toBeCloseTo(MAX_FOLD, 6)
+    expect(openFactorToPhi(0)).toBeCloseTo(-MAX_FOLD, 6)
+  })
+
+  test('at midnight the petal turns to face the sun (normal parallel to the sun)', () => {
+    for (const azimuth of azimuths) {
+      const frame = computeMirrorFrame(azimuth)
+      const night = swingPetal(frame, openFactorToPhi(0))
+      expect(night.normal.dot(SUN_DIRECTION)).toBeCloseTo(1, 6)
+    }
   })
 })

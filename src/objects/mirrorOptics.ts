@@ -81,7 +81,11 @@ export const reflectSun = (normal: THREE.Vector3): THREE.Vector3 => {
 export const mirrorThroughput = (normal: THREE.Vector3): number =>
   THREE.MathUtils.clamp(normal.dot(SUN_DIRECTION) / OPEN_CATCH, 0, 1)
 
-// Map a daylight factor (0 midnight, 1 noon) to the petal swing angle: open at
-// noon, folded edge-on at midnight.
+// Map a daylight factor (0 midnight, 1 noon) to the petal swing angle. Noon is
+// the open pose (phi 0): the 45° mirror reflects the axial sun radially into the
+// bore. Midnight swings the OTHER way, to -MAX_FOLD: the petal lies flat-radial
+// and its face turns to point straight back at the sun. So at night the panel
+// faces the sun (it catches the glint from outside) while sending the beam back
+// out along +Y instead of into the colony — the interior goes dark.
 export const openFactorToPhi = (daylight: number): number =>
-  (1 - THREE.MathUtils.clamp(daylight, 0, 1)) * MAX_FOLD
+  -(1 - THREE.MathUtils.clamp(daylight, 0, 1)) * MAX_FOLD
