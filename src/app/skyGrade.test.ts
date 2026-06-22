@@ -9,27 +9,32 @@ import {
 } from './skyGrade'
 
 test('sampleSkyGrade returns a key colour exactly at that key phase', () => {
-  // 0.84 is a real Izma key (golden hour). t=0 there, so it should reproduce it.
-  const grade = sampleSkyGrade(0.84, IZMA_SKY_LOOK)
-  expect(grade.fog.getHex()).toBe(0xd99a63)
-  expect(grade.background.getHex()).toBe(0x261826)
-  expect(grade.sunGlowScale).toBeCloseTo(1.8, 5)
-  expect(grade.exposure).toBeCloseTo(1.34, 5)
+  // 0.5 is the Izma noon key. t=0 there, so it reproduces it exactly.
+  const grade = sampleSkyGrade(0.5, IZMA_SKY_LOOK)
+  expect(grade.fog.getHex()).toBe(0x8fa9bf)
+  expect(grade.background.getHex()).toBe(0x0a1622)
+  expect(grade.sunGlowScale).toBeCloseTo(1.0, 5)
+  expect(grade.exposure).toBeCloseTo(1.2, 5)
 })
 
 test('sampleSkyGrade interpolates between two keys', () => {
-  // Halfway between Izma keys 0.78 and 0.84.
-  const grade = sampleSkyGrade(0.81, IZMA_SKY_LOOK)
-  expect(grade.sunGlowScale).toBeCloseTo((1.4 + 1.8) / 2, 5)
-  expect(grade.exposure).toBeCloseTo((1.28 + 1.34) / 2, 5)
+  // Between Izma noon (0.5) and dusk (0.75) the haze darkens monotonically.
+  const noon = sampleSkyGrade(0.5, IZMA_SKY_LOOK).fog.r
+  const mid = sampleSkyGrade(0.625, IZMA_SKY_LOOK).fog.r
+  const dusk = sampleSkyGrade(0.75, IZMA_SKY_LOOK).fog.r
+  expect(mid).toBeLessThan(noon)
+  expect(mid).toBeGreaterThan(dusk)
 })
 
 test('sampleSkyGrade wraps across the midnight seam', () => {
-  // 0.97 sits between the last key (0.94) and the first (0.00 -> wraps to 1.0).
-  const grade = sampleSkyGrade(0.97, IZMA_SKY_LOOK)
-  // exposure between 1.22 (at 0.94) and 1.18 (at 0.00); 0.97 is halfway.
-  expect(grade.exposure).toBeCloseTo((1.22 + 1.18) / 2, 5)
-  expect(grade.sunGlowScale).toBeCloseTo((1.5 + 1.0) / 2, 5)
+  // 0.875 sits between the last key (0.75) and the first (0.0 -> wraps to 1.0),
+  // so the haze keeps darkening toward midnight; the glow scale stays neutral.
+  const grade = sampleSkyGrade(0.875, IZMA_SKY_LOOK)
+  const dusk = sampleSkyGrade(0.75, IZMA_SKY_LOOK).fog.r
+  const midnight = sampleSkyGrade(0.0, IZMA_SKY_LOOK).fog.r
+  expect(grade.fog.r).toBeLessThan(dusk)
+  expect(grade.fog.r).toBeGreaterThan(midnight)
+  expect(grade.sunGlowScale).toBeCloseTo(1.0, 5)
 })
 
 test('default look reproduces the legacy cool endpoints', () => {
@@ -41,13 +46,23 @@ test('default look reproduces the legacy cool endpoints', () => {
   )
 })
 
-test('Izma dusk haze is warmer (redder) than the default cool look', () => {
-  const phase = IZMA_SKY_LOOK.initialPhase
-  const izma = sampleSkyGrade(phase, IZMA_SKY_LOOK)
-  const cool = sampleSkyGrade(phase, DEFAULT_SKY_LOOK)
-  // The colony grade pushes the far-side haze warm; the legacy grade stays blue.
-  expect(izma.fog.r).toBeGreaterThan(cool.fog.r)
-  expect(izma.fog.r).toBeGreaterThan(izma.fog.b)
+test('Izma grade is physically honest: neutral haze, symmetric, steady Sol disk', () => {
+  // A cylinder colony has no planetary limb, so dusk is not an Earth sunset. The
+  // haze must not be pushed warm/red, dawn and dusk must read identically, and
+  // the visible Sun keeps a steady Sol-white disk with no dusk halo swell.
+  const dusk = sampleSkyGrade(0.84, IZMA_SKY_LOOK)
+  // Cool-neutral aerial haze: blue is never below red (no warm/red sunset cast).
+  expect(dusk.fog.b).toBeGreaterThanOrEqual(dusk.fog.r)
+  // Symmetric: dawn (0.25) and dusk (0.75) grade identically.
+  expect(sampleSkyGrade(0.25, IZMA_SKY_LOOK).fog.getHex()).toBe(
+    sampleSkyGrade(0.75, IZMA_SKY_LOOK).fog.getHex()
+  )
+  // The Sun never reddens or swells its halo across the day.
+  for (const phase of [0.0, 0.25, 0.5, 0.75]) {
+    const grade = sampleSkyGrade(phase, IZMA_SKY_LOOK)
+    expect(grade.sunCore.getHex()).toBe(0xfff6ee)
+    expect(grade.sunGlowScale).toBeCloseTo(1.0, 5)
+  }
 })
 
 test('getSkyLook maps ids and falls back to the cool default', () => {

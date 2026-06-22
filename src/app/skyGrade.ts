@@ -3,12 +3,12 @@ import * as THREE from 'three'
 import { INITIAL_DAY_NIGHT_PHASE } from './dayNight'
 import type { SkyLookId } from '../sim/habitatConfig'
 
-// The colour grade of the colony "sky" over a day. Earlier the grade was a
-// single lerp driven by getDaylight (a symmetric cosine), so it could only
-// darken toward blue and could not tell dawn from dusk. The Gundam-colony look
-// wants a real golden hour and a magenta/violet dusk that the far-side haze
-// soaks up — so the grade is a keyframed gradient over the raw phase (0..1),
-// which can put warm/violet keys on the sunset side only.
+// The colour grade of the colony "sky" over a day. The grade is a keyframed
+// gradient over the raw phase (0..1) so a look could place different colours at
+// dawn vs dusk if it wanted. Izma keeps it physically honest: a cylinder colony
+// has no planetary limb, so there is no Earth-style warm sunset (the air reddens
+// ~50× less than a real sunset — imperceptible). Its keys are neutral and
+// symmetric (see IZMA_SKY_LOOK); the legacy cool look stays for other presets.
 //
 // Keys carry the far-side haze (fog) colour, the space-through-the-windows
 // background, the visible sun's core/halo colour, how much the halo swells at
@@ -107,23 +107,21 @@ export const DEFAULT_SKY_LOOK: SkyLookProfile = {
   ]
 }
 
-// Izma: a warm golden hour rolling into a magenta/violet dusk and a deep-blue
-// night, tuned to the GQuuuuuuX colony-interior reference. Dawn (≈0.20) is rosy
-// and cooler than dusk (≈0.84-0.89) so the two ends of the day differ. The sun
-// reddens and its halo swells toward dusk. Boots at golden hour.
+// Izma: a physically honest interior grade. A cylinder colony has no planetary
+// limb, so dusk is not an Earth sunset — the air reddens ~50× less than a real
+// sunset (imperceptible). So the haze stays neutral (a faint cool cast from
+// aerial perspective is all that is physical), the Sun keeps its true Sol-white
+// disk with no dusk halo swell, and "dusk" is simply the bore dimming as the
+// mirrors swing the beam off the floor. Symmetric: dawn and dusk read the same.
+// Night keeps a deeper blue than the legacy look. Boots into the dusk sweep.
 export const IZMA_SKY_LOOK: SkyLookProfile = {
   id: 'izma',
   initialPhase: 0.84,
   keys: [
-    { at: 0.0, fog: 0x0c1622, background: 0x02060d, sunCore: 0xfff6ee, sunGlow: 0xbccfe6, sunGlowScale: 1.0, exposure: 1.18 },
-    { at: 0.14, fog: 0x2b2540, background: 0x0a0a1a, sunCore: 0xfff2ec, sunGlow: 0xe8dce4, sunGlowScale: 1.3, exposure: 1.2 },
-    { at: 0.2, fog: 0xb87a86, background: 0x231826, sunCore: 0xfff4ec, sunGlow: 0xffe2d6, sunGlowScale: 1.5, exposure: 1.26 },
-    { at: 0.3, fog: 0x9b868f, background: 0x121826, sunCore: 0xfff8f2, sunGlow: 0xffeede, sunGlowScale: 1.1, exposure: 1.24 },
-    { at: 0.5, fog: 0x8fa9bf, background: 0x0a1622, sunCore: 0xfffbf7, sunGlow: 0xfff2e8, sunGlowScale: 1.0, exposure: 1.22 },
-    { at: 0.78, fog: 0xc98a5e, background: 0x1f1622, sunCore: 0xfff6ec, sunGlow: 0xffe6cc, sunGlowScale: 1.4, exposure: 1.28 },
-    { at: 0.84, fog: 0xd99a63, background: 0x261826, sunCore: 0xfff2e4, sunGlow: 0xffdcbc, sunGlowScale: 1.8, exposure: 1.34 },
-    { at: 0.89, fog: 0x8a5577, background: 0x180e22, sunCore: 0xffecd8, sunGlow: 0xffcdac, sunGlowScale: 2.1, exposure: 1.3 },
-    { at: 0.94, fog: 0x342a4e, background: 0x0a0a1a, sunCore: 0xfff2e6, sunGlow: 0xd6cce0, sunGlowScale: 1.5, exposure: 1.22 }
+    { at: 0.0, fog: 0x0c1622, background: 0x02060d, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 },
+    { at: 0.25, fog: 0x46586a, background: 0x070d16, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 },
+    { at: 0.5, fog: 0x8fa9bf, background: 0x0a1622, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 },
+    { at: 0.75, fog: 0x46586a, background: 0x070d16, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 }
   ]
 }
 
