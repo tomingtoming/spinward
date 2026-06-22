@@ -13,9 +13,10 @@ import {
 const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
 const MAX_PITCH = Math.PI * 0.48
-// Q/E roll is now rate-based (KSP-style): holding a key spins up a roll rate that
-// persists/coasts on release. This is its angular ACCELERATION (rad/s²).
-const ROLL_ANGULAR_ACCEL = Math.PI
+// Q/E roll is rate-based (KSP-style): holding a key spins up a roll rate that
+// persists/coasts on release; B damps it back to rest. This is the build-up
+// angular ACCELERATION (rad/s²) — gentle, so fine banking is easy.
+const ROLL_ANGULAR_ACCEL = Math.PI * 0.4
 // How fast the bank eases back to level once you stop free-flying.
 const ROLL_LEVEL_RATE = 9
 
@@ -178,13 +179,15 @@ export class DesktopLookControls {
       // RCS style): holding spins it up, releasing keeps it coasting.
       const rollInput =
         (this.pressedKeys.has('KeyQ') ? 1 : 0) - (this.pressedKeys.has('KeyE') ? 1 : 0)
+      // B damps the roll rate back toward rest (the RCS angular brake).
+      const rollBraking = this.pressedKeys.has('KeyB')
       stepJetpackAttitudeAxes(
         this.rollAttitude,
         0,
         0,
         rollInput,
         deltaSeconds,
-        false,
+        rollBraking,
         ROLL_ANGULAR_ACCEL
       )
 
@@ -452,6 +455,7 @@ export class DesktopLookControls {
       event.code !== 'KeyD' &&
       event.code !== 'KeyQ' &&
       event.code !== 'KeyE' &&
+      event.code !== 'KeyB' &&
       event.code !== 'ArrowLeft' &&
       event.code !== 'ArrowRight' &&
       event.code !== 'ArrowUp' &&
