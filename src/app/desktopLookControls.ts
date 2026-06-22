@@ -259,16 +259,15 @@ export class DesktopLookControls {
     }
 
     // Free-fly jetpack: KSP-style camera-relative 6DOF — WASD thrusts forward/
-    // back/left/right, Space thrusts up and Shift thrusts down, all relative to
-    // where you are looking. (Shift used to brake; you now stop by counter-
-    // thrusting, the way an RCS pack does.)
+    // back/left/right, Shift thrusts up and Ctrl thrusts down (KSP throttle
+    // keys), all relative to where you are looking. Space stays the jump only.
     let upInput = 0
 
-    if (this.pressedKeys.has('Space')) {
+    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
       upInput += 1
     }
 
-    if (this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight')) {
+    if (this.pressedKeys.has('ControlLeft') || this.pressedKeys.has('ControlRight')) {
       upInput -= 1
     }
 
@@ -435,7 +434,9 @@ export class DesktopLookControls {
       event.code !== 'KeyF' &&
       event.code !== 'Space' &&
       event.code !== 'ShiftLeft' &&
-      event.code !== 'ShiftRight'
+      event.code !== 'ShiftRight' &&
+      event.code !== 'ControlLeft' &&
+      event.code !== 'ControlRight'
     ) {
       return
     }
