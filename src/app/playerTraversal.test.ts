@@ -180,8 +180,7 @@ test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', 
     omega: 1,
     linearDamping: 0,
     brakeAmount: 0,
-    brakeDamping: 6,
-    maxSpeed: 100
+    brakeDamping: 6
   })
   applyPlayerTraversalState(rig, state, 10, 1)
 
@@ -190,6 +189,32 @@ test('stepFreeFlyPlayer advances inertial motion and leaves orientation alone', 
   expect(rig.position.x).toBeGreaterThan(10.5)
   expect(rig.position.y).toBeGreaterThan(11)
   expect(Math.abs(rig.position.z)).toBeLessThan(1)
+})
+
+test('stepFreeFlyPlayer coasts ballistically far from the axis — no forced co-rotation', () => {
+  // Regression: a rotating-frame max-speed clamp used to live in stepFreeFlyPlayer.
+  // Far from the spin axis the transport speed (omega*r) alone exceeded the cap,
+  // so it rewrote the inertial velocity toward co-rotation every frame — a phantom
+  // acceleration that the felt-g accelerometer (correctly) reported. A coasting
+  // free-flyer must feel nothing: its inertial velocity is left exactly alone.
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0, 2)
+  state.mode = 'free-fly'
+  state.inertialPosition.set(60, 0, 0) // omega*r = 120, way past any old cap
+  state.inertialVelocity.set(0.4, -0.2, 0.3)
+  const before = state.inertialVelocity.clone()
+
+  stepFreeFlyPlayer(state, {
+    thrustAcceleration: new THREE.Vector3(0, 0, 0),
+    deltaSeconds: 0.5,
+    frameAngleStart: 0.3,
+    frameAngleEnd: 0.9,
+    omega: 2,
+    linearDamping: 0,
+    brakeAmount: 0,
+    brakeDamping: 6
+  })
+
+  expectVectorCloseTo(state.inertialVelocity, before)
 })
 
 test('getPlayerTraversalRegion reports outside for a free-flying player beyond the opening', () => {
@@ -711,8 +736,7 @@ test('stepFreeFlyPlayer applies thrust through Rapier and syncs it back to the s
     omega: 1,
     linearDamping: 0,
     brakeAmount: 0,
-    brakeDamping: 6,
-    maxSpeed: 100
+    brakeDamping: 6
   })
   world.timestep = 0.5
   world.step()
@@ -758,8 +782,7 @@ test('stepFreeFlyPlayer keeps the same real-space result across sim scales', asy
       omega: 1,
       linearDamping: 0,
       brakeAmount: 0,
-      brakeDamping: 6,
-      maxSpeed: 100
+      brakeDamping: 6
     })
   }
 
@@ -802,8 +825,7 @@ test('stepFreeFlyPlayer brake strongly reduces free-fly inertial speed', () => {
     omega: 1,
     linearDamping: 0,
     brakeAmount: 1,
-    brakeDamping: 6,
-    maxSpeed: 100
+    brakeDamping: 6
   })
 
   expect(state.inertialVelocity.length()).toBeLessThan(1)

@@ -82,7 +82,6 @@ type FreeFlyPlayerStepConfig = {
   linearDamping: number
   brakeAmount: number
   brakeDamping: number
-  maxSpeed: number
 }
 
 export type ReattachTuning = {
@@ -530,26 +529,11 @@ export const stepFreeFlyPlayer = (
     state.inertialVelocity.multiplyScalar(brakeFactor)
   }
 
-  // Max speed clamped in rotating frame — prevents unbounded perceived speed
-  // while preserving co-rotation velocity.
-  inertialVelocityToRotating(
-    state.inertialPosition,
-    state.inertialVelocity,
-    config.omega,
-    config.frameAngleStart,
-    rotatingVelocity
-  )
-  if (rotatingVelocity.lengthSq() > config.maxSpeed * config.maxSpeed) {
-    rotatingVelocity.setLength(config.maxSpeed)
-    inertialPositionToRotating(state.inertialPosition, config.frameAngleStart, nextRotatingPosition)
-    rotatingVelocityToInertial(
-      nextRotatingPosition,
-      rotatingVelocity,
-      config.omega,
-      config.frameAngleStart,
-      state.inertialVelocity
-    )
-  }
+  // No artificial speed cap: free-fly is purely ballistic (thrust + brake +
+  // real contact only). A rotating-frame velocity clamp used to live here, but
+  // far from the spin axis the transport speed (omega*r) alone exceeded the cap,
+  // so it force-co-rotated a coasting body — a non-physical acceleration the
+  // accelerometer (correctly) read as felt-g. Weightless free-fall is now exact.
 
   if (state.physics !== null) {
     setRigidBodyLinvelFromReal(
