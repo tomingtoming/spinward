@@ -142,14 +142,15 @@ export const bootstrapApp = async () => {
   const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
   scene.fog = fog
   // The day/night colour grade (fog/background/sun/exposure) is a per-look
-  // keyframed profile; Izma wears a warm dusk, other presets keep the cool
-  // legacy grade. Boot at the look's chosen time of day.
+  // keyframed profile; Izma keeps a physically honest neutral grade (no warm
+  // sunset — a cylinder has no limb), other presets keep the cool legacy grade.
+  // Boot at the look's chosen time of day.
   const skyGrade = createSkyGrade()
   let dayNightPhase = getInitialDayNightPhase(habitatConfig.skyLook)
   const audio = new GameAudio()
-  const sunNoonColor = new THREE.Color(0xfff6ee)
-  const sunLowColor = new THREE.Color(0xffd2a8)
-  const sunBeamColor = new THREE.Color()
+  // The Sun's true (Sol) colour. The colony beam stays this at every hour — see
+  // the setSunlight call below for why colony dusk carries no warm tint.
+  const sunBeamColor = new THREE.Color(0xfff6ee)
   const worldRoot = new THREE.Group()
   const skyLayer = new THREE.Group()
   const farLayer = new THREE.Group()
@@ -1663,15 +1664,16 @@ export const bootstrapApp = async () => {
       light.groundColor.setHex(0x33404e)
     }
 
-    // Color temperature drops toward sunset: warm low sun, white noon. The
-    // cityscape drives the directional sun from this — mirror swing (Izma) or
-    // axial intensity (Cooper/Playground/Elysium) — so the beam direction and
-    // strength come from the daylighting geometry rather than a fixed curve.
-    sunBeamColor.lerpColors(sunLowColor, sunNoonColor, Math.min(1, daylight * 2))
+    // The beam keeps the Sun's true (Sol) colour at every hour: inside the colony
+    // the reflected light crosses at most a few km of air on a straight path (no
+    // planetary limb), so Rayleigh reddening is ~50× weaker than an Earth sunset
+    // — imperceptible. Dusk reads from the beam sweeping off the floor and dimming
+    // (the daylighting geometry in cityscape drives that — mirror swing for Izma,
+    // axial intensity for Cooper/Playground/Elysium), not a warm tint.
     cityscape.setSunlight(daylight, sunBeamColor)
 
-    // Colour grade from the active look's keyframed profile (warm dusk for
-    // Izma, cool legacy for the rest). Light intensities stay on `daylight`
+    // Colour grade from the active look's keyframed profile (neutral honest grade
+    // for Izma, cool legacy for the rest). Light intensities stay on `daylight`
     // above; this drives only the haze/space/sun colour and exposure.
     sampleSkyGrade(dayNightPhase, getSkyLook(habitatConfig.skyLook), skyGrade)
     fog.color.copy(skyGrade.fog)

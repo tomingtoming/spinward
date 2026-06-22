@@ -190,20 +190,27 @@ const LOCAL_TANGENT = new THREE.Vector3(1, 0, 0)
 const UNIT_SCALE = new THREE.Vector3(1, 1, 1)
 const facetTilt = new THREE.Quaternion()
 const facetMatrix = new THREE.Matrix4()
+// Reused per panel in poseBeam for the band lights' shared root position.
+const scratchBeamRoot = new THREE.Vector3()
 
 // A reflected-sun beam for one window mirror, realized as a static truss panel
 // carrying a steerable grid of heliostat facets. The facets tilt as a group
-// each frame (poseBeam) to re-aim the sun, and the aggregate beam — a single
-// collimated DirectionalLight — is derived from that shared facet normal, so the
-// facet array genuinely drives the lighting (see mirrorOptics).
+// each frame (poseBeam) to re-aim the sun, and the beam is sampled into
+// SUN_BEAM_BANDS collimated DirectionalLights across the root→tip axis — each
+// aimed from the facet normal on that band's cascade schedule, so the facet
+// array (and its tip→root fold) genuinely drives the floor lighting, not just
+// the mirror face (see mirrorOptics).
 type SunBeam = {
-  light: THREE.DirectionalLight
+  lights: THREE.DirectionalLight[]
   panel: THREE.Group
   facets: THREE.InstancedMesh
   facetPositions: THREE.Vector3[]
   // Per-facet position along the panel, 0 at the root (hinge, -Y rim) to 1 at the
   // tip (free end, toward the sun). Drives the tip→root fold cascade.
   facetPhases: Float32Array
+  // Representative root→tip phase (0 root … 1 tip) for each band light, so a band
+  // aims and dims on the same cascade schedule as the facets it stands for.
+  bandPhases: Float32Array
   frame: MirrorFrame
   radius: number
   // Last daylight actually written to the GPU; the slow day cycle lets us skip
@@ -220,6 +227,15 @@ const DAYLIGHT_SWEEP_EPSILON = 0.002
 // 4·d·(1−d) bump so the cascade only shows during the transition and the steady
 // noon/midnight poses stay perfectly uniform.
 const FACET_SWEEP_SPREAD = 0.25
+
+// One mirror panel is sampled into this many DirectionalLights down its root→tip
+// axis. A flat panel whose facets sit at a spread of fold angles emits a *spread*
+// of collimated beams, which a single light cannot represent; the bands share one
+// aim at the steady noon/midnight poses (the cascade bump is zero there) and fan
+// apart through dawn/dusk, so the tip→root fold sweeps the lit patch across the
+// floor instead of fading it uniformly. Kept small — it multiplies the
+// per-fragment light loop by the window count.
+const SUN_BEAM_BANDS = 4
 
 // Alternating crop stripes for farm blocks; one texture tile is a pair of
 // rows, repeated in world units via baked UVs.
@@ -1334,8 +1350,10 @@ export class Cityscape {
         ;(child as THREE.Mesh).geometry?.dispose()
       }
       this.group.remove(beam.panel)
-      this.group.remove(beam.light)
-      this.group.remove(beam.light.target)
+      for (const light of beam.lights) {
+        this.group.remove(light)
+        this.group.remove(light.target)
+      }
     }
 
     this.sunBeams = []
@@ -2130,9 +2148,10 @@ export class Cityscape {
   // but a static truss carrying a grid of small heliostat facets (see the GQX
   // reference): the facets tilt as a group to re-aim the sun — day/night is the
   // array steering its reflection in and out of the window, not the whole panel
-  // folding. The aggregate is a single collimated DirectionalLight derived from
-  // the shared facet normal, so the facet array drives the lighting. Full-360
-  // colonies have no window strips; setDimensions rigs an axial end-sun instead.
+  // folding. The beam is sampled into SUN_BEAM_BANDS collimated DirectionalLights
+  // down the panel so the tip→root fold cascade sweeps across the floor, not just
+  // the mirror face. Full-360 colonies have no window strips; setDimensions rigs
+  // an axial end-sun instead.
   private buildMirrors(radius: number, length: number) {
     const panelWidth = radius * 1.05
     // Covers the full cylinder length when projected along the axis.
@@ -2201,17 +2220,27 @@ export class Cityscape {
       panel.add(facets)
       panel.add(this.buildTruss(panelWidth, panelLength, trussCols, trussRows, beamThick, beamDepth))
 
-      const light = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY)
-      this.group.add(light)
-      this.group.add(light.target)
+      // One panel → SUN_BEAM_BANDS lights, each standing for a root→tip band of
+      // facets and carrying 1/N of the panel, so the noon sum matches a single
+      // full-strength beam while dusk lets the bands fan apart.
+      const lights: THREE.DirectionalLight[] = []
+      const bandPhases = new Float32Array(SUN_BEAM_BANDS)
+      for (let band = 0; band < SUN_BEAM_BANDS; band += 1) {
+        bandPhases[band] = (band + 0.5) / SUN_BEAM_BANDS
+        const light = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY / SUN_BEAM_BANDS)
+        this.group.add(light)
+        this.group.add(light.target)
+        lights.push(light)
+      }
       this.group.add(panel)
 
       const beam: SunBeam = {
-        light,
+        lights,
         panel,
         facets,
         facetPositions,
         facetPhases,
+        bandPhases,
         frame,
         radius,
         lastDaylight: Number.NaN
@@ -2250,20 +2279,22 @@ export class Cityscape {
     return new THREE.Mesh(merged ?? new THREE.BufferGeometry(), this.trussMaterial)
   }
 
-  // Steer one facet array to the tilt angle `phi` (about the panel-local tangent
-  // axis), re-derive the aggregate reflected beam, and return the posed face
-  // normal so callers can size the beam from it. The truss stays put; only the
-  // facets pivot, so the array re-aims rather than folding shut.
+  // Steer one facet array for the given daylight: write the per-facet fold
+  // cascade into the instance matrices (epsilon-gated), then aim and dim each of
+  // the panel's band lights on its own cascade-lagged angle. The truss stays put;
+  // only the facets pivot, so the array re-aims rather than folding shut.
   private poseBeam(beam: SunBeam, daylight: number): void {
+    // Tip leads the fold at dusk, root leads the unfold at dawn; the 4·d·(1−d)
+    // bump gates the cascade so it vanishes at the steady noon/midnight extremes
+    // — a full day or night sits perfectly uniform. Shared by the facets below
+    // and the band lights.
+    const bump = 4 * daylight * (1 - daylight)
+
     if (
       Number.isNaN(beam.lastDaylight) ||
       Math.abs(daylight - beam.lastDaylight) >= DAYLIGHT_SWEEP_EPSILON
     ) {
-      // Per-facet fold cascade: a tip leads the fold at dusk and a root leads the
-      // unfold at dawn. The lag is a fraction of daylight scaled by the phase
-      // (0 root → 1 tip), gated by a 4·d·(1−d) bump so it vanishes at the steady
-      // noon/midnight extremes — a full day or night sits perfectly uniform.
-      const bump = 4 * daylight * (1 - daylight)
+      // Per-facet fold cascade written into the instance matrices (mirror look).
       for (let index = 0; index < beam.facetPositions.length; index += 1) {
         const localDaylight = daylight - FACET_SWEEP_SPREAD * beam.facetPhases[index] * bump
         facetTilt.setFromAxisAngle(LOCAL_TANGENT, openFactorToPhi(localDaylight))
@@ -2274,13 +2305,22 @@ export class Cityscape {
       beam.lastDaylight = daylight
     }
 
-    // The aggregate DirectionalLight follows the uniform (un-cascaded) panel
-    // angle: aim its target along the reflected beam so the lit patch tracks the
-    // day/night swing. (At night the intensity is 0, so the aim is moot.)
-    const { normal } = swingPetal(beam.frame, openFactorToPhi(daylight))
-    const reflected = reflectSun(normal)
-    beam.light.position.copy(beam.frame.outward).multiplyScalar(beam.radius)
-    beam.light.target.position.copy(beam.light.position).addScaledVector(reflected, beam.radius)
+    // The band lights carry that SAME cascade onto the floor: each band aims on
+    // its own localDaylight, so at dusk the tip bands swing their beam off the
+    // floor and dim first, sweeping the lit patch root-ward — a real moving
+    // sweep, not a uniform fade. Aim + intensity refresh every frame (O(bands),
+    // not O(facets), so no epsilon gate). Each band carries 1/N of the panel.
+    const root = scratchBeamRoot.copy(beam.frame.outward).multiplyScalar(beam.radius)
+    for (let band = 0; band < beam.lights.length; band += 1) {
+      const localDaylight = daylight - FACET_SWEEP_SPREAD * beam.bandPhases[band] * bump
+      const { normal } = swingPetal(beam.frame, openFactorToPhi(localDaylight))
+      const reflected = reflectSun(normal)
+      const light = beam.lights[band]
+      light.position.copy(root)
+      light.target.position.copy(root).addScaledVector(reflected, beam.radius)
+      light.intensity =
+        (DAY_SUN_INTENSITY / beam.lights.length) * THREE.MathUtils.clamp(localDaylight, 0, 1)
+    }
   }
 
   // The full-360 colonies have no side windows: the sun reaches them through the
@@ -2297,22 +2337,22 @@ export class Cityscape {
 
   // Drive the daylighting from the day/night clock. `daylight` (0 midnight, 1
   // noon) sweeps the mirror facets (open at noon, facing the sun at midnight) and
-  // sets the beam intensity; `color` tints the beam to match the visible sun.
+  // sets each band light's aim and intensity (in poseBeam); `color` is the Sun's
+  // true colour, carried unchanged onto every beam.
   // Intensity tracks daylight directly: with the night pose now facing the sun,
   // a catch-based throughput would read full at midnight, so the day/night curve
   // comes from the clock instead (it matches the old open-pose-normalized catch
   // closely, ~cosφ−sinφ ≈ daylight).
   setSunlight(daylight: number, color: THREE.Color) {
-    const intensity = DAY_SUN_INTENSITY * THREE.MathUtils.clamp(daylight, 0, 1)
-
     for (const beam of this.sunBeams) {
       this.poseBeam(beam, daylight)
-      beam.light.intensity = intensity
-      beam.light.color.copy(color)
+      for (const light of beam.lights) {
+        light.color.copy(color)
+      }
     }
 
     if (this.endSun !== null) {
-      this.endSun.intensity = intensity
+      this.endSun.intensity = DAY_SUN_INTENSITY * THREE.MathUtils.clamp(daylight, 0, 1)
       this.endSun.color.copy(color)
     }
   }
