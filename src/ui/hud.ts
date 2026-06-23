@@ -1,7 +1,7 @@
 import type { Vector3 } from 'three'
 import type { ObserverMode, TrailMode } from '../app/observerMode'
 import { EARTH_GRAVITY } from '../gameplay/vehicle'
-import { formatVrControlsText } from '../xr/controlScheme'
+import { formatControlsText, type ControlPlatform } from '../xr/controlScheme'
 
 type HudSnapshot = {
   radius: number
@@ -49,12 +49,9 @@ export type HudHandle = {
   destroy: () => void
   setVisible: (visible: boolean) => void
   update: (snapshot: HudSnapshot) => void
+  // Swap the controls drawer to the active platform's scheme (PC / SP / VR).
+  setControls: (platform: ControlPlatform) => void
 }
-
-const CONTROLS_TEXT =
-  'PC - WASD: walk / fly | click: throw / fire | X: cycle projectile | Space: jump / ascend | Shift: descend | Q/E: roll | B: roll brake | 1/2/3/4: travel (4 = exterior) | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
-  `VR - ${formatVrControlsText()}\n` +
-  'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
 const makeChip = (className: string) => {
   const chip = document.createElement('span')
@@ -108,7 +105,9 @@ export const createHud = (mount: HTMLElement): HudHandle => {
     return pre
   }
 
-  const controlsPopover = makePopover(CONTROLS_TEXT)
+  // Starts on the PC scheme; main.ts immediately swaps it to the real platform
+  // and updates it on VR enter/exit (see hud.setControls).
+  const controlsPopover = makePopover(formatControlsText('pc'))
   const debugPopover = makePopover('')
   const controlsToggle = makeToggle('CONTROL', controlsPopover)
   const debugToggle = makeToggle('DEBUG', debugPopover)
@@ -154,6 +153,9 @@ export const createHud = (mount: HTMLElement): HudHandle => {
       if (!visible) {
         closeAllPopovers()
       }
+    },
+    setControls: (platform: ControlPlatform) => {
+      controlsPopover.textContent = formatControlsText(platform)
     },
     update: (snapshot) => {
       presetChip.textContent = snapshot.presetName

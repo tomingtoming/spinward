@@ -34,6 +34,9 @@ const freeFlyDelta = new THREE.Quaternion()
 const X_AXIS = new THREE.Vector3(1, 0, 0)
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
 const Z_AXIS = new THREE.Vector3(0, 0, 1)
+const ORIGIN = new THREE.Vector3(0, 0, 0)
+const faceLookMatrix = new THREE.Matrix4()
+const faceLookDir = new THREE.Vector3()
 const intent = createLocomotionIntent()
 const DETACH_LAUNCH_SPEED = 6
 // How fast the inherited free-fly pitch eases back to level after landing.
@@ -334,6 +337,30 @@ export class DesktopLookControls {
     this.pitch = 0
     this.roll = 0
     this.camera.rotation.set(0, 0, 0)
+  }
+
+  // Aim the free-fly view along a world direction — e.g. toward the colony on an
+  // exterior spawn. Writes the attitude straight onto the rig and marks the
+  // controller as already free-fly, so the next update() keeps this heading
+  // instead of re-seeding from the stale (pre-respawn) camera. Exterior spawn is
+  // always free-fly, so there is no grounded path to disturb.
+  faceDirection(worldDirection: THREE.Vector3) {
+    faceLookDir.copy(worldDirection)
+    if (faceLookDir.lengthSq() < 1e-9) {
+      return
+    }
+    faceLookDir.normalize()
+    // Pick an up that is not near-parallel to the look, so lookAt does not
+    // degenerate when we gaze along the spin axis (Y).
+    const up = Math.abs(faceLookDir.y) > 0.7 ? Z_AXIS : Y_AXIS
+    faceLookMatrix.lookAt(ORIGIN, faceLookDir, up)
+    this.attitude.setFromRotationMatrix(faceLookMatrix)
+    this.attitude.normalize()
+    this.camera.rotation.set(0, 0, 0)
+    this.playerRig.quaternion.copy(this.attitude)
+    resetJetpackAttitude(this.rollAttitude)
+    this.freeFlyActive = true
+    this.wasFreeFly = true
   }
 
   // Land facing the way you flew in: decompose the free-fly world attitude into

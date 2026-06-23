@@ -7,7 +7,7 @@ import type {
 } from './watchLayout'
 import { SECTION_PADDING } from './watchLayout'
 import { formatWatchParameterValue } from './watchSchema'
-import { VR_CONTROL_LEGEND, VR_CONTROL_SUMMARY } from '../../xr/controlScheme'
+import { getControlScheme, type ControlSection } from '../../xr/controlScheme'
 
 const ACCENT = '#67e8f9'
 const TEXT_BRIGHT = '#eef7fc'
@@ -287,11 +287,12 @@ const drawGravityGauge = (
 
 const drawLegendGroup = (
   ctx: CanvasRenderingContext2D,
+  sections: readonly ControlSection[],
   mode: 'grounded' | 'free-fly' | 'driving',
   x: number,
   top: number
 ) => {
-  const group = VR_CONTROL_LEGEND.find((section) => section.mode === mode)
+  const group = sections.find((section) => section.mode === mode)
   if (group === undefined) {
     return
   }
@@ -314,17 +315,24 @@ const drawLegendGroup = (
   }
 }
 
-const drawLegend = (ctx: CanvasRenderingContext2D, layout: WatchScreenLayout) => {
+const drawLegend = (
+  ctx: CanvasRenderingContext2D,
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot
+) => {
+  // Show the controls for the platform actually in use (PC / SP / VR).
+  const { summary, sections } = getControlScheme(snapshot.platform)
+
   ctx.fillStyle = TEXT_DIM
   ctx.font = '500 16px "Avenir Next", sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillText(VR_CONTROL_SUMMARY, layout.width * 0.5, 90)
+  ctx.fillText(summary, layout.width * 0.5, 90)
 
   // Two main modes side by side, driving across the bottom.
-  drawLegendGroup(ctx, 'grounded', SECTION_PADDING.left + 20, 130)
-  drawLegendGroup(ctx, 'free-fly', layout.width * 0.5 + 16, 130)
-  drawLegendGroup(ctx, 'driving', SECTION_PADDING.left + 20, 462)
+  drawLegendGroup(ctx, sections, 'grounded', SECTION_PADDING.left + 20, 130)
+  drawLegendGroup(ctx, sections, 'free-fly', layout.width * 0.5 + 16, 130)
+  drawLegendGroup(ctx, sections, 'driving', SECTION_PADDING.left + 20, 462)
 }
 
 export const renderWatch = (
@@ -370,7 +378,7 @@ export const renderWatch = (
   drawSubHeader(ctx, layout, snapshot, hoveredAction)
 
   if (layout.screen === 'legend') {
-    drawLegend(ctx, layout)
+    drawLegend(ctx, layout, snapshot)
     return
   }
 

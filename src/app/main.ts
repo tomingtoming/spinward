@@ -79,6 +79,8 @@ import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
 import { respawnAxisEnd, respawnExterior, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
+import { computeThrowChargeRatio } from '../xr/throwCharge'
+import type { ControlPlatform } from '../xr/controlScheme'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
@@ -464,7 +466,11 @@ export const bootstrapApp = async () => {
   // Simulated accelerometer for the felt g-force readout (measured, not ω²R).
   const feltAccelerometer = new Accelerometer()
   let feltAccelDriving = false
-  let desktopThrowQueued = false
+  // Queued desktop throw: the held-seconds of the ball charge, or null when idle.
+  let desktopThrowQueued: number | null = null
+  // Left-button hold tracking for the PC ball charge-shot.
+  let desktopCharging = false
+  let desktopChargeStartMs = 0
   let desktopJumpQueued = false
   // The throwable currently selected; cycle with X (PC) / right stick-click (VR).
   let selectedProjectile: ProjectileType = 'ball'
@@ -614,8 +620,9 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const exteriorFacing = new THREE.Vector3()
   const respawnPlayerExterior = () => {
-    return respawnPlayerExteriorRuntime(
+    const didRespawn = respawnPlayerExteriorRuntime(
       {
         respawnExterior,
         applyPlayerTraversalState
@@ -630,6 +637,13 @@ export const bootstrapApp = async () => {
         omega: rpmToOmega(habitatConfig.rpm)
       }
     )
+    // Look back at the colony from the exterior vantage. The colony centre is the
+    // world origin, so face the negated rig position. (VR keeps head-look.)
+    if (didRespawn && !renderer.xr.isPresenting) {
+      exteriorFacing.copy(playerRig.position).negate()
+      desktopLookControls.faceDirection(exteriorFacing)
+    }
+    return didRespawn
   }
 
   const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
@@ -821,7 +835,15 @@ export const bootstrapApp = async () => {
 
   syncHabitat()
 
+  // The control scheme to display: VR while presenting, SP on a touchscreen,
+  // else PC. Drives both the HUD controls drawer and the quick-panel legend.
+  const currentControlPlatform = (): ControlPlatform =>
+    renderer.xr.isPresenting ? 'vr' : isTouchDevice() ? 'sp' : 'pc'
+
   const hud = createHud(dock.left)
+  hud.setControls(currentControlPlatform())
+  renderer.xr.addEventListener('sessionstart', () => hud.setControls(currentControlPlatform()))
+  renderer.xr.addEventListener('sessionend', () => hud.setControls(currentControlPlatform()))
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
   // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
   // so they live in the right cluster (prepended before the VR button).
@@ -868,10 +890,13 @@ export const bootstrapApp = async () => {
     type: ProjectileType,
     {
       origin,
-      releasedByController
+      releasedByController,
+      heldSeconds = 0
     }: {
       origin: THREE.Object3D
       releasedByController?: THREE.XRTargetRaySpace
+      // Desktop ball charge: how long the mouse was held (0 = a plain tap).
+      heldSeconds?: number
     }
   ) => {
     const spec = PROJECTILES[type]
@@ -963,11 +988,14 @@ export const bootstrapApp = async () => {
     } else if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())
     } else {
-      // Desktop throws also inherit the thrower's motion (walking or driving).
+      // Desktop ball throws inherit the thrower's motion AND a hold-to-charge
+      // ramp: a tap leaves at the base 8 m/s, a full (~1.2 s) hold climbs to ~30.
       fillCarrierRotatingVelocity(controllerCarrierVelocity)
+      const chargeSpeed =
+        (8 + 22 * computeThrowChargeRatio(heldSeconds)) * habitatConfig.ballSpeedScale
       worldVelocity
         .copy(worldForward)
-        .multiplyScalar(8 * habitatConfig.ballSpeedScale)
+        .multiplyScalar(chargeSpeed)
         .add(controllerCarrierVelocity)
       ball.setVelocity(worldVelocity)
     }
@@ -990,22 +1018,23 @@ export const bootstrapApp = async () => {
     })
   }
 
-  const throwDesktopBall = () => {
+  const throwDesktopBall = (heldSeconds: number) => {
     if (renderer.xr.isPresenting) {
       return
     }
 
-    spawnProjectile(selectedProjectile, { origin: camera })
+    spawnProjectile(selectedProjectile, { origin: camera, heldSeconds })
     audio.playThrow()
     vibrate(8)
   }
 
-  const requestDesktopThrow = () => {
+  // Queue a throw with the given charge (0 = a plain tap, used by the mobile tap).
+  const requestDesktopThrow = (heldSeconds = 0) => {
     if (renderer.xr.isPresenting) {
       return
     }
 
-    desktopThrowQueued = true
+    desktopThrowQueued = heldSeconds
   }
 
   const cycleSelectedProjectile = () => {
@@ -1121,7 +1150,28 @@ export const bootstrapApp = async () => {
       return
     }
 
-    requestDesktopThrow()
+    // Beam / firework are instant bolts: fire on press. The ball charges while
+    // the button is held and throws on release (see the pointerup below) — hold
+    // longer to throw harder.
+    if (PROJECTILES[selectedProjectile].launchSpeed > 0) {
+      requestDesktopThrow(0)
+    } else {
+      desktopCharging = true
+      desktopChargeStartMs = performance.now()
+    }
+  })
+
+  // Release of the held left button throws the charged ball. On window (not the
+  // canvas) so a drag that ends off-canvas still releases the shot.
+  window.addEventListener('pointerup', (event) => {
+    if (event.button !== 0 || !desktopCharging) {
+      return
+    }
+    desktopCharging = false
+    if (renderer.xr.isPresenting) {
+      return
+    }
+    requestDesktopThrow(Math.max(0, (performance.now() - desktopChargeStartMs) * 0.001))
   })
 
   const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) =>
@@ -1256,9 +1306,10 @@ export const bootstrapApp = async () => {
       }
     }
 
-    if (desktopThrowQueued) {
-      desktopThrowQueued = false
-      throwDesktopBall()
+    if (desktopThrowQueued !== null) {
+      const heldSeconds = desktopThrowQueued
+      desktopThrowQueued = null
+      throwDesktopBall(heldSeconds)
     }
 
     grabSystem.update()
@@ -1600,6 +1651,7 @@ export const bootstrapApp = async () => {
 
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
       playerMode: playerTraversal.mode,
+      platform: currentControlPlatform(),
       region: playerRegion,
       watchMenuOpen,
       observerMode: effectiveObserverMode,
