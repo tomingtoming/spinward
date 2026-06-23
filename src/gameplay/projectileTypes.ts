@@ -40,7 +40,7 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
     radius: 0.1,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
-    launchSpeed: 60,
+    launchSpeed: 180,
     lifetimeSeconds: 4,
     explodeOnImpact: true,
     explosionColor: 0x67e8f9,

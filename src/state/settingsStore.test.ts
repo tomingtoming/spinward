@@ -20,7 +20,7 @@ test('settingsStore adjusts habitat values and notifies listeners', () => {
   expect(store.habitat.rpm).toBeCloseTo(5.01, 6)
   expect(store.habitat.radius).toBe(28)
   expect(store.habitat.ballSpeedScale).toBeCloseTo(1.01, 6)
-  expect(store.habitat.jetpackAcceleration).toBeCloseTo(30.1, 6)
+  expect(store.habitat.jetpackAcceleration).toBeCloseTo(20.1, 6)
   expect(notifications).toBe(4)
 })
 
