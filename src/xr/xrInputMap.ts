@@ -64,6 +64,8 @@ type XrWatchInputFrame = {
   jumpPressed: boolean
   // Right B edge: cycle the Surface/Overlook/Axis warp without the wrist laser.
   travelCyclePressed: boolean
+  // Right stick-click edge: cycle the selected throwable (ball/beam/firework).
+  weaponCyclePressed: boolean
   // Left B edge: recenter the view (the "menu" family verb on the left hand).
   leftMenuPressed: boolean
   // VR car controls: left stick Y = throttle, left stick X = steer, either
@@ -79,6 +81,7 @@ export class XRInputMap {
   private previousRightTriggerPressed = false
   private previousJumpPressed = false
   private previousTravelCyclePressed = false
+  private previousWeaponCyclePressed = false
   private previousLeftMenuPressed = false
 
   constructor(controllers: XRControllerSpaces[]) {
@@ -102,6 +105,7 @@ export class XRInputMap {
       this.previousRightTriggerPressed = false
       this.previousJumpPressed = false
       this.previousTravelCyclePressed = false
+      this.previousWeaponCyclePressed = false
       this.previousLeftMenuPressed = false
       return {
         leftController: null,
@@ -110,6 +114,7 @@ export class XRInputMap {
         rightTriggerPressed: false,
         jumpPressed: false,
         travelCyclePressed: false,
+        weaponCyclePressed: false,
         leftMenuPressed: false,
         driveThrottle: 0,
         driveSteer: 0,
@@ -123,6 +128,7 @@ export class XRInputMap {
     let rightTriggerPressed = false
     let jumpPressed = false
     let travelCyclePressed = false
+    let weaponCyclePressed = false
     let leftMenuPressed = false
     let leftStickX = 0
     let leftStickY = 0
@@ -158,6 +164,8 @@ export class XRInputMap {
         rightTriggerPressed ||= this.readTriggerValue(gamepad) > UI_TRIGGER_THRESHOLD
         // Right B = cycle the Surface/Overlook/Axis warp.
         travelCyclePressed ||= gamepad.buttons[XR_BUTTON.B]?.pressed ?? false
+        // Right thumbstick click = cycle the selected throwable.
+        weaponCyclePressed ||= gamepad.buttons[XR_BUTTON.stick]?.pressed ?? false
       }
     }
 
@@ -167,6 +175,8 @@ export class XRInputMap {
     this.previousJumpPressed = jumpPressed
     const travelCycleEdge = travelCyclePressed && !this.previousTravelCyclePressed
     this.previousTravelCyclePressed = travelCyclePressed
+    const weaponCycleEdge = weaponCyclePressed && !this.previousWeaponCyclePressed
+    this.previousWeaponCyclePressed = weaponCyclePressed
     const leftMenuEdge = leftMenuPressed && !this.previousLeftMenuPressed
     this.previousLeftMenuPressed = leftMenuPressed
 
@@ -179,6 +189,7 @@ export class XRInputMap {
       rightTriggerPressed: rightTriggerEdge,
       jumpPressed: jumpEdge,
       travelCyclePressed: travelCycleEdge,
+      weaponCyclePressed: weaponCycleEdge,
       leftMenuPressed: leftMenuEdge,
       driveThrottle: drive.throttle,
       driveSteer: drive.steer,
