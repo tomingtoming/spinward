@@ -103,6 +103,42 @@ export const respawnPlayerAxisEndRuntime = <TPlayerRig, TPlayerTraversal>(
   return didRespawn
 }
 
+export const respawnPlayerExteriorRuntime = <TPlayerRig, TPlayerTraversal>(
+  dependencies: {
+    respawnExterior: (
+      playerTraversal: TPlayerTraversal,
+      config: {
+        type: HabitatType
+        radius: number
+        length: number
+        frameAngle: number
+        omega: number
+      }
+    ) => boolean
+    applyPlayerTraversalState: ApplyPlayerTraversalState<TPlayerRig, TPlayerTraversal>
+  },
+  config: RespawnPlayerAxisEndRuntimeConfig<TPlayerRig, TPlayerTraversal>
+) => {
+  const didRespawn = dependencies.respawnExterior(config.playerTraversal, {
+    type: config.type,
+    radius: config.radius,
+    length: config.length,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+
+  if (didRespawn) {
+    dependencies.applyPlayerTraversalState(
+      config.playerRig,
+      config.playerTraversal,
+      config.radius,
+      config.frameAngle
+    )
+  }
+
+  return didRespawn
+}
+
 export const rebuildPlayerTraversalRuntime = <TPlayerRig, TPlayerTraversal>(
   dependencies: {
     playerTraversal: TPlayerTraversal

@@ -23,7 +23,8 @@ test('home screen keeps travel, spin and the category nav one tap away', () => {
   expect(layout.travelButtons?.map((button) => button.id)).toEqual([
     'respawn-inner-wall',
     'respawn-overlook',
-    'respawn-axis-end'
+    'respawn-axis-end',
+    'respawn-exterior'
   ])
   expect(layout.categoryButtons?.map((button) => button.id)).toEqual([
     'nav-habitat',

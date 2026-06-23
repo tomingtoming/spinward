@@ -7,6 +7,13 @@ import type { HabitatType } from '../sim/habitatConfig'
 
 const axisEndRotatingPosition = new THREE.Vector3()
 const overlookRotatingPosition = new THREE.Vector3()
+const exteriorRotatingPosition = new THREE.Vector3()
+const exteriorRotatingVelocity = new THREE.Vector3()
+
+// How far outside the hull the exterior vantage sits, as a multiple of the hull
+// radius — far enough to read the whole cylinder and the mirror end, close
+// enough that the colony still fills the view.
+const EXTERIOR_RADIUS_FACTOR = 1.6
 
 const getAxisEndMargin = (length: number, explicitMargin?: number) => {
   if (explicitMargin !== undefined) {
@@ -82,6 +89,36 @@ export const respawnAxisEnd = (
   )
   resetPlayerToFreeFly(state, {
     rotatingPosition: axisEndRotatingPosition,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+  return true
+}
+
+// Drop the player into space OUTSIDE the hull to admire the colony. Free-fly,
+// radially clear of the wall and (for a cylinder) hung off the -Y mirror end so
+// the petals and the long hull read at a glance.
+export const respawnExterior = (
+  state: PlayerTraversalState,
+  config: {
+    type: HabitatType
+    radius: number
+    length: number
+    frameAngle: number
+    omega: number
+  }
+) => {
+  const outward = config.radius * EXTERIOR_RADIUS_FACTOR
+  const axial = config.type === 'cylinder' ? -config.length * 0.3 : 0
+  exteriorRotatingPosition.set(outward, axial, 0)
+  // Hang at REST in inertial space so the colony spins/orbits past, instead of
+  // being flung outward at ~ω²·outward (≈1.6 g here). v_inertial = v_rot + ω×pos
+  // with ω about +Y and pos = (outward, axial, 0) gives ω×pos = (0,0,-ω·outward),
+  // so the cancelling rotating velocity is (0,0,+ω·outward).
+  exteriorRotatingVelocity.set(0, 0, config.omega * outward)
+  resetPlayerToFreeFly(state, {
+    rotatingPosition: exteriorRotatingPosition,
+    rotatingVelocity: exteriorRotatingVelocity,
     frameAngle: config.frameAngle,
     omega: config.omega
   })

@@ -50,7 +50,7 @@ export type HudHandle = {
 }
 
 const CONTROLS_TEXT =
-  'PC - WASD: walk / fly | click: throw | Space: jump / ascend | Shift: descend | Q/E: roll | B: roll brake | 1/2/3: travel | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
+  'PC - WASD: walk / fly | click: throw | Space: jump / ascend | Shift: descend | Q/E: roll | B: roll brake | 1/2/3/4: travel (4 = exterior) | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
   `VR - ${formatVrControlsText()}\n` +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
