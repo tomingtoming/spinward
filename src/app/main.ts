@@ -45,6 +45,7 @@ import {
 import {
   rebuildPlayerTraversalRuntime,
   respawnPlayerAxisEndRuntime,
+  respawnPlayerExteriorRuntime,
   respawnPlayerInnerWallRuntime,
   respawnPlayerOverlookRuntime
 } from './playerRespawnRuntime'
@@ -74,7 +75,7 @@ import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileContr
 import { createFullscreenToggle } from '../pc/fullscreen'
 import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
-import { respawnAxisEnd, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
+import { respawnAxisEnd, respawnExterior, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
@@ -605,6 +606,24 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const respawnPlayerExterior = () => {
+    return respawnPlayerExteriorRuntime(
+      {
+        respawnExterior,
+        applyPlayerTraversalState
+      },
+      {
+        playerTraversal,
+        playerRig,
+        type: habitatConfig.type,
+        length: getHabitatSpanMeters(),
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
+  }
+
   const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
     playerTraversal = rebuildPlayerTraversalRuntime(
       {
@@ -737,6 +756,9 @@ export const bootstrapApp = async () => {
         if (runtimeAction.mode === 'overlook') {
           notifyTourEvent(tourGuide, 'overlook')
           return respawnPlayerOverlook()
+        }
+        if (runtimeAction.mode === 'exterior') {
+          return respawnPlayerExterior()
         }
         notifyTourEvent(tourGuide, 'axis')
         return respawnPlayerAxisEnd()
@@ -993,6 +1015,11 @@ export const bootstrapApp = async () => {
 
     if (event.code === 'Digit3') {
       handleWatchAction('respawn-axis-end')
+      return
+    }
+
+    if (event.code === 'Digit4') {
+      handleWatchAction('respawn-exterior')
       return
     }
 

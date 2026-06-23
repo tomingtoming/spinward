@@ -7,7 +7,7 @@ export type RuntimeWatchAction =
     }
   | {
       kind: 'respawn'
-      mode: 'inner-wall' | 'overlook' | 'axis-end'
+      mode: 'inner-wall' | 'overlook' | 'axis-end' | 'exterior'
     }
   | null
 
@@ -29,6 +29,8 @@ export const resolveRuntimeWatchAction = (
       return { kind: 'respawn', mode: 'overlook' }
     case 'respawn-axis-end':
       return { kind: 'respawn', mode: 'axis-end' }
+    case 'respawn-exterior':
+      return { kind: 'respawn', mode: 'exterior' }
     default:
       return null
   }

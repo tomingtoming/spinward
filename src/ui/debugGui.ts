@@ -86,7 +86,7 @@ export const createDebugGui = ({
     })
 
   gui
-    .add(config, 'jetpackAcceleration', 1, 30, 0.1)
+    .add(config, 'jetpackAcceleration', 1, 40, 0.1)
     .name('jetpack accel')
     .listen()
     .onChange(() => {

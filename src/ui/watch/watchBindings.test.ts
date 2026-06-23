@@ -78,7 +78,7 @@ test('applyWatchAction routes parameter, mode, and profile actions through the s
   expect(store.habitat.ballSpeedScale).toBeCloseTo(1.01, 6)
 
   expect(applyWatchAction(store, 'jetpack-acceleration-fine-increment')).toBe(true)
-  expect(store.habitat.jetpackAcceleration).toBeCloseTo(12.1, 6)
+  expect(store.habitat.jetpackAcceleration).toBeCloseTo(30.1, 6)
 
   expect(applyWatchAction(store, 'reattach-threshold-fine-increment')).toBe(true)
   expect(store.reattach.radialTolerance).toBeCloseTo(0.21, 6)
