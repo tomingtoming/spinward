@@ -76,7 +76,7 @@ export const DEFAULT_HABITAT_CONFIG: HabitatConfig = {
   topology: ISLAND_THREE_TOPOLOGY,
   skyLook: 'default',
   ballSpeedScale: 1,
-  jetpackAcceleration: 12,
+  jetpackAcceleration: 30,
   ballLifetimeSeconds: 30,
   maxTrailPoints: 200
 }

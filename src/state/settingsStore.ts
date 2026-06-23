@@ -191,7 +191,9 @@ export const createSettingsStore = (
       significantDigits: 3,
       minStep: 0.1,
       min: 1,
-      max: 30
+      // Default is 30 (the old ceiling — punchy free-fly out of the box); keep
+      // headroom above it so the slider isn't pinned at the top.
+      max: 40
     }
   )
   const reattachThresholdConfig: ScalarStepperConfig = {
