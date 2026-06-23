@@ -56,6 +56,8 @@ import {
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
+import { Explosions } from '../objects/explosion'
+import { PROJECTILES, cycleProjectile, type ProjectileType } from '../gameplay/projectileTypes'
 import { Car } from '../objects/car'
 import {
   getCityGroundHeight,
@@ -158,6 +160,9 @@ export const bootstrapApp = async () => {
   const nearLayer = new THREE.Group()
   scene.add(worldRoot)
   worldRoot.add(skyLayer, farLayer, nearLayer)
+  // Impact bursts for the beam / firework bolts live alongside the balls in the
+  // colony-fixed near layer.
+  const explosions = new Explosions(nearLayer)
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
@@ -461,6 +466,8 @@ export const bootstrapApp = async () => {
   let feltAccelDriving = false
   let desktopThrowQueued = false
   let desktopJumpQueued = false
+  // The throwable currently selected; cycle with X (PC) / right stick-click (VR).
+  let selectedProjectile: ProjectileType = 'ball'
   let frameAngle = 0
   let settingsDirty = false
   let watchUiHot = false
@@ -516,11 +523,12 @@ export const bootstrapApp = async () => {
         return null
       }
 
-      const ball = spawnBall({
+      const projectile = spawnProjectile(selectedProjectile, {
         origin: controller,
         releasedByController: controller
       })
-      return ball.grabTarget
+      // Bolts fire on the trigger press; only the grabbable ball is held to throw.
+      return PROJECTILES[selectedProjectile].grabbable ? projectile.grabTarget : null
     }
   })
 
@@ -856,13 +864,17 @@ export const bootstrapApp = async () => {
       target
     )
 
-  const spawnBall = ({
-    origin,
-    releasedByController
-  }: {
-    origin: THREE.Object3D
-    releasedByController?: THREE.XRTargetRaySpace
-  }) => {
+  const spawnProjectile = (
+    type: ProjectileType,
+    {
+      origin,
+      releasedByController
+    }: {
+      origin: THREE.Object3D
+      releasedByController?: THREE.XRTargetRaySpace
+    }
+  ) => {
+    const spec = PROJECTILES[type]
     const omega = rpmToOmega(habitatConfig.rpm)
 
     // Balls spawn slightly in front of the hand/camera so they do not self-intersect on release.
@@ -878,13 +890,21 @@ export const bootstrapApp = async () => {
         units: getUnits()
       },
       initialPosition: worldPosition.clone().add(spawnOffset),
+      radius: spec.radius,
+      color: spec.color,
+      emissive: spec.emissive !== 0 ? spec.emissive : undefined,
+      explodeOnImpact: spec.explodeOnImpact,
       maxTrailPoints: habitatConfig.maxTrailPoints,
-      lifetimeSeconds: habitatConfig.ballLifetimeSeconds,
+      lifetimeSeconds:
+        spec.lifetimeSeconds > 0 ? spec.lifetimeSeconds : habitatConfig.ballLifetimeSeconds,
       frameAngle,
       omega,
       onBounce: (bouncedBall, impactSpeed) => {
         const distance = bouncedBall.position.distanceTo(playerFixedColliderPosition)
         audio.playBounce(impactSpeed * Math.min(1, 12 / (distance + 3)))
+        if (spec.explodeOnImpact) {
+          explosions.spawn(bouncedBall.position, spec.explosionColor, spec.explosionRadius)
+        }
       },
       onReleased: (controller, releasedBall, heldSeconds) => {
         audio.playThrow()
@@ -931,7 +951,16 @@ export const bootstrapApp = async () => {
       }
     })
 
-    if (releasedByController !== undefined) {
+    if (spec.launchSpeed > 0) {
+      // Fire-and-forget bolts launch instantly at a fixed muzzle speed (plus the
+      // thrower's own motion), whether fired from a VR trigger or a desktop click.
+      fillCarrierRotatingVelocity(controllerCarrierVelocity)
+      worldVelocity
+        .copy(worldForward)
+        .multiplyScalar(spec.launchSpeed)
+        .add(controllerCarrierVelocity)
+      ball.setVelocity(worldVelocity)
+    } else if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())
     } else {
       // Desktop throws also inherit the thrower's motion (walking or driving).
@@ -946,7 +975,9 @@ export const bootstrapApp = async () => {
     nearLayer.add(ball.mesh)
     nearLayer.add(ball.trail)
     nearLayer.add(ball.inertialTrail)
-    grabSystem.registerTarget(ball.grabTarget)
+    if (spec.grabbable) {
+      grabSystem.registerTarget(ball.grabTarget)
+    }
     balls.push(ball)
     notifyTourEvent(tourGuide, 'throw')
 
@@ -964,7 +995,7 @@ export const bootstrapApp = async () => {
       return
     }
 
-    spawnBall({ origin: camera })
+    spawnProjectile(selectedProjectile, { origin: camera })
     audio.playThrow()
     vibrate(8)
   }
@@ -975,6 +1006,12 @@ export const bootstrapApp = async () => {
     }
 
     desktopThrowQueued = true
+  }
+
+  const cycleSelectedProjectile = () => {
+    selectedProjectile = cycleProjectile(selectedProjectile)
+    audio.playClick()
+    vibrate(6)
   }
 
   window.addEventListener('keydown', (event) => {
@@ -991,6 +1028,11 @@ export const bootstrapApp = async () => {
     if (event.code === 'Tab') {
       event.preventDefault()
       desktopQuickPanel.toggle()
+      return
+    }
+
+    if (event.code === 'KeyX') {
+      cycleSelectedProjectile()
       return
     }
 
@@ -1176,6 +1218,11 @@ export const bootstrapApp = async () => {
       vrTravelCycleIndex = (vrTravelCycleIndex + 1) % VR_TRAVEL_TARGETS.length
       handleWatchAction(VR_TRAVEL_TARGETS[vrTravelCycleIndex])
       vibrate(10)
+    }
+
+    // Right stick-click cycles the throwable (ball → beam → firework).
+    if (xrWatchInput.weaponCyclePressed && !drive.driving) {
+      cycleSelectedProjectile()
     }
 
     // Left B = recenter the view — the "menu" verb on the left hand.
@@ -1500,6 +1547,7 @@ export const bootstrapApp = async () => {
     }
 
     removeDisposedBalls()
+    explosions.step(deltaSeconds)
     const trackedBall = getTrackedBall(balls)
     const verificationBallTarget =
       trackedBall !== null && !trackedBall.isGrabbed ? trackedBall : null
@@ -1576,6 +1624,7 @@ export const bootstrapApp = async () => {
       habitatType: habitatConfig.type,
       simScale: habitatConfig.simScale,
       ballCount: balls.length,
+      projectile: PROJECTILES[selectedProjectile].label,
       feltGravity,
       feltSpeed,
       trackedBallSpeed: trackedBall?.velocity.length() ?? 0,

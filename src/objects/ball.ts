@@ -35,6 +35,11 @@ type BallOptions = {
   lifetimeSeconds: number
   frameAngle: number
   omega: number
+  // A constant emissive colour for fire-and-forget glowing bolts (beam/firework);
+  // omitted for the plain ball, whose appearance follows the charge/hover state.
+  emissive?: number
+  // Burst-and-despawn on the first wall/building hit instead of bouncing.
+  explodeOnImpact?: boolean
   nowSeconds?: () => number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
   onBounce?: (ball: Ball, impactSpeed: number) => void
@@ -115,6 +120,10 @@ export class Ball {
   private releasedChargeRatio = 0
   private frameAngle: number
   private omega: number
+  private readonly explodeOnImpact: boolean
+  private readonly glowColor: THREE.Color | null
+  private readonly glowEmissive: THREE.Color | null
+  private exploded = false
 
   constructor(options: BallOptions) {
     this.radius = options.radius ?? 0.18
@@ -128,6 +137,10 @@ export class Ball {
     this.units = options.physics.units ?? createUnitsContext(1)
     this.frameAngle = options.frameAngle
     this.omega = options.omega
+    this.explodeOnImpact = options.explodeOnImpact ?? false
+    this.glowColor =
+      options.emissive !== undefined ? new THREE.Color(options.color ?? 0xffffff) : null
+    this.glowEmissive = options.emissive !== undefined ? new THREE.Color(options.emissive) : null
     this.trailPositions = new Float32Array(this.maxTrailPoints * 3)
     this.inertialTrailPositions = new Float32Array(this.maxTrailPoints * 3)
 
@@ -251,7 +264,7 @@ export class Ball {
   }
 
   isExpired() {
-    return !this.grabbed && this.ageSeconds > this.lifetimeSeconds
+    return this.exploded || (!this.grabbed && this.ageSeconds > this.lifetimeSeconds)
   }
 
   copyInertialVelocity(target = new THREE.Vector3()) {
@@ -431,6 +444,12 @@ export class Ball {
 
     this.onBounce?.(this, preCollisionVelocity.sub(this.rotatingVelocity).length())
 
+    // Glowing bolts burst on contact instead of bouncing: the FX is spawned by
+    // the onBounce handler above; here we just mark it spent so it despawns.
+    if (this.explodeOnImpact) {
+      this.exploded = true
+    }
+
     this.mesh.position.copy(this.rotatingPosition)
     rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
     rotatingVelocityToInertial(
@@ -451,6 +470,14 @@ export class Ball {
       this.mesh.material.emissive.copy(
         displayEmissive.lerpColors(GRABBED_EMISSIVE, CHARGED_EMISSIVE, chargeRatio)
       )
+      return
+    }
+
+    // Fire-and-forget bolts glow with a fixed colour rather than the ball's
+    // charge/hover tinting.
+    if (this.glowEmissive !== null && this.glowColor !== null) {
+      this.mesh.material.color.copy(this.glowColor)
+      this.mesh.material.emissive.copy(this.glowEmissive)
       return
     }
 

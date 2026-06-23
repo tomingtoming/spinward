@@ -12,6 +12,8 @@ type HudSnapshot = {
   habitatType: 'cylinder' | 'ring'
   simScale: number
   ballCount: number
+  // Label of the currently-selected throwable (Ball / Beam / Firework).
+  projectile: string
   trackedBallSpeed: number
   xrActive: boolean
   forceVectors: boolean
@@ -50,7 +52,7 @@ export type HudHandle = {
 }
 
 const CONTROLS_TEXT =
-  'PC - WASD: walk / fly | click: throw | Space: jump / ascend | Shift: descend | Q/E: roll | B: roll brake | 1/2/3/4: travel (4 = exterior) | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
+  'PC - WASD: walk / fly | click: throw / fire | X: cycle projectile | Space: jump / ascend | Shift: descend | Q/E: roll | B: roll brake | 1/2/3/4: travel (4 = exterior) | F: launch | right-drag/arrows: look | Tab: menu | E: drive (near the car) | M: mute\n' +
   `VR - ${formatVrControlsText()}\n` +
   'Mobile - drag: look | tap: throw | buttons: jump/travel/gyro'
 
@@ -120,6 +122,7 @@ export const createHud = (mount: HTMLElement): HudHandle => {
   const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
   const ballsChip = makeChip('hud-chip--metric')
+  const projectileChip = makeChip('hud-chip--metric')
   const dockChip = makeChip('')
 
   root.append(
@@ -130,6 +133,7 @@ export const createHud = (mount: HTMLElement): HudHandle => {
     spinChip,
     modeChip,
     ballsChip,
+    projectileChip,
     dockChip
   )
   // Popovers are fixed-positioned above the bar, so they live on body, not in
@@ -166,6 +170,7 @@ export const createHud = (mount: HTMLElement): HudHandle => {
 
       ballsChip.hidden = snapshot.ballCount === 0
       ballsChip.textContent = `balls ${snapshot.ballCount}`
+      projectileChip.textContent = `◈ ${snapshot.projectile}`
 
       const dock = snapshot.reattach
       dockChip.hidden = snapshot.playerMode !== 'free-fly' || dock === null
