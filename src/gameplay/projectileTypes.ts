@@ -20,6 +20,9 @@ export type ProjectileSpec = {
   explosionRadius: number
   // Whether the right-hand can grab/hold it (only the ball; bolts fire on press).
   grabbable: boolean
+  // If set, render as an elongated glowing bolt of this length (oriented to the
+  // velocity) rather than a sphere. The beam uses this.
+  boltLength?: number
 }
 
 export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
@@ -37,9 +40,10 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   },
   beam: {
     label: 'Beam',
-    // A fat glowing bolt — the beam reads thick even in the brief instant it is
-    // visible at Gundam speed.
-    radius: 0.4,
+    // A thick glowing bolt: the radius is the bolt's cross-section, boltLength its
+    // length along travel. Reads as a beam even in the instant it's visible.
+    radius: 0.35,
+    boltLength: 3.5,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
     // Gundam beam-rifle speed. The canonical mega-particle spec is ≥0.1c

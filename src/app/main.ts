@@ -905,7 +905,9 @@ export const bootstrapApp = async () => {
     // Balls spawn slightly in front of the hand/camera so they do not self-intersect on release.
     origin.getWorldPosition(worldPosition)
     getForwardDirection(origin, worldForward)
-    spawnOffset.copy(worldForward).multiplyScalar(0.35)
+    // Spawn ahead of the muzzle; push a long bolt out far enough that it doesn't
+    // straddle the camera on the frame it appears.
+    spawnOffset.copy(worldForward).multiplyScalar(0.35 + (spec.boltLength ?? 0) * 0.6)
 
     const ball = new Ball({
       physics: {
@@ -921,6 +923,7 @@ export const bootstrapApp = async () => {
       color: spec.color,
       emissive: spec.emissive !== 0 ? spec.emissive : undefined,
       explodeOnImpact: spec.explodeOnImpact,
+      boltLength: spec.boltLength,
       maxTrailPoints: habitatConfig.maxTrailPoints,
       lifetimeSeconds:
         spec.lifetimeSeconds > 0 ? spec.lifetimeSeconds : habitatConfig.ballLifetimeSeconds,

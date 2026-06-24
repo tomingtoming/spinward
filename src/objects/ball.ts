@@ -40,6 +40,9 @@ type BallOptions = {
   emissive?: number
   // Burst-and-despawn on the first wall/building hit instead of bouncing.
   explodeOnImpact?: boolean
+  // Render as an elongated glowing bolt of this length, oriented to the velocity,
+  // instead of a sphere. Used by the beam rifle.
+  boltLength?: number
   nowSeconds?: () => number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
   onBounce?: (ball: Ball, impactSpeed: number) => void
@@ -73,6 +76,9 @@ const displayColor = new THREE.Color()
 const displayEmissive = new THREE.Color()
 const trailDisplayPoint = new THREE.Vector3()
 const preCollisionVelocity = new THREE.Vector3()
+// The capsule's long axis; bolts orient this toward their velocity.
+const BOLT_AXIS = new THREE.Vector3(0, 1, 0)
+const boltDir = new THREE.Vector3()
 
 const createTrailGeometry = (positions: Float32Array) => {
   const geometry = new THREE.BufferGeometry()
@@ -85,7 +91,7 @@ const createTrailGeometry = (positions: Float32Array) => {
 
 export class Ball {
   readonly radius: number
-  readonly mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
+  readonly mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
   readonly trail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
   readonly inertialTrail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
   readonly grabTarget: GrabTarget
@@ -123,6 +129,7 @@ export class Ball {
   private readonly explodeOnImpact: boolean
   private readonly glowColor: THREE.Color | null
   private readonly glowEmissive: THREE.Color | null
+  private readonly boltLength: number | null
   private exploded = false
 
   constructor(options: BallOptions) {
@@ -141,6 +148,7 @@ export class Ball {
     this.glowColor =
       options.emissive !== undefined ? new THREE.Color(options.color ?? 0xffffff) : null
     this.glowEmissive = options.emissive !== undefined ? new THREE.Color(options.emissive) : null
+    this.boltLength = options.boltLength ?? null
     this.trailPositions = new Float32Array(this.maxTrailPoints * 3)
     this.inertialTrailPositions = new Float32Array(this.maxTrailPoints * 3)
 
@@ -189,10 +197,13 @@ export class Ball {
       emissive: 0x000000
     })
 
-    this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(this.radius, 24, 24),
-      material
-    )
+    // A bolt is a capsule stretched along its travel axis; everything else is a
+    // plain sphere.
+    const geometry =
+      this.boltLength !== null
+        ? new THREE.CapsuleGeometry(this.radius, this.boltLength, 6, 16)
+        : new THREE.SphereGeometry(this.radius, 24, 24)
+    this.mesh = new THREE.Mesh(geometry, material)
     this.mesh.position.copy(this.rotatingPosition)
 
     this.trail = new THREE.Line(
@@ -308,6 +319,19 @@ export class Ball {
     this.applyHabitatCollision(config)
     this.updateTrails(config.trailMode)
     this.appendTrailPoint()
+    this.orientToVelocity()
+  }
+
+  // Point a bolt mesh along its travel direction (no-op for spheres).
+  private orientToVelocity() {
+    if (this.boltLength === null) {
+      return
+    }
+    boltDir.copy(this.rotatingVelocity)
+    if (boltDir.lengthSq() < 1e-6) {
+      return
+    }
+    this.mesh.quaternion.setFromUnitVectors(BOLT_AXIS, boltDir.normalize())
   }
 
   dispose() {
