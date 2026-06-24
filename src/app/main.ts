@@ -911,6 +911,18 @@ export const bootstrapApp = async () => {
     // leading tip is the collision point), so we don't push it out by its length.
     spawnOffset.copy(worldForward).multiplyScalar(0.35)
 
+    // Decide inside-vs-outside the colony ONCE here, from the spawn position.
+    // A fast beam tunnels r<radius → r>>radius in a single frame, so a per-frame
+    // radial gate would misclassify a valid interior shot; the spawn-time flag is
+    // stable. worldPosition is the rotating-frame render position — the same frame
+    // the inner-wall confine uses. The inward (radius − spec.radius) margin keeps a
+    // point-blank interior shot (muzzle ≈ on the wall) flagged inside.
+    const spawnPos = worldPosition.clone().add(spawnOffset)
+    const halfSpan = getHabitatSpanMeters() * 0.5
+    const insideHabitat =
+      Math.hypot(spawnPos.x, spawnPos.z) < habitatConfig.radius - spec.radius &&
+      Math.abs(spawnPos.y) <= halfSpan
+
     const ball = new Ball({
       physics: {
         rapier,
@@ -920,12 +932,13 @@ export const bootstrapApp = async () => {
         restitution: spec.explodeOnImpact ? 0 : restitution,
         units: getUnits()
       },
-      initialPosition: worldPosition.clone().add(spawnOffset),
+      initialPosition: spawnPos,
       radius: spec.radius,
       color: spec.color,
       emissive: spec.emissive !== 0 ? spec.emissive : undefined,
       explodeOnImpact: spec.explodeOnImpact,
       boltLength: spec.boltLength,
+      confineToHabitat: insideHabitat,
       maxTrailPoints: habitatConfig.maxTrailPoints,
       lifetimeSeconds:
         spec.lifetimeSeconds > 0 ? spec.lifetimeSeconds : habitatConfig.ballLifetimeSeconds,
@@ -988,13 +1001,17 @@ export const bootstrapApp = async () => {
     })
 
     if (spec.launchSpeed > 0) {
-      // Fire-and-forget bolts launch instantly at a fixed muzzle speed (plus the
-      // thrower's own motion), whether fired from a VR trigger or a desktop click.
-      fillCarrierRotatingVelocity(controllerCarrierVelocity)
-      worldVelocity
-        .copy(worldForward)
-        .multiplyScalar(spec.launchSpeed)
-        .add(controllerCarrierVelocity)
+      // Fire-and-forget bolts launch instantly at a fixed muzzle speed. A fast
+      // beam (10 km/s) flies straight down the aim axis, so we do NOT blend in the
+      // carrier (player/vehicle) velocity: at that speed it would only tilt the
+      // streak off the aim by atan(|carrier|/10000) with no gameplay benefit —
+      // that skew is exactly the "moving while firing misaligns the beam"
+      // complaint. The slow firework (30 m/s) still inherits the platform motion.
+      worldVelocity.copy(worldForward).multiplyScalar(spec.launchSpeed)
+      if (spec.launchSpeed <= 100) {
+        fillCarrierRotatingVelocity(controllerCarrierVelocity)
+        worldVelocity.add(controllerCarrierVelocity)
+      }
       ball.setVelocity(worldVelocity)
     } else if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())

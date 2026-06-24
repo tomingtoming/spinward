@@ -43,6 +43,13 @@ type BallOptions = {
   // Render as an elongated glowing bolt of this length, oriented to the velocity,
   // instead of a sphere. Used by the beam rifle.
   boltLength?: number
+  // Whether this projectile is confined by / bursts on the colony inner wall and
+  // city buildings. False for shots fired from the Exterior vantage (r ≈ 1.6×
+  // radius): the inner-wall confine is an infinite cylinder with no inside/outside
+  // gate and would otherwise teleport them onto the inner wall (hiding balls,
+  // bursting bolts) on their first step. Defaults true so interior callers are
+  // unchanged.
+  confineToHabitat?: boolean
   nowSeconds?: () => number
   onReleased?: (controller: THREE.XRTargetRaySpace, ball: Ball, heldSeconds: number) => void
   onBounce?: (ball: Ball, impactSpeed: number) => void
@@ -79,6 +86,9 @@ const preCollisionVelocity = new THREE.Vector3()
 // The capsule's long axis; bolts orient this toward their velocity.
 const BOLT_AXIS = new THREE.Vector3(0, 1, 0)
 const boltDir = new THREE.Vector3()
+// Sub-metre floor for the drawn bolt length so the residual streak at the spawn
+// instant (before it has flown any distance) is < 1 m, not the full ~400 m.
+const MIN_BOLT_DRAW = 0.5
 
 const createTrailGeometry = (positions: Float32Array) => {
   const geometry = new THREE.BufferGeometry()
@@ -130,6 +140,12 @@ export class Ball {
   private readonly glowColor: THREE.Color | null
   private readonly glowEmissive: THREE.Color | null
   private readonly boltLength: number | null
+  // Muzzle anchor (frame-invariant inertial position at spawn). The DRAWN bolt
+  // length is clamped to how far it has flown from here, so the body grows
+  // forward from the muzzle instead of trailing its full length back through the
+  // shooter at t≈0.
+  private readonly boltSpawnInertial = new THREE.Vector3()
+  private readonly confineToHabitat: boolean
   private exploded = false
 
   constructor(options: BallOptions) {
@@ -149,11 +165,13 @@ export class Ball {
       options.emissive !== undefined ? new THREE.Color(options.color ?? 0xffffff) : null
     this.glowEmissive = options.emissive !== undefined ? new THREE.Color(options.emissive) : null
     this.boltLength = options.boltLength ?? null
+    this.confineToHabitat = options.confineToHabitat ?? true
     this.trailPositions = new Float32Array(this.maxTrailPoints * 3)
     this.inertialTrailPositions = new Float32Array(this.maxTrailPoints * 3)
 
     this.rotatingPosition.copy(options.initialPosition)
     rotatingPositionToInertial(this.rotatingPosition, this.frameAngle, this.inertialPosition)
+    this.boltSpawnInertial.copy(this.inertialPosition)
 
     if (options.initialVelocity !== undefined) {
       this.rotatingVelocity.copy(options.initialVelocity)
@@ -211,6 +229,11 @@ export class Ball {
     }
     this.mesh = new THREE.Mesh(geometry, material)
     this.mesh.position.copy(this.rotatingPosition)
+    if (this.boltLength !== null) {
+      // Start as a sub-metre stub so a bolt rendered before its first step never
+      // flashes at full length through the shooter; orientToVelocity grows it.
+      this.mesh.scale.set(1, MIN_BOLT_DRAW / this.boltLength, 1)
+    }
 
     this.trail = new THREE.Line(
       createTrailGeometry(this.trailPositions),
@@ -328,7 +351,13 @@ export class Ball {
     this.orientToVelocity()
   }
 
-  // Point a bolt mesh along its travel direction (no-op for spheres).
+  // Point a bolt along its travel direction AND grow it forward from the muzzle
+  // (no-op for spheres). The capsule's +Y tip is pinned at local y=0 (= mesh
+  // origin = rigid-body / collision point), so scaling scale.y about the origin
+  // keeps the tip fixed and pulls the tail toward it: the drawn body spans
+  // muzzle→tip and only reaches full boltLength once the bolt has actually flown
+  // boltLength metres (~0.04 s), instead of trailing its whole length back
+  // through the shooter at t≈0.
   private orientToVelocity() {
     if (this.boltLength === null) {
       return
@@ -338,6 +367,13 @@ export class Ball {
       return
     }
     this.mesh.quaternion.setFromUnitVectors(BOLT_AXIS, boltDir.normalize())
+
+    // Frame-invariant chord from the muzzle (curvature over 400 m / 0.04 s is
+    // negligible, so chord ≈ path length). x/z stay at 1 so the cross-section
+    // (thickness) is untouched — only the length compresses.
+    const travelled = this.inertialPosition.distanceTo(this.boltSpawnInertial)
+    const drawn = Math.max(MIN_BOLT_DRAW, Math.min(this.boltLength, travelled))
+    this.mesh.scale.set(1, drawn / this.boltLength, 1)
   }
 
   dispose() {
@@ -446,6 +482,14 @@ export class Ball {
   }
 
   private applyHabitatCollision(config: BallStepConfig) {
+    // Exterior-spawned shots (r ≈ 1.6× radius) are not confined: the infinite-
+    // cylinder inner-wall confine has no inside/outside gate and would teleport
+    // them onto the inner wall — bursting bolts and hiding balls — on step 1. They
+    // currently fly straight through the hull (an outer-hull burst is a separate,
+    // deferred enhancement); this guard only restores their visibility.
+    if (!this.confineToHabitat) {
+      return
+    }
     preCollisionVelocity.copy(this.rotatingVelocity)
     const collidedWall = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
       radius: config.habitatRadius,
