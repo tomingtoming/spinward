@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "bun test",
     "preview": "vite preview",
-    "deploy": "bun run build && bunx wrangler versions upload"
+    "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
@@ -17,9 +17,10 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@types/three": "^0.180.0",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
     "typescript": "^5.9.2",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "wrangler": "^4.104.0"
   }
 }
