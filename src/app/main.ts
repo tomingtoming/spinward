@@ -125,7 +125,9 @@ export const bootstrapApp = async () => {
     azimuth: 0
   }
   const debugVisuals = {
-    showForceVectors: true,
+    // Off by default — the fictitious-force arrows on projectiles are a debug aid,
+    // toggled back on via the debug GUI (?debug).
+    showForceVectors: false,
     forceVectorScale: 0.08,
     showHud: true,
     observerMode: 'colony-fixed' as const,
@@ -1010,8 +1012,11 @@ export const bootstrapApp = async () => {
     }
 
     nearLayer.add(ball.mesh)
-    nearLayer.add(ball.trail)
-    nearLayer.add(ball.inertialTrail)
+    // The beam bolt is its own streak; everything else draws a motion trail.
+    if (spec.trail !== false) {
+      nearLayer.add(ball.trail)
+      nearLayer.add(ball.inertialTrail)
+    }
     if (spec.grabbable) {
       grabSystem.registerTarget(ball.grabTarget)
     }

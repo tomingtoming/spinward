@@ -23,6 +23,9 @@ export type ProjectileSpec = {
   // If set, render as an elongated glowing bolt of this length (oriented to the
   // velocity) rather than a sphere. The beam uses this.
   boltLength?: number
+  // Whether to draw the motion trail behind it (default true). The beam bolt is
+  // its own streak, so it turns this off.
+  trail?: boolean
 }
 
 export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
@@ -44,6 +47,7 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
     // length along travel. Reads as a beam even in the instant it's visible.
     radius: 0.35,
     boltLength: 3.5,
+    trail: false,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
     // Gundam beam-rifle speed. The canonical mega-particle spec is ≥0.1c
