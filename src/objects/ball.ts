@@ -197,12 +197,18 @@ export class Ball {
       emissive: 0x000000
     })
 
-    // A bolt is a capsule stretched along its travel axis; everything else is a
-    // plain sphere.
-    const geometry =
-      this.boltLength !== null
-        ? new THREE.CapsuleGeometry(this.radius, this.boltLength, 6, 16)
-        : new THREE.SphereGeometry(this.radius, 24, 24)
+    // A bolt is a capsule stretched along its travel axis (everything else is a
+    // plain sphere). Shift it so the leading +Y tip sits at the origin: the bolt
+    // then trails BACK from its collision point (orientToVelocity aligns +Y to
+    // the velocity), so a long beam streaks behind its impact instead of poking
+    // hundreds of metres past whatever it hits.
+    let geometry: THREE.BufferGeometry
+    if (this.boltLength !== null) {
+      geometry = new THREE.CapsuleGeometry(this.radius, this.boltLength, 6, 16)
+      geometry.translate(0, -(this.boltLength / 2 + this.radius), 0)
+    } else {
+      geometry = new THREE.SphereGeometry(this.radius, 24, 24)
+    }
     this.mesh = new THREE.Mesh(geometry, material)
     this.mesh.position.copy(this.rotatingPosition)
 

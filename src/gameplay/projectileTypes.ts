@@ -28,6 +28,14 @@ export type ProjectileSpec = {
   trail?: boolean
 }
 
+// The beam flies at Gundam's on-screen mega-particle speed (~10 km/s; the
+// canonical ≥0.1c is an instant invisible flash at colony scale). It is drawn as
+// a bolt long enough to read as a CONTINUOUS ray — proportional to the speed, so
+// the faster it flies the longer the streak (it spans this many seconds of
+// travel, comfortably more than one frame even at 30 fps).
+const BEAM_SPEED = 10000
+const BEAM_LENGTH_SECONDS = 0.04
+
 export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   ball: {
     label: 'Ball',
@@ -43,19 +51,15 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   },
   beam: {
     label: 'Beam',
-    // A thick glowing bolt: the radius is the bolt's cross-section, boltLength its
-    // length along travel. Reads as a beam even in the instant it's visible.
+    // Thick glowing bolt; radius is the cross-section. boltLength scales with the
+    // speed (BEAM_SPEED × BEAM_LENGTH_SECONDS ≈ 400 m) so the fast bolt reads as a
+    // long continuous ray rather than a dot that teleports between frames.
     radius: 0.35,
-    boltLength: 3.5,
+    boltLength: BEAM_SPEED * BEAM_LENGTH_SECONDS,
     trail: false,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
-    // Gundam beam-rifle speed. The canonical mega-particle spec is ≥0.1c
-    // (~30,000 km/s), which at colony scale is an instant invisible flash; this
-    // matches the ON-SCREEN beam instead (frame-by-frame analysis ≈ 10 km/s) so
-    // the bolt still streaks. ~10 km/s also crosses the ~40 km bore within its
-    // lifetime, making it a true long-range beam vs the lobbed ball/firework.
-    launchSpeed: 10000,
+    launchSpeed: BEAM_SPEED,
     lifetimeSeconds: 4,
     explodeOnImpact: true,
     explosionColor: 0x67e8f9,
