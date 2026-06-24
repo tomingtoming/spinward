@@ -40,7 +40,12 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
     radius: 0.1,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
-    launchSpeed: 180,
+    // Gundam beam-rifle speed. The canonical mega-particle spec is ≥0.1c
+    // (~30,000 km/s), which at colony scale is an instant invisible flash; this
+    // matches the ON-SCREEN beam instead (frame-by-frame analysis ≈ 10 km/s) so
+    // the bolt still streaks. ~10 km/s also crosses the ~40 km bore within its
+    // lifetime, making it a true long-range beam vs the lobbed ball/firework.
+    launchSpeed: 10000,
     lifetimeSeconds: 4,
     explodeOnImpact: true,
     explosionColor: 0x67e8f9,
