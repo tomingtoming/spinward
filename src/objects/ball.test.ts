@@ -463,3 +463,242 @@ test('Ball keeps the same real collision result across sim scales', async () => 
   izmaWorld.free()
   elysiumWorld.free()
 })
+
+test('beam bolt grows forward from the muzzle, tip stays the collision point', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const deltaSeconds = 1 / 60
+  const boltLength = 400
+
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0
+    },
+    initialPosition: new THREE.Vector3(0, 0, 0),
+    initialVelocity: new THREE.Vector3(0, 0, -10000),
+    radius: 0.35,
+    boltLength,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  // A bolt rendered before its first step must already be a sub-metre stub, not
+  // the full 400 m rod through the shooter.
+  expect(ball.mesh.scale.y).toBeLessThan(0.01)
+
+  world.timestep = deltaSeconds
+  world.step()
+  ball.step({
+    deltaSeconds,
+    habitatRadius: 100000,
+    habitatLength: 100000,
+    omega: 0,
+    frameAngleEnd: 0,
+    trailMode: 'both'
+  })
+
+  // After one frame (~166 m of travel) the drawn length is a partial fraction,
+  // growing forward from the muzzle — never the full length trailing backward.
+  expect(ball.mesh.scale.y).toBeGreaterThan(0)
+  expect(ball.mesh.scale.y).toBeLessThan(1)
+  // Cross-section (thickness) is untouched; only the length compresses.
+  expect(ball.mesh.scale.x).toBe(1)
+  expect(ball.mesh.scale.z).toBe(1)
+  // The +Y tip is pinned at the mesh origin = the rigid-body / collision point.
+  expectVectorCloseTo(ball.mesh.position, ball.position)
+
+  for (let index = 0; index < 4; index += 1) {
+    world.timestep = deltaSeconds
+    world.step()
+    ball.step({
+      deltaSeconds,
+      habitatRadius: 100000,
+      habitatLength: 100000,
+      omega: 0,
+      frameAngleEnd: 0,
+      trailMode: 'both'
+    })
+  }
+
+  // Once it has flown >= boltLength metres the streak reads as the full ray.
+  expect(ball.mesh.scale.y).toBeCloseTo(1, 5)
+  expectVectorCloseTo(ball.mesh.position, ball.position)
+
+  ball.dispose()
+  world.free()
+})
+
+test('a plain (non-bolt) ball keeps an identity mesh scale', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(0, 0, 0),
+    initialVelocity: new THREE.Vector3(0, 0, -4),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  world.timestep = 1 / 60
+  world.step()
+  ball.step({
+    deltaSeconds: 1 / 60,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0,
+    frameAngleEnd: 0,
+    trailMode: 'both'
+  })
+
+  expect(ball.mesh.scale.x).toBe(1)
+  expect(ball.mesh.scale.y).toBe(1)
+  expect(ball.mesh.scale.z).toBe(1)
+
+  ball.dispose()
+  world.free()
+})
+
+test('an exterior-spawned projectile flies free instead of being confined', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const deltaSeconds = 1 / 60
+
+  // Fired from the Exterior vantage (r ≈ 1.6× radius) and flagged outside.
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0
+    },
+    initialPosition: new THREE.Vector3(160, 0, 0),
+    radius: 0.35,
+    boltLength: 400,
+    explodeOnImpact: true,
+    confineToHabitat: false,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+  ball.setVelocity(new THREE.Vector3(2000, 0, 0))
+
+  let previousRadius = Math.hypot(ball.position.x, ball.position.z)
+  for (let index = 0; index < 8; index += 1) {
+    world.timestep = deltaSeconds
+    world.step()
+    ball.step({
+      deltaSeconds,
+      habitatRadius: 100,
+      habitatLength: 100,
+      omega: 0,
+      frameAngleEnd: 0,
+      trailMode: 'both'
+    })
+    const radius = Math.hypot(ball.position.x, ball.position.z)
+    // It keeps moving outward — never yanked back to the inner radius (~100).
+    expect(radius).toBeGreaterThan(previousRadius)
+    previousRadius = radius
+  }
+
+  // The bolt never bursts on a phantom inner-wall hit, so it stays visible.
+  expect(ball.isExpired()).toBe(false)
+  expect(Math.hypot(ball.position.x, ball.position.z)).toBeGreaterThan(160)
+
+  ball.dispose()
+  world.free()
+})
+
+test('confineToHabitat defaults true and still confines a shot at exterior radius', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+
+  // Same exterior position, but WITHOUT the flag → default true → confined.
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0
+    },
+    initialPosition: new THREE.Vector3(160, 0, 0),
+    radius: 0.35,
+    boltLength: 400,
+    explodeOnImpact: true,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  world.timestep = 1 / 60
+  world.step()
+  ball.step({
+    deltaSeconds: 1 / 60,
+    habitatRadius: 100,
+    habitatLength: 100,
+    omega: 0,
+    frameAngleEnd: 0,
+    trailMode: 'both'
+  })
+
+  // The default-true gate teleports it onto the inner wall and bursts the bolt.
+  expect(ball.isExpired()).toBe(true)
+  expect(Math.hypot(ball.position.x, ball.position.z)).toBeLessThan(100)
+
+  ball.dispose()
+  world.free()
+})
+
+test('a fast beam fired from inside still bursts on the inner wall after tunnelling past it', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+
+  // Spawned just inside the radius-10 wall, flagged inside, with a velocity that
+  // carries it well past r=radius in a single frame (~83 m at 5000 m/s / 60 fps).
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0
+    },
+    initialPosition: new THREE.Vector3(9.5, 0, 0),
+    radius: 0.35,
+    boltLength: 400,
+    explodeOnImpact: true,
+    confineToHabitat: true,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+  ball.setVelocity(new THREE.Vector3(5000, 0, 0))
+
+  world.timestep = 1 / 60
+  world.step()
+  ball.step({
+    deltaSeconds: 1 / 60,
+    habitatRadius: 10,
+    habitatLength: 20,
+    omega: 0,
+    frameAngleEnd: 0,
+    trailMode: 'both'
+  })
+
+  // The spawn-time flag (not a per-frame radial band) keeps confinement active,
+  // so the wall hit registers even though it tunnelled far past the wall.
+  expect(ball.isExpired()).toBe(true)
+  expect(Math.hypot(ball.position.x, ball.position.z)).toBeLessThan(10.3)
+
+  ball.dispose()
+  world.free()
+})
