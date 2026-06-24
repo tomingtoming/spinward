@@ -88,3 +88,114 @@ export const formatVrControlsText = (): string =>
       `${section.title} — ` +
       section.bindings.map((b) => `${b.input}: ${b.action}`).join(' | ')
   ).join('  //  ')
+
+// PC (keyboard + mouse) scheme, same shape as the VR legend so the wrist /
+// quick-panel legend and the HUD drawer can render whichever the platform is.
+export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
+  {
+    mode: 'grounded',
+    title: 'ON FOOT',
+    bindings: [
+      { input: 'WASD', action: 'Walk' },
+      { input: 'Mouse / arrows', action: 'Look' },
+      { input: 'Space', action: 'Jump → fly' },
+      { input: 'Click', action: 'Throw (hold = charge)' },
+      { input: 'X', action: 'Cycle projectile' },
+      { input: '1–4', action: 'Travel / warp' },
+      { input: 'E', action: 'Drive (near car)' }
+    ]
+  },
+  {
+    mode: 'free-fly',
+    title: 'FLYING',
+    bindings: [
+      { input: 'WASD', action: 'Thrust' },
+      { input: 'Space', action: 'Ascend' },
+      { input: 'Shift', action: 'Descend' },
+      { input: 'Q / E', action: 'Roll' },
+      { input: 'B', action: 'Roll brake' },
+      { input: 'Click', action: 'Fire / throw' },
+      { input: 'F', action: 'Launch' },
+      { input: '1–4', action: 'Travel / warp' }
+    ]
+  },
+  {
+    mode: 'driving',
+    title: 'DRIVING',
+    bindings: [
+      { input: 'W / S', action: 'Drive' },
+      { input: 'A / D', action: 'Steer' },
+      { input: 'Space', action: 'Brake' },
+      { input: 'E', action: 'Exit' }
+    ]
+  }
+]
+
+// SP (touchscreen) scheme.
+export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
+  {
+    mode: 'grounded',
+    title: 'ON FOOT',
+    bindings: [
+      { input: 'L stick', action: 'Walk' },
+      { input: 'Drag', action: 'Look' },
+      { input: 'Tap', action: 'Throw' },
+      { input: 'Buttons', action: 'Jump / travel' },
+      { input: 'Gyro btn', action: 'Tilt-look' }
+    ]
+  },
+  {
+    mode: 'free-fly',
+    title: 'FLYING',
+    bindings: [
+      { input: 'L stick', action: 'Move' },
+      { input: 'Drag', action: 'Look' },
+      { input: 'Tap', action: 'Fire / throw' },
+      { input: 'Buttons', action: 'Travel / warp' }
+    ]
+  },
+  {
+    mode: 'driving',
+    title: 'DRIVING',
+    bindings: [
+      { input: 'Stick', action: 'Drive / steer' },
+      { input: 'Button', action: 'Brake / exit' }
+    ]
+  }
+]
+
+export const PC_CONTROL_SUMMARY =
+  'WASD + mouse · click throws (hold to charge) · X cycles ammo · 1–4 travel'
+export const SP_CONTROL_SUMMARY =
+  'Left stick walks · drag to look · tap throws · buttons jump / travel'
+
+export type ControlPlatform = 'pc' | 'sp' | 'vr'
+
+// The legend + one-line summary for a platform — the single switch the legend
+// renderer and the HUD drawer both read.
+export const getControlScheme = (
+  platform: ControlPlatform
+): { summary: string; sections: readonly ControlSection[]; prefix: string } => {
+  if (platform === 'pc') {
+    return { summary: PC_CONTROL_SUMMARY, sections: PC_CONTROL_LEGEND, prefix: 'PC' }
+  }
+  if (platform === 'sp') {
+    return { summary: SP_CONTROL_SUMMARY, sections: SP_CONTROL_LEGEND, prefix: 'Mobile' }
+  }
+  return { summary: VR_CONTROL_SUMMARY, sections: VR_CONTROL_LEGEND, prefix: 'VR' }
+}
+
+// Compact single-line controls string for the HUD drawer, for any platform.
+export const formatControlsText = (platform: ControlPlatform): string => {
+  const { sections, prefix } = getControlScheme(platform)
+  return (
+    `${prefix} — ` +
+    sections
+      .map(
+        (section) =>
+          `${section.title}: ` +
+          section.bindings.map((b) => `${b.input}: ${b.action}`).join(' | ')
+      )
+      .join('  //  ')
+  )
+}

@@ -4,12 +4,15 @@ import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
 import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
+import type { ControlPlatform } from '../../xr/controlScheme'
 import type { LocomotionProfileId } from '../../xr/locomotionProfile'
 import type { WatchActionId } from './watchLayout'
 import { parseWatchParameterAction } from './watchSchema'
 
 export type WatchRenderSnapshot = {
   playerMode: PlayerTraversalMode
+  // Which control scheme the legend should show (PC / SP / VR).
+  platform: ControlPlatform
   region: 'inside' | 'outside'
   watchMenuOpen: boolean
   observerMode: ObserverMode
@@ -60,6 +63,7 @@ export const createWatchRenderSnapshot = (
   settingsStore: SettingsStore,
   runtime: {
     playerMode: PlayerTraversalMode
+    platform: ControlPlatform
     region: 'inside' | 'outside'
     watchMenuOpen: boolean
     observerMode: ObserverMode
@@ -76,6 +80,7 @@ export const createWatchRenderSnapshot = (
   }
 ): WatchRenderSnapshot => ({
   playerMode: runtime.playerMode,
+  platform: runtime.platform,
   region: runtime.region,
   watchMenuOpen: runtime.watchMenuOpen,
   observerMode: runtime.observerMode,

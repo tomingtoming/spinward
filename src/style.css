@@ -173,6 +173,26 @@ button {
   border-color: rgba(103, 232, 249, 0.45);
 }
 
+/* Tappable chip — the projectile indicator doubles as the switch (esp. on touch,
+   where there is no X key). Stays visible on narrow phones (not a --metric). */
+.hud-chip--tap {
+  cursor: pointer;
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.45);
+  touch-action: manipulation;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.hud-chip--tap:hover {
+  border-color: rgba(103, 232, 249, 0.75);
+  background: rgba(12, 30, 42, 0.85);
+}
+
+.hud-chip--tap:active {
+  background: rgba(103, 232, 249, 0.18);
+}
+
 .hud-chip--grounded {
   color: #34d399;
   border-color: rgba(52, 211, 153, 0.4);

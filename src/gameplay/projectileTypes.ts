@@ -20,7 +20,21 @@ export type ProjectileSpec = {
   explosionRadius: number
   // Whether the right-hand can grab/hold it (only the ball; bolts fire on press).
   grabbable: boolean
+  // If set, render as an elongated glowing bolt of this length (oriented to the
+  // velocity) rather than a sphere. The beam uses this.
+  boltLength?: number
+  // Whether to draw the motion trail behind it (default true). The beam bolt is
+  // its own streak, so it turns this off.
+  trail?: boolean
 }
+
+// The beam flies at Gundam's on-screen mega-particle speed (~10 km/s; the
+// canonical ≥0.1c is an instant invisible flash at colony scale). It is drawn as
+// a bolt long enough to read as a CONTINUOUS ray — proportional to the speed, so
+// the faster it flies the longer the streak (it spans this many seconds of
+// travel, comfortably more than one frame even at 30 fps).
+const BEAM_SPEED = 10000
+const BEAM_LENGTH_SECONDS = 0.04
 
 export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   ball: {
@@ -37,10 +51,15 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   },
   beam: {
     label: 'Beam',
-    radius: 0.1,
+    // Thick glowing bolt; radius is the cross-section. boltLength scales with the
+    // speed (BEAM_SPEED × BEAM_LENGTH_SECONDS ≈ 400 m) so the fast bolt reads as a
+    // long continuous ray rather than a dot that teleports between frames.
+    radius: 0.35,
+    boltLength: BEAM_SPEED * BEAM_LENGTH_SECONDS,
+    trail: false,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
-    launchSpeed: 60,
+    launchSpeed: BEAM_SPEED,
     lifetimeSeconds: 4,
     explodeOnImpact: true,
     explosionColor: 0x67e8f9,
