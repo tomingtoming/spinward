@@ -37,7 +37,9 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   },
   beam: {
     label: 'Beam',
-    radius: 0.1,
+    // A fat glowing bolt — the beam reads thick even in the brief instant it is
+    // visible at Gundam speed.
+    radius: 0.4,
     color: 0xc8f7ff,
     emissive: 0x4fd6ff,
     // Gundam beam-rifle speed. The canonical mega-particle spec is ≥0.1c

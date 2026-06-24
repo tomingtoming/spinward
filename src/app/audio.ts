@@ -171,6 +171,39 @@ export class GameAudio {
     ping.stop(now + 0.14)
   }
 
+  // Heavy boom for the beam / firework bursts: a deep falling sine for weight
+  // plus a low noise crack — much heavier than the ball's playBounce ping.
+  // `loudness` is 0..1 (nearer impacts louder).
+  playExplosion(loudness: number) {
+    const ctx = this.context
+    const master = this.master
+
+    if (ctx === null || master === null) {
+      return
+    }
+
+    const now = ctx.currentTime
+    const level = Math.min(0.6, 0.3 + Math.max(0, Math.min(1, loudness)) * 0.3)
+
+    // Deep body: a sine sweeping down low for chest-thump weight.
+    const boom = ctx.createOscillator()
+    boom.type = 'sine'
+    boom.frequency.setValueAtTime(120, now)
+    boom.frequency.exponentialRampToValueAtTime(32, now + 0.45)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(level, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6)
+
+    boom.connect(gain)
+    gain.connect(master)
+    boom.start(now)
+    boom.stop(now + 0.62)
+
+    // A low, fast-falling noise crack layered on top of the boom.
+    this.playNoiseSweep(700, 110, level * 0.7, 0.28)
+  }
+
   // Distinct rising chirp when locomotion flips grounded<->free-fly.
   playModeChange() {
     const ctx = this.context

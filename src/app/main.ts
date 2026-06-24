@@ -911,7 +911,9 @@ export const bootstrapApp = async () => {
       physics: {
         rapier,
         world: physicsWorld,
-        restitution,
+        // Bolts don't bounce — they burst in place on first contact (restitution
+        // 0 kills the rebound; explodeOnImpact despawns them the same frame).
+        restitution: spec.explodeOnImpact ? 0 : restitution,
         units: getUnits()
       },
       initialPosition: worldPosition.clone().add(spawnOffset),
@@ -926,9 +928,13 @@ export const bootstrapApp = async () => {
       omega,
       onBounce: (bouncedBall, impactSpeed) => {
         const distance = bouncedBall.position.distanceTo(playerFixedColliderPosition)
-        audio.playBounce(impactSpeed * Math.min(1, 12 / (distance + 3)))
+        const nearness = Math.min(1, 12 / (distance + 3))
         if (spec.explodeOnImpact) {
           explosions.spawn(bouncedBall.position, spec.explosionColor, spec.explosionRadius)
+          // Heavy boom for bolts instead of the ball's light bounce ping.
+          audio.playExplosion(nearness)
+        } else {
+          audio.playBounce(impactSpeed * nearness)
         }
       },
       onReleased: (controller, releasedBall, heldSeconds) => {
