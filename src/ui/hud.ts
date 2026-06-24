@@ -61,7 +61,7 @@ const makeChip = (className: string) => {
 
 // `mount` is the dock's left cluster. The HUD's pieces flow inline there; the
 // CONTROL / DEBUG drawers become pill toggles whose text pops up ABOVE the bar.
-export const createHud = (mount: HTMLElement): HudHandle => {
+export const createHud = (mount: HTMLElement, onCycleProjectile: () => void): HudHandle => {
   const root = document.createElement('div')
   // display:contents — the wrapper exists only so setVisible can hide the group.
   root.className = 'hud'
@@ -121,7 +121,16 @@ export const createHud = (mount: HTMLElement): HudHandle => {
   const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
   const ballsChip = makeChip('hud-chip--metric')
-  const projectileChip = makeChip('hud-chip--metric')
+  // The projectile indicator doubles as the switch: tap/click it to cycle the
+  // throwable (the only way on a touchscreen). It is NOT a --metric chip, so it
+  // stays visible on narrow phones where the readouts are dropped.
+  const projectileChip = makeChip('hud-chip--tap')
+  projectileChip.title = 'Tap to switch projectile (X)'
+  projectileChip.addEventListener('pointerdown', (event) => event.stopPropagation())
+  projectileChip.addEventListener('click', (event) => {
+    event.preventDefault()
+    onCycleProjectile()
+  })
   const dockChip = makeChip('')
 
   root.append(

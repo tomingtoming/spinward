@@ -840,7 +840,7 @@ export const bootstrapApp = async () => {
   const currentControlPlatform = (): ControlPlatform =>
     renderer.xr.isPresenting ? 'vr' : isTouchDevice() ? 'sp' : 'pc'
 
-  const hud = createHud(dock.left)
+  const hud = createHud(dock.left, () => cycleSelectedProjectile())
   hud.setControls(currentControlPlatform())
   renderer.xr.addEventListener('sessionstart', () => hud.setControls(currentControlPlatform()))
   renderer.xr.addEventListener('sessionend', () => hud.setControls(currentControlPlatform()))
