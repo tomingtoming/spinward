@@ -702,3 +702,62 @@ test('a fast beam fired from inside still bursts on the inner wall after tunnell
   ball.dispose()
   world.free()
 })
+
+test('a bolt with initialAim is oriented down the shot axis on construction (no vertical stub)', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+
+  const aim = new THREE.Vector3(0, 0, -1)
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0
+    },
+    initialPosition: new THREE.Vector3(0, 0, 0),
+    radius: 0.35,
+    boltLength: 400,
+    initialAim: aim,
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  // The mesh is already rotated (not identity) the moment it is constructed —
+  // no single frame standing vertically (+Y) at the muzzle.
+  expect(ball.mesh.quaternion.equals(new THREE.Quaternion())).toBe(false)
+  // BOLT_AXIS (+Y) maps to the aim direction.
+  const pointed = new THREE.Vector3(0, 1, 0).applyQuaternion(ball.mesh.quaternion)
+  expect(pointed.x).toBeCloseTo(aim.x, 5)
+  expect(pointed.y).toBeCloseTo(aim.y, 5)
+  expect(pointed.z).toBeCloseTo(aim.z, 5)
+
+  ball.dispose()
+  world.free()
+})
+
+test('initialAim is ignored for a non-bolt ball (no orientation applied)', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+
+  const ball = new Ball({
+    physics: {
+      rapier,
+      world,
+      restitution: 0.4
+    },
+    initialPosition: new THREE.Vector3(0, 0, 0),
+    initialAim: new THREE.Vector3(0, 0, -1),
+    maxTrailPoints: 16,
+    lifetimeSeconds: 30,
+    frameAngle: 0,
+    omega: 0
+  })
+
+  // No boltLength → no bolt mesh → the aim never rotates the sphere.
+  expect(ball.mesh.quaternion.equals(new THREE.Quaternion())).toBe(true)
+
+  ball.dispose()
+  world.free()
+})

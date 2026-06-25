@@ -43,6 +43,9 @@ type BallOptions = {
   // Render as an elongated glowing bolt of this length, oriented to the velocity,
   // instead of a sphere. Used by the beam rifle.
   boltLength?: number
+  // Unit aim direction used purely to orient a bolt mesh before its first step
+  // (does NOT set physics velocity — keep separate from initialVelocity).
+  initialAim?: THREE.Vector3
   // Whether this projectile is confined by / bursts on the colony inner wall and
   // city buildings. False for shots fired from the Exterior vantage (r ≈ 1.6×
   // radius): the inner-wall confine is an infinite cylinder with no inside/outside
@@ -233,6 +236,15 @@ export class Ball {
       // Start as a sub-metre stub so a bolt rendered before its first step never
       // flashes at full length through the shooter; orientToVelocity grows it.
       this.mesh.scale.set(1, MIN_BOLT_DRAW / this.boltLength, 1)
+      // Orient to the known aim immediately so the stub points down the shot axis
+      // on frame 0 instead of standing vertically (+Y) at the muzzle. Same
+      // BOLT_AXIS(+Y) convention as orientToVelocity, so the tip stays at the spawn.
+      if (options.initialAim !== undefined && options.initialAim.lengthSq() > 1e-6) {
+        this.mesh.quaternion.setFromUnitVectors(
+          BOLT_AXIS,
+          boltDir.copy(options.initialAim).normalize()
+        )
+      }
     }
 
     this.trail = new THREE.Line(
