@@ -445,6 +445,7 @@ export const bootstrapApp = async () => {
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
   const worldPosition = new THREE.Vector3()
+  const controllerWorldProbe = new THREE.Vector3()
   const worldVelocity = new THREE.Vector3()
   const controllerLocalVelocity = new THREE.Vector3()
   const controllerCarrierVelocity = new THREE.Vector3()
@@ -531,8 +532,15 @@ export const bootstrapApp = async () => {
         return null
       }
 
+      // The bolt's POSITION should come from the visible hand (grip), but the
+      // event only hands us the target-ray controller — look its grip up by
+      // identity. Undefined (no match) falls back to the controller in spawn.
+      const firingGrip = grabSystem
+        .getControllers()
+        .find((c) => c.controller === controller)?.grip
       const projectile = spawnProjectile(selectedProjectile, {
         origin: controller,
+        positionSource: firingGrip,
         releasedByController: controller
       })
       // Bolts fire on the trigger press; only the grabbable ball is held to throw.
@@ -892,10 +900,14 @@ export const bootstrapApp = async () => {
     type: ProjectileType,
     {
       origin,
+      positionSource,
       releasedByController,
       heldSeconds = 0
     }: {
       origin: THREE.Object3D
+      // Visible-hand (grip) space used for the SPAWN POSITION while `origin`
+      // (target-ray) stays the AIM. Optional: desktop falls back to `origin`.
+      positionSource?: THREE.Object3D
       releasedByController?: THREE.XRTargetRaySpace
       // Desktop ball charge: how long the mouse was held (0 = a plain tap).
       heldSeconds?: number
@@ -904,12 +916,30 @@ export const bootstrapApp = async () => {
     const spec = PROJECTILES[type]
     const omega = rpmToOmega(habitatConfig.rpm)
 
-    // Balls spawn slightly in front of the hand/camera so they do not self-intersect on release.
-    origin.getWorldPosition(worldPosition)
+    // POSITION comes from the visible hand (grip) when present; AIM always comes
+    // from the target-ray `origin`. three.js getControllerGrip returns a non-null
+    // object even before it is posed, when its world matrix is still at the rig
+    // origin — so `?? origin` alone is not enough. Fall back to the target-ray
+    // controller unless the grip resolves to a position close to it (i.e. it is
+    // actually tracked); a collapsed/unposed grip sits metres away at the rig
+    // centre and would otherwise spawn the shot at the player's feet.
+    let posSource: THREE.Object3D = positionSource ?? origin
+    if (positionSource !== undefined && positionSource !== origin) {
+      positionSource.getWorldPosition(worldPosition)
+      origin.getWorldPosition(controllerWorldProbe)
+      if (worldPosition.distanceToSquared(controllerWorldProbe) > 0.25) {
+        posSource = origin
+      }
+    }
+    posSource.getWorldPosition(worldPosition)
     getForwardDirection(origin, worldForward)
     // Spawn just ahead of the muzzle. A bolt's body trails BACK from here (its
-    // leading tip is the collision point), so we don't push it out by its length.
-    spawnOffset.copy(worldForward).multiplyScalar(0.35)
+    // leading tip is the collision point). Grabbable balls keep the 0.35 m push
+    // that stops a released ball clipping the hand; fire-and-forget bolts
+    // (radius 0.35, explodeOnImpact) clear the hand by >= their own radius so they
+    // don't risk a point-blank self-burst.
+    const muzzleOffset = spec.grabbable ? 0.35 : 0.4
+    spawnOffset.copy(worldForward).multiplyScalar(muzzleOffset)
 
     // Decide inside-vs-outside the colony ONCE here, from the spawn position.
     // A fast beam tunnels r<radius → r>>radius in a single frame, so a per-frame
@@ -938,6 +968,10 @@ export const bootstrapApp = async () => {
       emissive: spec.emissive !== 0 ? spec.emissive : undefined,
       explodeOnImpact: spec.explodeOnImpact,
       boltLength: spec.boltLength,
+      // Orient the bolt mesh on frame 0 so it never flashes as a vertical stub
+      // before the first step() runs orientToVelocity. Gated on boltLength so it
+      // is a no-op for the firework (no bolt mesh). worldForward is the aim.
+      initialAim: spec.boltLength !== undefined ? worldForward.clone() : undefined,
       confineToHabitat: insideHabitat,
       maxTrailPoints: habitatConfig.maxTrailPoints,
       lifetimeSeconds:
