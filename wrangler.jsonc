@@ -1,7 +1,11 @@
 {
   // Static-assets-only Worker: Vite builds the site to dist/ and Cloudflare
-  // serves it directly. There is no Worker script (no `main`), so the deploy
-  // command `wrangler versions upload` just uploads the built assets.
+  // serves it directly. There is no Worker script (no `main`). `bun run deploy`
+  // runs `wrangler deploy`, which uploads the built assets AND activates them as
+  // the live deployment (100%) in one step. (`versions upload` only stages a
+  // version without promoting it, so the live site would not change — that was a
+  // past footgun.) wrangler is pinned in devDependencies so `bun run deploy`
+  // always resolves the modern CLI from node_modules, never a stray global.
   "name": "spinward",
   "compatibility_date": "2026-06-17",
   "assets": {
