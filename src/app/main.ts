@@ -66,7 +66,6 @@ import {
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
-import { DockingGuide, computeDockingGuideState } from '../objects/dockingGuide'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
@@ -440,7 +439,6 @@ export const bootstrapApp = async () => {
 
   parkCarNearPlaza()
   const balls: Ball[] = []
-  const dockingGuide = new DockingGuide()
   const forceVectorArrows = new ForceVectorArrows()
   const controllerVelocity = new ControllerVelocityTracker()
   const worldForward = new THREE.Vector3()
@@ -504,7 +502,6 @@ export const bootstrapApp = async () => {
   throwDebugArrow.visible = false
   nearLayer.add(throwDebugArrow)
   nearLayer.add(forceVectorArrows.group)
-  nearLayer.add(dockingGuide.group)
 
   const grabSystem = new GrabSystem({
     scene,
@@ -1641,15 +1638,6 @@ export const bootstrapApp = async () => {
     }
     camera.getWorldPosition(eyeWorldPrev)
     hasEyePrev = true
-
-    dockingGuide.update(
-      computeDockingGuideState(playerTraversal, {
-        radius: habitatConfig.radius,
-        length: habitatSpan,
-        frameAngle,
-        ready: reattachStatus?.canAttach ?? false
-      })
-    )
 
     for (const ball of balls) {
       ball.step({

@@ -51,10 +51,13 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
   },
   beam: {
     label: 'Beam',
-    // Thick glowing bolt; radius is the cross-section. boltLength scales with the
-    // speed (BEAM_SPEED × BEAM_LENGTH_SECONDS ≈ 400 m) so the fast bolt reads as a
-    // long continuous ray rather than a dot that teleports between frames.
-    radius: 0.35,
+    // Glowing bolt; radius is the cross-section (it also sets the collider). Sized
+    // so the bolt's DIAMETER (2 × 0.14 = 0.28 m) matches the firework projectile's
+    // diameter (2 × radius 0.14) — a thin, clean shaft of light. boltLength scales
+    // with the speed (BEAM_SPEED × BEAM_LENGTH_SECONDS ≈ 400 m) so the fast bolt
+    // reads as a long continuous ray rather than a dot that teleports between
+    // frames.
+    radius: 0.14,
     boltLength: BEAM_SPEED * BEAM_LENGTH_SECONDS,
     trail: false,
     color: 0xc8f7ff,
