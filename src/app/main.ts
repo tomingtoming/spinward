@@ -1035,17 +1035,18 @@ export const bootstrapApp = async () => {
     })
 
     if (spec.launchSpeed > 0) {
-      // Fire-and-forget bolts launch instantly at a fixed muzzle speed. A fast
-      // beam (10 km/s) flies straight down the aim axis, so we do NOT blend in the
-      // carrier (player/vehicle) velocity: at that speed it would only tilt the
-      // streak off the aim by atan(|carrier|/10000) with no gameplay benefit —
-      // that skew is exactly the "moving while firing misaligns the beam"
-      // complaint. The slow firework (30 m/s) still inherits the platform motion.
-      worldVelocity.copy(worldForward).multiplyScalar(spec.launchSpeed)
-      if (spec.launchSpeed <= 100) {
-        fillCarrierRotatingVelocity(controllerCarrierVelocity)
-        worldVelocity.add(controllerCarrierVelocity)
-      }
+      // Fire-and-forget bolts launch instantly at a fixed muzzle speed PLUS the
+      // thrower's own motion. The carrier velocity matters even for the 10 km/s
+      // beam: it keeps the bolt riding with a MOVING shooter so the streak stays
+      // attached to the hand instead of being left behind (a beam fired while
+      // jetpacking would otherwise trail off to the side of the moving hand).
+      // The aim skew it adds is atan(|carrier|/launchSpeed) — negligible for the
+      // beam, correct platform-inheritance for the slow firework.
+      fillCarrierRotatingVelocity(controllerCarrierVelocity)
+      worldVelocity
+        .copy(worldForward)
+        .multiplyScalar(spec.launchSpeed)
+        .add(controllerCarrierVelocity)
       ball.setVelocity(worldVelocity)
     } else if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())

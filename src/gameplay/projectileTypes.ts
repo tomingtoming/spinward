@@ -63,7 +63,10 @@ export const PROJECTILES: Record<ProjectileType, ProjectileSpec> = {
     lifetimeSeconds: 4,
     explodeOnImpact: true,
     explosionColor: 0x67e8f9,
-    explosionRadius: 1.6,
+    // The beam bursts FAR away (10 km/s → it reaches a distant wall in a blink),
+    // so its burst must be large to read at range — bigger than the firework's,
+    // which detonates close to the thrower.
+    explosionRadius: 7,
     grabbable: false
   },
   firework: {
