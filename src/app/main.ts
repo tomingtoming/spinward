@@ -932,10 +932,17 @@ export const bootstrapApp = async () => {
     getForwardDirection(origin, worldForward)
     // Spawn just ahead of the muzzle. A bolt's body trails BACK from here (its
     // leading tip is the collision point). Grabbable balls keep the 0.35 m push
-    // that stops a released ball clipping the hand; fire-and-forget bolts
-    // (radius 0.35, explodeOnImpact) clear the hand by >= their own radius so they
-    // don't risk a point-blank self-burst.
-    const muzzleOffset = spec.grabbable ? 0.35 : 0.4
+    // that stops a released ball clipping the hand. Fire-and-forget bolts spawn at
+    // the visible hand (grip) plus only a SMALL clearance along the aim — their own
+    // radius plus a ~5 cm pad — so the beam/firework reads as leaving the HAND. The
+    // old fixed 0.4 m was sized for a 0.35 m-radius bolt, but the beam radius was
+    // later cut to 0.14 m (projectileTypes) and the offset was never followed down:
+    // 0.4 m along the Quest target-ray (which tilts ~20° below the grip) put the
+    // streak ~0.38 m ahead of AND ~0.14 m below the hand — the "発射源ずれ" the user
+    // kept seeing. Tying the offset to spec.radius keeps it from being orphaned
+    // again. Safe at the hand: explodeOnImpact only bursts on the wall/city, never
+    // the player, so a hand-adjacent muzzle cannot self-burst.
+    const muzzleOffset = spec.grabbable ? 0.35 : spec.radius + 0.05
     spawnOffset.copy(worldForward).multiplyScalar(muzzleOffset)
 
     // Decide inside-vs-outside the colony ONCE here, from the spawn position.
