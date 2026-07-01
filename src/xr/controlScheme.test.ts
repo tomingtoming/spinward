@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import {
   VR_CONTROL_LEGEND,
   XR_BUTTON,
+  formatModeControlsLine,
   formatVrControlsText,
   legendForMode
 } from './controlScheme'
@@ -46,6 +47,15 @@ test('scheme C contract: left grip stops in flight, climbs on the ground', () =>
   expect(actionFor('free-fly', 'L Grip')).toMatch(/stop|brake/i)
   // Forward thrust is the left trigger in flight.
   expect(actionFor('free-fly', 'L Trigger')).toMatch(/thrust/i)
+})
+
+test('formatModeControlsLine renders that platform\'s bindings for one mode', () => {
+  expect(formatModeControlsLine('pc', 'driving')).toBe(
+    'W / S: Drive · A / D: Steer · Space: Brake · E: Exit'
+  )
+  expect(formatModeControlsLine('sp', 'driving')).toBe(
+    'Stick: Drive / steer · Button: Brake / exit'
+  )
 })
 
 test('formatVrControlsText renders every mode and binding for the HUD', () => {

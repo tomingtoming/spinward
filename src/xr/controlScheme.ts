@@ -185,6 +185,18 @@ export const getControlScheme = (
   return { summary: VR_CONTROL_SUMMARY, sections: VR_CONTROL_LEGEND, prefix: 'VR' }
 }
 
+// One mode's bindings as a single line, e.g. for the tour card that
+// introduces driving — reuses the same per-platform sections as the HUD
+// drawer and the watch legend so the three can never drift apart.
+export const formatModeControlsLine = (
+  platform: ControlPlatform,
+  mode: ControlMode
+): string => {
+  const { sections } = getControlScheme(platform)
+  const section = sections.find((s) => s.mode === mode) ?? sections[0]
+  return section.bindings.map((b) => `${b.input}: ${b.action}`).join(' · ')
+}
+
 // Compact single-line controls string for the HUD drawer, for any platform.
 export const formatControlsText = (platform: ControlPlatform): string => {
   const { sections, prefix } = getControlScheme(platform)

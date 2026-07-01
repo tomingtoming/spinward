@@ -38,6 +38,10 @@ const MAX_PITCH = Math.PI * 0.48
 const STICK_RADIUS_PX = 64
 // Left fraction of the screen acts as the movement stick.
 const MOVE_ZONE_FRACTION = 0.42
+// Breathing room between the gameplay buttons and the dock row measured
+// below them — the dock's own height varies with viewport width and which
+// chips are visible, so it is measured live rather than guessed.
+const DOCK_GAP_PX = 10
 
 // Touch / smartphone layer. Two simultaneous pointers: the left zone is a
 // floating virtual stick (walk / fly / drive), the right zone drags the view
@@ -73,11 +77,15 @@ export class MobileControls {
   private brakeHeld = false
   private driving = false
   private enabled = true
+  private lastClearancePx = -1
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly element: HTMLElement,
-    private readonly handlers: MobileControlHandlers
+    private readonly handlers: MobileControlHandlers,
+    // The dock bar this row must clear — its height varies with viewport
+    // width and chip visibility, so the gap is measured, not guessed.
+    private readonly dockRoot: HTMLElement | null = null
   ) {
     this.overlay = document.createElement('div')
     // Styled via .mobile-controls; sits above three.js's VRButton.
@@ -145,6 +153,8 @@ export class MobileControls {
       return
     }
 
+    this.syncDockClearance()
+
     if (this.gyroEnabled && this.hasGyroSample) {
       computeDeviceOrientationQuaternion(
         this.gyroAlpha,
@@ -155,6 +165,39 @@ export class MobileControls {
       )
       this.camera.quaternion.copy(this.gyroQuaternion)
     }
+  }
+
+  // Screen-space height (px) this row currently occupies from the very
+  // bottom of the viewport — read by the tour card panel so it can lift
+  // itself clear of these buttons in landscape (see main.ts).
+  getReservedBottomHeight(): number {
+    if (!this.enabled) {
+      return 0
+    }
+
+    return Math.max(0, window.innerHeight - this.overlay.getBoundingClientRect().top)
+  }
+
+  // Keeps this row's `bottom` offset just above the dock's actual rendered
+  // height instead of a static guess, which drifts wrong whenever the dock
+  // wraps to a different number of rows (narrow phones, chip visibility).
+  private syncDockClearance() {
+    if (this.dockRoot === null) {
+      return
+    }
+
+    const dockRect = this.dockRoot.getBoundingClientRect()
+    if (dockRect.height === 0) {
+      return
+    }
+
+    const clearance = Math.round(Math.max(0, window.innerHeight - dockRect.top) + DOCK_GAP_PX)
+    if (clearance === this.lastClearancePx) {
+      return
+    }
+
+    this.lastClearancePx = clearance
+    this.overlay.style.bottom = `${clearance}px`
   }
 
   // Stick deflection: forward in [-1, 1] (up is +), right in [-1, 1].

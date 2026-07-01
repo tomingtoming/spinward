@@ -534,10 +534,10 @@ body.is-vr-entry #VRButton {
     font-size: 28px;
   }
 
-  /* Lift the gameplay buttons clear of the dock bar (up to two rows tall). */
-  .mobile-controls {
-    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-  }
+  /* Clearance above the dock is measured live and applied as an inline style
+     (MobileControls.syncDockClearance) — the dock's height depends on how
+     many rows it wraps to, which varies with width and visible chips, so a
+     fixed guess here drifts wrong (it used to be a static 86px). */
 
   .mobile-controls button {
     padding: 12px 13px;

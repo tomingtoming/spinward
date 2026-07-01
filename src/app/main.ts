@@ -52,6 +52,7 @@ import {
 import {
   createTourGuideState,
   notifyTourEvent,
+  resolveTourCard,
   stepTourGuide
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
@@ -291,20 +292,30 @@ export const bootstrapApp = async () => {
     camera,
     renderer.domElement
   )
+  // One bottom row holds everything: the ☰ opens the same config panel as Tab.
+  // Created before mobileControls so its button row can measure the dock's
+  // actual height and stay clear of it (see MobileControls.dockRoot).
+  const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
+
   // The Quest browser reports as a touch device, so the on-screen controls are
   // built there too: they remain the usable fallback if immersive VR turns out
   // unavailable, and get switched off below once a VR session is confirmed.
   const mobileControls = isTouchDevice()
-    ? new MobileControls(camera, renderer.domElement, {
-        onThrow: () => requestDesktopThrow(),
-        onJump: () => {
-          desktopJumpQueued = true
+    ? new MobileControls(
+        camera,
+        renderer.domElement,
+        {
+          onThrow: () => requestDesktopThrow(),
+          onJump: () => {
+            desktopJumpQueued = true
+          },
+          onToggleDrive: () => tryToggleDrive(),
+          onToggleSettings: () => desktopQuickPanel.toggle(),
+          isUiPointerBlocked: () => desktopQuickPanel.isVisible,
+          onUserInput: () => desktopLookControls.cancelIntroReveal()
         },
-        onToggleDrive: () => tryToggleDrive(),
-        onToggleSettings: () => desktopQuickPanel.toggle(),
-        isUiPointerBlocked: () => desktopQuickPanel.isVisible,
-        onUserInput: () => desktopLookControls.cancelIntroReveal()
-      })
+        dock.root
+      )
     : null
 
   // VR entry + fullscreen affordances, by device class:
@@ -317,8 +328,6 @@ export const bootstrapApp = async () => {
   //    "ENTER VR" call-to-action with the unreachable touch stick switched off.
   //    If immersive VR is unavailable the touch controls stay, so the headset
   //    is never a dead end.
-  // One bottom row holds everything: the ☰ opens the same config panel as Tab.
-  const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
 
   // VR is a right-hand action → right cluster. Fullscreen is a system toggle →
   // grouped with the menu in the left cluster (right after ☰).
@@ -1919,11 +1928,15 @@ export const bootstrapApp = async () => {
             ))
       )
     }
-    tourCardPanel.update(stepTourGuide(tourGuide, deltaSeconds), {
-      camera: desktopUiCamera,
-      deltaSeconds,
-      xrActive: renderer.xr.isPresenting
-    })
+    tourCardPanel.update(
+      resolveTourCard(stepTourGuide(tourGuide, deltaSeconds), currentControlPlatform()),
+      {
+        camera: desktopUiCamera,
+        deltaSeconds,
+        xrActive: renderer.xr.isPresenting,
+        bottomClearancePx: mobileControls?.getReservedBottomHeight() ?? 0
+      }
+    )
     if (bloomComposer !== null && bloomRenderPass !== null && !renderer.xr.isPresenting) {
       bloomRenderPass.camera = desktopUiCamera
       if (bloomPass !== null) {

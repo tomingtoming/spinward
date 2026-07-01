@@ -15,7 +15,18 @@ type TourCardView = {
   camera: THREE.Camera
   deltaSeconds: number
   xrActive: boolean
+  // Screen-space height (px) reserved by the on-screen touch controls at the
+  // bottom of the viewport. The panel is nudged up by the equivalent
+  // world-space offset so it never renders behind the Jump/Drive/Gyro row
+  // (see main.ts, which sources this from MobileControls.getReservedBottomHeight).
+  bottomClearancePx?: number
 }
+
+// The world-space height spanned by the camera's view at the panel's fixed
+// distance — shared by the width scale and the touch-clearance offset below
+// so both read the same frustum.
+const visibleHeightAt = (camera: THREE.PerspectiveCamera) =>
+  2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * Math.abs(PANEL_POSITION.z)
 
 export class TourCardPanel {
   readonly mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
@@ -73,11 +84,12 @@ export class TourCardPanel {
     }
 
     this.applyResponsiveScale(view.camera)
+    const liftY = this.clearanceLift(view.camera, view.bottomClearancePx ?? 0)
 
     view.camera.getWorldPosition(this.cameraPosition)
     view.camera.getWorldQuaternion(this.cameraQuaternion)
     this.targetPosition
-      .copy(PANEL_POSITION)
+      .set(PANEL_POSITION.x, PANEL_POSITION.y + liftY, PANEL_POSITION.z)
       .applyQuaternion(this.cameraQuaternion)
       .add(this.cameraPosition)
     this.targetQuaternion.copy(this.cameraQuaternion)
@@ -144,14 +156,31 @@ export class TourCardPanel {
         typeof window !== 'undefined' && window.innerHeight > 0
           ? window.innerWidth / window.innerHeight
           : perspectiveCamera.aspect
-      const visibleHeight =
-        2 *
-        Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov * 0.5)) *
-        Math.abs(PANEL_POSITION.z)
-      const visibleWidth = visibleHeight * aspect
+      const visibleWidth = visibleHeightAt(perspectiveCamera) * aspect
       panelWidth = Math.min(panelWidth, visibleWidth * PANEL_VIEWPORT_MARGIN)
     }
 
     this.mesh.scale.set(panelWidth, panelWidth * (CANVAS_HEIGHT / CANVAS_WIDTH), 1)
+  }
+
+  // Converts the touch controls' reserved screen height into a world-space Y
+  // offset at the panel's fixed distance, so it clears the on-screen buttons
+  // in landscape (where vertical room is short) instead of rendering behind
+  // them.
+  private clearanceLift(camera: THREE.Camera, clearancePx: number): number {
+    const perspectiveCamera = camera as THREE.PerspectiveCamera & {
+      isPerspectiveCamera?: boolean
+    }
+
+    if (
+      clearancePx <= 0 ||
+      perspectiveCamera.isPerspectiveCamera !== true ||
+      typeof window === 'undefined' ||
+      window.innerHeight <= 0
+    ) {
+      return 0
+    }
+
+    return (clearancePx / window.innerHeight) * visibleHeightAt(perspectiveCamera)
   }
 }

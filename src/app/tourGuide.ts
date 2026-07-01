@@ -1,3 +1,5 @@
+import { formatModeControlsLine, getControlScheme, type ControlPlatform } from '../xr/controlScheme'
+
 export type TourEventId =
   | 'start'
   | 'throw'
@@ -20,13 +22,20 @@ export type TourCard = {
 // (throw, jump) only fire the first time so they do not nag.
 const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump', 'drive'])
 
+// Placeholders swapped for the real, platform-specific wording by
+// resolveTourCard — cards below stay platform-agnostic templates so PC, touch
+// and VR players each read their own bindings instead of a PC/VR mash-up.
+const CONTROLS_TOKEN = '{{CONTROLS}}'
+const DRIVE_CONTROLS_TOKEN = '{{DRIVE_CONTROLS}}'
+const FREEFLY_BRAKE_TOKEN = '{{FREEFLY_BRAKE}}'
+
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   start: {
     title: 'SPINWARD',
     body: [
       'You live inside a spinning cylinder. Look up — the city wraps overhead.',
       'The floor pushes you in a circle - that push is your "gravity".',
-      'WASD / grip to move · click / trigger to throw · Space / A to jump',
+      CONTROLS_TOKEN,
       'Tour: throw → jump → ② Overlook → ③ Axis'
     ],
     durationSeconds: 14
@@ -77,7 +86,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     body: [
       'The wheels hold the road only because the spinning floor presses them down.',
       'Lower the rpm and feel the grip melt away.',
-      'W/S drive · A/D steer · Space brake · E exit'
+      DRIVE_CONTROLS_TOKEN
     ],
     durationSeconds: 12
   },
@@ -93,7 +102,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   // only when no richer card is already up — they double as a micro-hint.
   'enter-freefly': {
     title: 'FREE-FLY',
-    body: ['Floating free — squeeze left grip to stop'],
+    body: [`Floating free${FREEFLY_BRAKE_TOKEN}`],
     durationSeconds: 1.8
   },
   'enter-grounded': {
@@ -142,4 +151,32 @@ export const stepTourGuide = (
   }
 
   return TOUR_CARDS[state.activeEvent]
+}
+
+// Swaps a card's placeholder tokens for the actual platform's wording. Kept
+// separate from stepTourGuide so the state machine (timing, one-shot vs
+// repeat) stays platform-agnostic and its tests can keep asserting object
+// identity against the static TOUR_CARDS templates.
+export const resolveTourCard = (
+  card: TourCard | null,
+  platform: ControlPlatform
+): TourCard | null => {
+  if (card === null || !card.body.some((line) => line.includes('{{'))) {
+    return card
+  }
+
+  // VR is the only platform with a way to arrest free-fly drift (squeeze the
+  // left grip); PC/touch have none, so the card states the fact without
+  // inventing a button that is not there.
+  const freeflyBrakeText = platform === 'vr' ? ' — squeeze left grip to stop' : ''
+
+  return {
+    ...card,
+    body: card.body.map((line) =>
+      line
+        .replace(CONTROLS_TOKEN, getControlScheme(platform).summary)
+        .replace(DRIVE_CONTROLS_TOKEN, formatModeControlsLine(platform, 'driving'))
+        .replace(FREEFLY_BRAKE_TOKEN, freeflyBrakeText)
+    )
+  }
 }

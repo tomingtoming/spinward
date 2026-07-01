@@ -6,6 +6,9 @@
 // capture input.
 
 export type DockBarHandle = {
+  // The bar's own root — mobileControls measures this to keep its button row
+  // clear of however many rows the dock currently wraps to.
+  root: HTMLElement
   left: HTMLElement
   right: HTMLElement
   setVisible: (visible: boolean) => void
@@ -42,6 +45,7 @@ export const createDockBar = (options: { onMenu: () => void }): DockBarHandle =>
   document.body.append(root)
 
   return {
+    root,
     left,
     right,
     setVisible: (visible: boolean) => {
