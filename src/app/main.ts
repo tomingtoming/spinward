@@ -1324,7 +1324,8 @@ export const bootstrapApp = async () => {
       deltaSeconds,
       renderer.xr.isPresenting,
       drive.driving ? undefined : touchMove,
-      playerTraversal.mode === 'free-fly' && !drive.driving
+      playerTraversal.mode === 'free-fly' && !drive.driving,
+      !drive.driving && (mobileControls?.isJumpHeld() ?? false)
     )
     // Snapshot the mode before any detach/landing so we can announce a
     // grounded<->free-fly transition (VR has no DOM mode chip).

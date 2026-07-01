@@ -75,6 +75,7 @@ export class MobileControls {
   private readonly moveInput: MobileMoveInput = { forward: 0, right: 0 }
 
   private brakeHeld = false
+  private jumpHeld = false
   private driving = false
   private enabled = true
   private lastClearancePx = -1
@@ -105,7 +106,24 @@ export class MobileControls {
       return button
     }
 
-    this.jumpButton = makeButton('Jump', () => this.handlers.onJump())
+    // Jump fires on press (not release/click) so it feels as immediate as
+    // PC's Space keydown, and is tracked as a hold — see isJumpHeld — so
+    // holding it keeps thrusting up through the grounded→free-fly transition,
+    // the same as holding Space on PC.
+    this.jumpButton = makeButton('Jump', () => {})
+    this.jumpButton.addEventListener('pointerdown', (event) => {
+      event.stopPropagation()
+      this.jumpHeld = true
+      this.jumpButton.classList.add('is-active')
+      this.handlers.onJump()
+    })
+    const releaseJump = () => {
+      this.jumpHeld = false
+      this.jumpButton.classList.remove('is-active')
+    }
+    this.jumpButton.addEventListener('pointerup', releaseJump)
+    this.jumpButton.addEventListener('pointercancel', releaseJump)
+    this.jumpButton.addEventListener('pointerleave', releaseJump)
     // Travel (Surface/Overlook/Axis) now lives in the always-visible beat bar.
     this.driveButton = makeButton('Drive', () => this.handlers.onToggleDrive())
     this.driveButton.classList.add('is-hidden')
@@ -216,6 +234,13 @@ export class MobileControls {
 
   isBrakeHeld() {
     return this.brakeHeld
+  }
+
+  // True while the Jump button is pressed — held through the grounded→free-fly
+  // transition, this drives continuous ascend the same way holding Space
+  // does on PC (see DesktopLookControls.update's touchAscendHeld param).
+  isJumpHeld() {
+    return this.jumpHeld
   }
 
   // Hide the touch overlay and ignore canvas pointers — used on Quest once a VR

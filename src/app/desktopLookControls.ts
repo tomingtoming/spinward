@@ -99,7 +99,11 @@ export class DesktopLookControls {
     deltaSeconds: number,
     xrActive: boolean,
     touchMove?: { forward: number; right: number },
-    freeFlyActive = false
+    freeFlyActive = false,
+    // Mirrors pressedKeys.has('Space'): true while the touch Jump button is
+    // held, so touch gets the same hold-to-ascend jetpack PC gets from
+    // holding Space through the grounded→free-fly transition.
+    touchAscendHeld = false
   ) {
     intent.groundedAxis = 0
     intent.groundedTangent = 0
@@ -292,10 +296,11 @@ export class DesktopLookControls {
     // Free-fly jetpack: camera-relative 6DOF — WASD thrusts forward/back/left/
     // right, Space thrusts up and Shift thrusts down, all relative to where you
     // are looking. Space is the same key that jumps when grounded (see main.ts):
-    // hold it through a jump to keep rising; Shift sinks you back down.
+    // hold it through a jump to keep rising; Shift sinks you back down. Touch
+    // has no Shift equivalent, but holding the Jump button mirrors Space.
     let upInput = 0
 
-    if (this.pressedKeys.has('Space')) {
+    if (this.pressedKeys.has('Space') || touchAscendHeld) {
       upInput += 1
     }
 

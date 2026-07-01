@@ -323,11 +323,13 @@ button {
   position: fixed;
   /* Clear of the home indicator / notch on phones. */
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  /* Right thumb's zone (it already owns look/throw on the right half of the
+     screen, per MOVE_ZONE_FRACTION in mobileControls.ts) — left thumb never
+     leaves the movement stick to reach these. */
+  right: max(12px, env(safe-area-inset-right, 0px));
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 10px;
   max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   z-index: 1000;
