@@ -125,8 +125,7 @@ button {
 
 /* Only the visible pills are interactive. */
 .dock .hud-chip,
-.dock button,
-.dock .dock-popover {
+.dock button {
   pointer-events: auto;
 }
 
@@ -203,7 +202,7 @@ button {
   border-color: rgba(196, 181, 253, 0.4);
 }
 
-/* CONTROL / DEBUG: pill toggles in the bar that open a popover ABOVE it. */
+/* CONTROL: opens the Tab quick-panel straight to its legend screen. */
 .dock-toggle {
   padding: 5px 10px;
   border-radius: 999px;
@@ -227,28 +226,6 @@ button {
   color: #67e8f9;
   border-color: rgba(103, 232, 249, 0.6);
   background: rgba(15, 92, 115, 0.9);
-}
-
-.dock-popover {
-  position: fixed;
-  left: max(12px, env(safe-area-inset-left, 0px));
-  /* Clears the dock even when its left cluster has wrapped to two rows. */
-  bottom: calc(82px + env(safe-area-inset-bottom, 0px));
-  max-width: min(680px, calc(100vw - 24px));
-  margin: 0;
-  padding: 8px 14px 12px;
-  border-radius: 12px;
-  background: rgba(6, 18, 28, 0.92);
-  border: 1px solid rgba(130, 168, 192, 0.22);
-  backdrop-filter: blur(12px);
-  font: 12px/1.6 'SF Mono', 'Cascadia Code', monospace;
-  white-space: pre-wrap;
-  color: rgba(216, 235, 244, 0.88);
-  z-index: 51;
-}
-
-.dock-popover[hidden] {
-  display: none;
 }
 
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */

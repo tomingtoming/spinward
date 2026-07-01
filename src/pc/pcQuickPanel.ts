@@ -66,6 +66,14 @@ export class PcQuickPanel {
     this.setVisible(!this.visible)
   }
 
+  // Jumps straight to a screen (e.g. the dock's CONTROL button opens 'legend'
+  // directly) instead of always reopening at 'home'.
+  openScreen(screen: WatchScreen) {
+    this.screen = screen
+    this.hoveredAction = null
+    this.setVisible(true)
+  }
+
   setVisible(visible: boolean) {
     this.visible = visible
 

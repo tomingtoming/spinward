@@ -196,18 +196,3 @@ export const formatModeControlsLine = (
   const section = sections.find((s) => s.mode === mode) ?? sections[0]
   return section.bindings.map((b) => `${b.input}: ${b.action}`).join(' · ')
 }
-
-// Compact single-line controls string for the HUD drawer, for any platform.
-export const formatControlsText = (platform: ControlPlatform): string => {
-  const { sections, prefix } = getControlScheme(platform)
-  return (
-    `${prefix} — ` +
-    sections
-      .map(
-        (section) =>
-          `${section.title}: ` +
-          section.bindings.map((b) => `${b.input}: ${b.action}`).join(' | ')
-      )
-      .join('  //  ')
-  )
-}
