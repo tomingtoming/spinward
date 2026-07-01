@@ -100,7 +100,7 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'Mouse / arrows', action: 'Look' },
       { input: 'Space', action: 'Jump → fly' },
       { input: 'Click', action: 'Throw (hold = charge)' },
-      { input: 'X', action: 'Cycle projectile' },
+      { input: 'X / Right-click', action: 'Cycle projectile' },
       { input: '1–4', action: 'Travel / warp' },
       { input: 'E', action: 'Drive (near car)' }
     ]

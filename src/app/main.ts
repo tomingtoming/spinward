@@ -290,7 +290,10 @@ export const bootstrapApp = async () => {
   const desktopLookControls = new DesktopLookControls(
     playerRig,
     camera,
-    renderer.domElement
+    renderer.domElement,
+    // Right-click (a tap, not a look-drag) cycles the throwable — the mouse
+    // equivalent of X, for players who never look down at the keyboard.
+    () => cycleSelectedProjectile()
   )
   // One bottom row holds everything: the ☰ opens the same config panel as Tab.
   // Created before mobileControls so its button row can measure the dock's

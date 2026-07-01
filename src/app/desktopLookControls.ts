@@ -12,6 +12,12 @@ import {
 
 const LOOK_SENSITIVITY = 0.003
 const KEYBOARD_LOOK_SPEED = 1.4
+// A right click (press+release with little movement, no drag) cycles the
+// throwable — same tap-vs-drag thresholds mobileControls.ts uses for its
+// touch tap, so a quick click still counts even if the button jitters a
+// pixel or two, but an actual look-drag never fires it.
+const RIGHT_CLICK_TAP_MAX_MOVEMENT_PX = 12
+const RIGHT_CLICK_TAP_MAX_DURATION_MS = 350
 const MAX_PITCH = Math.PI * 0.48
 // Q/E roll is rate-based (KSP-style): holding a key spins up a roll rate that
 // persists/coasts on release; B damps it back to rest. This is the build-up
@@ -70,11 +76,16 @@ export class DesktopLookControls {
   private readonly pressedKeys = new Set<string>()
   // One-shot boot "look up" reveal; null when idle or cancelled.
   private introElapsed: number | null = null
+  // Tracks the current right-button press so handlePointerUp can tell a tap
+  // (cycle the throwable) from a look-drag (do nothing extra).
+  private rightClickDownAt = 0
+  private rightClickTravelPx = 0
 
   constructor(
     private readonly playerRig: THREE.Group,
     private readonly camera: THREE.PerspectiveCamera,
-    private readonly element: HTMLElement
+    private readonly element: HTMLElement,
+    private readonly onRightClickTap?: () => void
   ) {
     this.camera.rotation.order = 'YXZ'
 
@@ -449,6 +460,8 @@ export class DesktopLookControls {
     }
 
     this.dragging = true
+    this.rightClickDownAt = performance.now()
+    this.rightClickTravelPx = 0
     this.element.setPointerCapture(event.pointerId)
     event.preventDefault()
   }
@@ -463,12 +476,22 @@ export class DesktopLookControls {
     if (this.element.hasPointerCapture(event.pointerId)) {
       this.element.releasePointerCapture(event.pointerId)
     }
+
+    const heldMs = performance.now() - this.rightClickDownAt
+    if (
+      this.rightClickTravelPx <= RIGHT_CLICK_TAP_MAX_MOVEMENT_PX &&
+      heldMs <= RIGHT_CLICK_TAP_MAX_DURATION_MS
+    ) {
+      this.onRightClickTap?.()
+    }
   }
 
   private readonly handlePointerMove = (event: PointerEvent) => {
     if (!this.dragging) {
       return
     }
+
+    this.rightClickTravelPx += Math.hypot(event.movementX, event.movementY)
 
     const yawDelta = -event.movementX * LOOK_SENSITIVITY
     const pitchDelta = -event.movementY * LOOK_SENSITIVITY
