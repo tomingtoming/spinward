@@ -228,6 +228,44 @@ button {
   background: rgba(15, 92, 115, 0.9);
 }
 
+/* ── Preset dropdown: the "Izma Colony" chip opens this instead of requiring
+   the Tab panel's Habitat screen just to switch colonies. ── */
+
+.preset-menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(6, 18, 28, 0.94);
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  backdrop-filter: blur(12px);
+  z-index: 52;
+}
+
+.preset-menu__item {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(216, 235, 244, 0.88);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-menu__item:hover {
+  background: rgba(15, 92, 115, 0.6);
+}
+
+.preset-menu__item.is-active {
+  color: #67e8f9;
+  background: rgba(15, 92, 115, 0.9);
+}
+
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
 
 /* display:contents keeps the wrapper out of layout so its buttons sit directly

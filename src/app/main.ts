@@ -853,13 +853,20 @@ export const bootstrapApp = async () => {
   const currentControlPlatform = (): ControlPlatform =>
     renderer.xr.isPresenting ? 'vr' : isTouchDevice() ? 'sp' : 'pc'
 
-  const hud = createHud(dock.left, () => cycleSelectedProjectile(), () => {
-    if (desktopQuickPanel.isVisible) {
-      desktopQuickPanel.setVisible(false)
-    } else {
-      desktopQuickPanel.openScreen('legend')
-    }
-  })
+  const hud = createHud(
+    dock.left,
+    () => cycleSelectedProjectile(),
+    () => {
+      if (desktopQuickPanel.isVisible) {
+        desktopQuickPanel.setVisible(false)
+      } else {
+        desktopQuickPanel.openScreen('legend')
+      }
+    },
+    // Reuses the exact same action the Tab panel's Habitat preset buttons
+    // dispatch, so there is one reset sequence, not two.
+    (presetId) => handleWatchAction(`preset-apply-${presetId}` as WatchActionId)
+  )
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
   // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
   // so they live in the right cluster (prepended before the VR button).
@@ -1720,6 +1727,7 @@ export const bootstrapApp = async () => {
     hud.update({
       rpm: habitatConfig.rpm,
       presetName: getPresetName(habitatConfig.currentPresetId),
+      currentPresetId: habitatConfig.currentPresetId,
       ballCount: balls.length,
       projectile: PROJECTILES[selectedProjectile].label,
       feltGravity,

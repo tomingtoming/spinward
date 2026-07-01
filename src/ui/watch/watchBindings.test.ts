@@ -28,7 +28,6 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
       intensity: 1.25
     }
   )
-  store.setLocomotionProfileId('expert')
 
   const snapshot = createWatchRenderSnapshot(store, {
     playerMode: 'free-fly',
@@ -57,7 +56,6 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
   expect(snapshot.throwScale).toBeCloseTo(1.4, 6)
   expect(snapshot.jetpackAcceleration).toBeCloseTo(13.5, 6)
   expect(snapshot.reattachThreshold).toBeCloseTo(0.35, 6)
-  expect(snapshot.locomotionProfileId).toBe('expert')
   expect(snapshot.ballCount).toBe(3)
   expect(snapshot.absoluteVelocityX).toBeCloseTo(1.25, 6)
   expect(snapshot.absoluteVelocityY).toBeCloseTo(-2.5, 6)
@@ -65,7 +63,7 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
   expect(snapshot.absoluteSpeed).toBeCloseTo(4.677071733, 6)
 })
 
-test('applyWatchAction routes parameter, mode, and profile actions through the shared store', () => {
+test('applyWatchAction routes parameter and mode actions through the shared store', () => {
   const store = createSettingsStore()
 
   expect(applyWatchAction(store, 'rpm-fine-increment')).toBe(true)
@@ -84,9 +82,6 @@ test('applyWatchAction routes parameter, mode, and profile actions through the s
   expect(store.reattach.radialTolerance).toBeCloseTo(0.21, 6)
   expect(store.reattach.maxNormalSpeed).toBeCloseTo(0.75, 6)
   expect(store.reattach.maxSurfaceSpeed).toBeCloseTo(1.45, 6)
-
-  expect(applyWatchAction(store, 'profile-beginner')).toBe(true)
-  expect(store.getLocomotionProfileId()).toBe('beginner')
 })
 
 test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says so', () => {

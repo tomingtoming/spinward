@@ -5,7 +5,6 @@ import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
 import { rpmToOmega } from '../../units/units'
 import type { ControlPlatform } from '../../xr/controlScheme'
-import type { LocomotionProfileId } from '../../xr/locomotionProfile'
 import type { WatchActionId } from './watchLayout'
 import { parseWatchParameterAction } from './watchSchema'
 
@@ -41,7 +40,6 @@ export type WatchRenderSnapshot = {
   throwScale: number
   jetpackAcceleration: number
   reattachThreshold: number
-  locomotionProfileId: LocomotionProfileId
   axisEndRespawnEnabled: boolean
   radiusFineStep: number
   radiusCoarseStep: number
@@ -107,7 +105,6 @@ export const createWatchRenderSnapshot = (
   throwScale: settingsStore.habitat.ballSpeedScale,
   jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
   reattachThreshold: settingsStore.reattach.radialTolerance,
-  locomotionProfileId: settingsStore.getLocomotionProfileId(),
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
@@ -166,17 +163,5 @@ export const applyWatchAction = (
     }
   }
 
-  switch (action) {
-    case 'profile-beginner':
-      settingsStore.setLocomotionProfileId('beginner')
-      return true
-    case 'profile-sim':
-      settingsStore.setLocomotionProfileId('sim')
-      return true
-    case 'profile-expert':
-      settingsStore.setLocomotionProfileId('expert')
-      return true
-    default:
-      return false
-  }
+  return false
 }

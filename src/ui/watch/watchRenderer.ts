@@ -154,11 +154,6 @@ const isActivePresetAction = (snapshot: WatchRenderSnapshot, action: WatchAction
   (action === 'preset-apply-cooper' && snapshot.currentPresetId === 'cooper') ||
   (action === 'preset-apply-elysium' && snapshot.currentPresetId === 'elysium')
 
-const isActiveProfileAction = (snapshot: WatchRenderSnapshot, action: WatchActionId) =>
-  (action === 'profile-beginner' && snapshot.locomotionProfileId === 'beginner') ||
-  (action === 'profile-sim' && snapshot.locomotionProfileId === 'sim') ||
-  (action === 'profile-expert' && snapshot.locomotionProfileId === 'expert')
-
 const drawHomeHeader = (
   ctx: CanvasRenderingContext2D,
   layout: WatchScreenLayout,
@@ -387,15 +382,6 @@ export const renderWatch = (
       drawSectionCard(ctx, layout.width, layout.presetSection, 'Rebuilds the habitat and respawns on the surface')
       for (const button of layout.presetButtons) {
         drawButton(ctx, button, hoveredAction, { active: isActivePresetAction(snapshot, button.id) })
-      }
-    }
-  }
-
-  if (layout.screen === 'comfort') {
-    if (layout.profileSection !== undefined && layout.profileButtons !== undefined) {
-      drawSectionCard(ctx, layout.width, layout.profileSection, 'Comfort: Beginner = vignette · Expert = none')
-      for (const button of layout.profileButtons) {
-        drawButton(ctx, button, hoveredAction, { active: isActiveProfileAction(snapshot, button.id) })
       }
     }
   }

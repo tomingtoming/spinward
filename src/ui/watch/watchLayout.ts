@@ -8,23 +8,19 @@ import {
 
 // The shared settings surface (VR wrist · PC Tab panel · mobile ⚙) is split
 // into a shallow hierarchy: a HOME screen keeps the demo-critical controls
-// (Travel + Spin/gravity) one tap away, and the tinkering lives behind three
+// (Travel + Spin/gravity) one tap away, and the tinkering lives behind two
 // category screens reached from HOME, each with a Back button. This keeps any
 // single screen short enough to aim a laser at comfortably.
-export type WatchScreen = 'home' | 'habitat' | 'tweaks' | 'comfort' | 'legend'
+export type WatchScreen = 'home' | 'habitat' | 'tweaks' | 'legend'
 
 export type WatchNavActionId =
   | 'nav-home'
   | 'nav-habitat'
   | 'nav-tweaks'
-  | 'nav-comfort'
   | 'nav-legend'
 
 export type WatchActionId =
   | WatchNavActionId
-  | 'profile-beginner'
-  | 'profile-sim'
-  | 'profile-expert'
   | WatchParameterActionId
   | 'preset-apply-playground'
   | 'preset-apply-izma'
@@ -80,9 +76,6 @@ export type WatchScreenLayout = {
   // HABITAT + TWEAKS stepper rows.
   rowsSection?: WatchSection
   rows?: WatchRow[]
-  // COMFORT.
-  profileSection?: WatchSection
-  profileButtons?: WatchButton[]
 }
 
 export const WATCH_CANVAS_SIZE = {
@@ -159,8 +152,6 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
       return 'habitat'
     case 'nav-tweaks':
       return 'tweaks'
-    case 'nav-comfort':
-      return 'comfort'
     case 'nav-legend':
       return 'legend'
     default:
@@ -186,15 +177,16 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   const spinRow = makeParameterRow('rpm', spinSection.top + 40, width)
   const gravityGaugeY = spinSection.top + 180
 
-  const categoryWidth = 150
-  const categoryGap = 10
+  // Three categories now (Comfort retired) — widen to fill the same span the
+  // old four-up row spanned, so the HOME screen doesn't look lopsided.
+  const categoryWidth = 202
+  const categoryGap = 12
   const categoryY = 576
   const categoryStep = categoryWidth + categoryGap
   const categoryButtons = [
     makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT, categoryY, categoryWidth, 64),
     makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
-    makeActionButton('nav-comfort', 'Comfort', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64),
-    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 3, categoryY, categoryWidth, 64)
+    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64)
   ]
 
   return {
@@ -271,30 +263,6 @@ const createTweaksLayout = (width: number, height: number): WatchScreenLayout =>
   }
 }
 
-const createComfortLayout = (width: number, height: number): WatchScreenLayout => {
-  const backButton = makeBackButton()
-  const profileSection: WatchSection = { top: 108, height: 160, title: 'LOCOMOTION' }
-  const buttonWidth = 196
-  const buttonHeight = 62
-  const buttonY = profileSection.top + 70
-  const profileButtons = [
-    makeActionButton('profile-beginner', 'Beginner', CONTENT_LEFT, buttonY, buttonWidth, buttonHeight),
-    makeActionButton('profile-sim', 'Sim', CONTENT_LEFT + (buttonWidth + 10), buttonY, buttonWidth, buttonHeight),
-    makeActionButton('profile-expert', 'Expert', CONTENT_LEFT + (buttonWidth + 10) * 2, buttonY, buttonWidth, buttonHeight)
-  ]
-
-  return {
-    screen: 'comfort',
-    width,
-    height,
-    backButton,
-    title: 'COMFORT',
-    profileSection,
-    profileButtons,
-    buttons: [backButton, ...profileButtons]
-  }
-}
-
 // The legend is a passive reference page — only the Back button is interactive.
 // Its rows are drawn straight from VR_CONTROL_LEGEND (controlScheme.ts) so the
 // printed map can never drift from the actual bindings.
@@ -322,8 +290,6 @@ export const createWatchLayout = (
       return createHabitatLayout(width, height)
     case 'tweaks':
       return createTweaksLayout(width, height)
-    case 'comfort':
-      return createComfortLayout(width, height)
     case 'legend':
       return createLegendLayout(width, height)
     default: {
@@ -340,7 +306,6 @@ export const createAllWatchLayouts = (
   home: createWatchLayout('home', width, height),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),
-  comfort: createWatchLayout('comfort', width, height),
   legend: createWatchLayout('legend', width, height)
 })
 

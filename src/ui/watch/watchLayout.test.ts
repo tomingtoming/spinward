@@ -29,7 +29,6 @@ test('home screen keeps travel, spin and the category nav one tap away', () => {
   expect(layout.categoryButtons?.map((button) => button.id)).toEqual([
     'nav-habitat',
     'nav-tweaks',
-    'nav-comfort',
     'nav-legend'
   ])
   // The tinkering parameters are no longer on home.
@@ -103,22 +102,10 @@ test('tweaks screen nests the tinkering parameters behind a Back button', () => 
   ])
 })
 
-test('comfort screen nests the locomotion profiles behind a Back button', () => {
-  const layout = createWatchLayout('comfort')
-
-  expect(layout.backButton?.id).toBe('nav-home')
-  expect(layout.profileButtons?.map((button) => button.id)).toEqual([
-    'profile-beginner',
-    'profile-sim',
-    'profile-expert'
-  ])
-})
-
 test('navTargetForAction maps nav buttons to screens and ignores actions', () => {
   expect(navTargetForAction('nav-home')).toBe('home')
   expect(navTargetForAction('nav-habitat')).toBe('habitat')
   expect(navTargetForAction('nav-tweaks')).toBe('tweaks')
-  expect(navTargetForAction('nav-comfort')).toBe('comfort')
   expect(navTargetForAction('nav-legend')).toBe('legend')
   expect(navTargetForAction('rpm-fine-increment')).toBeNull()
   expect(navTargetForAction('preset-apply-izma')).toBeNull()
@@ -128,7 +115,6 @@ test('createAllWatchLayouts returns one layout per screen', () => {
   const layouts = createAllWatchLayouts()
 
   expect(Object.keys(layouts).sort()).toEqual([
-    'comfort',
     'habitat',
     'home',
     'legend',

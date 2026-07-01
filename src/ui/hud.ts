@@ -1,4 +1,5 @@
 import { EARTH_GRAVITY } from '../gameplay/vehicle'
+import { HABITAT_PRESETS } from '../presets/presets'
 
 type HudSnapshot = {
   ballCount: number
@@ -8,6 +9,7 @@ type HudSnapshot = {
   playerMode: 'grounded' | 'free-fly'
   rpm: number
   presetName: string
+  currentPresetId: string
   // Measured felt g-force (proper acceleration, m/s²) and the car's speed
   // (m/s, or < 0 while on foot to hide the readout).
   feltGravity: number
@@ -40,7 +42,10 @@ export const createHud = (
   // CONTROL opens the Tab quick-panel's own legend screen (see main.ts) —
   // the same well-formatted, per-platform bindings reference, instead of a
   // second, cruder copy living in the dock.
-  onToggleControls: () => void
+  onToggleControls: () => void,
+  // The preset chip doubles as a dropdown — no need to dig into the Tab
+  // panel's Habitat screen just to switch colonies.
+  onSelectPreset: (presetId: string) => void
 ): HudHandle => {
   const root = document.createElement('div')
   // display:contents — the wrapper exists only so setVisible can hide the group.
@@ -58,7 +63,57 @@ export const createHud = (
   // The live "felt g" is the readout that actually moves as you play; the
   // nominal target g lives in the settings panel, so it is not duplicated as
   // an always-on chip.
-  const presetChip = makeChip('hud-chip--preset')
+  const presetChip = document.createElement('button')
+  presetChip.className = 'hud-chip hud-chip--preset hud-chip--tap'
+
+  const presetMenu = document.createElement('div')
+  presetMenu.className = 'preset-menu'
+  presetMenu.hidden = true
+
+  const presetMenuItems = HABITAT_PRESETS.map((preset) => {
+    const item = document.createElement('button')
+    item.className = 'preset-menu__item'
+    item.textContent = preset.name
+    item.addEventListener('pointerdown', (event) => event.stopPropagation())
+    item.addEventListener('click', (event) => {
+      event.preventDefault()
+      closePresetMenu()
+      onSelectPreset(preset.id)
+    })
+    presetMenu.append(item)
+    return { id: preset.id, element: item }
+  })
+
+  const closePresetMenu = () => {
+    presetMenu.hidden = true
+    presetChip.classList.remove('is-active')
+  }
+
+  presetChip.addEventListener('pointerdown', (event) => event.stopPropagation())
+  presetChip.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!presetMenu.hidden) {
+      closePresetMenu()
+      return
+    }
+
+    // Anchored to the chip's live position rather than a fixed offset — the
+    // left cluster's width varies with which chips are visible.
+    const rect = presetChip.getBoundingClientRect()
+    presetMenu.style.left = `${rect.left}px`
+    presetMenu.style.bottom = `${window.innerHeight - rect.top + 8}px`
+    presetMenu.hidden = false
+    presetChip.classList.add('is-active')
+  })
+  // Closes the menu on any click outside it (including the canvas).
+  document.addEventListener('pointerdown', () => {
+    if (!presetMenu.hidden) {
+      closePresetMenu()
+    }
+  })
+
   // Secondary readouts — first to be dropped when the window gets narrow.
   const feltChip = makeChip('hud-chip--metric')
   const spinChip = makeChip('hud-chip--metric')
@@ -89,18 +144,28 @@ export const createHud = (
     projectileChip,
     reattachChip
   )
+  // Fixed-positioned above the bar (anchored dynamically to the chip), so it
+  // lives on body, not in the display:contents wrapper.
+  document.body.append(presetMenu)
   mount.append(root)
 
   return {
     destroy: () => {
       root.remove()
+      presetMenu.remove()
     },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
+      if (!visible) {
+        closePresetMenu()
+      }
     },
     update: (snapshot) => {
       controlsToggle.classList.toggle('is-active', snapshot.controlsOpen)
       presetChip.textContent = snapshot.presetName
+      for (const item of presetMenuItems) {
+        item.element.classList.toggle('is-active', item.id === snapshot.currentPresetId)
+      }
       const feltG = snapshot.feltGravity / EARTH_GRAVITY
       feltChip.textContent =
         snapshot.feltSpeed >= 0
