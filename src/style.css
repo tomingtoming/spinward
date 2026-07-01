@@ -22,6 +22,12 @@ canvas {
 
 button {
   font: inherit;
+  /* A long-press on any button (Jump, chips, etc.) must fire the button, not
+     the browser's text-selection / iOS callout menu. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 /* ── Splash ── */
@@ -246,15 +252,28 @@ button {
   background: rgba(15, 92, 115, 0.9);
 }
 
-/* ── CONTROL hover card: a glance at the bindings, not a screen to navigate.
-   Read-only, so it never captures the pointer (pointer-events: none). ── */
+/* ── Dropdown backdrop: shown behind any open dropdown/card, full-screen and
+   invisible. Tapping it — anywhere — closes everything. This is a much more
+   reliable "tap outside to dismiss" than inferring it from bubbling, which
+   is what silently failed to close things on touch before. ── */
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  background: transparent;
+}
+
+/* ── CONTROL card: a glance at the bindings, not a screen to navigate. Shows
+   for a few seconds then fades — never stays stuck open. Read-only, so it
+   never captures the pointer (pointer-events: none). ── */
 
 .controls-card {
   position: fixed;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 420px;
+  width: min(420px, calc(100vw - 24px));
   max-width: min(560px, calc(100vw - 24px));
   padding: 14px 18px;
   border-radius: 14px;
@@ -264,6 +283,12 @@ button {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   z-index: 52;
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.controls-card.is-fading {
+  opacity: 0;
 }
 
 .controls-card__summary {
@@ -537,7 +562,6 @@ body.is-vr-entry #VRButton {
 /* Tiny windows: drop the least-essential bits (advanced toggles + secondary
    readouts) so the dock stays within two rows. */
 @media (max-width: 680px) {
-  .dock-toggle,
   .hud-chip--metric,
   .beat-bar .beat-label {
     display: none;
@@ -552,9 +576,9 @@ body.is-vr-entry #VRButton {
     font-size: 11px;
   }
 
-  /* CONTROL / DEBUG popovers are desktop-only. */
   .dock-toggle {
-    display: none;
+    padding: 4px 9px;
+    font-size: 10px;
   }
 
   .splash h1 {
