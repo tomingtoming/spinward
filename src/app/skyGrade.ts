@@ -112,11 +112,13 @@ export const DEFAULT_SKY_LOOK: SkyLookProfile = {
 // sunset (imperceptible). So the haze stays neutral (a faint cool cast from
 // aerial perspective is all that is physical), the Sun keeps its true Sol-white
 // disk with no dusk halo swell, and "dusk" is simply the bore dimming as the
-// mirrors swing the beam off the floor. Symmetric: dawn and dusk read the same.
-// Night keeps a deeper blue than the legacy look. Boots into the dusk sweep.
+// mirrors swing the beam off the floor. Symmetric: dawn and dusk read the same
+// grade — 0.16 is 0.84's mirror image around midnight (getDaylight(0.16) ==
+// getDaylight(0.84)), so this is the same sweep, just brightening into the
+// first day instead of dimming into the first night. Boots into the dawn sweep.
 export const IZMA_SKY_LOOK: SkyLookProfile = {
   id: 'izma',
-  initialPhase: 0.84,
+  initialPhase: 0.16,
   keys: [
     { at: 0.0, fog: 0x0c1622, background: 0x02060d, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 },
     { at: 0.25, fog: 0x46586a, background: 0x070d16, sunCore: 0xfff6ee, sunGlow: 0xffeede, sunGlowScale: 1.0, exposure: 1.2 },

@@ -65,10 +65,21 @@ test('Izma grade is physically honest: neutral haze, symmetric, steady Sol disk'
   }
 })
 
+test('Izma boots at dawn, the mirror image of the old dusk boot', () => {
+  // 0.16 and 0.84 are equidistant from midnight (0 / 1), and the grade is
+  // symmetric around it, so the boot moment looks identical to the old dusk
+  // boot — the difference is which way the cycle heads next: toward noon
+  // (brightening, dawn) instead of toward midnight (dimming, dusk).
+  const dawnBoot = sampleSkyGrade(IZMA_SKY_LOOK.initialPhase, IZMA_SKY_LOOK)
+  const oldDuskBoot = sampleSkyGrade(0.84, IZMA_SKY_LOOK)
+  expect(dawnBoot.fog.getHex()).toBe(oldDuskBoot.fog.getHex())
+  expect(dawnBoot.background.getHex()).toBe(oldDuskBoot.background.getHex())
+})
+
 test('getSkyLook maps ids and falls back to the cool default', () => {
   expect(getSkyLook('izma')).toBe(IZMA_SKY_LOOK)
   expect(getSkyLook('default')).toBe(DEFAULT_SKY_LOOK)
   expect(getSkyLook('elysium')).toBe(DEFAULT_SKY_LOOK)
-  expect(getInitialDayNightPhase('izma')).toBeCloseTo(0.84, 5)
+  expect(getInitialDayNightPhase('izma')).toBeCloseTo(0.16, 5)
   expect(getInitialDayNightPhase('default')).toBeCloseTo(DEFAULT_SKY_LOOK.initialPhase, 5)
 })
