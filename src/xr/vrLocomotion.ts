@@ -31,6 +31,11 @@ import { consumeSnapTurn, createSnapTurnState } from './snapTurn'
 import { XR_BUTTON } from './controlScheme'
 
 const SNAP_TURN_RADIANS = Math.PI / 6
+// Spawn facing 90° left of the rig's bare forward so the O'Neill mirrors swing
+// into view as part of the opening scenery, instead of being purely tangential
+// to the ring. Positive is a turn left, matching the sign snap-turning and
+// desktop's ArrowLeft/drag yaw already use.
+const SPAWN_SNAP_YAW = Math.PI / 2
 const localUp = new THREE.Vector3(0, 1, 0)
 const controlFrameQuaternion = new THREE.Quaternion()
 const controlFramePosition = new THREE.Vector3()
@@ -69,7 +74,7 @@ export class VRLocomotion {
   private readonly freeFlyInertialOrientation = new THREE.Quaternion()
   readonly clutchDebug = new HandClutchDebugView()
   private previousPlayerMode: PlayerTraversalMode = 'grounded'
-  private snapYaw = 0
+  private snapYaw = SPAWN_SNAP_YAW
   private profile: LocomotionProfile = SIM_PROFILE
   // Lift-launch take-off (raise the clutched hand to detach) is OFF by default;
   // jump (A on either hand) is the one obvious launch. Restorable via settings.
