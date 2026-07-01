@@ -135,26 +135,6 @@ button {
   display: contents;
 }
 
-.dock-hamburger {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  background: rgba(6, 18, 30, 0.78);
-  color: #dff3fb;
-  border: 1px solid rgba(103, 232, 249, 0.45);
-  border-radius: 11px;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: background 0.15s ease;
-}
-
-.dock-hamburger:hover {
-  background: rgba(15, 92, 115, 0.9);
-}
-
 .hud-chip {
   padding: 5px 10px;
   border-radius: 999px;
@@ -264,6 +244,72 @@ button {
 .preset-menu__item.is-active {
   color: #67e8f9;
   background: rgba(15, 92, 115, 0.9);
+}
+
+/* ── CONTROL hover card: a glance at the bindings, not a screen to navigate.
+   Read-only, so it never captures the pointer (pointer-events: none). ── */
+
+.controls-card {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 420px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(6, 16, 26, 0.96);
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 52;
+  pointer-events: none;
+}
+
+.controls-card__summary {
+  text-align: center;
+  font-size: 11.5px;
+  color: rgba(190, 215, 230, 0.72);
+}
+
+.controls-card__columns {
+  display: flex;
+  gap: 28px;
+}
+
+.controls-card__column {
+  flex: 1;
+  min-width: 0;
+}
+
+.controls-card__column h4 {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.controls-card__column h4:first-child {
+  margin-top: 0;
+}
+
+.controls-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+
+.controls-card__row span:first-child {
+  color: rgba(190, 215, 230, 0.72);
+}
+
+.controls-card__row span:last-child {
+  color: rgba(216, 235, 244, 0.92);
+  font-weight: 600;
+  text-align: right;
 }
 
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
@@ -486,42 +532,6 @@ body.is-vr-entry #VRButton {
   background: rgba(8, 24, 38, 0.92) !important;
   box-shadow: 0 0 44px rgba(103, 232, 249, 0.28);
   z-index: 1200 !important;
-}
-
-/* ── Settings drawer: window-pinned, slides in from the left (flat screens) ── */
-
-.quick-drawer {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: min(360px, 88vw);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  box-sizing: border-box;
-  background: rgba(6, 16, 26, 0.94);
-  border-right: 1px solid rgba(103, 232, 249, 0.28);
-  backdrop-filter: blur(14px);
-  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.45);
-  transform: translateX(-100%);
-  transition: transform 0.22s ease;
-  z-index: 60;
-  /* Off-screen and inert until opened, so it never blocks the scene. */
-  pointer-events: none;
-}
-
-.quick-drawer.is-open {
-  transform: none;
-  pointer-events: auto;
-}
-
-.quick-drawer__canvas {
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  cursor: pointer;
 }
 
 /* Tiny windows: drop the least-essential bits (advanced toggles + secondary

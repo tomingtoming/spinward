@@ -13,7 +13,6 @@ export type WatchRenderSnapshot = {
   // Which control scheme the legend should show (PC / SP / VR).
   platform: ControlPlatform
   region: 'inside' | 'outside'
-  watchMenuOpen: boolean
   observerMode: ObserverMode
   trailMode: TrailMode
   absoluteVelocityX: number
@@ -63,7 +62,6 @@ export const createWatchRenderSnapshot = (
     playerMode: PlayerTraversalMode
     platform: ControlPlatform
     region: 'inside' | 'outside'
-    watchMenuOpen: boolean
     observerMode: ObserverMode
     trailMode: TrailMode
     ballCount: number
@@ -80,7 +78,6 @@ export const createWatchRenderSnapshot = (
   playerMode: runtime.playerMode,
   platform: runtime.platform,
   region: runtime.region,
-  watchMenuOpen: runtime.watchMenuOpen,
   observerMode: runtime.observerMode,
   trailMode: runtime.trailMode,
   absoluteVelocityX: runtime.absoluteVelocity.x,

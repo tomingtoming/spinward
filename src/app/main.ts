@@ -75,7 +75,6 @@ import { AtmosphereGlow } from '../objects/atmosphereGlow'
 import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 import { createFullscreenToggle } from '../pc/fullscreen'
-import { PcQuickPanel } from '../pc/pcQuickPanel'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
 import { respawnAxisEnd, respawnExterior, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
@@ -293,10 +292,10 @@ export const bootstrapApp = async () => {
     // equivalent of X, for players who never look down at the keyboard.
     () => cycleSelectedProjectile()
   )
-  // One bottom row holds everything: the ☰ opens the same config panel as Tab.
-  // Created before mobileControls so its button row can measure the dock's
-  // actual height and stay clear of it (see MobileControls.dockRoot).
-  const dock = createDockBar({ onMenu: () => desktopQuickPanel.toggle() })
+  // One bottom row holds everything. Created before mobileControls so its
+  // button row can measure the dock's actual height and stay clear of it
+  // (see MobileControls.dockRoot).
+  const dock = createDockBar()
 
   // The Quest browser reports as a touch device, so the on-screen controls are
   // built there too: they remain the usable fallback if immersive VR turns out
@@ -311,8 +310,7 @@ export const bootstrapApp = async () => {
             desktopJumpQueued = true
           },
           onToggleDrive: () => tryToggleDrive(),
-          onToggleSettings: () => desktopQuickPanel.toggle(),
-          isUiPointerBlocked: () => desktopQuickPanel.isVisible,
+          isUiPointerBlocked: () => false,
           onUserInput: () => desktopLookControls.cancelIntroReveal()
         },
         dock.root
@@ -566,9 +564,6 @@ export const bootstrapApp = async () => {
   const xrInputMap = new XRInputMap(grabSystem.getControllers())
   const watchPanel = new WatchPanel((action) => handleWatchAction(action))
   const laserPointer = new LaserPointer()
-  // Flat-screen settings live in a window-pinned DOM drawer (PcQuickPanel), not
-  // in the scene — so nothing to add to the 3D world here.
-  const desktopQuickPanel = new PcQuickPanel((action) => handleWatchAction(action))
   scene.add(watchPanel.group)
   vrLocomotion.setProfile(settingsStore.getLocomotionProfile())
   settingsStore.subscribe(() => {
@@ -855,17 +850,10 @@ export const bootstrapApp = async () => {
 
   const hud = createHud(
     dock.left,
-    () => cycleSelectedProjectile(),
-    () => {
-      if (desktopQuickPanel.isVisible) {
-        desktopQuickPanel.setVisible(false)
-      } else {
-        desktopQuickPanel.openScreen('legend')
-      }
-    },
     // Reuses the exact same action the Tab panel's Habitat preset buttons
-    // dispatch, so there is one reset sequence, not two.
-    (presetId) => handleWatchAction(`preset-apply-${presetId}` as WatchActionId)
+    // used to dispatch, so there is one reset sequence, not two.
+    (presetId) => handleWatchAction(`preset-apply-${presetId}` as WatchActionId),
+    (projectile) => selectProjectile(projectile)
   )
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
   // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
@@ -1129,6 +1117,12 @@ export const bootstrapApp = async () => {
     vibrate(6)
   }
 
+  const selectProjectile = (type: ProjectileType) => {
+    selectedProjectile = type
+    audio.playClick()
+    vibrate(6)
+  }
+
   window.addEventListener('keydown', (event) => {
     audio.unlock()
 
@@ -1140,19 +1134,15 @@ export const bootstrapApp = async () => {
       return
     }
 
+    // No menu lives behind Tab any more, but it still must not leave the
+    // browser's default focus-cycling to steal keyboard/Space from gameplay.
     if (event.code === 'Tab') {
       event.preventDefault()
-      desktopQuickPanel.toggle()
       return
     }
 
     if (event.code === 'KeyX') {
       cycleSelectedProjectile()
-      return
-    }
-
-    if (event.code === 'Escape' && desktopQuickPanel.isVisible) {
-      desktopQuickPanel.setVisible(false)
       return
     }
 
@@ -1196,10 +1186,6 @@ export const bootstrapApp = async () => {
 
     event.preventDefault()
 
-    if (desktopQuickPanel.isVisible) {
-      return
-    }
-
     if (drive.driving) {
       driveKeys.brake = true
       return
@@ -1220,14 +1206,6 @@ export const bootstrapApp = async () => {
     audio.unlock()
 
     if (event.button !== 0) {
-      return
-    }
-
-    // The settings drawer owns its own canvas clicks; a click on the scene
-    // behind it just dismisses it.
-    if (!renderer.xr.isPresenting && desktopQuickPanel.isVisible) {
-      event.preventDefault()
-      desktopQuickPanel.setVisible(false)
       return
     }
 
@@ -1686,7 +1664,6 @@ export const bootstrapApp = async () => {
       visible: debugVisuals.showForceVectors
     })
     const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
-    const watchMenuOpen = renderer.xr.isPresenting || desktopQuickPanel.isVisible
 
     // Felt g-force: difference the active body's real inertial velocity (resync
     // across the walk↔drive handoff so the swap isn't read as a spike). It
@@ -1710,7 +1687,6 @@ export const bootstrapApp = async () => {
       playerMode: playerTraversal.mode,
       platform: currentControlPlatform(),
       region: playerRegion,
-      watchMenuOpen,
       observerMode: effectiveObserverMode,
       trailMode: debugVisuals.trailMode,
       ballCount: balls.length,
@@ -1728,8 +1704,10 @@ export const bootstrapApp = async () => {
       rpm: habitatConfig.rpm,
       presetName: getPresetName(habitatConfig.currentPresetId),
       currentPresetId: habitatConfig.currentPresetId,
+      platform: currentControlPlatform(),
       ballCount: balls.length,
-      projectile: PROJECTILES[selectedProjectile].label,
+      projectile: selectedProjectile,
+      projectileLabel: PROJECTILES[selectedProjectile].label,
       feltGravity,
       feltSpeed,
       region: playerRegion,
@@ -1740,8 +1718,7 @@ export const bootstrapApp = async () => {
           : {
               radialError: reattachStatus.radialError,
               ready: reattachStatus.canAttach
-            },
-      controlsOpen: desktopQuickPanel.isVisible
+            }
     })
     // The whole dock hides in VR; Travel/Spin stay reachable while driving.
     dock.setVisible(!renderer.xr.isPresenting)
@@ -1876,7 +1853,6 @@ export const bootstrapApp = async () => {
       }
     }
 
-    desktopQuickPanel.update(watchSnapshot, !renderer.xr.isPresenting)
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
       mobileControls.setDriving(drive.driving)
@@ -1952,7 +1928,6 @@ export const bootstrapApp = async () => {
     hud.destroy()
     beatBar.destroy()
     dock.destroy()
-    desktopQuickPanel.destroy()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
     cityColliders.dispose()

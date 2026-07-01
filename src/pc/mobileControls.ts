@@ -15,8 +15,7 @@ type MobileControlHandlers = {
   onThrow: () => void
   onJump: () => void
   onToggleDrive: () => void
-  onToggleSettings: () => void
-  // True while a 2D UI (quick panel) should swallow canvas pointers.
+  // True while a 2D UI should swallow canvas pointers.
   isUiPointerBlocked: () => boolean
   // Any touch or gyro input; lets the boot "look up" reveal bow out at once.
   onUserInput?: () => void
