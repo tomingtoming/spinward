@@ -8,7 +8,6 @@ import type { HabitatType } from '../sim/habitatConfig'
 const axisEndRotatingPosition = new THREE.Vector3()
 const overlookRotatingPosition = new THREE.Vector3()
 const exteriorRotatingPosition = new THREE.Vector3()
-const exteriorRotatingVelocity = new THREE.Vector3()
 
 // How far outside the hull the exterior vantage sits, as a multiple of the hull
 // radius — far enough to read the whole cylinder and the mirror end, close
@@ -111,14 +110,11 @@ export const respawnExterior = (
   const outward = config.radius * EXTERIOR_RADIUS_FACTOR
   const axial = config.type === 'cylinder' ? -config.length * 0.3 : 0
   exteriorRotatingPosition.set(outward, axial, 0)
-  // Hang at REST in inertial space so the colony spins/orbits past, instead of
-  // being flung outward at ~ω²·outward (≈1.6 g here). v_inertial = v_rot + ω×pos
-  // with ω about +Y and pos = (outward, axial, 0) gives ω×pos = (0,0,-ω·outward),
-  // so the cancelling rotating velocity is (0,0,+ω·outward).
-  exteriorRotatingVelocity.set(0, 0, config.omega * outward)
+  // Zero rotating velocity, like every other respawn point (resetPlayerToFreeFly
+  // defaults to it) — the player co-rotates with the habitat, so the colony
+  // reads as still from the exterior vantage instead of visibly spinning past.
   resetPlayerToFreeFly(state, {
     rotatingPosition: exteriorRotatingPosition,
-    rotatingVelocity: exteriorRotatingVelocity,
     frameAngle: config.frameAngle,
     omega: config.omega
   })

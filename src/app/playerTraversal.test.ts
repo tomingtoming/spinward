@@ -26,6 +26,7 @@ import {
   getCityGroundHeight,
   type CityBuilding
 } from '../objects/cityLayout'
+import { respawnExterior } from '../gameplay/respawn'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
@@ -516,6 +517,48 @@ test('a free-fly drop lands on a rooftop and grounds at its height', async () =>
   )
   // Resting just above the roof plane, well inside the cylinder floor.
   expect(Math.hypot(rotating.x, rotating.z)).toBeLessThan(radius - building.height)
+
+  disposePlayerTraversalState(state)
+  world.free()
+})
+
+test('updatePlayerGroundContact never lands a player floating outside the hull', async () => {
+  // Regression: the reattach check only ever bounded radialDistance from
+  // below (too far from the wall toward the axis), assuming free-fly always
+  // stayed inside the hull. The exterior vantage sits at radius * 1.6 —
+  // outside it — and once it stopped cancelling the spin to hang at rest
+  // (zero rotating velocity, like every other respawn), that zero velocity
+  // satisfied the speed gates here and "landed" the player from outer space.
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const radius = 18
+  const length = 120
+  const omega = 0.5
+  const state = createPlayerTraversalState(
+    { axialPosition: 0, azimuth: 0 },
+    radius,
+    0,
+    omega,
+    { rapier, world }
+  )
+
+  respawnExterior(state, {
+    type: 'cylinder',
+    radius,
+    length,
+    frameAngle: 0,
+    omega
+  })
+
+  const landed = updatePlayerGroundContact(state, {
+    radius,
+    length,
+    frameAngle: 0,
+    omega
+  })
+
+  expect(landed).toBe(false)
+  expect(state.mode).toBe('free-fly')
 
   disposePlayerTraversalState(state)
   world.free()

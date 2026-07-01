@@ -399,7 +399,15 @@ export const updatePlayerGroundContact = (
     ) ?? 0
   const surfaceRadius = config.radius - groundHeight
 
-  if (!insideAxially || radialDistance <= surfaceRadius - PLAYER_REST_SUPPORT - GROUND_CONTACT_GAP) {
+  // This was written assuming free-fly always stays inside the hull
+  // (radialDistance <= surfaceRadius), which was true everywhere except the
+  // exterior vantage (radius * 1.6, deliberately outside it) — the lower-bound
+  // check alone let a slow-moving exterior spawn "land" from outside the hull.
+  if (
+    !insideAxially ||
+    radialDistance > surfaceRadius ||
+    radialDistance <= surfaceRadius - PLAYER_REST_SUPPORT - GROUND_CONTACT_GAP
+  ) {
     return false
   }
 

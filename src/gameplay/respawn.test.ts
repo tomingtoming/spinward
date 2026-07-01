@@ -3,8 +3,14 @@ import * as THREE from 'three'
 
 import { createPlayerTraversalState, getPlayerBodyRadius } from '../app/playerTraversal'
 import { initRapier } from '../physics/rapierContext'
-import { getOverlookAltitude, respawnAxisEnd, respawnInnerWall, respawnOverlook } from './respawn'
-import { inertialPositionToRotating } from '../sim/frameTransforms'
+import {
+  getOverlookAltitude,
+  respawnAxisEnd,
+  respawnExterior,
+  respawnInnerWall,
+  respawnOverlook
+} from './respawn'
+import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { createUnitsContext } from '../units/units'
 
 test('respawnInnerWall places the player back on the inner wall center', () => {
@@ -41,6 +47,43 @@ test('respawnOverlook places the player co-rotating above the plaza', () => {
   expect(rotatingPosition.x).toBeCloseTo(radius - getOverlookAltitude(radius), 6)
   expect(rotatingPosition.y).toBeCloseTo(0, 6)
   expect(rotatingPosition.z).toBeCloseTo(0, 6)
+})
+
+test('respawnExterior hangs the player co-rotating, not cancelling the spin', () => {
+  const radius = 18
+  const omega = 0.5
+  const frameAngle = 0.2
+  const state = createPlayerTraversalState({ axialPosition: 5, azimuth: 1 }, radius, frameAngle, omega)
+
+  const didRespawn = respawnExterior(state, {
+    type: 'cylinder',
+    radius,
+    length: 120,
+    frameAngle,
+    omega
+  })
+
+  const rotatingPosition = inertialPositionToRotating(
+    state.inertialPosition,
+    frameAngle,
+    new THREE.Vector3()
+  )
+  const rotatingVelocity = inertialVelocityToRotating(
+    state.inertialPosition,
+    state.inertialVelocity,
+    omega,
+    frameAngle,
+    new THREE.Vector3()
+  )
+
+  expect(didRespawn).toBe(true)
+  expect(state.mode).toBe('free-fly')
+  expect(rotatingPosition.x).toBeCloseTo(radius * 1.6, 6)
+  expect(rotatingPosition.y).toBeCloseTo(-120 * 0.3, 6)
+  expect(rotatingPosition.z).toBeCloseTo(0, 6)
+  // The point: zero velocity in the rotating frame, like every other respawn
+  // (not the old cancel-the-spin inertial-rest velocity).
+  expect(rotatingVelocity.length()).toBeCloseTo(0, 6)
 })
 
 test('getOverlookAltitude is clamped for tiny and giant habitats', () => {
