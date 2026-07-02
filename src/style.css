@@ -22,6 +22,12 @@ canvas {
 
 button {
   font: inherit;
+  /* A long-press on any button (Jump, chips, etc.) must fire the button, not
+     the browser's text-selection / iOS callout menu. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 /* ── Splash ── */
@@ -125,8 +131,7 @@ button {
 
 /* Only the visible pills are interactive. */
 .dock .hud-chip,
-.dock button,
-.dock .dock-popover {
+.dock button {
   pointer-events: auto;
 }
 
@@ -134,26 +139,6 @@ button {
    the wrapper out of the flex layout). */
 .hud {
   display: contents;
-}
-
-.dock-hamburger {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  background: rgba(6, 18, 30, 0.78);
-  color: #dff3fb;
-  border: 1px solid rgba(103, 232, 249, 0.45);
-  border-radius: 11px;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: background 0.15s ease;
-}
-
-.dock-hamburger:hover {
-  background: rgba(15, 92, 115, 0.9);
 }
 
 .hud-chip {
@@ -203,7 +188,7 @@ button {
   border-color: rgba(196, 181, 253, 0.4);
 }
 
-/* CONTROL / DEBUG: pill toggles in the bar that open a popover ABOVE it. */
+/* CONTROL: opens the Tab quick-panel straight to its legend screen. */
 .dock-toggle {
   padding: 5px 10px;
   border-radius: 999px;
@@ -229,26 +214,127 @@ button {
   background: rgba(15, 92, 115, 0.9);
 }
 
-.dock-popover {
+/* ── Preset dropdown: the "Izma Colony" chip opens this instead of requiring
+   the Tab panel's Habitat screen just to switch colonies. ── */
+
+.preset-menu {
   position: fixed;
-  left: max(12px, env(safe-area-inset-left, 0px));
-  /* Clears the dock even when its left cluster has wrapped to two rows. */
-  bottom: calc(82px + env(safe-area-inset-bottom, 0px));
-  max-width: min(680px, calc(100vw - 24px));
-  margin: 0;
-  padding: 8px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  padding: 6px;
   border-radius: 12px;
-  background: rgba(6, 18, 28, 0.92);
-  border: 1px solid rgba(130, 168, 192, 0.22);
+  background: rgba(6, 18, 28, 0.94);
+  border: 1px solid rgba(103, 232, 249, 0.3);
   backdrop-filter: blur(12px);
-  font: 12px/1.6 'SF Mono', 'Cascadia Code', monospace;
-  white-space: pre-wrap;
-  color: rgba(216, 235, 244, 0.88);
-  z-index: 51;
+  z-index: 52;
 }
 
-.dock-popover[hidden] {
-  display: none;
+.preset-menu__item {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(216, 235, 244, 0.88);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-menu__item:hover {
+  background: rgba(15, 92, 115, 0.6);
+}
+
+.preset-menu__item.is-active {
+  color: #67e8f9;
+  background: rgba(15, 92, 115, 0.9);
+}
+
+/* ── Dropdown backdrop: shown behind any open dropdown/card, full-screen and
+   invisible. Tapping it — anywhere — closes everything. This is a much more
+   reliable "tap outside to dismiss" than inferring it from bubbling, which
+   is what silently failed to close things on touch before. ── */
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  background: transparent;
+}
+
+/* ── CONTROL card: a glance at the bindings, not a screen to navigate. Shows
+   for a few seconds then fades — never stays stuck open. Read-only, so it
+   never captures the pointer (pointer-events: none). ── */
+
+.controls-card {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, calc(100vw - 24px));
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(6, 16, 26, 0.96);
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 52;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.controls-card.is-fading {
+  opacity: 0;
+}
+
+.controls-card__summary {
+  text-align: center;
+  font-size: 11.5px;
+  color: rgba(190, 215, 230, 0.72);
+}
+
+.controls-card__columns {
+  display: flex;
+  gap: 28px;
+}
+
+.controls-card__column {
+  flex: 1;
+  min-width: 0;
+}
+
+.controls-card__column h4 {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.controls-card__column h4:first-child {
+  margin-top: 0;
+}
+
+.controls-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+
+.controls-card__row span:first-child {
+  color: rgba(190, 215, 230, 0.72);
+}
+
+.controls-card__row span:last-child {
+  color: rgba(216, 235, 244, 0.92);
+  font-weight: 600;
+  text-align: right;
 }
 
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
@@ -473,46 +559,9 @@ body.is-vr-entry #VRButton {
   z-index: 1200 !important;
 }
 
-/* ── Settings drawer: window-pinned, slides in from the left (flat screens) ── */
-
-.quick-drawer {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: min(360px, 88vw);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  box-sizing: border-box;
-  background: rgba(6, 16, 26, 0.94);
-  border-right: 1px solid rgba(103, 232, 249, 0.28);
-  backdrop-filter: blur(14px);
-  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.45);
-  transform: translateX(-100%);
-  transition: transform 0.22s ease;
-  z-index: 60;
-  /* Off-screen and inert until opened, so it never blocks the scene. */
-  pointer-events: none;
-}
-
-.quick-drawer.is-open {
-  transform: none;
-  pointer-events: auto;
-}
-
-.quick-drawer__canvas {
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  cursor: pointer;
-}
-
 /* Tiny windows: drop the least-essential bits (advanced toggles + secondary
    readouts) so the dock stays within two rows. */
 @media (max-width: 680px) {
-  .dock-toggle,
   .hud-chip--metric,
   .beat-bar .beat-label {
     display: none;
@@ -527,9 +576,9 @@ body.is-vr-entry #VRButton {
     font-size: 11px;
   }
 
-  /* CONTROL / DEBUG popovers are desktop-only. */
   .dock-toggle {
-    display: none;
+    padding: 4px 9px;
+    font-size: 10px;
   }
 
   .splash h1 {

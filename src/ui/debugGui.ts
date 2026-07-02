@@ -11,7 +11,6 @@ export type DebugVisualState = {
   showHud: boolean
   observerMode: ObserverMode
   trailMode: TrailMode
-  verificationErrorThreshold: number
 }
 
 type DebugGuiOptions = {
@@ -141,10 +140,6 @@ export const createDebugGui = ({
       InertialFixed: 'inertial-fixed'
     })
     .name('observer')
-    .onChange(onVisualChange)
-  debugFolder
-    .add(debugVisuals, 'verificationErrorThreshold', 0.1, 25, 0.1)
-    .name('frame err')
     .onChange(onVisualChange)
   debugFolder.open()
 

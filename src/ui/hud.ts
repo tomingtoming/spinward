@@ -1,46 +1,26 @@
-import type { Vector3 } from 'three'
-import type { ObserverMode, TrailMode } from '../app/observerMode'
 import { EARTH_GRAVITY } from '../gameplay/vehicle'
-import { formatControlsText, type ControlPlatform } from '../xr/controlScheme'
+import { PROJECTILES, type ProjectileType } from '../gameplay/projectileTypes'
+import { HABITAT_PRESETS } from '../presets/presets'
+import { getControlScheme, type ControlPlatform, type ControlSection } from '../xr/controlScheme'
 
 type HudSnapshot = {
-  radius: number
-  span: number
-  rpm: number
-  gTarget: number
-  presetName: string
-  habitatType: 'cylinder' | 'ring'
-  simScale: number
   ballCount: number
-  // Label of the currently-selected throwable (Ball / Beam / Firework).
-  projectile: string
-  trackedBallSpeed: number
-  xrActive: boolean
-  forceVectors: boolean
-  observerMode: ObserverMode
-  trailMode: TrailMode
-  watchMenuOpen: boolean
+  // Id + label of the currently-selected throwable (Ball / Beam / Firework).
+  projectile: ProjectileType
+  projectileLabel: string
   region: 'inside' | 'outside'
   playerMode: 'grounded' | 'free-fly'
+  rpm: number
+  presetName: string
+  currentPresetId: string
+  // Which control scheme the CONTROL card should show (PC / SP / VR).
+  platform: ControlPlatform
   // Measured felt g-force (proper acceleration, m/s²) and the car's speed
   // (m/s, or < 0 while on foot to hide the readout).
   feltGravity: number
   feltSpeed: number
-  verification: {
-    inertialVelocity: Vector3
-    rotatingVelocity: Vector3
-    fictitiousAcceleration: Vector3
-    estimatedAcceleration: Vector3
-    errorMagnitude: number
-    warning: boolean
-  } | null
   reattach: {
     radialError: number
-    radialTolerance: number
-    normalSpeed: number
-    maxNormalSpeed: number
-    surfaceSpeed: number
-    maxSurfaceSpeed: number
     ready: boolean
   } | null
 }
@@ -49,8 +29,6 @@ export type HudHandle = {
   destroy: () => void
   setVisible: (visible: boolean) => void
   update: (snapshot: HudSnapshot) => void
-  // Swap the controls drawer to the active platform's scheme (PC / SP / VR).
-  setControls: (platform: ControlPlatform) => void
 }
 
 const makeChip = (className: string) => {
@@ -59,115 +37,282 @@ const makeChip = (className: string) => {
   return chip
 }
 
-// `mount` is the dock's left cluster. The HUD's pieces flow inline there; the
-// CONTROL / DEBUG drawers become pill toggles whose text pops up ABOVE the bar.
-export const createHud = (mount: HTMLElement, onCycleProjectile: () => void): HudHandle => {
+// How long the CONTROL card and each dropdown's helper text stay up before
+// fading — long enough to read, short enough not to feel stuck.
+const CONTROLS_CARD_VISIBLE_MS = 5000
+const CONTROLS_CARD_FADE_MS = 400
+
+const makeControlsRow = (input: string, action: string) => {
+  const row = document.createElement('div')
+  row.className = 'controls-card__row'
+  const inputSpan = document.createElement('span')
+  inputSpan.textContent = input
+  const actionSpan = document.createElement('span')
+  actionSpan.textContent = action
+  row.append(inputSpan, actionSpan)
+  return row
+}
+
+const renderControlsSection = (container: HTMLElement, section: ControlSection | undefined) => {
+  if (section === undefined) {
+    return
+  }
+
+  const heading = document.createElement('h4')
+  heading.textContent = section.title
+  container.append(heading)
+
+  for (const binding of section.bindings) {
+    container.append(makeControlsRow(binding.input, binding.action))
+  }
+}
+
+// `mount` is the dock's left cluster. The HUD's pieces flow inline there.
+export const createHud = (
+  mount: HTMLElement,
+  // The preset and projectile chips double as dropdowns — no need to open a
+  // separate settings surface just to switch either one.
+  onSelectPreset: (presetId: string) => void,
+  onSelectProjectile: (projectile: ProjectileType) => void
+): HudHandle => {
   const root = document.createElement('div')
   // display:contents — the wrapper exists only so setVisible can hide the group.
   root.className = 'hud'
 
-  const popovers: HTMLElement[] = []
-  const toggles: HTMLButtonElement[] = []
-
-  const closeAllPopovers = () => {
-    for (const popover of popovers) {
-      popover.hidden = true
-    }
-    for (const toggle of toggles) {
-      toggle.classList.remove('is-active')
+  // A full-screen, invisible catcher shown behind whichever dropdown/card is
+  // open — tapping *anywhere* outside closes it. Simpler and far more robust
+  // on touch than trying to infer "was that tap outside" from bubbling, which
+  // is what silently failed to close things before.
+  const backdrop = document.createElement('div')
+  backdrop.className = 'dropdown-backdrop'
+  backdrop.hidden = true
+  const closeFns: Array<() => void> = []
+  const closeEverything = () => {
+    backdrop.hidden = true
+    for (const close of closeFns) {
+      close()
     }
   }
+  backdrop.addEventListener('pointerdown', (event) => {
+    event.stopPropagation()
+    closeEverything()
+  })
 
-  const makeToggle = (label: string, popover: HTMLElement) => {
-    const button = document.createElement('button')
-    button.className = 'dock-toggle'
-    button.textContent = label
-    button.addEventListener('pointerdown', (event) => event.stopPropagation())
-    button.addEventListener('click', (event) => {
-      event.preventDefault()
-      const open = popover.hidden
-      closeAllPopovers()
-      if (open) {
-        popover.hidden = false
-        button.classList.add('is-active')
-      }
+  // Shared by the preset and projectile chips: a tappable pill that opens a
+  // small menu of choices anchored above it. Works identically on touch (tap
+  // to open, tap an item, tap the backdrop to dismiss without choosing).
+  const createDropdownChip = <T extends string>(
+    className: string,
+    items: readonly { id: T; label: string }[],
+    onSelect: (id: T) => void
+  ) => {
+    const chip = document.createElement('button')
+    chip.className = className
+
+    const menu = document.createElement('div')
+    menu.className = 'preset-menu'
+    menu.hidden = true
+
+    const close = () => {
+      menu.hidden = true
+      chip.classList.remove('is-active')
+    }
+    closeFns.push(close)
+
+    const menuItems = items.map(({ id, label }) => {
+      const item = document.createElement('button')
+      item.className = 'preset-menu__item'
+      item.textContent = label
+      item.addEventListener('pointerdown', (event) => event.stopPropagation())
+      item.addEventListener('click', (event) => {
+        event.preventDefault()
+        closeEverything()
+        onSelect(id)
+      })
+      menu.append(item)
+      return { id, element: item }
     })
-    popovers.push(popover)
-    toggles.push(button)
-    return button
+
+    chip.addEventListener('pointerdown', (event) => event.stopPropagation())
+    chip.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (!menu.hidden) {
+        closeEverything()
+        return
+      }
+
+      closeEverything()
+      // Anchored to the chip's live position rather than a fixed offset — the
+      // left cluster's width varies with which chips are visible.
+      const rect = chip.getBoundingClientRect()
+      menu.style.left = `${rect.left}px`
+      menu.style.bottom = `${window.innerHeight - rect.top + 8}px`
+      menu.hidden = false
+      chip.classList.add('is-active')
+      backdrop.hidden = false
+    })
+
+    return { chip, menu, menuItems, close }
   }
 
-  const makePopover = (text: string) => {
-    const pre = document.createElement('pre')
-    pre.className = 'dock-popover'
-    pre.hidden = true
-    pre.textContent = text
-    return pre
+  // CONTROL shows a compact bindings card for a few seconds then fades —
+  // never a click-to-open panel to navigate. Works the same on touch (tap)
+  // as on PC (hover or click), and flashes once on boot so touch — which has
+  // no hover — gets a look at it too.
+  const controlsToggle = document.createElement('button')
+  controlsToggle.className = 'dock-toggle'
+  controlsToggle.textContent = 'CONTROL'
+
+  const controlsCard = document.createElement('div')
+  controlsCard.className = 'controls-card'
+  controlsCard.hidden = true
+  const controlsCardSummary = document.createElement('div')
+  controlsCardSummary.className = 'controls-card__summary'
+  const controlsCardLeft = document.createElement('div')
+  controlsCardLeft.className = 'controls-card__column'
+  const controlsCardRight = document.createElement('div')
+  controlsCardRight.className = 'controls-card__column'
+  const controlsCardColumns = document.createElement('div')
+  controlsCardColumns.className = 'controls-card__columns'
+  controlsCardColumns.append(controlsCardLeft, controlsCardRight)
+  controlsCard.append(controlsCardSummary, controlsCardColumns)
+
+  let controlsPlatform: ControlPlatform = 'pc'
+  let controlsFadeTimeout: ReturnType<typeof setTimeout> | null = null
+  let controlsHideTimeout: ReturnType<typeof setTimeout> | null = null
+
+  const renderControlsCard = () => {
+    const { summary, sections } = getControlScheme(controlsPlatform)
+    controlsCardSummary.textContent = summary
+    controlsCardLeft.replaceChildren()
+    controlsCardRight.replaceChildren()
+    renderControlsSection(controlsCardLeft, sections.find((s) => s.mode === 'grounded'))
+    renderControlsSection(controlsCardLeft, sections.find((s) => s.mode === 'driving'))
+    renderControlsSection(controlsCardRight, sections.find((s) => s.mode === 'free-fly'))
   }
 
-  // Starts on the PC scheme; main.ts immediately swaps it to the real platform
-  // and updates it on VR enter/exit (see hud.setControls).
-  const controlsPopover = makePopover(formatControlsText('pc'))
-  const debugPopover = makePopover('')
-  const controlsToggle = makeToggle('CONTROL', controlsPopover)
-  const debugToggle = makeToggle('DEBUG', debugPopover)
+  renderControlsCard()
+
+  const hideControlsCardNow = () => {
+    if (controlsFadeTimeout !== null) {
+      clearTimeout(controlsFadeTimeout)
+      controlsFadeTimeout = null
+    }
+    if (controlsHideTimeout !== null) {
+      clearTimeout(controlsHideTimeout)
+      controlsHideTimeout = null
+    }
+    controlsCard.hidden = true
+    controlsCard.classList.remove('is-fading')
+  }
+  closeFns.push(hideControlsCardNow)
+
+  const peekControlsCard = () => {
+    if (controlsFadeTimeout !== null) {
+      clearTimeout(controlsFadeTimeout)
+    }
+    if (controlsHideTimeout !== null) {
+      clearTimeout(controlsHideTimeout)
+      controlsHideTimeout = null
+    }
+
+    const rect = controlsToggle.getBoundingClientRect()
+    controlsCard.style.left = `${rect.left}px`
+    controlsCard.style.bottom = `${window.innerHeight - rect.top + 8}px`
+    controlsCard.hidden = false
+    controlsCard.classList.remove('is-fading')
+
+    controlsFadeTimeout = setTimeout(() => {
+      controlsCard.classList.add('is-fading')
+      controlsHideTimeout = setTimeout(() => {
+        controlsCard.hidden = true
+        controlsCard.classList.remove('is-fading')
+      }, CONTROLS_CARD_FADE_MS)
+    }, CONTROLS_CARD_VISIBLE_MS)
+  }
+
+  controlsToggle.addEventListener('pointerdown', (event) => event.stopPropagation())
+  controlsToggle.addEventListener('mouseenter', peekControlsCard)
+  controlsToggle.addEventListener('click', (event) => {
+    event.preventDefault()
+    peekControlsCard()
+  })
 
   // The live "felt g" is the readout that actually moves as you play; the
-  // nominal target g lives in the settings panel (and the debug popover), so it
-  // is no longer duplicated as an always-on chip.
-  const presetChip = makeChip('hud-chip--preset')
+  // nominal target g lives in the settings panel, so it is not duplicated as
+  // an always-on chip.
+  const presetDropdown = createDropdownChip(
+    'hud-chip hud-chip--preset hud-chip--tap',
+    HABITAT_PRESETS.map((preset) => ({ id: preset.id, label: preset.name })),
+    onSelectPreset
+  )
+
   // Secondary readouts — first to be dropped when the window gets narrow.
   const feltChip = makeChip('hud-chip--metric')
   const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
   const ballsChip = makeChip('hud-chip--metric')
-  // The projectile indicator doubles as the switch: tap/click it to cycle the
-  // throwable (the only way on a touchscreen). It is NOT a --metric chip, so it
-  // stays visible on narrow phones where the readouts are dropped.
-  const projectileChip = makeChip('hud-chip--tap')
-  projectileChip.title = 'Tap to switch projectile (X)'
-  projectileChip.addEventListener('pointerdown', (event) => event.stopPropagation())
-  projectileChip.addEventListener('click', (event) => {
-    event.preventDefault()
-    onCycleProjectile()
-  })
-  const dockChip = makeChip('')
+  // Stays visible on narrow phones where the readouts are dropped (not a
+  // --metric chip) — it is how touch switches the throwable at all.
+  const projectileDropdown = createDropdownChip<ProjectileType>(
+    'hud-chip hud-chip--tap',
+    Object.entries(PROJECTILES).map(([id, spec]) => ({
+      id: id as ProjectileType,
+      label: spec.label
+    })),
+    onSelectProjectile
+  )
+  // Distance left to close before you could reattach to the wall — only
+  // shown while free-flying. Labelled "reattach", not "dock": it applies
+  // anywhere on the wall, not just at the spaceport.
+  const reattachChip = makeChip('')
 
   root.append(
     controlsToggle,
-    debugToggle,
-    presetChip,
+    presetDropdown.chip,
     feltChip,
     spinChip,
     modeChip,
     ballsChip,
-    projectileChip,
-    dockChip
+    projectileDropdown.chip,
+    reattachChip
   )
-  // Popovers are fixed-positioned above the bar, so they live on body, not in
-  // the display:contents wrapper.
-  document.body.append(controlsPopover, debugPopover)
+  // Fixed-positioned above the bar (anchored dynamically to their chips), so
+  // they live on body, not in the display:contents wrapper.
+  document.body.append(backdrop, controlsCard, presetDropdown.menu, projectileDropdown.menu)
   mount.append(root)
 
-  const debugBody = debugPopover
+  // One-time boot flash: touch has no hover, so this is its only look at the
+  // bindings unless it taps CONTROL itself.
+  peekControlsCard()
 
   return {
     destroy: () => {
       root.remove()
-      controlsPopover.remove()
-      debugPopover.remove()
+      backdrop.remove()
+      controlsCard.remove()
+      presetDropdown.menu.remove()
+      projectileDropdown.menu.remove()
     },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
       if (!visible) {
-        closeAllPopovers()
+        closeEverything()
       }
     },
-    setControls: (platform: ControlPlatform) => {
-      controlsPopover.textContent = formatControlsText(platform)
-    },
     update: (snapshot) => {
-      presetChip.textContent = snapshot.presetName
+      if (snapshot.platform !== controlsPlatform) {
+        controlsPlatform = snapshot.platform
+        renderControlsCard()
+      }
+
+      presetDropdown.chip.textContent = snapshot.presetName
+      for (const item of presetDropdown.menuItems) {
+        item.element.classList.toggle('is-active', item.id === snapshot.currentPresetId)
+      }
+
       const feltG = snapshot.feltGravity / EARTH_GRAVITY
       feltChip.textContent =
         snapshot.feltSpeed >= 0
@@ -181,35 +326,19 @@ export const createHud = (mount: HTMLElement, onCycleProjectile: () => void): Hu
 
       ballsChip.hidden = snapshot.ballCount === 0
       ballsChip.textContent = `balls ${snapshot.ballCount}`
-      projectileChip.textContent = `◈ ${snapshot.projectile}`
-
-      const dock = snapshot.reattach
-      dockChip.hidden = snapshot.playerMode !== 'free-fly' || dock === null
-      if (dock !== null) {
-        dockChip.textContent = dock.ready ? 'dock ready' : `dock ${dock.radialError.toFixed(1)} m`
-        dockChip.className = `hud-chip ${dock.ready ? 'hud-chip--grounded' : ''}`
+      projectileDropdown.chip.textContent = `◈ ${snapshot.projectileLabel}`
+      for (const item of projectileDropdown.menuItems) {
+        item.element.classList.toggle('is-active', item.id === snapshot.projectile)
       }
 
-      const verification = snapshot.verification
-      debugBody.textContent =
-        `${snapshot.habitatType} R ${snapshot.radius.toFixed(0)}m span ${snapshot.span.toFixed(0)}m ` +
-        `sim ${snapshot.simScale.toFixed(3)} | nom g ${snapshot.gTarget.toFixed(2)} | ` +
-        `view ${snapshot.observerMode} | trails ${snapshot.trailMode} | ` +
-        `tracked ball ${snapshot.trackedBallSpeed.toFixed(2)} m/s | ` +
-        `force vectors ${snapshot.forceVectors ? 'on' : 'off'} | menu ${snapshot.watchMenuOpen ? 'open' : 'closed'} | ` +
-        `${snapshot.region} | ${snapshot.xrActive ? 'XR' : 'desktop'}` +
-        (dock === null
-          ? ''
-          : `\ndock dr ${dock.radialError.toFixed(2)}/${dock.radialTolerance.toFixed(2)} ` +
-            `vn ${dock.normalSpeed.toFixed(2)}/${dock.maxNormalSpeed.toFixed(2)} ` +
-            `vs ${dock.surfaceSpeed.toFixed(2)}/${dock.maxSurfaceSpeed.toFixed(2)} ${dock.ready ? 'ready' : 'hold'}`) +
-        (verification === null
-          ? ''
-          : `\nvI [${verification.inertialVelocity.x.toFixed(1)} ${verification.inertialVelocity.y.toFixed(1)} ${verification.inertialVelocity.z.toFixed(1)}] ` +
-            `vR [${verification.rotatingVelocity.x.toFixed(1)} ${verification.rotatingVelocity.y.toFixed(1)} ${verification.rotatingVelocity.z.toFixed(1)}] ` +
-            `aF [${verification.fictitiousAcceleration.x.toFixed(1)} ${verification.fictitiousAcceleration.y.toFixed(1)} ${verification.fictitiousAcceleration.z.toFixed(1)}] ` +
-            `aE [${verification.estimatedAcceleration.x.toFixed(1)} ${verification.estimatedAcceleration.y.toFixed(1)} ${verification.estimatedAcceleration.z.toFixed(1)}] ` +
-            `err ${verification.errorMagnitude.toFixed(2)}${verification.warning ? ' Frame mismatch!' : ''}`)
+      const reattach = snapshot.reattach
+      reattachChip.hidden = snapshot.playerMode !== 'free-fly' || reattach === null
+      if (reattach !== null) {
+        reattachChip.textContent = reattach.ready
+          ? 'reattach ready'
+          : `reattach ${reattach.radialError.toFixed(1)} m`
+        reattachChip.className = `hud-chip ${reattach.ready ? 'hud-chip--grounded' : ''}`
+      }
     }
   }
 }
