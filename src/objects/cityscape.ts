@@ -1211,6 +1211,15 @@ export class Cityscape {
     toneMapped: false
   })
 
+  // The expressway girder's side plates. Double-sided because one flat ring
+  // geometry serves both faces of the box.
+  private readonly expresswayFasciaMaterial = new THREE.MeshStandardMaterial({
+    color: 0x77828e,
+    roughness: 0.6,
+    metalness: 0.25,
+    side: THREE.DoubleSide
+  })
+
   // Red aviation warning lights on the tallest rooftops. Each beacon strobes on
   // its own phase (per-instance aBlinkPhase), driven by a shared time uniform —
   // so the city overhead twinkles with independent red flashes rather than one
@@ -1774,6 +1783,7 @@ export class Cityscape {
     this.beaconMaterial.dispose()
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
+    this.expresswayFasciaMaterial.dispose()
     this.roofClutterMaterial.dispose()
     this.landmarkDomeMaterial.dispose()
     this.trafficBodyMaterial.dispose()
@@ -3061,6 +3071,37 @@ export class Cityscape {
     const deckMesh = new THREE.Mesh(deck, this.roadMaterial)
     deckMesh.renderOrder = 1
     group.add(deckMesh)
+
+    // Box girder under the roadway: a soffit band 2 m below the deck plus a
+    // flat ring fascia closing each side, so the structure has real depth —
+    // a bare single-sided band reads as paper and the traffic on it as
+    // flying. The soffit faces the ground (default front side, normals away
+    // from the axis), unlike the road surfaces above it.
+    const girderDepth = 2
+    const soffit = new THREE.CylinderGeometry(
+      deckRadius + girderDepth,
+      deckRadius + girderDepth,
+      expressway.deckWidth,
+      fullTurnSegments,
+      1,
+      true
+    )
+    soffit.translate(0, expressway.axial, 0)
+    group.add(new THREE.Mesh(soffit, this.towerMaterial))
+
+    for (const side of [-1, 1]) {
+      const fascia = new THREE.RingGeometry(
+        deckRadius,
+        deckRadius + girderDepth,
+        fullTurnSegments,
+        1
+      )
+      // RingGeometry lives in the XY plane; stand it perpendicular to the
+      // cylinder axis so it closes the girder's side, visible from ±Y.
+      fascia.rotateX(Math.PI * 0.5)
+      fascia.translate(0, expressway.axial + side * (expressway.deckWidth * 0.5), 0)
+      group.add(new THREE.Mesh(fascia, this.expresswayFasciaMaterial))
+    }
 
     // Guard rails: thin bright bands standing proud of the deck edges.
     for (const side of [-1, 1]) {
