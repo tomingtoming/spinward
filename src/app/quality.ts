@@ -6,6 +6,10 @@ import { isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 export type QualityProfile = {
   pixelRatioCap: number
   maxBuildings: number | undefined
+  // Angular size (radians) below which far-batch buildings are culled. This
+  // knob trades far-side instance count against near-arc plan density:
+  // raising it pays for a denser plan without touching the arc you stand in.
+  farMinAngularSize: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -16,13 +20,26 @@ export const getQualityProfile = (): QualityProfile => {
   // Budgets assume the azimuth-bucket LOD: only the near arc carries
   // full-detail shapes, the rest are plain instanced boxes.
   if (isTouchDevice() && !isQuestBrowser()) {
-    return { pixelRatioCap: 1.75, maxBuildings: 6000, bloom: false }
+    // Phones spend their building budget on the near arc, not spread thin: a
+    // uniform maxBuildings cut dilutes the arc you stand in — the only place
+    // a small screen reads archetype variety — while most of what it saves
+    // is far-side boxes that are sub-pixel at 1.75 DPR anyway. So the plan is
+    // 2x denser than before and the far cull threshold 2.5x higher; measured
+    // on Izma this doubles the near arc while total drawn instances rise
+    // only ~16% (3,140 → 3,644).
+    return {
+      pixelRatioCap: 1.75,
+      maxBuildings: 12000,
+      farMinAngularSize: 0.01,
+      bloom: false
+    }
   }
 
   if (isQuestBrowser()) {
     return {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
+      farMinAngularSize: 0.004,
       bloom: false
     }
   }
@@ -30,6 +47,7 @@ export const getQualityProfile = (): QualityProfile => {
   return {
     pixelRatioCap: Number.POSITIVE_INFINITY,
     maxBuildings: 48000,
+    farMinAngularSize: 0.004,
     bloom: true
   }
 }

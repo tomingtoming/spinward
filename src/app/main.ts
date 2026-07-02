@@ -179,7 +179,7 @@ export const bootstrapApp = async () => {
       topology: habitatConfig.topology,
       type: habitatConfig.type
     },
-    { maxBuildings: quality.maxBuildings }
+    { maxBuildings: quality.maxBuildings, farMinAngularSize: quality.farMinAngularSize }
   )
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,

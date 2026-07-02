@@ -23,6 +23,7 @@ import {
   type BuildingKind,
   type CityBuilding,
   type CityCollisionIndex,
+  type CityLandmark,
   type CityPatch,
   type CityRoad,
   type CityTower,
@@ -110,12 +111,89 @@ const buildArchetypeGeometry = (kind: BuildingKind) => {
     roof.rotateY(Math.PI / 4)
     roof.translate(0, 0.34, 0)
     parts.push({ geometry: roof, materialIndex: 1 })
+  } else if (kind === 'slab') {
+    // Commercial podium filling the lot, narrower bar on top, offset so the
+    // podium roof reads as a terrace.
+    const podium = new THREE.BoxGeometry(1, 0.3, 1)
+    podium.translate(0, -0.35, 0)
+    parts.push({ geometry: podium, materialIndex: 0 })
+
+    const podiumCap = new THREE.BoxGeometry(1.02, 0.03, 1.02)
+    podiumCap.translate(0, -0.185, 0)
+    parts.push({ geometry: podiumCap, materialIndex: 1 })
+
+    const bar = new THREE.BoxGeometry(0.6, 0.72, 0.86)
+    bar.translate(0.14, 0.14, 0)
+    parts.push({ geometry: bar, materialIndex: 0 })
+
+    const barCap = new THREE.BoxGeometry(0.62, 0.03, 0.88)
+    barCap.translate(0.14, 0.515, 0)
+    parts.push({ geometry: barCap, materialIndex: 1 })
+  } else if (kind === 'lshape') {
+    // Two wings at different heights sharing a corner — breaks the endless
+    // rectangles without adding a texture or material.
+    const longWing = new THREE.BoxGeometry(1, 0.96, 0.5)
+    longWing.translate(0, -0.02, -0.25)
+    parts.push({ geometry: longWing, materialIndex: 0 })
+
+    const longCap = new THREE.BoxGeometry(1.02, 0.03, 0.52)
+    longCap.translate(0, 0.475, -0.25)
+    parts.push({ geometry: longCap, materialIndex: 1 })
+
+    const shortWing = new THREE.BoxGeometry(0.52, 0.78, 0.5)
+    shortWing.translate(-0.24, -0.11, 0.25)
+    parts.push({ geometry: shortWing, materialIndex: 0 })
+
+    const shortCap = new THREE.BoxGeometry(0.54, 0.03, 0.52)
+    shortCap.translate(-0.24, 0.295, 0.25)
+    parts.push({ geometry: shortCap, materialIndex: 1 })
   }
 
   const merged = mergeWithMaterialGroups(parts)
 
   for (const part of parts) {
     part.geometry.dispose()
+  }
+
+  return merged
+}
+
+// Rooftop clutter kit: water tank, two AC units and a mast merged into one
+// geometry, instanced once per qualifying near-arc roof. Unit space: the kit
+// sits on y = 0 and fits inside a half-unit footprint, scaled per instance.
+const buildRoofClutterKit = () => {
+  const parts: THREE.BufferGeometry[] = []
+
+  const tank = new THREE.CylinderGeometry(0.16, 0.16, 0.34, 8)
+  tank.translate(-0.2, 0.17, 0.14)
+  parts.push(tank)
+
+  const tankLegs = new THREE.BoxGeometry(0.26, 0.06, 0.26)
+  tankLegs.translate(-0.2, 0.03, 0.14)
+  parts.push(tankLegs)
+
+  const acLarge = new THREE.BoxGeometry(0.3, 0.16, 0.22)
+  acLarge.translate(0.16, 0.08, -0.1)
+  parts.push(acLarge)
+
+  const acSmall = new THREE.BoxGeometry(0.18, 0.12, 0.16)
+  acSmall.translate(-0.04, 0.06, -0.24)
+  parts.push(acSmall)
+
+  const mast = new THREE.CylinderGeometry(0.015, 0.025, 0.9, 5)
+  mast.translate(0.24, 0.45, 0.22)
+  parts.push(mast)
+
+  const merged = mergeBufferGeometries(parts)
+
+  for (const part of parts) {
+    part.dispose()
+  }
+
+  // mergeBufferGeometries only returns null for an empty/mismatched list;
+  // this list is fixed, so assert rather than thread null onward.
+  if (merged === null) {
+    throw new Error('roof clutter kit failed to merge')
   }
 
   return merged
@@ -340,12 +418,34 @@ const bakeRoadUvs = (
   }
 }
 
-const buildingTone = (tone: number, target: THREE.Color) => {
-  // Cool slate blocks with occasional warmer facades.
-  const hue = tone > 0.85 ? 0.07 : 0.58
+const buildingTone = (tone: number, urban: number, target: THREE.Color) => {
+  // Districts read through the palette: downtown skews glassy blue (higher
+  // saturation, fewer warm facades), the countryside keeps plastered warmth.
+  // `urban` comes from the same zoning field that drives height/archetype mix,
+  // so the colour gradient lines up with the skyline gradient for free.
+  const warmCut = 0.85 - (1 - urban) * 0.25
+  const isWarm = tone > warmCut
+  const hue = isWarm ? 0.07 : 0.58
+  const saturation = isWarm ? 0.2 : 0.12 + urban * 0.12
   const lightness = 0.38 + tone * 0.34
-  return target.setHSL(hue, 0.16, lightness)
+  return target.setHSL(hue, saturation, lightness)
 }
+
+// Suburban default for plan entries without zoning data (synthetic footprints).
+const DEFAULT_URBAN = 0.4
+
+// Walking/roof collision for the plaza dome, as a synthetic plan building.
+// The box is inset to the drum so the walkable "roof" height matches where
+// the dome visually stands, not its curved apex.
+const getLandmarkFootprint = (landmark: CityLandmark): CityBuilding => ({
+  azimuth: landmark.azimuth,
+  axial: landmark.axial,
+  width: landmark.domeRadius * 1.9,
+  depth: landmark.domeRadius * 1.9,
+  height: landmark.domeRadius * 0.35,
+  tone: 0.5,
+  kind: 'block'
+})
 
 // Window grid baked into each facade texture variant. The same numbers drive
 // both the canvas drawing and the per-instance UV scaling, so windows stay a
@@ -876,6 +976,24 @@ export class Cityscape {
     metalness: 0.35
   })
 
+  // Painted rooftop hardware — darker than the roofs it sits on so the kits
+  // read as clutter, not as another storey.
+  private readonly roofClutterMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4d5a68,
+    roughness: 0.7,
+    metalness: 0.3
+  })
+
+  // The plaza dome: glassy civic architecture with a faint self-glow so it
+  // stays a landmark after dark without its own light.
+  private readonly landmarkDomeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x9fbdd4,
+    roughness: 0.22,
+    metalness: 0.55,
+    emissive: new THREE.Color(0x16323e),
+    emissiveIntensity: 0.7
+  })
+
   private readonly towerAccentMaterial = new THREE.MeshBasicMaterial({
     color: 0x67e8f9,
     toneMapped: false
@@ -928,6 +1046,9 @@ export class Cityscape {
   private cityPlanBuildings: CityBuilding[] = []
   private cityFocusAzimuth = 0
   private archetypeBatches: THREE.InstancedMesh[] = []
+  // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
+  // building batches (same focus-driven rebuild + dispose cycle).
+  private roofClutter: THREE.InstancedMesh | null = null
   private collisionBuildings: CityBuilding[] = []
   private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
   private windowStrips: THREE.Mesh[] = []
@@ -946,6 +1067,7 @@ export class Cityscape {
   private lamps: THREE.InstancedMesh | null = null
   private beacons: THREE.InstancedMesh | null = null
   private towerGroup: THREE.Group | null = null
+  private landmarkGroup: THREE.Group | null = null
   private cables: THREE.Mesh | null = null
   private spineRings: THREE.Mesh | null = null
   private axisSpine: THREE.Mesh | null = null
@@ -961,9 +1083,14 @@ export class Cityscape {
   private readonly mirrorDayColor = new THREE.Color()
 
   private readonly maxBuildings: number | undefined
+  private readonly farMinAngularSize: number
 
-  constructor(dimensions: CityscapeDimensions, options?: { maxBuildings?: number }) {
+  constructor(
+    dimensions: CityscapeDimensions,
+    options?: { maxBuildings?: number; farMinAngularSize?: number }
+  ) {
     this.maxBuildings = options?.maxBuildings
+    this.farMinAngularSize = options?.farMinAngularSize ?? 0.004
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -1096,10 +1223,16 @@ export class Cityscape {
       maxBuildings: this.maxBuildings,
       topology: this.topology
     })
-    this.collisionBuildings =
-      plan.tower !== null
-        ? [...plan.buildings, this.getTowerFootprint(plan.tower)]
-        : plan.buildings
+    this.collisionBuildings = [...plan.buildings]
+
+    if (plan.tower !== null) {
+      this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
+    }
+
+    if (plan.landmark !== null) {
+      this.collisionBuildings.push(getLandmarkFootprint(plan.landmark))
+    }
+
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.buildBuildings(plan.buildings)
     this.buildRoads(plan.roads, radius)
@@ -1125,6 +1258,10 @@ export class Cityscape {
 
     if (plan.tower !== null) {
       this.buildTower(plan.tower, radius)
+    }
+
+    if (plan.landmark !== null) {
+      this.buildLandmark(plan.landmark, radius)
     }
   }
 
@@ -1231,6 +1368,63 @@ export class Cityscape {
     }
   }
 
+  private buildLandmark(landmark: CityLandmark, radius: number) {
+    const group = new THREE.Group()
+    const cos = Math.cos(landmark.azimuth)
+    const sin = Math.sin(landmark.azimuth)
+    tangent.set(-sin, 0, cos)
+    inward.set(-cos, 0, -sin)
+    binormal.copy(tangent).cross(inward)
+    basis.makeBasis(tangent, inward, binormal)
+
+    const domeRadius = landmark.domeRadius
+    const drumHeight = domeRadius * 0.35
+
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(domeRadius * 0.96, domeRadius, drumHeight, 24),
+      this.towerMaterial
+    )
+    drum.position.set(0, drumHeight * 0.5, 0)
+
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(domeRadius * 0.96, 24, 12, 0, fullTurn, 0, Math.PI * 0.5),
+      this.landmarkDomeMaterial
+    )
+    dome.position.set(0, drumHeight, 0)
+
+    // Cyan rim at the drum/dome joint — the same accent language as the
+    // overlook tower's deck ring, so the two landmarks read as one family.
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(
+        domeRadius * 0.97,
+        Math.max(0.05, domeRadius * 0.02),
+        6,
+        28
+      ),
+      this.towerAccentMaterial
+    )
+    rim.rotation.x = Math.PI * 0.5
+    rim.position.set(0, drumHeight, 0)
+
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(domeRadius * 0.015, domeRadius * 0.04, domeRadius * 0.5, 6),
+      this.towerMaterial
+    )
+    spire.position.set(0, drumHeight + domeRadius * 1.1, 0)
+
+    const spireTip = new THREE.Mesh(
+      new THREE.SphereGeometry(Math.max(0.12, domeRadius * 0.045), 8, 6),
+      this.lampMaterial
+    )
+    spireTip.position.set(0, drumHeight + domeRadius * 1.35, 0)
+
+    group.add(drum, dome, rim, spire, spireTip)
+    group.quaternion.setFromRotationMatrix(basis)
+    group.position.set(cos, 0, sin).multiplyScalar(radius).setY(landmark.axial)
+    this.landmarkGroup = group
+    this.group.add(group)
+  }
+
   dispose() {
     this.clear()
     this.buildingSideMaterial.dispose()
@@ -1265,15 +1459,20 @@ export class Cityscape {
     this.beaconMaterial.dispose()
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
+    this.roofClutterMaterial.dispose()
+    this.landmarkDomeMaterial.dispose()
     this.cableMaterial.dispose()
     this.spineRingMaterial.dispose()
   }
 
-  private disposeBuildingBatches() {
+  // Near batches are small (~10% of the plan) and cheap to recreate on every
+  // focus step; the far batch is the other ~90%, so it keeps a persistent
+  // capacity-sized buffer and is rewritten in place (see updateFarBatch).
+  private disposeNearBuildingBatches() {
     for (const batch of [
       this.buildings,
       this.largeBuildings,
-      this.farBuildings,
+      this.roofClutter,
       ...this.archetypeBatches
     ]) {
       if (batch !== null) {
@@ -1284,8 +1483,18 @@ export class Cityscape {
 
     this.buildings = null
     this.largeBuildings = null
-    this.farBuildings = null
+    this.roofClutter = null
     this.archetypeBatches = []
+  }
+
+  private disposeBuildingBatches() {
+    this.disposeNearBuildingBatches()
+
+    if (this.farBuildings !== null) {
+      this.farBuildings.geometry.dispose()
+      this.group.remove(this.farBuildings)
+      this.farBuildings = null
+    }
   }
 
   private clear() {
@@ -1332,6 +1541,14 @@ export class Cityscape {
       }
       this.group.remove(this.towerGroup)
       this.towerGroup = null
+    }
+
+    if (this.landmarkGroup !== null) {
+      for (const child of this.landmarkGroup.children) {
+        ;(child as THREE.Mesh).geometry?.dispose()
+      }
+      this.group.remove(this.landmarkGroup)
+      this.landmarkGroup = null
     }
 
     for (const strip of this.windowStrips) {
@@ -1402,7 +1619,7 @@ export class Cityscape {
   }
 
   private rebuildBuildingBatches() {
-    this.disposeBuildingBatches()
+    this.disposeNearBuildingBatches()
 
     const nearArc =
       getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6)
@@ -1430,7 +1647,7 @@ export class Cityscape {
       GRID_DENSE
     )
 
-    for (const kind of ['setback', 'tower', 'house'] as const) {
+    for (const kind of ['setback', 'tower', 'house', 'slab', 'lshape'] as const) {
       const batch = this.buildArchetypeBatch(
         near.filter((b) => b.kind === kind),
         kind
@@ -1441,7 +1658,158 @@ export class Cityscape {
       }
     }
 
-    this.farBuildings = this.buildBuildingBatch(far, this.farBuildingSideMaterial, GRID_FAR)
+    this.updateFarBatch(far)
+    this.buildRoofClutter(near)
+  }
+
+  // The far batch persists across focus steps: allocated once per plan at
+  // full-plan capacity, then rewritten in place and truncated via .count.
+  // The old dispose-and-rebuild allocated ~megabytes per step, a visible
+  // hitch on Quest while driving.
+  private ensureFarBatchCapacity(capacity: number) {
+    if (this.farBuildings !== null && this.farBuildings.instanceMatrix.count >= capacity) {
+      return
+    }
+
+    if (this.farBuildings !== null) {
+      this.farBuildings.geometry.dispose()
+      this.group.remove(this.farBuildings)
+    }
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1)
+    const side = this.farBuildingSideMaterial
+    // BoxGeometry group order: +x, -x, +y, -y, +z, -z; local +y is the roof.
+    const materials = [side, side, this.buildingRoofMaterial, this.buildingRoofMaterial, side, side]
+    const mesh = new THREE.InstancedMesh(geometry, materials, capacity)
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    mesh.frustumCulled = false
+    geometry.setAttribute(
+      'aUvScale',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
+    )
+    this.farBuildings = mesh
+    this.group.add(mesh)
+  }
+
+  private updateFarBatch(far: CityBuilding[]) {
+    this.ensureFarBatchCapacity(Math.max(1, this.cityPlanBuildings.length))
+    const mesh = this.farBuildings
+
+    if (mesh === null) {
+      return
+    }
+
+    const uvScales = (mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute)
+      .array as Float32Array
+    let count = 0
+
+    for (const building of far) {
+      const theta = Math.abs(wrapAngleToPi(building.azimuth - this.cityFocusAzimuth))
+      const chord = 2 * this.radius * Math.sin(theta * 0.5)
+      const maxDimension = Math.max(building.width, building.depth, building.height)
+
+      // Constant-screen-size cull: below farMinAngularSize radians a building
+      // is a few pixels of shimmer fuel, not skyline. The threshold scales
+      // with each building's own chord distance, so nothing pops at the
+      // near-arc boundary (a 1 km neighbour only needs metres to stay) while
+      // the far side keeps just the silhouettes that read.
+      if (maxDimension < chord * this.farMinAngularSize) {
+        continue
+      }
+
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - building.height * 0.5)
+        .setY(building.axial)
+      instanceScale.set(building.width, building.height, building.depth)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(count, instanceMatrix)
+      mesh.setColorAt(
+        count,
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+      )
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        building.height,
+        GRID_FAR,
+        uvScales,
+        count * 2
+      )
+      count += 1
+    }
+
+    mesh.count = count
+    mesh.instanceMatrix.needsUpdate = true
+    ;(mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute).needsUpdate = true
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+  }
+
+  // One clutter kit (water tank + AC boxes + mast) per qualifying near-arc
+  // flat roof. Near arc only: at far-side distances the kit is sub-pixel, so
+  // it would be pure vertex cost. Deterministic without consuming plan RNG —
+  // the per-building offsets derive from fields the building already carries.
+  private buildRoofClutter(near: CityBuilding[]) {
+    const flatRoofed = near
+      .filter(
+        (b) =>
+          (b.kind === 'block' || b.kind === 'setback' || b.kind === 'slab') &&
+          b.height >= 16 &&
+          Math.min(b.width, b.depth) >= 8
+      )
+      .sort((a, b) => b.height - a.height)
+      .slice(0, 800)
+
+    if (flatRoofed.length === 0) {
+      return
+    }
+
+    const geometry = buildRoofClutterKit()
+    const mesh = new THREE.InstancedMesh(geometry, this.roofClutterMaterial, flatRoofed.length)
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+
+    for (let index = 0; index < flatRoofed.length; index += 1) {
+      const building = flatRoofed[index]
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+
+      // The setback/slab tops are inset from the footprint, so aim the kit at
+      // the upper part's centre and keep the jitter inside it.
+      const topCentreTangent = building.kind === 'slab' ? building.width * 0.14 : 0
+      const jitterSeed = building.tone * 7.31 + building.azimuth * 13.7
+      const jitterT = (jitterSeed - Math.floor(jitterSeed) - 0.5) * building.width * 0.16
+      const jitterA =
+        (jitterSeed * 3.7 - Math.floor(jitterSeed * 3.7) - 0.5) * building.depth * 0.16
+      const kitScale = THREE.MathUtils.clamp(Math.min(building.width, building.depth) * 0.4, 2.5, 9)
+
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - building.height)
+        .setY(building.axial + jitterA)
+        .addScaledVector(tangent, topCentreTangent + jitterT)
+      instanceScale.setScalar(kitScale)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+    this.roofClutter = mesh
+    this.group.add(mesh)
   }
 
   private buildArchetypeBatch(
@@ -1497,7 +1865,10 @@ export class Cityscape {
       instanceScale.set(building.width, building.height, building.depth)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
-      mesh.setColorAt(index, buildingTone(building.tone, instanceColor))
+      mesh.setColorAt(
+        index,
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+      )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
         building.height * wallHeightFactor,
@@ -1562,7 +1933,10 @@ export class Cityscape {
       instanceScale.set(building.width, building.height, building.depth)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
-      mesh.setColorAt(index, buildingTone(building.tone, instanceColor))
+      mesh.setColorAt(
+        index,
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+      )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
         building.height,
