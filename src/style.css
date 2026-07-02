@@ -82,6 +82,25 @@ button {
   }
 }
 
+/* Bootstrap-failure state: main.ts swaps the spinner for these. */
+.splash__error-detail {
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.6;
+  color: rgba(255, 176, 176, 0.85);
+}
+
+.splash__reload {
+  margin-top: 6px;
+  padding: 8px 26px;
+  border: 1px solid rgba(103, 232, 249, 0.5);
+  border-radius: 999px;
+  background: rgba(103, 232, 249, 0.12);
+  color: #67e8f9;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+
 /* ── Dock bar: one bottom row holding everything (non-VR) ── */
 
 .dock {
@@ -106,6 +125,18 @@ button {
 }
 
 .dock[hidden] {
+  display: none;
+}
+
+/* The hidden ATTRIBUTE only works through a UA rule, which any author
+   `display` silently defeats (cascade origin, not specificity). Every widget
+   that toggles `hidden` AND declares its own display needs this override —
+   without it a "closed" dropdown/card keeps its inline position and simply
+   stays on screen. The dock rule above is the same patch. */
+.hud[hidden],
+.beat-bar[hidden],
+.controls-card[hidden],
+.preset-menu[hidden] {
   display: none;
 }
 

@@ -139,8 +139,8 @@ export class MobileControls {
     this.brakeButton.addEventListener('pointercancel', releaseBrake)
     this.brakeButton.addEventListener('pointerleave', releaseBrake)
     this.gyroButton = makeButton('Gyro', () => this.toggleGyro())
-    // Settings now live behind the dock's ☰ hamburger (shown on touch too), so
-    // the gameplay row no longer carries its own ⚙.
+    // No ⚙ here: presets/projectile switch from the dock's chips, spin from
+    // the beat bar, and the remaining tunables live behind the ?debug GUI.
 
     this.stickBase = document.createElement('div')
     this.stickBase.className = 'mobile-stick'

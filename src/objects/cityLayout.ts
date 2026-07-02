@@ -7,7 +7,7 @@ import {
 const TWO_PI = Math.PI * 2
 const ARC_EPSILON = 1e-6
 
-export type BuildingKind = 'block' | 'setback' | 'tower' | 'house'
+export type BuildingKind = 'block' | 'setback' | 'tower' | 'house' | 'slab' | 'lshape'
 
 export type CityBuilding = {
   azimuth: number
@@ -17,6 +17,9 @@ export type CityBuilding = {
   height: number
   tone: number
   kind: BuildingKind
+  // 0..1 urbanization at this lot (downtown = 1). Drives the facade palette;
+  // optional so synthetic footprints (tower, tests) can omit it.
+  urban?: number
 }
 
 export type RoadKind = 'arterial' | 'local'
@@ -53,12 +56,21 @@ export type CityTower = {
   deckRadius: number
 }
 
+// One-off civic dome near the plaza — the city's "face" and a navigation
+// anchor, mirroring the overlook tower across the spawn crossroads.
+export type CityLandmark = {
+  azimuth: number
+  axial: number
+  domeRadius: number
+}
+
 export type CityPlan = {
   roads: CityRoad[]
   buildings: CityBuilding[]
   patches: CityPatch[]
   trees: CityTree[]
   tower: CityTower | null
+  landmark: CityLandmark | null
 }
 
 export type CityPlanConfig = {
@@ -225,6 +237,19 @@ export const getOverlookTowerClearance = (radius: number) => {
   return (
     getArterialRoadWidth(radius) * 0.5 + getSidewalkWidth(radius) + deckRadius + 4
   )
+}
+
+// Mirrored across the spawn crossroads from the overlook tower, so the two
+// landmarks bracket the plaza and give the player an instant sense of
+// direction. Same clearance dance as the tower: buildings keep out of its lot.
+export const getPlazaLandmark = (radius: number): CityLandmark => {
+  const clearance = getOverlookTowerClearance(radius)
+
+  return {
+    azimuth: clearance / radius,
+    axial: -clearance,
+    domeRadius: Math.min(16, Math.max(3.5, radius * 0.09))
+  }
 }
 
 export const getOverlookTower = (radius: number): CityTower => {
@@ -508,7 +533,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const { radius, length } = config
 
   if (radius <= 0 || length <= 0) {
-    return { roads: [], buildings: [], patches: [], trees: [], tower: null }
+    return { roads: [], buildings: [], patches: [], trees: [], tower: null, landmark: null }
   }
 
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
@@ -622,6 +647,9 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const overlookTower = getOverlookTower(radius)
   const towerClearance =
     overlookTower.deckRadius + Math.max(4, getSidewalkWidth(radius, length))
+  const landmark = getPlazaLandmark(radius)
+  const landmarkClearance =
+    landmark.domeRadius + Math.max(4, getSidewalkWidth(radius, length))
 
   const placeBuilding = (
     stripCenter: number,
@@ -631,7 +659,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     depth: number,
     height: number,
     tone: number,
-    kind: BuildingKind
+    kind: BuildingKind,
+    urban: number
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -653,7 +682,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       return
     }
 
-    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone, kind })
+    // Same courtesy for the plaza dome across the crossroads.
+    if (
+      Math.abs(wrapToPi(azimuth - landmark.azimuth)) * radius <
+        landmarkClearance + width * 0.5 &&
+      Math.abs(axialCenter - landmark.axial) < landmarkClearance + depth * 0.5
+    ) {
+      return
+    }
+
+    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone, kind, urban })
   }
 
   // A row of buildings along one block edge, all fronting the same road.
@@ -701,8 +739,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       let height = heightBase * (0.25 + heightRoll * heightRoll * 1.1) * (0.35 + urban * 0.65)
 
       // Building archetypes: low lots lean toward houses, tall rolls become
-      // slim towers or stepped setbacks, everything else stays a block. Downtown
-      // skews the dice toward towers/setbacks; the countryside toward houses.
+      // slim towers or stepped setbacks (downtown trades some setbacks for
+      // podium slabs), everything else stays a block — except a slice of the
+      // block band that folds into L-shapes for silhouette variety. The bands
+      // subdivide the ONE existing kindRoll, so the deterministic roll order
+      // (and every other roll's meaning) is untouched.
       let kind: BuildingKind = 'block'
       const towerThreshold = 0.84 - urban * 0.26
       const setbackThreshold = 0.62 - urban * 0.16
@@ -717,16 +758,48 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         depth = slim
         height = Math.min(height * 1.25, 78)
       } else if (kindRoll > setbackThreshold) {
-        kind = 'setback'
-        height = Math.min(height * 1.1, 76)
+        const bandPosition =
+          (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
+
+        // The podium slab is downtown furniture — a commercial base with a
+        // narrower residential bar on top. The countryside keeps setbacks.
+        if (bandPosition > 0.6 && urban > 0.45) {
+          kind = 'slab'
+          height = Math.min(height * 1.15, 70)
+        } else {
+          kind = 'setback'
+          height = Math.min(height * 1.1, 76)
+        }
+      } else if (kindRoll > setbackThreshold * 0.75) {
+        kind = 'lshape'
       }
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
 
       if (facing === 'avenue') {
-        placeBuilding(stripCenter, frontCenter, alongCenter, depth, along, height, toneRoll, kind)
+        placeBuilding(
+          stripCenter,
+          frontCenter,
+          alongCenter,
+          depth,
+          along,
+          height,
+          toneRoll,
+          kind,
+          urban
+        )
       } else {
-        placeBuilding(stripCenter, alongCenter, frontCenter, along, depth, height, toneRoll, kind)
+        placeBuilding(
+          stripCenter,
+          alongCenter,
+          frontCenter,
+          along,
+          depth,
+          height,
+          toneRoll,
+          kind,
+          urban
+        )
       }
     }
   }
@@ -922,5 +995,5 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
   }
 
-  return { roads, buildings, patches, trees, tower: getOverlookTower(radius) }
+  return { roads, buildings, patches, trees, tower: getOverlookTower(radius), landmark }
 }
