@@ -356,7 +356,8 @@ describe('planCity', () => {
       patches: [],
       trees: [],
       tower: null,
-      landmark: null
+      landmark: null,
+      expressway: null
     }
     expect(planCity({ radius: 0, length: 120 })).toEqual(empty)
     expect(planCity({ radius: 18, length: 0 })).toEqual(empty)

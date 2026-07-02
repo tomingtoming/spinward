@@ -64,6 +64,16 @@ export type CityLandmark = {
   domeRadius: number
 }
 
+// The elevated expressway ring: one full-circumference deck at a fixed axial
+// position beside downtown. Buildings keep out of its corridor the same way
+// they keep out of the plaza.
+export type CityExpressway = {
+  axial: number
+  corridorHalfWidth: number
+  deckHeight: number
+  deckWidth: number
+}
+
 export type CityPlan = {
   roads: CityRoad[]
   buildings: CityBuilding[]
@@ -71,6 +81,7 @@ export type CityPlan = {
   trees: CityTree[]
   tower: CityTower | null
   landmark: CityLandmark | null
+  expressway: CityExpressway | null
 }
 
 export type CityPlanConfig = {
@@ -249,6 +260,24 @@ export const getPlazaLandmark = (radius: number): CityLandmark => {
     azimuth: clearance / radius,
     axial: -clearance,
     domeRadius: Math.min(16, Math.max(3.5, radius * 0.09))
+  }
+}
+
+// The ring runs just south of the plaza block so it fills the spawn vista
+// without cutting the crossroads. Small habitats skip it: an 18 m viaduct
+// on a playground-sized drum would be a wall, not a skyline.
+export const getCityExpressway = (radius: number): CityExpressway | null => {
+  if (radius < 800) {
+    return null
+  }
+
+  const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius) * 0.7))
+
+  return {
+    axial: -Math.max(140, Math.min(400, radius * 0.055)),
+    corridorHalfWidth: deckWidth * 0.5 + 8,
+    deckHeight: 18,
+    deckWidth
   }
 }
 
@@ -533,7 +562,15 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const { radius, length } = config
 
   if (radius <= 0 || length <= 0) {
-    return { roads: [], buildings: [], patches: [], trees: [], tower: null, landmark: null }
+    return {
+      roads: [],
+      buildings: [],
+      patches: [],
+      trees: [],
+      tower: null,
+      landmark: null,
+      expressway: null
+    }
   }
 
   const maxBuildings = config.maxBuildings ?? DEFAULT_MAX_BUILDINGS
@@ -650,6 +687,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const landmark = getPlazaLandmark(radius)
   const landmarkClearance =
     landmark.domeRadius + Math.max(4, getSidewalkWidth(radius, length))
+  const expressway = getCityExpressway(radius)
 
   const placeBuilding = (
     stripCenter: number,
@@ -687,6 +725,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       Math.abs(wrapToPi(azimuth - landmark.azimuth)) * radius <
         landmarkClearance + width * 0.5 &&
       Math.abs(axialCenter - landmark.axial) < landmarkClearance + depth * 0.5
+    ) {
+      return
+    }
+
+    // The expressway corridor stays clear along its whole circumference —
+    // the deck must never slice through a tower.
+    if (
+      expressway !== null &&
+      Math.abs(axialCenter - expressway.axial) <
+        expressway.corridorHalfWidth + depth * 0.5
     ) {
       return
     }
@@ -1101,5 +1149,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
   }
 
-  return { roads, buildings, patches, trees, tower: getOverlookTower(radius), landmark }
+  return {
+    roads,
+    buildings,
+    patches,
+    trees,
+    tower: getOverlookTower(radius),
+    landmark,
+    expressway
+  }
 }
