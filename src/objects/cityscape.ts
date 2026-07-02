@@ -648,11 +648,27 @@ const drawEmissiveRect = (
   context.globalAlpha = 1
 }
 
+// Optional palette override for a facade texture — the lever behind the
+// per-building material variety. Same window grid, different skin: pale tile,
+// warm masonry, checkered curtain glass, and so on.
+type FacadePalette = {
+  base: string
+  rib: string
+  seam?: string
+  // Alternate-cell backdrop; paints a (row+column)-parity checker like the
+  // white-and-glass tower in the reference photo.
+  checker?: string
+  litChance?: number
+  // Unlit pane colour (defaults to cool sky-reflecting glass).
+  coolGlass?: string
+}
+
 const createFacadeTextureSet = (
   columns: number,
   rows: number,
   variant: FacadeTextureVariant,
-  seed: number
+  seed: number,
+  palette?: FacadePalette
 ): TextureSet => {
   const size = variant === 'far' ? 512 : 256
   const { canvas: albedoCanvas, context: albedo } = createCanvas(size)
@@ -665,9 +681,13 @@ const createFacadeTextureSet = (
   // Bases sit a stop or two brighter than a pure night skin so the daytime color
   // lift (setDaylight) reaches a believable concrete/glass grey instead of near
   // black; night stays dark because the hemisphere light is low after dusk.
-  const base = isTower ? '#2b3340' : variant === 'warm' ? '#5b6470' : '#414b58'
-  const rib = isTower ? '#161d27' : variant === 'warm' ? '#6f6770' : '#2a323d'
-  const seam = isTower ? 'rgba(177, 198, 216, 0.08)' : 'rgba(255, 218, 183, 0.08)'
+  const base =
+    palette?.base ?? (isTower ? '#2b3340' : variant === 'warm' ? '#5b6470' : '#414b58')
+  const rib =
+    palette?.rib ?? (isTower ? '#161d27' : variant === 'warm' ? '#6f6770' : '#2a323d')
+  const seam =
+    palette?.seam ??
+    (isTower ? 'rgba(177, 198, 216, 0.08)' : 'rgba(255, 218, 183, 0.08)')
 
   albedo.fillStyle = base
   albedo.fillRect(0, 0, size, size)
@@ -714,12 +734,19 @@ const createFacadeTextureSet = (
     for (let column = 0; column < columns; column += 1) {
       const x = column * cellWidth
       const y = row * cellHeight
+
+      if (palette?.checker !== undefined && (row + column) % 2 === 0) {
+        albedo.fillStyle = palette.checker
+        albedo.fillRect(x, y, cellWidth, cellHeight)
+      }
+
       const windowWidth = cellWidth * (isTower ? 0.42 : isDense ? 0.5 : 0.58)
       const windowHeight = cellHeight * (isDense ? 0.5 : 0.44)
       const offsetX = cellWidth * (isTower ? 0.34 : 0.23) + (random() - 0.5) * cellWidth * 0.08
       const offsetY = cellHeight * 0.26 + (random() - 0.5) * cellHeight * 0.08
       const litChance =
-        variant === 'far' ? 0.58 : variant === 'dense' ? 0.48 : isTower ? 0.42 : 0.34
+        palette?.litChance ??
+        (variant === 'far' ? 0.58 : variant === 'dense' ? 0.48 : isTower ? 0.42 : 0.34)
       const stripChance = isTower ? 0.18 : 0.04
       const lit = random() < litChance
       const color = random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
@@ -727,7 +754,9 @@ const createFacadeTextureSet = (
       // Unlit panes read as cool sky-reflecting glass, not black holes: in
       // daylight (lifted albedo) they look glazed; at night the low light sinks
       // them dark while the lit/emissive panes carry the glow.
-      albedo.fillStyle = lit ? 'rgba(255, 216, 166, 0.55)' : 'rgba(120, 144, 170, 0.6)'
+      albedo.fillStyle = lit
+        ? 'rgba(255, 216, 166, 0.55)'
+        : palette?.coolGlass ?? 'rgba(120, 144, 170, 0.6)'
       albedo.fillRect(x + offsetX, y + offsetY, windowWidth, windowHeight)
       albedo.fillStyle = 'rgba(255, 255, 255, 0.08)'
       albedo.fillRect(x + offsetX + windowWidth * 0.12, y + offsetY, windowWidth * 0.12, windowHeight)
@@ -860,26 +889,71 @@ const disposeTextureSet = (textures: TextureSet) => {
   textures.emissive.dispose()
 }
 
+// Facade wardrobes. Block batches split by a per-building hash across these
+// palettes so neighbouring buildings stop wearing the same skin; towers get a
+// second, checkered curtain-glass look straight out of the reference photo.
+const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
+  undefined, // the original slate
+  {
+    base: '#878e94',
+    rib: '#5c636b',
+    seam: 'rgba(40, 48, 58, 0.12)',
+    coolGlass: 'rgba(96, 116, 136, 0.62)'
+  }, // pale tile
+  {
+    base: '#4d423c',
+    rib: '#2f2823',
+    seam: 'rgba(255, 200, 150, 0.1)',
+    litChance: 0.4
+  } // warm masonry
+]
+
+// Two plain slots against one checker keep the showpiece a showpiece — in the
+// reference photo the checkered tower is an accent, not the uniform.
+const TOWER_PALETTES: Array<FacadePalette | undefined> = [
+  undefined,
+  undefined,
+  { base: '#222b36', rib: '#141a22', checker: '#c3ced7', litChance: 0.5 } // checkered glass
+]
+
+// Deterministic palette pick from fields the building already carries — no
+// plan RNG consumed, stable across focus rebuilds.
+const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
+  const hash = Math.abs(
+    Math.sin(building.azimuth * 53.13 + building.axial * 0.271 + building.tone * 17.3)
+  )
+  return Math.floor(hash * buckets) % buckets
+}
+
 export class Cityscape {
   readonly group = new THREE.Group()
 
-  private readonly smallFacadeTextures = createFacadeTextureSet(
-    GRID_WARM.columns,
-    GRID_WARM.rows,
-    'warm',
-    0x2c1b3a5d
+  private readonly smallFacadeTextureSets = BLOCK_PALETTES.map((palette, index) =>
+    createFacadeTextureSet(
+      GRID_WARM.columns,
+      GRID_WARM.rows,
+      'warm',
+      (0x2c1b3a5d ^ (index * 0x9e3779b9)) >>> 0,
+      palette
+    )
   )
-  private readonly largeFacadeTextures = createFacadeTextureSet(
-    GRID_DENSE.columns,
-    GRID_DENSE.rows,
-    'dense',
-    0x7b42a8e3
+  private readonly largeFacadeTextureSets = BLOCK_PALETTES.map((palette, index) =>
+    createFacadeTextureSet(
+      GRID_DENSE.columns,
+      GRID_DENSE.rows,
+      'dense',
+      (0x7b42a8e3 ^ (index * 0x9e3779b9)) >>> 0,
+      palette
+    )
   )
-  private readonly towerFacadeTextures = createFacadeTextureSet(
-    GRID_TOWER.columns,
-    GRID_TOWER.rows,
-    'tower',
-    0x4d6b91f0
+  private readonly towerFacadeTextureSets = TOWER_PALETTES.map((palette, index) =>
+    createFacadeTextureSet(
+      GRID_TOWER.columns,
+      GRID_TOWER.rows,
+      'tower',
+      (0x4d6b91f0 ^ (index * 0x9e3779b9)) >>> 0,
+      palette
+    )
   )
   private readonly farFacadeTextures = createFacadeTextureSet(
     GRID_FAR.columns,
@@ -897,15 +971,18 @@ export class Cityscape {
 
   // Side faces carry the lit-window emissive map; roof and foundation stay
   // plain so towers do not glow from above.
-  private readonly buildingSideMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    map: this.smallFacadeTextures.albedo,
-    roughness: 0.85,
-    metalness: 0.1,
-    emissive: new THREE.Color(0xffe2b8),
-    emissiveIntensity: 0.65,
-    emissiveMap: this.smallFacadeTextures.emissive
-  })
+  private readonly buildingSideMaterials = this.smallFacadeTextureSets.map(
+    (set) =>
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: set.albedo,
+        roughness: 0.85,
+        metalness: 0.1,
+        emissive: new THREE.Color(0xffe2b8),
+        emissiveIntensity: 0.65,
+        emissiveMap: set.emissive
+      })
+  )
 
   private readonly houseBuildingSideMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -917,25 +994,31 @@ export class Cityscape {
     emissiveMap: this.houseFacadeTextures.emissive
   })
 
-  private readonly largeBuildingSideMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    map: this.largeFacadeTextures.albedo,
-    roughness: 0.85,
-    metalness: 0.1,
-    emissive: new THREE.Color(0xffe2b8),
-    emissiveIntensity: 0.65,
-    emissiveMap: this.largeFacadeTextures.emissive
-  })
+  private readonly largeBuildingSideMaterials = this.largeFacadeTextureSets.map(
+    (set) =>
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: set.albedo,
+        roughness: 0.85,
+        metalness: 0.1,
+        emissive: new THREE.Color(0xffe2b8),
+        emissiveIntensity: 0.65,
+        emissiveMap: set.emissive
+      })
+  )
 
-  private readonly towerBuildingSideMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    map: this.towerFacadeTextures.albedo,
-    roughness: 0.72,
-    metalness: 0.22,
-    emissive: new THREE.Color(0xffe2b8),
-    emissiveIntensity: 0.75,
-    emissiveMap: this.towerFacadeTextures.emissive
-  })
+  private readonly towerBuildingSideMaterials = this.towerFacadeTextureSets.map(
+    (set) =>
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: set.albedo,
+        roughness: 0.72,
+        metalness: 0.22,
+        emissive: new THREE.Color(0xffe2b8),
+        emissiveIntensity: 0.75,
+        emissiveMap: set.emissive
+      })
+  )
 
   private readonly farBuildingSideMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -1166,8 +1249,6 @@ export class Cityscape {
   private readonly fadeStart = { value: 1e9 }
   private readonly fadeEnd = { value: 2e9 }
 
-  private buildings: THREE.InstancedMesh | null = null
-  private largeBuildings: THREE.InstancedMesh | null = null
   private farBuildings: THREE.InstancedMesh | null = null
   private cityPlanBuildings: CityBuilding[] = []
   private cityFocusAzimuth = 0
@@ -1239,10 +1320,10 @@ export class Cityscape {
     // Facades carry a per-instance UV repeat so windows keep a constant real
     // size; only the side materials get it (roofs share their own material).
     for (const material of [
-      this.buildingSideMaterial,
+      ...this.buildingSideMaterials,
       this.houseBuildingSideMaterial,
-      this.largeBuildingSideMaterial,
-      this.towerBuildingSideMaterial,
+      ...this.largeBuildingSideMaterials,
+      ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial
     ]) {
       this.installFacadeUvScale(material)
@@ -1506,10 +1587,16 @@ export class Cityscape {
     // stay genuinely dark-windowed (no nocturnal glow at noon) and the lights
     // come up through dusk into night.
     const windowGlow = night * night
-    this.buildingSideMaterial.emissiveIntensity = windowGlow * 1.2
+    for (const material of this.buildingSideMaterials) {
+      material.emissiveIntensity = windowGlow * 1.2
+    }
     this.houseBuildingSideMaterial.emissiveIntensity = windowGlow * 1.1
-    this.largeBuildingSideMaterial.emissiveIntensity = windowGlow * 1.75
-    this.towerBuildingSideMaterial.emissiveIntensity = windowGlow * 1.6
+    for (const material of this.largeBuildingSideMaterials) {
+      material.emissiveIntensity = windowGlow * 1.75
+    }
+    for (const material of this.towerBuildingSideMaterials) {
+      material.emissiveIntensity = windowGlow * 1.6
+    }
     this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
     this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
     // The facade albedo is authored dark (a night base + lit-window cut-outs);
@@ -1517,18 +1604,28 @@ export class Cityscape {
     // than the dim night skin. Roofs lift too, and dim below 1 at night so only
     // the emissive rooftop details carry.
     const facadeLift = 1 + daylight * 2.6
-    this.buildingSideMaterial.color.setScalar(facadeLift)
-    this.houseBuildingSideMaterial.color.setScalar(facadeLift)
-    this.largeBuildingSideMaterial.color.setScalar(facadeLift)
-    this.towerBuildingSideMaterial.color.setScalar(facadeLift)
-    this.farBuildingSideMaterial.color.setScalar(facadeLift)
+    for (const material of [
+      ...this.buildingSideMaterials,
+      this.houseBuildingSideMaterial,
+      ...this.largeBuildingSideMaterials,
+      ...this.towerBuildingSideMaterials,
+      this.farBuildingSideMaterial
+    ]) {
+      material.color.setScalar(facadeLift)
+    }
     this.buildingRoofMaterial.color.setScalar(0.55 + daylight * 1.35)
     // Windows cool from warm dusk amber toward white/cyan as night falls.
-    this.buildingSideMaterial.emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
-    this.houseBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
-    this.largeBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
-    this.towerBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
-    this.farBuildingSideMaterial.emissive.copy(this.buildingSideMaterial.emissive)
+    this.buildingSideMaterials[0].emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
+
+    for (const material of [
+      ...this.buildingSideMaterials.slice(1),
+      this.houseBuildingSideMaterial,
+      ...this.largeBuildingSideMaterials,
+      ...this.towerBuildingSideMaterials,
+      this.farBuildingSideMaterial
+    ]) {
+      material.emissive.copy(this.buildingSideMaterials[0].emissive)
+    }
     // Roads become pale light veins at night; arterials brighter than
     // residential locals so the far-side city reads like a dense network.
     this.roadMaterial.emissiveIntensity = night * 1.55
@@ -1622,15 +1719,24 @@ export class Cityscape {
 
   dispose() {
     this.clear()
-    this.buildingSideMaterial.dispose()
-    this.houseBuildingSideMaterial.dispose()
-    this.largeBuildingSideMaterial.dispose()
-    this.towerBuildingSideMaterial.dispose()
-    this.farBuildingSideMaterial.dispose()
+    for (const material of [
+      ...this.buildingSideMaterials,
+      this.houseBuildingSideMaterial,
+      ...this.largeBuildingSideMaterials,
+      ...this.towerBuildingSideMaterials,
+      this.farBuildingSideMaterial
+    ]) {
+      material.dispose()
+    }
     this.buildingRoofMaterial.dispose()
-    disposeTextureSet(this.smallFacadeTextures)
-    disposeTextureSet(this.largeFacadeTextures)
-    disposeTextureSet(this.towerFacadeTextures)
+
+    for (const set of [
+      ...this.smallFacadeTextureSets,
+      ...this.largeFacadeTextureSets,
+      ...this.towerFacadeTextureSets
+    ]) {
+      disposeTextureSet(set)
+    }
     disposeTextureSet(this.farFacadeTextures)
     disposeTextureSet(this.houseFacadeTextures)
     disposeTextureSet(this.roofTextures)
@@ -1668,8 +1774,6 @@ export class Cityscape {
   // capacity-sized buffer and is rewritten in place (see updateFarBatch).
   private disposeNearBuildingBatches() {
     for (const batch of [
-      this.buildings,
-      this.largeBuildings,
       ...this.roofClutter,
       ...this.archetypeBatches
     ]) {
@@ -1679,8 +1783,6 @@ export class Cityscape {
       }
     }
 
-    this.buildings = null
-    this.largeBuildings = null
     this.roofClutter = []
     this.archetypeBatches = []
   }
@@ -1847,17 +1949,50 @@ export class Cityscape {
     const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
     const large = blocks.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
 
-    this.buildings = this.buildBuildingBatch(small, this.buildingSideMaterial, GRID_WARM)
-    this.largeBuildings = this.buildBuildingBatch(
-      large,
-      this.largeBuildingSideMaterial,
-      GRID_DENSE
-    )
+    // Each size class fans out across the facade palettes, hashed per
+    // building, so a street mixes slate, pale-tile and masonry neighbours.
+    for (let palette = 0; palette < BLOCK_PALETTES.length; palette += 1) {
+      const smallBatch = this.buildBuildingBatch(
+        small.filter((b) => facadePaletteIndex(b, BLOCK_PALETTES.length) === palette),
+        this.buildingSideMaterials[palette],
+        GRID_WARM
+      )
 
-    for (const kind of ['setback', 'tower', 'house', 'slab', 'lshape'] as const) {
+      if (smallBatch !== null) {
+        this.archetypeBatches.push(smallBatch)
+      }
+
+      const largeBatch = this.buildBuildingBatch(
+        large.filter((b) => facadePaletteIndex(b, BLOCK_PALETTES.length) === palette),
+        this.largeBuildingSideMaterials[palette],
+        GRID_DENSE
+      )
+
+      if (largeBatch !== null) {
+        this.archetypeBatches.push(largeBatch)
+      }
+    }
+
+    for (const kind of ['setback', 'house', 'slab', 'lshape'] as const) {
       const batch = this.buildArchetypeBatch(
         near.filter((b) => b.kind === kind),
         kind
+      )
+
+      if (batch !== null) {
+        this.archetypeBatches.push(batch)
+      }
+    }
+
+    // Towers split across their own two skins — the checkered curtain-glass
+    // variant is the reference photo's showpiece.
+    const towers = near.filter((b) => b.kind === 'tower')
+
+    for (let palette = 0; palette < TOWER_PALETTES.length; palette += 1) {
+      const batch = this.buildArchetypeBatch(
+        towers.filter((b) => facadePaletteIndex(b, TOWER_PALETTES.length) === palette),
+        'tower',
+        this.towerBuildingSideMaterials[palette]
       )
 
       if (batch !== null) {
@@ -2229,7 +2364,8 @@ export class Cityscape {
 
   private buildArchetypeBatch(
     plan: CityBuilding[],
-    kind: BuildingKind
+    kind: BuildingKind,
+    sideMaterialOverride?: THREE.MeshStandardMaterial
   ): THREE.InstancedMesh | null {
     if (plan.length === 0) {
       return null
@@ -2242,13 +2378,17 @@ export class Cityscape {
     }
 
     // Houses are small: the coarse window grid fits; the tall shapes use
-    // the dense one.
+    // the dense one. Slab/lshape borrow distinct block palettes so the shaped
+    // archetypes join the wardrobe variety for free.
     const sideMaterial =
-      kind === 'house'
+      sideMaterialOverride ??
+      (kind === 'house'
         ? this.houseBuildingSideMaterial
-        : kind === 'tower'
-          ? this.towerBuildingSideMaterial
-          : this.largeBuildingSideMaterial
+        : kind === 'slab'
+          ? this.largeBuildingSideMaterials[1]
+          : kind === 'lshape'
+            ? this.largeBuildingSideMaterials[2]
+            : this.largeBuildingSideMaterials[0])
     const grid =
       kind === 'house' ? GRID_HOUSE : kind === 'tower' ? GRID_TOWER : GRID_DENSE
     // The windowed walls only span part of an archetype's local height (the
