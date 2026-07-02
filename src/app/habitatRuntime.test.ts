@@ -77,7 +77,9 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   expect(cylinderWall.rebuild).toHaveBeenCalledWith({
     radius: 18,
     length: 120,
-    units
+    units,
+    // Radius 18 is below the expressway threshold, so no viaduct colliders.
+    expressway: null
   })
   expect(cylinderWall.setAngularVelocity).toHaveBeenCalledWith(0.5235987755982988)
   expect(applyPlayerTraversalState).toHaveBeenCalledWith(playerRig, playerTraversal, 18, 1.25)

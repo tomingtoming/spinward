@@ -67,11 +67,21 @@ export type CityLandmark = {
 // The elevated expressway ring: one full-circumference deck at a fixed axial
 // position beside downtown. Buildings keep out of its corridor the same way
 // they keep out of the plaza.
+// An on-ramp: a lane beside the deck that climbs from the ground to deck
+// height along +azimuth. One per land strip, so the three of them sit 120
+// degrees apart and the co-rotating colliders stay symmetric about the axis.
+export type ExpresswayRamp = {
+  azimuthStart: number
+  azimuthSpan: number
+}
+
 export type CityExpressway = {
   axial: number
   corridorHalfWidth: number
   deckHeight: number
   deckWidth: number
+  rampWidth: number
+  ramps: ExpresswayRamp[]
 }
 
 export type CityPlan = {
@@ -272,13 +282,57 @@ export const getCityExpressway = (radius: number): CityExpressway | null => {
   }
 
   const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius) * 0.7))
+  const deckHeight = 18
+  // ~6% grade: comfortable to drive, short enough to read as one structure.
+  const rampSpan = (deckHeight / 0.06) / radius
 
   return {
     axial: -Math.max(140, Math.min(400, radius * 0.055)),
     corridorHalfWidth: deckWidth * 0.5 + 8,
-    deckHeight: 18,
-    deckWidth
+    deckHeight,
+    deckWidth,
+    rampWidth: 7,
+    // Ramp bases sit just past each strip's spawn-side crossroads, so the
+    // one on the home strip is discoverable within a block of the plaza.
+    ramps: getLandStripCenters().map((center) => ({
+      azimuthStart: center + 40 / radius,
+      azimuthSpan: rampSpan
+    }))
   }
+}
+
+// The drivable/walkable elevation of the expressway surface at a point, in
+// metres above the wall. 0 anywhere off the structure — including UNDER the
+// deck, where the street level is the real surface; callers decide by
+// altitude which of the two levels applies (same contract as roof standing).
+// This is the single source of truth the physics colliders, the car's
+// grounding, the walker's ground sampler and the visual ramps all follow.
+export const getExpresswayElevation = (
+  expressway: CityExpressway,
+  radius: number,
+  azimuth: number,
+  axial: number
+): number => {
+  if (Math.abs(axial - expressway.axial) <= expressway.deckWidth * 0.5) {
+    return expressway.deckHeight
+  }
+
+  const rampInner = expressway.axial + expressway.deckWidth * 0.5
+  const rampOuter = rampInner + expressway.rampWidth
+
+  if (axial < rampInner || axial > rampOuter || radius <= 0) {
+    return 0
+  }
+
+  for (const ramp of expressway.ramps) {
+    const progress = wrapToPi(azimuth - ramp.azimuthStart) / ramp.azimuthSpan
+
+    if (progress >= 0 && progress <= 1) {
+      return expressway.deckHeight * progress
+    }
+  }
+
+  return 0
 }
 
 export const getOverlookTower = (radius: number): CityTower => {

@@ -61,7 +61,9 @@ import { Explosions } from '../objects/explosion'
 import { PROJECTILES, cycleProjectile, type ProjectileType } from '../gameplay/projectileTypes'
 import { Car } from '../objects/car'
 import {
+  getCityExpressway,
   getCityGroundHeight,
+  getExpresswayElevation,
   getPlazaTangentHalfWidth,
   resolveCitySurfaceCollision
 } from '../objects/cityLayout'
@@ -414,7 +416,8 @@ export const bootstrapApp = async () => {
   const cylinderWall = createRotatingCylinderBody(rapier, physicsWorld, {
     radius: habitatConfig.radius,
     length: getHabitatSpanMeters(),
-    units: getUnits()
+    units: getUnits(),
+    expressway: getCityExpressway(habitatConfig.radius)
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
   // Real co-rotating building colliders, streamed near the car (P1). Inflated a
@@ -1272,14 +1275,31 @@ export const bootstrapApp = async () => {
     requestDesktopThrow(Math.max(0, (performance.now() - desktopChargeStartMs) * 0.001))
   })
 
-  const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) =>
-    getCityGroundHeight(
+  // Expressway surface height at a point (0 off the structure). Both the
+  // walker's ground sampler and the car's grounding share this, so foot and
+  // wheel agree with the physics colliders about where the deck is.
+  const sampleExpresswayElevation = (azimuth: number, axialPosition: number) => {
+    const expressway = getCityExpressway(habitatConfig.radius)
+    return expressway === null
+      ? 0
+      : getExpresswayElevation(expressway, habitatConfig.radius, azimuth, axialPosition)
+  }
+
+  const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) => {
+    const cityHeight = getCityGroundHeight(
       cityscape.getCollisionIndex(),
       habitatConfig.radius,
       azimuth,
       axialPosition,
       altitude
     )
+    // The deck behaves like a roof: it is your floor only when your feet are
+    // already at (or just above) it — street level stays real underneath.
+    const expresswayHeight = sampleExpresswayElevation(azimuth, axialPosition)
+    const deckCounts = expresswayHeight > 0 && altitude >= expresswayHeight - 1.5
+
+    return Math.max(cityHeight, deckCounts ? expresswayHeight : 0)
+  }
 
   // Seat height: on foot the eye is 1.6 m above the floor, but riding the rover
   // you sit up on the chassis, so lift the view while driving for a commanding
@@ -1454,7 +1474,8 @@ export const bootstrapApp = async () => {
           frameAngle,
           omega,
           radius: habitatConfig.radius,
-          units: getUnits()
+          units: getUnits(),
+          surfaceElevation: sampleExpresswayElevation
         }
       )
     }
