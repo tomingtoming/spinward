@@ -20,9 +20,12 @@ import {
   getLandArcs,
   getWindowArcs,
   planCity,
+  getCityGroundHeight,
+  isAzimuthOnLandArc,
   type BuildingKind,
   type CityBuilding,
   type CityCollisionIndex,
+  type CityExpressway,
   type CityLandmark,
   type CityPatch,
   type CityRoad,
@@ -1262,6 +1265,8 @@ export class Cityscape {
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
   private cityPlanRoads: CityRoad[] = []
+  private cityExpressway: CityExpressway | null = null
+  private expresswayGroup: THREE.Group | null = null
   private collisionBuildings: CityBuilding[] = []
   private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
   private windowStrips: THREE.Mesh[] = []
@@ -1537,6 +1542,15 @@ export class Cityscape {
     if (plan.landmark !== null) {
       this.buildLandmark(plan.landmark, radius)
     }
+
+    this.cityExpressway = plan.expressway
+
+    if (plan.expressway !== null) {
+      this.buildExpressway(plan.expressway, radius)
+      // Ring routes exist now; deal the fleet again so the viaduct opens
+      // with traffic instead of waiting for the next focus step.
+      this.rebuildTraffic()
+    }
   }
 
   getBuildings(): readonly CityBuilding[] {
@@ -1803,6 +1817,15 @@ export class Cityscape {
     this.cityPlanBuildings = []
     this.cityPlanRoads = []
     this.trafficRoutes = []
+    this.cityExpressway = null
+
+    if (this.expresswayGroup !== null) {
+      for (const child of this.expresswayGroup.children) {
+        ;(child as THREE.Mesh).geometry?.dispose()
+      }
+      this.group.remove(this.expresswayGroup)
+      this.expresswayGroup = null
+    }
 
     if (this.traffic !== null) {
       this.traffic.geometry.dispose()
@@ -2108,6 +2131,42 @@ export class Cityscape {
 
     const random = createSeededRandom(0x7a55c0de ^ Math.round(this.cityFocusAzimuth * 1024))
     let count = 0
+
+    // The viaduct gets a dedicated slice of the fleet. Its span is the whole
+    // circumference (a seamless 2\u03c0 loop \u2014 the modulo wrap IS the lap), so it
+    // would swallow the entire budget if it competed by length.
+    const ring = this.cityExpressway
+
+    if (ring !== null) {
+      const ringBudget = Math.floor(this.maxTraffic * 0.3)
+      const ringCircumference = fullTurn * this.radius
+
+      for (let i = 0; i < ringBudget && count < this.maxTraffic; i += 1) {
+        const direction = random() < 0.5 ? 1 : -1
+
+        this.trafficRoutes.push({
+          kind: 'street',
+          laneAzimuth: 0,
+          laneAxial: ring.axial + direction * Math.min(laneOffset, ring.deckWidth * 0.24),
+          spanStart: -ringCircumference * 0.5,
+          spanLength: ringCircumference,
+          surfaceRadius: this.radius - ring.deckHeight,
+          direction,
+          speedMetersPerSecond: 16 + random() * 8,
+          phaseMeters: random() * ringCircumference,
+          scale: 0.85 + random() * 0.45
+        })
+
+        const paintRoll = random()
+        instanceColor.setHSL(
+          paintRoll > 0.9 ? random() : 0.6,
+          paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
+          0.25 + random() * 0.55
+        )
+        mesh.setColorAt(count, instanceColor)
+        count += 1
+      }
+    }
 
     for (const candidate of candidates) {
       if (count >= this.maxTraffic) {
@@ -2977,6 +3036,110 @@ export class Cityscape {
 
   // Bridges spanning the window strips at regular intervals, tying the
   // three land strips together — and giving the windows visible scale.
+  // The elevated expressway: one full-circumference deck riding 18 m over the
+  // corridor the plan kept clear, on pylons that dodge windows and roofs. The
+  // deck reuses the arterial road material (lane markings, night glow,
+  // distance fade) and the window-bridge edge material, so it reads as the
+  // same road network lifted into the air.
+  private buildExpressway(expressway: CityExpressway, radius: number) {
+    const group = new THREE.Group()
+    const deckRadius = radius - expressway.deckHeight
+    const fullTurnSegments = getArcSegments(fullTurn, radius)
+
+    const deck = new THREE.CylinderGeometry(
+      deckRadius,
+      deckRadius,
+      expressway.deckWidth,
+      fullTurnSegments,
+      1,
+      true,
+      0,
+      fullTurn
+    )
+    deck.translate(0, expressway.axial, 0)
+    bakeRoadUvs(deck, fullTurn * deckRadius, true)
+    const deckMesh = new THREE.Mesh(deck, this.roadMaterial)
+    deckMesh.renderOrder = 1
+    group.add(deckMesh)
+
+    // Guard rails: thin bright bands standing proud of the deck edges.
+    for (const side of [-1, 1]) {
+      const rail = new THREE.CylinderGeometry(
+        deckRadius - 0.9,
+        deckRadius - 0.9,
+        0.3,
+        fullTurnSegments,
+        1,
+        true
+      )
+      rail.translate(0, expressway.axial + side * (expressway.deckWidth * 0.5 - 0.15), 0)
+      group.add(new THREE.Mesh(rail, this.bridgeEdgeMaterial))
+    }
+
+    // Pylons every ~75 m of arc, skipped over the window strips (the deck
+    // spans them like the existing bridges) and over any roof tall enough to
+    // reach it — the corridor keeps buildings out, but block edges lean in.
+    const pylonCount = Math.max(8, Math.floor((fullTurn * radius) / 75))
+    const pylonSpots: number[] = []
+
+    for (let index = 0; index < pylonCount; index += 1) {
+      const azimuth = (index / pylonCount) * fullTurn
+
+      if (!isAzimuthOnLandArc(azimuth, this.topology)) {
+        continue
+      }
+
+      if (
+        getCityGroundHeight(
+          this.collisionIndex,
+          radius,
+          azimuth,
+          expressway.axial,
+          expressway.deckHeight - 1
+        ) > 0.5
+      ) {
+        continue
+      }
+
+      pylonSpots.push(azimuth)
+    }
+
+    if (pylonSpots.length > 0) {
+      const pylonGeometry = new THREE.BoxGeometry(1, 1, 1)
+      const pylons = new THREE.InstancedMesh(
+        pylonGeometry,
+        this.towerMaterial,
+        pylonSpots.length
+      )
+      pylons.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      pylons.frustumCulled = false
+
+      for (let index = 0; index < pylonSpots.length; index += 1) {
+        const azimuth = pylonSpots[index]
+        const cos = Math.cos(azimuth)
+        const sin = Math.sin(azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(radius - expressway.deckHeight * 0.5)
+          .setY(expressway.axial)
+        instanceScale.set(2.4, expressway.deckHeight, 3.4)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        pylons.setMatrixAt(index, instanceMatrix)
+      }
+
+      pylons.instanceMatrix.needsUpdate = true
+      group.add(pylons)
+    }
+
+    this.expresswayGroup = group
+    this.group.add(group)
+  }
+
   private buildWindowBridges(roads: CityRoad[], radius: number, length: number) {
     // Bridges continue the arterial cross-streets over the windows: same
     // axial rows as the streets, spanning road-end to road-end so you can
