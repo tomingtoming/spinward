@@ -1206,12 +1206,14 @@ export class Cityscape {
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
-    // Keep the far side readable through the clear air; the fade only dissolves
-    // the very-far rim. Night pushes it out a touch further so the glowing grid
-    // arches overhead and dims into haze rather than cutting off.
+    // This runs every daylight tick, so it OWNS the fade values — keep it in
+    // lockstep with setDimensions. The fade must finish by the straight-
+    // overhead far side (2R) or sub-pixel road silhouettes shimmer there as
+    // the colony spins; night lets the glowing grid start dissolving a bit
+    // later, but the end never crosses 1.9R.
     if (this.radius > 0) {
-      this.fadeStart.value = Math.max(this.radius * (1.7 + night * 0.5), 800)
-      this.fadeEnd.value = Math.max(this.radius * (2.9 + night * 1.0), 1600)
+      this.fadeStart.value = Math.max(this.radius * (1.2 + night * 0.2), 800)
+      this.fadeEnd.value = Math.max(this.radius * 1.9, 1600)
     }
   }
 
