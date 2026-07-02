@@ -152,22 +152,34 @@ export const buildExpresswayPanels = (
     const pitch = Math.atan(
       expressway.deckHeight / Math.max(ramp.azimuthSpan * config.radius, 1e-6)
     )
+    // Overshoot both ends: the first treads start BELOW grade (buried in the
+    // wall, so the lane emerges with no lip to catch a wheel) and the last
+    // run flat at deck height to close the seam with the deck ring.
+    const padTreads = 2
 
-    for (let index = 0; index < treadCount; index += 1) {
+    for (let index = -padTreads; index < treadCount + padTreads; index += 1) {
       const t = (index + 0.5) / treadCount
+      const clamped = Math.min(1, t)
       const angle = ramp.azimuthStart + t * ramp.azimuthSpan
-      const surfaceRadius = config.radius - expressway.deckHeight * t
+      const surfaceRadius = config.radius - expressway.deckHeight * clamped
       const treadArc = ramp.azimuthSpan / treadCount
       // Slight overlap hides the seams between pitched treads.
       const treadHalfLength = surfaceRadius * treadArc * 0.62
+      const treadPitch = t < 1 ? pitch : 0
 
       panels.push({
         translation: new THREE.Vector3(
+          // Toward the ground the climb continues below grade (t < 0 sinks
+          // the tread outside the wall surface — a flush, catch-free mouth).
           Math.cos(angle) * (surfaceRadius + halfThickness),
           rampAxial,
           Math.sin(angle) * (surfaceRadius + halfThickness)
         ),
-        rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle + pitch),
+        // Climbing +azimuth means the surface radius SHRINKS along local +Z,
+        // and d|r|/dZ = sin(delta) for an extra +delta rotation — so the
+        // uphill tilt needs -pitch. (+pitch tilted every tread against
+        // travel: a sawtooth that hard-stopped the car at the ramp mouth.)
+        rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle - treadPitch),
         halfExtents: new THREE.Vector3(
           halfThickness,
           expressway.rampWidth * 0.5,

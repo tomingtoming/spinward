@@ -3133,15 +3133,25 @@ export class Cityscape {
     const rampOuter = rampInner + expressway.rampWidth
 
     for (const ramp of expressway.ramps) {
-      const steps = 40
+      const steps = 48
+      // The lane runs past both ends of the climb: a flat street-level apron
+      // (~15% of the span) leading in, and a short merge shelf at deck height
+      // — without them the ramp poked out of the grass with no road to it.
+      const tStart = -0.15
+      const tEnd = 1.06
       const positions = new Float32Array((steps + 1) * 2 * 3)
       const uvs = new Float32Array((steps + 1) * 2 * 2)
       const indices: number[] = []
+      // Visually the lane sits at the road surface (R - 0.22, matching the
+      // lifted street bands), climbing to the deck surface exactly.
+      const baseLift = 0.22
 
       for (let index = 0; index <= steps; index += 1) {
-        const t = index / steps
+        const t = tStart + (index / steps) * (tEnd - tStart)
+        const climb = Math.max(0, Math.min(1, t))
         const angle = ramp.azimuthStart + t * ramp.azimuthSpan
-        const surfaceRadius = radius - expressway.deckHeight * t
+        const surfaceRadius =
+          radius - baseLift - (expressway.deckHeight - baseLift) * climb
         const cos = Math.cos(angle)
         const sin = Math.sin(angle)
 

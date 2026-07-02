@@ -10,7 +10,18 @@ describe('expressway physics panels', () => {
   const radius = 3200
   const expressway = getCityExpressway(radius)
 
-  test('ramp treads follow the shared elevation function within ground tolerance', () => {
+  // The analytic ramp line the treads discretise: below grade before the
+  // mouth (t < 0), linear climb, flat at deck height past the top.
+  const rampLineElevation = (ramp: { azimuthStart: number; azimuthSpan: number }, azimuth: number, deckHeight: number) => {
+    const wrapped =
+      ((azimuth - ramp.azimuthStart + Math.PI) % (Math.PI * 2) + Math.PI * 2) %
+        (Math.PI * 2) -
+      Math.PI
+    const t = wrapped / ramp.azimuthSpan
+    return deckHeight * Math.min(1, t)
+  }
+
+  test('ramp treads follow the shared climb line within ground tolerance', () => {
     if (expressway === null) throw new Error('expected an expressway at r=3200')
 
     const panels = buildExpresswayPanels(
@@ -32,8 +43,29 @@ describe('expressway physics panels', () => {
       // Panel centres sit half a wall thickness outside their surface.
       const surfaceRadius = centreDistance - 1
       const elevation = radius - surfaceRadius
-      const expected = getExpresswayElevation(expressway, radius, azimuth, rampAxial)
-      expect(Math.abs(elevation - expected)).toBeLessThan(0.6)
+      const ramp = expressway.ramps.find(
+        (candidate) =>
+          Math.abs(elevation - rampLineElevation(candidate, azimuth, expressway.deckHeight)) < 0.6
+      )
+      expect(ramp).toBeDefined()
+
+      // In the climb section (0 < elevation < deck height), also pin the
+      // tread's downhill/uphill ENDS to the line — this is what catches a
+      // wrong pitch SIGN, which the centre check alone cannot see (the
+      // sawtooth that hard-stopped cars at the ramp mouth).
+      if (ramp !== undefined && elevation > 1 && elevation < expressway.deckHeight - 1) {
+        const forward = new (Object.getPrototypeOf(tread.translation).constructor)(0, 0, 1)
+          .applyQuaternion(tread.rotation)
+
+        for (const side of [-1, 1]) {
+          const endX = tread.translation.x + side * forward.x * tread.halfExtents.z
+          const endZ = tread.translation.z + side * forward.z * tread.halfExtents.z
+          const endAzimuth = Math.atan2(endZ, endX)
+          const endElevation = radius - (Math.hypot(endX, endZ) - 1)
+          const expected = rampLineElevation(ramp, endAzimuth, expressway.deckHeight)
+          expect(Math.abs(endElevation - expected)).toBeLessThan(0.35)
+        }
+      }
     }
   })
 

@@ -56,6 +56,31 @@ const groundBasis = new THREE.Matrix4()
 const groundRigQuaternion = new THREE.Quaternion()
 const landingCameraQuaternion = new THREE.Quaternion()
 const landingEuler = new THREE.Euler(0, 0, 0, 'YXZ')
+const parentTwist = new THREE.Quaternion()
+const parentTwistInverse = new THREE.Quaternion()
+
+// The combined rotation of the camera's ancestors BELOW the rig — on desktop
+// that is the viewRig, whose quaternion VRLocomotion overwrites every frame
+// from snapYaw (the boot 90-degree facing lives there since f40190f). The
+// free-fly attitude handoff must conjugate by this: `rig := cameraWorld`
+// silently assumed the chain was identity, so every jump/landing/faceDirection
+// picked up a constant extra yaw — the "look somewhere else the moment I
+// jump" bug.
+export const composeCameraParentTwist = (
+  camera: THREE.Object3D,
+  rig: THREE.Object3D,
+  target: THREE.Quaternion
+) => {
+  target.identity()
+  let node: THREE.Object3D | null = camera.parent
+
+  while (node !== null && node !== rig) {
+    target.premultiply(node.quaternion)
+    node = node.parent
+  }
+
+  return target
+}
 
 export class DesktopLookControls {
   private yaw = 0
@@ -160,7 +185,7 @@ export class DesktopLookControls {
       // attitude from here. Start with no inherited roll rate.
       this.camera.getWorldQuaternion(this.attitude)
       this.camera.rotation.set(0, 0, 0)
-      this.playerRig.quaternion.copy(this.attitude)
+      this.applyAttitudeToRig()
       resetJetpackAttitude(this.rollAttitude)
     } else if (!freeFlyActive && this.wasFreeFly) {
       // Landing kills any coasting roll so the stand-up ease starts from rest.
@@ -217,7 +242,7 @@ export class DesktopLookControls {
       // Integrate the coasting roll rate into the attitude and apply.
       integrateJetpackAttitudeOrientation(this.attitude, this.rollAttitude, deltaSeconds)
       this.attitude.normalize()
-      this.playerRig.quaternion.copy(this.attitude)
+      this.applyAttitudeToRig()
     } else {
       if (yawDelta !== 0 || pitchDelta !== 0) {
         this.applyLookDelta(yawDelta, pitchDelta)
@@ -373,7 +398,7 @@ export class DesktopLookControls {
     this.attitude.setFromRotationMatrix(faceLookMatrix)
     this.attitude.normalize()
     this.camera.rotation.set(0, 0, 0)
-    this.playerRig.quaternion.copy(this.attitude)
+    this.applyAttitudeToRig()
     resetJetpackAttitude(this.rollAttitude)
     this.freeFlyActive = true
     this.wasFreeFly = true
@@ -389,7 +414,13 @@ export class DesktopLookControls {
     groundTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))
     groundBasis.makeBasis(Y_AXIS, groundUp, groundTangent)
     groundRigQuaternion.setFromRotationMatrix(groundBasis)
-    landingCameraQuaternion.copy(groundRigQuaternion).invert().multiply(this.attitude)
+    composeCameraParentTwist(this.camera, this.playerRig, parentTwist)
+    parentTwistInverse.copy(parentTwist).invert()
+    landingCameraQuaternion
+      .copy(groundRigQuaternion)
+      .invert()
+      .multiply(this.attitude)
+      .premultiply(parentTwistInverse)
     landingEuler.setFromQuaternion(landingCameraQuaternion, 'YXZ')
     this.yaw = landingEuler.y
     this.pitch = THREE.MathUtils.clamp(landingEuler.x, -MAX_PITCH, MAX_PITCH)
@@ -447,7 +478,16 @@ export class DesktopLookControls {
     this.attitude.normalize()
     // The rig carries the free-fly attitude, so the jetpack body rolls with the
     // view (the camera stays neutral, parented under the rig).
-    this.playerRig.quaternion.copy(this.attitude)
+    this.applyAttitudeToRig()
+  }
+
+  // attitude is the CAMERA's world orientation; the rig sits above the camera's
+  // parent chain (viewRig snap-yaw), so the write conjugates that twist away:
+  // rig = attitude * twist^-1  =>  rig * twist * cameraLocal(=identity) = attitude.
+  private applyAttitudeToRig() {
+    composeCameraParentTwist(this.camera, this.playerRig, parentTwist)
+    parentTwistInverse.copy(parentTwist).invert()
+    this.playerRig.quaternion.copy(this.attitude).multiply(parentTwistInverse)
   }
 
   private readonly handleContextMenu = (event: MouseEvent) => {
