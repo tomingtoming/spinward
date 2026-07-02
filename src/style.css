@@ -128,6 +128,18 @@ button {
   display: none;
 }
 
+/* The hidden ATTRIBUTE only works through a UA rule, which any author
+   `display` silently defeats (cascade origin, not specificity). Every widget
+   that toggles `hidden` AND declares its own display needs this override —
+   without it a "closed" dropdown/card keeps its inline position and simply
+   stays on screen. The dock rule above is the same patch. */
+.hud[hidden],
+.beat-bar[hidden],
+.controls-card[hidden],
+.preset-menu[hidden] {
+  display: none;
+}
+
 .dock__cluster {
   display: flex;
   align-items: center;
