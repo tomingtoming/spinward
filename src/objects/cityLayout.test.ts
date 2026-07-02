@@ -350,7 +350,14 @@ describe('planCity', () => {
   })
 
   test('returns an empty plan for degenerate dimensions', () => {
-    const empty = { roads: [], buildings: [], patches: [], trees: [], tower: null }
+    const empty = {
+      roads: [],
+      buildings: [],
+      patches: [],
+      trees: [],
+      tower: null,
+      landmark: null
+    }
     expect(planCity({ radius: 0, length: 120 })).toEqual(empty)
     expect(planCity({ radius: 18, length: 0 })).toEqual(empty)
   })
