@@ -1464,11 +1464,13 @@ export class Cityscape {
     this.spineRingMaterial.dispose()
   }
 
-  private disposeBuildingBatches() {
+  // Near batches are small (~10% of the plan) and cheap to recreate on every
+  // focus step; the far batch is the other ~90%, so it keeps a persistent
+  // capacity-sized buffer and is rewritten in place (see updateFarBatch).
+  private disposeNearBuildingBatches() {
     for (const batch of [
       this.buildings,
       this.largeBuildings,
-      this.farBuildings,
       this.roofClutter,
       ...this.archetypeBatches
     ]) {
@@ -1480,9 +1482,18 @@ export class Cityscape {
 
     this.buildings = null
     this.largeBuildings = null
-    this.farBuildings = null
     this.roofClutter = null
     this.archetypeBatches = []
+  }
+
+  private disposeBuildingBatches() {
+    this.disposeNearBuildingBatches()
+
+    if (this.farBuildings !== null) {
+      this.farBuildings.geometry.dispose()
+      this.group.remove(this.farBuildings)
+      this.farBuildings = null
+    }
   }
 
   private clear() {
@@ -1607,7 +1618,7 @@ export class Cityscape {
   }
 
   private rebuildBuildingBatches() {
-    this.disposeBuildingBatches()
+    this.disposeNearBuildingBatches()
 
     const nearArc =
       getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6)
@@ -1646,8 +1657,103 @@ export class Cityscape {
       }
     }
 
-    this.farBuildings = this.buildBuildingBatch(far, this.farBuildingSideMaterial, GRID_FAR)
+    this.updateFarBatch(far)
     this.buildRoofClutter(near)
+  }
+
+  // The angular size below which a far building is dropped. ~0.004 rad is a
+  // handful of pixels on every target device; anything smaller is shimmer
+  // fuel and vertex cost, not skyline. The threshold scales with each
+  // building's actual chord distance, so nothing pops at the near-arc
+  // boundary (a 1 km neighbour only needs ~4 m to stay) while the far side
+  // keeps just the silhouettes that read (~26 m at Izma's 2R).
+  private static readonly FAR_MIN_ANGULAR_SIZE = 0.004
+
+  // The far batch persists across focus steps: allocated once per plan at
+  // full-plan capacity, then rewritten in place and truncated via .count.
+  // The old dispose-and-rebuild allocated ~megabytes per step, a visible
+  // hitch on Quest while driving.
+  private ensureFarBatchCapacity(capacity: number) {
+    if (this.farBuildings !== null && this.farBuildings.instanceMatrix.count >= capacity) {
+      return
+    }
+
+    if (this.farBuildings !== null) {
+      this.farBuildings.geometry.dispose()
+      this.group.remove(this.farBuildings)
+    }
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1)
+    const side = this.farBuildingSideMaterial
+    // BoxGeometry group order: +x, -x, +y, -y, +z, -z; local +y is the roof.
+    const materials = [side, side, this.buildingRoofMaterial, this.buildingRoofMaterial, side, side]
+    const mesh = new THREE.InstancedMesh(geometry, materials, capacity)
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    mesh.frustumCulled = false
+    geometry.setAttribute(
+      'aUvScale',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
+    )
+    this.farBuildings = mesh
+    this.group.add(mesh)
+  }
+
+  private updateFarBatch(far: CityBuilding[]) {
+    this.ensureFarBatchCapacity(Math.max(1, this.cityPlanBuildings.length))
+    const mesh = this.farBuildings
+
+    if (mesh === null) {
+      return
+    }
+
+    const uvScales = (mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute)
+      .array as Float32Array
+    let count = 0
+
+    for (const building of far) {
+      const theta = Math.abs(wrapAngleToPi(building.azimuth - this.cityFocusAzimuth))
+      const chord = 2 * this.radius * Math.sin(theta * 0.5)
+      const maxDimension = Math.max(building.width, building.depth, building.height)
+
+      if (maxDimension < chord * Cityscape.FAR_MIN_ANGULAR_SIZE) {
+        continue
+      }
+
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - building.height * 0.5)
+        .setY(building.axial)
+      instanceScale.set(building.width, building.height, building.depth)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(count, instanceMatrix)
+      mesh.setColorAt(
+        count,
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+      )
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        building.height,
+        GRID_FAR,
+        uvScales,
+        count * 2
+      )
+      count += 1
+    }
+
+    mesh.count = count
+    mesh.instanceMatrix.needsUpdate = true
+    ;(mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute).needsUpdate = true
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
   }
 
   // One clutter kit (water tank + AC boxes + mast) per qualifying near-arc
