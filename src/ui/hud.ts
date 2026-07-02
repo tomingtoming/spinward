@@ -138,12 +138,18 @@ export const createHud = (
       return { id, element: item }
     })
 
-    chip.addEventListener('pointerdown', (event) => event.stopPropagation())
-    chip.addEventListener('click', (event) => {
-      event.preventDefault()
+    // Everything happens on pointerdown, never on click. While the menu is
+    // open the backdrop covers this chip, so the closing pointerdown lands on
+    // the backdrop — but the click that completes that same tap then hits the
+    // chip (the backdrop is gone by pointerup) and would instantly reopen the
+    // menu. With no click handler at all, that race cannot happen.
+    chip.addEventListener('pointerdown', (event) => {
       event.stopPropagation()
+      event.preventDefault()
 
       if (!menu.hidden) {
+        // Unreachable while the backdrop is up (it covers the chip); kept as a
+        // safety net so a stacking regression degrades to a working toggle.
         closeEverything()
         return
       }
@@ -200,6 +206,13 @@ export const createHud = (
 
   renderControlsCard()
 
+  // Touch taps synthesize compatibility mouse events (mouseenter included)
+  // after the pointerup, aimed at whatever the closing tap uncovered — which
+  // is the CONTROL chip itself when the tap landed on the backdrop over it.
+  // Ignore hover peeks for a beat after any close so that ghost hover cannot
+  // undo the dismissal it belongs to.
+  let suppressHoverPeekUntil = 0
+
   const hideControlsCardNow = () => {
     if (controlsFadeTimeout !== null) {
       clearTimeout(controlsFadeTimeout)
@@ -211,6 +224,7 @@ export const createHud = (
     }
     controlsCard.hidden = true
     controlsCard.classList.remove('is-fading')
+    suppressHoverPeekUntil = performance.now() + 500
   }
   closeFns.push(hideControlsCardNow)
 
@@ -234,14 +248,38 @@ export const createHud = (
       controlsHideTimeout = setTimeout(() => {
         controlsCard.hidden = true
         controlsCard.classList.remove('is-fading')
+        // A tap-opened card raised the backdrop; when the card times out on
+        // its own, take the backdrop down with it. No menu can be open here —
+        // opening one closes the card and clears these timers.
+        backdrop.hidden = true
       }, CONTROLS_CARD_FADE_MS)
     }, CONTROLS_CARD_VISIBLE_MS)
   }
 
-  controlsToggle.addEventListener('pointerdown', (event) => event.stopPropagation())
-  controlsToggle.addEventListener('mouseenter', peekControlsCard)
-  controlsToggle.addEventListener('click', (event) => {
+  // Toggle on pointerdown, same reasoning as the dropdown chips: a click
+  // handler would race the backdrop's closing pointerdown and reopen the card
+  // in the same tap. Press shows the card (and the backdrop, so tapping
+  // anywhere dismisses it instead of throwing); press again hides it.
+  controlsToggle.addEventListener('pointerdown', (event) => {
+    event.stopPropagation()
     event.preventDefault()
+
+    if (!controlsCard.hidden) {
+      hideControlsCardNow()
+      backdrop.hidden = true
+      return
+    }
+
+    peekControlsCard()
+    backdrop.hidden = false
+  })
+  // Hover keeps the lightweight peek — no backdrop, so mousing over CONTROL
+  // never steals the next click from the game.
+  controlsToggle.addEventListener('mouseenter', () => {
+    if (performance.now() < suppressHoverPeekUntil) {
+      return
+    }
+
     peekControlsCard()
   })
 
