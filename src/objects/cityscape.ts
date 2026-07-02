@@ -158,31 +158,77 @@ const buildArchetypeGeometry = (kind: BuildingKind) => {
   return merged
 }
 
-// Rooftop clutter kit: water tank, two AC units and a mast merged into one
-// geometry, instanced once per qualifying near-arc roof. Unit space: the kit
-// sits on y = 0 and fits inside a half-unit footprint, scaled per instance.
-const buildRoofClutterKit = () => {
+// Rooftop clutter kits: merged one-piece geometries, instanced across the
+// near-arc flat roofs. Unit space: the kit sits on y = 0 and fits inside a
+// half-unit footprint, scaled per instance. In the reference skyline almost
+// every roof carries SOMETHING and no two neighbours carry the same thing,
+// so three kit variants are dealt by building hash.
+const ROOF_CLUTTER_VARIANTS = 3
+
+const buildRoofClutterKit = (variant: number) => {
   const parts: THREE.BufferGeometry[] = []
 
-  const tank = new THREE.CylinderGeometry(0.16, 0.16, 0.34, 8)
-  tank.translate(-0.2, 0.17, 0.14)
-  parts.push(tank)
+  if (variant === 0) {
+    // Utility roof: water tank, AC pair, comms mast.
+    const tank = new THREE.CylinderGeometry(0.16, 0.16, 0.34, 8)
+    tank.translate(-0.2, 0.17, 0.14)
+    parts.push(tank)
 
-  const tankLegs = new THREE.BoxGeometry(0.26, 0.06, 0.26)
-  tankLegs.translate(-0.2, 0.03, 0.14)
-  parts.push(tankLegs)
+    const tankLegs = new THREE.BoxGeometry(0.26, 0.06, 0.26)
+    tankLegs.translate(-0.2, 0.03, 0.14)
+    parts.push(tankLegs)
 
-  const acLarge = new THREE.BoxGeometry(0.3, 0.16, 0.22)
-  acLarge.translate(0.16, 0.08, -0.1)
-  parts.push(acLarge)
+    const acLarge = new THREE.BoxGeometry(0.3, 0.16, 0.22)
+    acLarge.translate(0.16, 0.08, -0.1)
+    parts.push(acLarge)
 
-  const acSmall = new THREE.BoxGeometry(0.18, 0.12, 0.16)
-  acSmall.translate(-0.04, 0.06, -0.24)
-  parts.push(acSmall)
+    const acSmall = new THREE.BoxGeometry(0.18, 0.12, 0.16)
+    acSmall.translate(-0.04, 0.06, -0.24)
+    parts.push(acSmall)
 
-  const mast = new THREE.CylinderGeometry(0.015, 0.025, 0.9, 5)
-  mast.translate(0.24, 0.45, 0.22)
-  parts.push(mast)
+    const mast = new THREE.CylinderGeometry(0.015, 0.025, 0.9, 5)
+    mast.translate(0.24, 0.45, 0.22)
+    parts.push(mast)
+  } else if (variant === 1) {
+    // Penthouse roof: stair/elevator house with a vestibule and one AC.
+    const penthouse = new THREE.BoxGeometry(0.42, 0.3, 0.34)
+    penthouse.translate(-0.1, 0.15, 0.05)
+    parts.push(penthouse)
+
+    const penthouseCap = new THREE.BoxGeometry(0.46, 0.04, 0.38)
+    penthouseCap.translate(-0.1, 0.32, 0.05)
+    parts.push(penthouseCap)
+
+    const vestibule = new THREE.BoxGeometry(0.16, 0.2, 0.14)
+    vestibule.translate(0.16, 0.1, 0.12)
+    parts.push(vestibule)
+
+    const ac = new THREE.BoxGeometry(0.22, 0.14, 0.18)
+    ac.translate(0.2, 0.07, -0.22)
+    parts.push(ac)
+  } else {
+    // Comms roof: antenna cluster, tilted dish, equipment cabinets.
+    const mastTall = new THREE.CylinderGeometry(0.014, 0.024, 1.1, 5)
+    mastTall.translate(-0.18, 0.55, -0.12)
+    parts.push(mastTall)
+
+    const mastShort = new THREE.CylinderGeometry(0.012, 0.02, 0.7, 5)
+    mastShort.translate(0.05, 0.35, 0.2)
+    parts.push(mastShort)
+
+    const dish = new THREE.ConeGeometry(0.14, 0.08, 10, 1, true)
+    dish.rotateX(Math.PI * 0.62)
+    dish.translate(0.24, 0.16, -0.05)
+    parts.push(dish)
+
+    const cabinetA = new THREE.BoxGeometry(0.24, 0.18, 0.16)
+    cabinetA.translate(-0.14, 0.09, 0.22)
+    parts.push(cabinetA)
+
+    const cabinetB = new THREE.BoxGeometry(0.16, 0.12, 0.14)
+    cabinetB.translate(0.22, 0.06, 0.24)
+    parts.push(cabinetB)
+  }
 
   const merged = mergeBufferGeometries(parts)
 
@@ -191,7 +237,7 @@ const buildRoofClutterKit = () => {
   }
 
   // mergeBufferGeometries only returns null for an empty/mismatched list;
-  // this list is fixed, so assert rather than thread null onward.
+  // these lists are fixed, so assert rather than thread null onward.
   if (merged === null) {
     throw new Error('roof clutter kit failed to merge')
   }
@@ -1128,7 +1174,7 @@ export class Cityscape {
   private archetypeBatches: THREE.InstancedMesh[] = []
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
-  private roofClutter: THREE.InstancedMesh | null = null
+  private roofClutter: THREE.InstancedMesh[] = []
   // Ambient traffic: a persistent capacity-sized batch; focus changes only
   // reassign routes, update() moves the cars every frame.
   private traffic: THREE.InstancedMesh | null = null
@@ -1624,7 +1670,7 @@ export class Cityscape {
     for (const batch of [
       this.buildings,
       this.largeBuildings,
-      this.roofClutter,
+      ...this.roofClutter,
       ...this.archetypeBatches
     ]) {
       if (batch !== null) {
@@ -1635,7 +1681,7 @@ export class Cityscape {
 
     this.buildings = null
     this.largeBuildings = null
-    this.roofClutter = null
+    this.roofClutter = []
     this.archetypeBatches = []
   }
 
@@ -2080,57 +2126,105 @@ export class Cityscape {
   // it would be pure vertex cost. Deterministic without consuming plan RNG —
   // the per-building offsets derive from fields the building already carries.
   private buildRoofClutter(near: CityBuilding[]) {
+    // Nearly every flat roof qualifies now (10 m+ tall, 6 m+ across); the
+    // tallest keep priority under the cap, and roomy roofs (18 m+ across)
+    // get a second kit so towers read as busy as the reference skyline.
     const flatRoofed = near
       .filter(
         (b) =>
           (b.kind === 'block' || b.kind === 'setback' || b.kind === 'slab') &&
-          b.height >= 16 &&
-          Math.min(b.width, b.depth) >= 8
+          b.height >= 10 &&
+          Math.min(b.width, b.depth) >= 6
       )
       .sort((a, b) => b.height - a.height)
-      .slice(0, 800)
+      .slice(0, 2000)
 
     if (flatRoofed.length === 0) {
       return
     }
 
-    const geometry = buildRoofClutterKit()
-    const mesh = new THREE.InstancedMesh(geometry, this.roofClutterMaterial, flatRoofed.length)
-    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    mesh.frustumCulled = false
+    type Placement = { building: CityBuilding; jitterPhase: number }
+    const placementsByVariant: Placement[][] = Array.from(
+      { length: ROOF_CLUTTER_VARIANTS },
+      () => []
+    )
 
-    for (let index = 0; index < flatRoofed.length; index += 1) {
-      const building = flatRoofed[index]
-      const cos = Math.cos(building.azimuth)
-      const sin = Math.sin(building.azimuth)
-      tangent.set(-sin, 0, cos)
-      inward.set(-cos, 0, -sin)
-      binormal.copy(tangent).cross(inward)
-      basis.makeBasis(tangent, inward, binormal)
-      instanceQuaternion.setFromRotationMatrix(basis)
+    for (const building of flatRoofed) {
+      // Deterministic variant + jitter from fields the building already
+      // carries — no plan RNG consumed.
+      const hash = Math.abs(
+        Math.sin(building.azimuth * 91.17 + building.axial * 0.173 + building.tone * 37.7)
+      )
+      const variant = Math.floor(hash * ROOF_CLUTTER_VARIANTS) % ROOF_CLUTTER_VARIANTS
+      placementsByVariant[variant].push({ building, jitterPhase: 0 })
 
-      // The setback/slab tops are inset from the footprint, so aim the kit at
-      // the upper part's centre and keep the jitter inside it.
-      const topCentreTangent = building.kind === 'slab' ? building.width * 0.14 : 0
-      const jitterSeed = building.tone * 7.31 + building.azimuth * 13.7
-      const jitterT = (jitterSeed - Math.floor(jitterSeed) - 0.5) * building.width * 0.16
-      const jitterA =
-        (jitterSeed * 3.7 - Math.floor(jitterSeed * 3.7) - 0.5) * building.depth * 0.16
-      const kitScale = THREE.MathUtils.clamp(Math.min(building.width, building.depth) * 0.4, 2.5, 9)
-
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(this.radius - building.height)
-        .setY(building.axial + jitterA)
-        .addScaledVector(tangent, topCentreTangent + jitterT)
-      instanceScale.setScalar(kitScale)
-      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
+      if (Math.min(building.width, building.depth) >= 18) {
+        placementsByVariant[(variant + 1) % ROOF_CLUTTER_VARIANTS].push({
+          building,
+          jitterPhase: 1
+        })
+      }
     }
 
-    mesh.instanceMatrix.needsUpdate = true
-    this.roofClutter = mesh
-    this.group.add(mesh)
+    for (let variant = 0; variant < ROOF_CLUTTER_VARIANTS; variant += 1) {
+      const placements = placementsByVariant[variant]
+
+      if (placements.length === 0) {
+        continue
+      }
+
+      const geometry = buildRoofClutterKit(variant)
+      const mesh = new THREE.InstancedMesh(
+        geometry,
+        this.roofClutterMaterial,
+        placements.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+
+      for (let index = 0; index < placements.length; index += 1) {
+        const { building, jitterPhase } = placements[index]
+        const cos = Math.cos(building.azimuth)
+        const sin = Math.sin(building.azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+
+        // The setback/slab tops are inset from the footprint, so aim the kit
+        // at the upper part's centre and keep the jitter inside it. A second
+        // kit (jitterPhase 1) lands on the opposite side of the roof.
+        const topCentreTangent = building.kind === 'slab' ? building.width * 0.14 : 0
+        const jitterSeed =
+          building.tone * 7.31 + building.azimuth * 13.7 + jitterPhase * 2.618
+        const jitterSign = jitterPhase === 0 ? 1 : -1
+        const jitterT =
+          (jitterSeed - Math.floor(jitterSeed) - 0.5) * building.width * 0.16 +
+          jitterSign * (jitterPhase === 0 ? 0 : building.width * 0.18)
+        const jitterA =
+          (jitterSeed * 3.7 - Math.floor(jitterSeed * 3.7) - 0.5) * building.depth * 0.16 +
+          jitterSign * (jitterPhase === 0 ? 0 : building.depth * 0.18)
+        const kitScale = THREE.MathUtils.clamp(
+          Math.min(building.width, building.depth) * 0.4,
+          2,
+          9
+        )
+
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - building.height)
+          .setY(building.axial + jitterA)
+          .addScaledVector(tangent, topCentreTangent + jitterT)
+        instanceScale.setScalar(kitScale)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+      this.roofClutter.push(mesh)
+      this.group.add(mesh)
+    }
   }
 
   private buildArchetypeBatch(
