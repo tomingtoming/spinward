@@ -179,7 +179,11 @@ export const bootstrapApp = async () => {
       topology: habitatConfig.topology,
       type: habitatConfig.type
     },
-    { maxBuildings: quality.maxBuildings, farMinAngularSize: quality.farMinAngularSize }
+    {
+      maxBuildings: quality.maxBuildings,
+      farMinAngularSize: quality.farMinAngularSize,
+      maxTraffic: quality.maxTraffic
+    }
   )
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,
@@ -906,6 +910,12 @@ export const bootstrapApp = async () => {
       })
     : null
   hud.setVisible(debugVisuals.showHud)
+
+  if (debugEnabled) {
+    // Console access to the scene graph for headless/manual debugging — same
+    // ?debug gate as the lil-gui panel, absent from a normal session.
+    ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
+  }
 
   // The thrower's own motion rides on the ball. While driving that is the CAR's
   // inertial velocity (it can be screaming along the wall) — NOT the seated
