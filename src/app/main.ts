@@ -220,6 +220,9 @@ export const bootstrapApp = async () => {
   playerRig.quaternion.setFromRotationMatrix(rigBasis)
 
   const tourGuide = createTourGuideState()
+  // Whether the one-time boot flash of the CONTROL card has fired — armed by
+  // the game loop the first time no tour card is on screen.
+  let controlsBootFlashDone = false
   const tourCardPanel = new TourCardPanel()
   const camera = new THREE.PerspectiveCamera(
     70,
@@ -329,7 +332,7 @@ export const bootstrapApp = async () => {
   //    is never a dead end.
 
   // VR is a right-hand action → right cluster. Fullscreen is a system toggle →
-  // grouped with the menu in the left cluster (right after ☰).
+  // it leads the left cluster, ahead of the HUD chips.
   const mountVrButton = () => dock.right.appendChild(VRButton.createButton(renderer))
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
@@ -342,7 +345,13 @@ export const bootstrapApp = async () => {
   }
 
   if (!isTouchDevice()) {
-    mountVrButton()
+    // Without navigator.xr at all (desktop Safari / Firefox), three's VRButton
+    // returns a bare "WEBXR NOT AVAILABLE" <a> that lacks the #VRButton id, so
+    // the dock CSS cannot capture it and it floats over the scene. Mount
+    // nothing, matching how unsupported touch devices are handled below.
+    if ('xr' in navigator) {
+      mountVrButton()
+    }
   } else {
     navigator.xr
       ?.isSessionSupported('immersive-vr')
@@ -366,6 +375,21 @@ export const bootstrapApp = async () => {
       .catch(() => {})
   }
   renderer.xr.addEventListener('sessionstart', () => audio.unlock())
+
+  // The one-shot 'start' intro card fires at boot, before a Quest player has
+  // the headset on (and outside XR the dock/tour overlay they were looking at
+  // is the flat screen). Replay it on the first VR entry so the VR player
+  // actually sees the intro; later re-entries stay quiet.
+  let vrStartCardReplayed = false
+  renderer.xr.addEventListener('sessionstart', () => {
+    if (vrStartCardReplayed) {
+      return
+    }
+
+    vrStartCardReplayed = true
+    tourGuide.shown.delete('start')
+    notifyTourEvent(tourGuide, 'start')
+  })
 
   // Ambient fill only — the colony's directional sunlight is owned by the
   // cityscape, which rigs it to the actual daylighting geometry (mirror-reflected
@@ -844,7 +868,7 @@ export const bootstrapApp = async () => {
   syncHabitat()
 
   // The control scheme to display: VR while presenting, SP on a touchscreen,
-  // else PC. Drives both the HUD controls drawer and the quick-panel legend.
+  // else PC. Drives the HUD's CONTROL card and the tour cards' control lines.
   const currentControlPlatform = (): ControlPlatform =>
     renderer.xr.isPresenting ? 'vr' : isTouchDevice() ? 'sp' : 'pc'
 
@@ -1866,15 +1890,22 @@ export const bootstrapApp = async () => {
             ))
       )
     }
-    tourCardPanel.update(
-      resolveTourCard(stepTourGuide(tourGuide, deltaSeconds), currentControlPlatform()),
-      {
-        camera: desktopUiCamera,
-        deltaSeconds,
-        xrActive: renderer.xr.isPresenting,
-        bottomClearancePx: mobileControls?.getReservedBottomHeight() ?? 0
-      }
-    )
+    const activeTourCard = stepTourGuide(tourGuide, deltaSeconds)
+    // Boot flash of the CONTROL bindings card, held until the intro card has
+    // left the screen — shown together they overlap and both turn unreadable.
+    // Keyed off the tour state (game time), not a wall-clock timer: on a slow
+    // device the card outlives its nominal duration and a timer would fire
+    // straight into the overlap this exists to avoid.
+    if (!controlsBootFlashDone && activeTourCard === null) {
+      controlsBootFlashDone = true
+      hud.peekControls()
+    }
+    tourCardPanel.update(resolveTourCard(activeTourCard, currentControlPlatform()), {
+      camera: desktopUiCamera,
+      deltaSeconds,
+      xrActive: renderer.xr.isPresenting,
+      bottomClearancePx: mobileControls?.getReservedBottomHeight() ?? 0
+    })
     if (bloomComposer !== null && bloomRenderPass !== null && !renderer.xr.isPresenting) {
       bloomRenderPass.camera = desktopUiCamera
       if (bloomPass !== null) {

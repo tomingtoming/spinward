@@ -7,17 +7,17 @@ A WebXR experiment in rotating habitats.
 
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
 
-`vite + typescript + three.js + rapier` で構成し、Meta Quest のブラウザと PC ブラウザの両方で動きます。Rapier の慣性系シミュレーションと回転座標系の表示変換を分離したまま、「投げると曲がる(コリオリ)」「ジャンプすると床が迎えに来る」「軸に近づくと重力が抜ける」「回転速度を変えると世界が軽くなる」を体験できます。
+`vite + typescript + three.js + rapier` で構成し、Meta Quest のブラウザ・PC ブラウザ・スマホの 3 環境で動きます。Rapier の慣性系シミュレーションと回転座標系の表示変換を分離したまま、「投げると曲がる(コリオリ)」「ジャンプすると床が迎えに来る」「軸に近づくと重力が抜ける」「回転速度を変えると世界が軽くなる」を体験できます。
 
 ## 3分体験の流れ
 
-初期スポーンは **Izma Colony**(半径 3.2km・全長 40km・1g)です。小スケールで物理を試したい場合は wrist UI / quick panel から Playground プリセットへ切り替えられます。URL に `?preset=playground|izma|cooper|elysium` を付けると任意のプリセットで起動できます。
+初期スポーンは **Izma Colony**(半径 3.2km・全長 40km・1g)です。小スケールで物理を試したい場合は画面下ドックの preset チップ(VR では wrist UI)から Playground プリセットへ切り替えられます。URL に `?preset=playground|izma|cooper|elysium` を付けると任意のプリセットで起動できます。
 
 1. **地表(Surface)** — 円筒内壁の街に立つ。空の向こうに反対側の街、採光窓のストライプ、中心軸の光が見える。
 2. **投げる・跳ぶ** — ボールは真っすぐ飛ばない。ジャンプ中は何にも引かれず、床が横にずれて迎えに来る。説明カードが画面下に短く出ます。
-3. **展望地点(Overlook)** — `2` キーまたは wrist UI の Travel から。軸に近いほど回転速度が遅く「重力」が弱い。落下すると街が横へ流れていく。
-4. **中心軸(Axis)** — `3` キーで軸端へ。回転半径ゼロ=無重量。街が空になる。
-5. **回転速度を変える** — wrist UI / quick panel の RPM で `g = ω²R` を体感する。
+3. **展望地点(Overlook)** — `2` キーまたは画面下の Travel ボタン(VR では wrist UI)から。軸に近いほど回転速度が遅く「重力」が弱い。落下すると街が横へ流れていく。
+4. **中心軸(Axis)** — `3` キーで軸端へ。回転半径ゼロ=無重量。街が空になる。`4` キーの Exterior でコロニーの外殻の外へ出て、回る全体を眺めることもできる。
+5. **回転速度を変える** — 画面下の Spin −/+(VR では wrist UI の rpm)で `g = ω²R` を体感する。
 
 ## 操作(主要)
 
@@ -25,15 +25,17 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 
 | 操作 | PC | Quest | スマホ |
 | --- | --- | --- | --- |
-| 移動 | WASD | 左スティック(grip で登攀クラッチ) | —(ワープで移動) |
+| 移動 | WASD | 左スティック(grip で登攀クラッチ) | 画面左の仮想スティック |
 | 視線 | 右ドラッグ / 矢印キー | 頭 + 右スティック snap turn | ドラッグ / Gyro ボタンでジャイロ |
-| 投げる | 左クリック | 右トリガー(チャージ可) | タップ |
-| ジャンプ | Space | A ボタン(左右どちらでも) | Jump ボタン |
-| ワープ | 1 / 2 / 3(地表 / 展望 / 軸) | 右手 B / wrist UI の Travel | ① ② ③ ボタン |
-| メニュー | Tab | 左手首の watch UI(左 B でリセンター) | — |
-| 離陸(free-fly) | F | A(ジャンプ) | — |
+| 投げる | 左クリック(長押しでチャージ) | 右トリガー(チャージ可) | タップ |
+| 弾種切替(Ball / Beam / Firework) | X / 右クリック、または ◈ チップ | —(非VR画面で切替) | ◈ チップのドロップダウン |
+| ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
+| ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
+| 回転速度 | Spin −/+ ボタン | wrist UI の rpm | Spin −/+ ボタン |
+| 操作ガイド | CONTROL チップにホバー / クリック | 左手首の watch UI(左 B でリセンター) | CONTROL チップをタップ |
+| 離陸(free-fly) | F | A(ジャンプ) | Jump 長押し |
 
-スマホはタッチデバイス検出時のみ画面下にボタン列が出ます。iOS ではジャイロ使用時に Gyro ボタンから許可ダイアログが出ます。
+非VR環境では画面下に 1 本のドックが常時出ます: 左に CONTROL・preset・ステータスチップ(felt g / ω rpm / mode / balls / ◈ 弾種)、右に Travel・Spin・(対応環境なら)VR ボタン。スマホはさらに Jump / Drive / Gyro のボタン列が出ます。iOS ではジャイロ使用時に Gyro ボタンから許可ダイアログが出ます。
 
 ## セットアップ
 
@@ -65,12 +67,12 @@ bun run preview -- --host 0.0.0.0
 手元から手動で反映したい場合:
 
 ```bash
-bun run deploy   # = bun run build && wrangler versions upload
+bun run deploy   # = bun run build && wrangler deploy
 ```
 
 初回は `wrangler login`(または `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を環境変数に設定)してください。Worker name は `wrangler.jsonc` の `spinward` です。
 
-OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og.png`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。
+OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og.jpg`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。ハッシュ付きアセット(`/assets/*`)には `public/_headers` で immutable キャッシュを効かせています。
 
 ## Quest での注意
 
@@ -86,9 +88,9 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinw
 - VR: `free-fly` 中は左トリガー(左コントローラの指す方向へ、アナログ・スロットル)と左スティックで推進し、A 長押しで上昇します。向きは右スティックの snap turn で変えます。
 - VR: `free-fly` 中は左 grip を握ると停止(アナログのブレーキ)します。止めるのは直線ドリフトだけで、自転 ω は保持されるためコロニーは視界で回らず安定したままです。
 - VR: 左手首には wrist UI が常時表示されます。右手レーザーで狙い、右トリガーで `rpm / radius / throw / jetpack / reattach` を変更できます。
-- VR: wrist UI / PC quick panel / GUI から `jetpack thrust` も調整できます。
+- VR: wrist UI(PC では `?debug` の GUI)から `jetpack thrust` も調整できます。
 - VR: wrist UI から `Playground / Izma / Cooper / Elysium` preset を即時適用できます。適用時は habitat と Rapier scale を再構築し、球をクリアして内壁中央へ respawn します。
-- VR: wrist UI の Travel から `Surface / Overlook / Axis` の 3 地点へワープできます。
+- VR: wrist UI の Travel から `Surface / Overlook / Axis / Exterior` の 4 地点へワープできます。
 - VR: wrist UI は `-- / - / + / ++` の 4 ボタンで fine/coarse を分けています。`rpm` は 3 桁有効、`radius` は大きな habitat でも有効桁ベースで step が自動で変わります。
 - VR: 右スティック左右の `snap turn` は `grounded` / `free-fly` の両方で効きます。右手のトリガー(投擲・UI)とは独立です。
 - VR: 球のトリガーを離すと放します。投げ速度は右手の相対運動と前方チャージから決めます。
@@ -103,22 +105,23 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinw
 - PC: `Space` でジャンプします。空中では何も引かないので、床のほうが曲がって迎えに来ます。着地すると自動で `grounded` に戻ります。助走の運動量はジャンプ後も保存されます。
 - VR/PC: 空中ではビルにも衝突します。ビルの屋上には着地でき、屋上の上をそのまま歩けます。縁から踏み出せば自由落下です。
 - VR/PC: 着地時は落下速度に応じて視点が沈み込み、バネで戻ります(膝のクッション)。
-- PC: `1 / 2 / 3` で 地表 / 展望地点 / 軸端 へワープします。
+- PC: `1 / 2 / 3 / 4` で 地表 / 展望地点 / 軸端 / コロニー外 へワープします(画面下の Travel ボタンでも同じ)。
+- PC: `X` または右クリックで投射物を Ball / Beam / Firework に切り替えます(HUD の ◈ ドロップダウンでも選べます)。
 - PC: `F` で壁から離陸して `free-fly` に入れます。
-- PC: 内壁にいる間は `WASD` で歩行します。`free-fly` 中は KSP 風の視線基準 6DOF ジェットパックで、`WASD` で前後左右、`Shift` で上昇、`Ctrl` で下降します。`Q/E` のロールは角速度ベース(押すと回転が立ち上がり、離しても惰性で回り続ける)で、`B` でそのロールを止められます。`Space` はジャンプ専用で、`grounded` に戻ると視点は自動で水平へ戻ります。
+- PC: 内壁にいる間は `WASD` で歩行します。`free-fly` 中は KSP 風の視線基準 6DOF ジェットパックで、`WASD` で前後左右、`Space` で上昇、`Shift` で下降します。`Q/E` のロールは角速度ベース(押すと回転が立ち上がり、離しても惰性で回り続ける)で、`B` でそのロールを止められます。`grounded` に戻ると視点は自動で水平へ戻ります。
 - PC: 右ドラッグまたは矢印キーで視線を回せます。
-- PC: `Tab` で quick panel を開閉し、クリックで wrist UI と同じ Travel、SPIN(rpm+重力ゲージ)、設定(半径・**全長**・スロー・ジェットパック・リアタッチ・**昼夜サイクル長**(0で停止))、preset を操作できます。
-- スマホ: 画面左側のタッチがバーチャルスティック(歩行 / free-fly 推力 / 運転)、右側のドラッグで視線、右側タップで投擲です。下部のボタン列に Jump・Travel①②③・Drive(車の近くで出現、乗車中は Exit+Brake)・Gyro(ジャイロ視点)・⚙(quick panel)が並びます。
+- 非VR: 画面下のドックにすべての操作 UI が集約されています。左クラスタが CONTROL(ホバー / タップで操作カードが数秒表示されて消える)・preset ドロップダウン・ステータスチップ、右クラスタが Travel(Surface / Overlook / Axis / Exterior)・Spin −/+・フルスクリーン・VR ボタンです。細かい設定(半径・全長・スロー・ジェットパック・リアタッチ・昼夜サイクル長など)は `?debug` の GUI に移りました。
+- スマホ: 画面左側のタッチがバーチャルスティック(歩行 / free-fly 推力 / 運転)、右側のドラッグで視線、右側タップで投擲です。下部のボタン列に Jump・Drive(車の近くで出現、乗車中は Exit と Brake)・Gyro(ジャイロ視点)が並び、Travel と Spin はドックのボタンを使います。
 - スマホ: 描画はモバイル品質(pixelRatio 上限 1.75、建物 6000 棟、雲 50%)に自動調整されます。着地や衝突で軽い振動フィードバックが入ります(Android)。ホーム画面に追加すればフルスクリーンの PWA として起動します。
-- HUD は左下のステータスチップ(preset / g / rpm / mode)と、折りたたみ式の `controls` / `debug` ドロワーに整理されています。デバッグ数値は `debug` を開くと見られます。
+- HUD はドック左クラスタのチップ列です: preset(タップで切替)/ felt g・速度 / ω rpm / mode / balls / ◈ 弾種(タップで切替)/ free-fly 中のみ reattach 距離。デバッグ数値を見たいときは URL に `?debug` を付けます。
 - **音響**(全合成、アセットなし):ハビタットの環境音、スロー/バウンド/ジャンプ/着地/UIクリックのSFX。初回操作で有効化され、`M` でミュートできます。ボールのバウンド音は衝撃と距離で減衰します。
-- 起動時にはスプラッシュ(SPINWARD)が出て、ロード完了でフェードアウトします。lil-gui のデバッグパネルはデフォルトで折りたたまれています。
-- GUI: `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
+- 起動時にはスプラッシュ(SPINWARD)が出て、ロード完了でフェードアウトします(初期化に失敗した場合はスプラッシュ上にエラーと RELOAD ボタンが出ます)。lil-gui のデバッグパネルは URL に `?debug` を付けたときだけ表示されます。
+- GUI(`?debug`): `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。
 - GUI: `observer` で `colony-fixed / inertial-fixed` を切り替えられます。`inertial-fixed` は現在 PC 向けで、XR 中は自動で `colony-fixed` に戻ります。
 - GUI: `trail mode` で `Rotating / Inertial / Both` を切り替えられます。
 - GUI: `frame err` は回転系速度差分から見積もった加速度と、擬似力計算のズレ警告しきい値です。
-- HUD: `free-fly` 中は再アタッチ用の半径誤差、法線速度、壁相対速度、`ready/hold` を確認できます。
-- HUD: 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を表示します。誤差がしきい値を超えると `Frame mismatch!` を出します。
+- HUD: `free-fly` 中は reattach チップに、内壁再接地までの残り距離と `ready` 状態が出ます。
+- GUI(`?debug`): 追跡球について `v_inertial`, `v_rot`, `a_fictitious`, `a_rot_est`, `err` を確認できます。誤差がしきい値を超えると `Frame mismatch!` を出します。
 - 左手は locomotion 専用で、球生成と投擲は右手に集約しています。
 
 ## 車でドライブ(PC)
@@ -162,11 +165,12 @@ a_cf = -(Ω × (Ω × r))
 - Elysium: 半径 `30000m`, リング厚み `2000m`, 周期 `348s`, `0.1724rpm`, `simScale 0.005`
 - Elysium は現在の traversal と collider を保つため、見た目と接触は「短い axial band を持つ ring 近似」として扱っています。
 
-## Travel(ワープ 3 地点)
+## Travel(ワープ 4 地点)
 
 - `Surface`: 円筒中央の内壁プラザへ戻り、`grounded` で開始します。
 - `Overlook`: プラザ上空(半径の 1/2、8〜60m にクランプ)へ共回転状態で出ます。弱い遠心「重力」でゆっくり落下し、着地すると自動で `grounded` に戻ります。
 - `Axis`: cylinder では宇宙港のある −Y 端(ミラーの根本側)の回転軸上、ring ではリング中心へ戻り、`free-fly` 0g で開始します。
+- `Exterior`: コロニー外殻の外(共回転・`free-fly`)へ出て、採光窓とミラーを備えた回転体の全景を眺めます。ジェットパックでそのまま船外遊泳できます。
 
 ## Cityscape(円筒都市)
 
@@ -227,11 +231,11 @@ a_cf = -(Ω × (Ω × r))
 - 球だけは開口部から外へ出られるシームレスな内外遷移
 - プレイヤーの `grounded / free-fly` 状態切替、自然接触での再アタッチ、外側での Rapier ベース hand-aim jetpack 移動
 - free-fly プレーヤーの `capsule + foot plate` collider
-- 左手 wrist UI、右手 UI レーザー、PC quick panel
+- 左手 wrist UI、右手 UI レーザー、非VR画面下のドック(HUD チップ+Travel / Spin)
 - 内壁 shell の procedural texture
 - 手続き生成の円筒都市(道路網+道路に面した建物、採光窓ストリップ、軸スパイン)
 - `Playground / Izma / Cooper / Elysium` preset と `real / simScale` 分離
-- `Surface / Overlook / Axis` の 3 地点ワープ
+- `Surface / Overlook / Axis / Exterior` の 4 地点ワープと `Ball / Beam / Firework` の投射切替
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト

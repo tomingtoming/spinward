@@ -29,6 +29,11 @@ export type HudHandle = {
   destroy: () => void
   setVisible: (visible: boolean) => void
   update: (snapshot: HudSnapshot) => void
+  // Flash the CONTROL bindings card as if the user had hovered/tapped it. The
+  // app fires this once after the intro tour card fades (shown together they
+  // overlap and both become unreadable), which matters on touch — no hover
+  // means it is the only unprompted look at the bindings.
+  peekControls: () => void
 }
 
 const makeChip = (className: string) => {
@@ -159,8 +164,8 @@ export const createHud = (
 
   // CONTROL shows a compact bindings card for a few seconds then fades —
   // never a click-to-open panel to navigate. Works the same on touch (tap)
-  // as on PC (hover or click), and flashes once on boot so touch — which has
-  // no hover — gets a look at it too.
+  // as on PC (hover or click); the app also flashes it once via peekControls
+  // after the intro card fades, so touch — which has no hover — gets a look.
   const controlsToggle = document.createElement('button')
   controlsToggle.className = 'dock-toggle'
   controlsToggle.textContent = 'CONTROL'
@@ -284,10 +289,6 @@ export const createHud = (
   document.body.append(backdrop, controlsCard, presetDropdown.menu, projectileDropdown.menu)
   mount.append(root)
 
-  // One-time boot flash: touch has no hover, so this is its only look at the
-  // bindings unless it taps CONTROL itself.
-  peekControlsCard()
-
   return {
     destroy: () => {
       root.remove()
@@ -300,6 +301,14 @@ export const createHud = (
       root.hidden = !visible
       if (!visible) {
         closeEverything()
+      }
+    },
+    peekControls: () => {
+      // Anchored to the CONTROL chip, so skip while the chip is not laid out
+      // (HUD hidden via debug toggle, dock hidden while presenting in VR) —
+      // the card would position against a zero rect.
+      if (!root.hidden && controlsToggle.offsetParent !== null) {
+        peekControlsCard()
       }
     },
     update: (snapshot) => {
