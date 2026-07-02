@@ -821,6 +821,10 @@ export class Cityscape {
   private readonly arterialRoadTexture = createRoadTexture('arterial')
   private readonly localRoadTexture = createRoadTexture('local')
 
+  // No polygonOffset on any land-layer material: the logarithmic depth buffer
+  // writes gl_FragDepth, which discards the rasterizer's polygon offset
+  // entirely. Layer separation is done with REAL radial gaps instead (see
+  // buildRoads / buildPatches).
   private readonly localRoadMaterial = new THREE.MeshStandardMaterial({
     map: this.localRoadTexture,
     emissive: ROAD_GLOW.clone(),
@@ -828,10 +832,7 @@ export class Cityscape {
     emissiveIntensity: 0,
     roughness: 0.9,
     metalness: 0,
-    side: THREE.BackSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
+    side: THREE.BackSide
   })
 
   private readonly roadMaterial = new THREE.MeshStandardMaterial({
@@ -841,30 +842,21 @@ export class Cityscape {
     emissiveIntensity: 0,
     roughness: 0.9,
     metalness: 0,
-    side: THREE.BackSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
+    side: THREE.BackSide
   })
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x33563b,
     roughness: 1,
     metalness: 0,
-    side: THREE.BackSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
+    side: THREE.BackSide
   })
 
   private readonly farmMaterial = new THREE.MeshStandardMaterial({
     map: createFarmTexture(),
     roughness: 1,
     metalness: 0,
-    side: THREE.BackSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
+    side: THREE.BackSide
   })
 
   private readonly treeMaterial = new THREE.MeshStandardMaterial({
@@ -1083,13 +1075,15 @@ export class Cityscape {
     this.length = length
     this.topology = nextTopology
     this.habitatType = nextType
-    // With the air kept clear, the opposite side of the cylinder (~2 radii away)
-    // should READ rather than dissolve, so the fade is pushed out to ~1.7..2.9
-    // radii: the far wall stays visible and only the very-far rim — where road
-    // silhouettes go sub-pixel and shimmer — dissolves. Floored so small
-    // habitats never fade. vFogDepth is camera-relative, so it tracks the player.
-    this.fadeStart.value = Math.max(radius * 1.7, 800)
-    this.fadeEnd.value = Math.max(radius * 2.9, 1600)
+    // Only the dark LINEAR infrastructure fades (roads/bridges); the building
+    // skyline — the "city overhead" reveal — is untouched, so the far wall
+    // still reads. The straight-overhead far side sits at exactly 2R, and a
+    // road there is a sub-pixel silhouette that shimmers as the colony spins,
+    // so the fade must FINISH by 2R (the old 1.7R..2.9R window left far-side
+    // roads at ~75% opacity — visibly crawling). Floored so small habitats
+    // never fade. vFogDepth is camera-relative, so it tracks the player.
+    this.fadeStart.value = Math.max(radius * 1.2, 800)
+    this.fadeEnd.value = Math.max(radius * 1.9, 1600)
     this.clear()
 
     if (radius <= 0 || length <= 0) {
@@ -1212,12 +1206,14 @@ export class Cityscape {
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
-    // Keep the far side readable through the clear air; the fade only dissolves
-    // the very-far rim. Night pushes it out a touch further so the glowing grid
-    // arches overhead and dims into haze rather than cutting off.
+    // This runs every daylight tick, so it OWNS the fade values — keep it in
+    // lockstep with setDimensions. The fade must finish by the straight-
+    // overhead far side (2R) or sub-pixel road silhouettes shimmer there as
+    // the colony spins; night lets the glowing grid start dissolving a bit
+    // later, but the end never crosses 1.9R.
     if (this.radius > 0) {
-      this.fadeStart.value = Math.max(this.radius * (1.7 + night * 0.5), 800)
-      this.fadeEnd.value = Math.max(this.radius * (2.9 + night * 1.0), 1600)
+      this.fadeStart.value = Math.max(this.radius * (1.2 + night * 0.2), 800)
+      this.fadeEnd.value = Math.max(this.radius * 1.9, 1600)
     }
   }
 
@@ -1608,9 +1604,13 @@ export class Cityscape {
         // logarithmic depth buffer makes polygonOffset inert, so the coplanar
         // land layers are separated by REAL radius: ground at R, fields at R-0.1.
         // Crossing roads (avenue × street) share a radius and would z-fight at
-        // every junction, so avenues ride a hair higher (R-0.23) and pass
-        // cleanly OVER the cross streets (R-0.2) — no intersection z-fighting.
-        const roadRadius = radius - (isAvenue ? 0.23 : 0.2)
+        // every junction, so avenues ride higher and pass cleanly OVER the
+        // cross streets. The gap must outrun the log depth buffer's quantum,
+        // which grows with distance: at the far side of the cylinder (2R) one
+        // depth step is ~R·1.7e-6 m, so a fixed 3 cm gap thins to ~6 steps on
+        // Izma and LOSES on Elysium — scale it with the habitat instead.
+        const junctionGap = Math.max(0.03, radius * 1.5e-5)
+        const roadRadius = radius - 0.2 - (isAvenue ? junctionGap : 0)
         const arcRadians = road.tangentWidth / radius
         const segments = getArcSegments(arcRadians, radius)
         const geometry = new THREE.CylinderGeometry(
