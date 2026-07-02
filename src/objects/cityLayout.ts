@@ -715,28 +715,132 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
     const pitch = span / count
 
+    // Pre-roll every pitch up front, in the same fixed 7-roll pattern as
+    // always — the parcel-grain walk below takes variable strides, and rolling
+    // ahead of it keeps RNG consumption identical no matter how lots merge or
+    // split, so every other roll in the plan keeps its meaning.
+    const rolls: Array<{
+      keep: number
+      along: number
+      depth: number
+      height: number
+      tone: number
+      jitter: number
+      kind: number
+    }> = []
+
     for (let index = 0; index < count; index += 1) {
-      // Consume the RNG in a fixed pattern so layouts stay deterministic
-      // regardless of which lots are kept.
-      const keepRoll = random()
-      const alongRoll = random()
-      const depthRoll = random()
-      const heightRoll = random()
-      const toneRoll = random()
-      const jitterRoll = random()
-      const kindRoll = random()
+      rolls.push({
+        keep: random(),
+        along: random(),
+        depth: random(),
+        height: random(),
+        tone: random(),
+        jitter: random(),
+        kind: random()
+      })
+    }
+
+    for (let index = 0; index < count; ) {
+      const roll = rolls[index]
+      // Parcel grain, derived (not freshly rolled) so the stride decision is
+      // free: some lots merge into a double/triple plot carrying one large
+      // building, some split into a pair of small in-fill buildings — the
+      // mixed grain that makes a real skyline read as grown, not stamped.
+      const grainRoll =
+        (roll.along * 61.7 + roll.depth * 13.3) -
+        Math.floor(roll.along * 61.7 + roll.depth * 13.3)
+      const mergeProbability = 0.14 + urban * 0.08
+      const splitProbability = 0.24 * (1 - urban * 0.5)
+      let stride = 1
+
+      if (grainRoll < mergeProbability && index + 1 < count) {
+        stride = grainRoll < mergeProbability * 0.3 && index + 2 < count ? 3 : 2
+      }
+
+      const splitLot =
+        stride === 1 &&
+        grainRoll > 1 - splitProbability &&
+        pitch * 0.36 >= 4
 
       // Downtown lots fill in; the countryside thins out toward fields.
-      if (keepRoll > keepProbability * (0.55 + urban * 0.45)) {
+      if (roll.keep > keepProbability * (0.55 + urban * 0.45)) {
+        index += stride
         continue
       }
 
-      let along = lot * (0.74 + alongRoll * 0.24)
+      const alongRoll = roll.along
+      const depthRoll = roll.depth
+      const heightRoll = roll.height
+      const toneRoll = roll.tone
+      const jitterRoll = roll.jitter
+      const kindRoll = roll.kind
+
+      const plotSpan = pitch * stride
+      let along =
+        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lot * (0.74 + alongRoll * 0.24)
       let depth = depthMax * (0.55 + depthRoll * 0.45)
       const alongCenter =
-        rowStart + (index + 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
-      // Downtown stands tall; the outskirts stay low-rise.
-      let height = heightBase * (0.25 + heightRoll * heightRoll * 1.1) * (0.35 + urban * 0.65)
+        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
+      // Downtown stands tall; the outskirts stay low-rise. A merged plot
+      // hosts a proportionally bigger building.
+      let height =
+        heightBase *
+        (0.25 + heightRoll * heightRoll * 1.1) *
+        (0.35 + urban * 0.65) *
+        (1 + (stride - 1) * 0.12)
+
+      if (splitLot) {
+        // A pair of modest in-fill buildings sharing one pitch — the small
+        // grain that nests against towers in the reference skyline.
+        const infillAlong = pitch * 0.36
+        const infillDepth = depth * 0.8
+        let infillHeight = Math.max(5, Math.min(height * 0.7, 14))
+        const infillKind: BuildingKind =
+          infillHeight < heightBase * 0.45 && kindRoll < 0.7 ? 'house' : 'block'
+
+        if (infillKind === 'house') {
+          // Houses keep their global height contract (≤ 10 m).
+          infillHeight = Math.min(infillHeight, 10)
+        }
+        const frontCenter = edgeCoordinate + edgeSide * infillDepth * 0.5
+
+        for (const side of [-1, 1] as const) {
+          const centre = alongCenter + side * pitch * 0.24
+          // A derived second tone so the pair does not read as twins.
+          const tone =
+            side === -1 ? toneRoll : toneRoll * 0.63 + 0.31 - Math.floor(toneRoll * 0.63 + 0.31)
+
+          if (facing === 'avenue') {
+            placeBuilding(
+              stripCenter,
+              frontCenter,
+              centre,
+              infillDepth,
+              infillAlong,
+              infillHeight,
+              tone,
+              infillKind,
+              urban
+            )
+          } else {
+            placeBuilding(
+              stripCenter,
+              centre,
+              frontCenter,
+              infillAlong,
+              infillDepth,
+              infillHeight,
+              tone,
+              infillKind,
+              urban
+            )
+          }
+        }
+
+        index += stride
+        continue
+      }
 
       // Building archetypes: low lots lean toward houses, tall rolls become
       // slim towers or stepped setbacks (downtown trades some setbacks for
@@ -801,6 +905,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           urban
         )
       }
+
+      index += stride
     }
   }
 
