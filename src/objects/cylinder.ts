@@ -679,19 +679,22 @@ export class CylinderHabitat {
     this.disposeGroupGeometries(this.landmarks)
     this.landmarks.clear()
 
-    const runwayAngles = [-0.18, 0, 0.18]
-
-    for (const angle of runwayAngles) {
-      const points = [
-        new THREE.Vector3(Math.cos(angle) * radius, -length / 2, Math.sin(angle) * radius),
-        new THREE.Vector3(Math.cos(angle) * radius, length / 2, Math.sin(angle) * radius)
-      ]
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(points),
-        this.runwayMaterial
-      )
-      this.landmarks.add(line)
-    }
+    // One short spawn-avenue cue, not the legacy full-length triple: the old
+    // lines ran the whole cylinder AT the wall radius, so they z-fought
+    // through every building base and road they crossed — the "bright line
+    // piercing the buildings". Clipped to the plaza block and lifted just
+    // above the road surface so nothing occludes wrong.
+    const runwayHalfLength = Math.min(80, length * 0.45)
+    const runwayRadius = radius - 0.24
+    const points = [
+      new THREE.Vector3(runwayRadius, -runwayHalfLength, 0),
+      new THREE.Vector3(runwayRadius, runwayHalfLength, 0)
+    ]
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      this.runwayMaterial
+    )
+    this.landmarks.add(line)
   }
 
   private disposeGroupGeometries(group: THREE.Group) {

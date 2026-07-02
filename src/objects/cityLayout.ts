@@ -283,15 +283,18 @@ export const getCityExpressway = (radius: number): CityExpressway | null => {
 
   const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius) * 0.7))
   const deckHeight = 18
-  // ~6% grade: comfortable to drive, short enough to read as one structure.
-  const rampSpan = (deckHeight / 0.06) / radius
+  // ~5% grade: comfortable to drive, short enough to read as one structure.
+  const rampSpan = (deckHeight / 0.05) / radius
+  // Wide enough to steer onto at speed — 7 m proved too tight in playtests.
+  const rampWidth = 12
 
   return {
     axial: -Math.max(140, Math.min(400, radius * 0.055)),
-    corridorHalfWidth: deckWidth * 0.5 + 8,
+    // The corridor also shields the ramp lane beside the deck.
+    corridorHalfWidth: deckWidth * 0.5 + rampWidth + 4,
     deckHeight,
     deckWidth,
-    rampWidth: 7,
+    rampWidth,
     // Ramp bases sit just past each strip's spawn-side crossroads, so the
     // one on the home strip is discoverable within a block of the plaza.
     ramps: getLandStripCenters().map((center) => ({
