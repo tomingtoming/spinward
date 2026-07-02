@@ -8,7 +8,9 @@ import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
   getCityCellSize,
+  getCityExpressway,
   getCityGroundHeight,
+  getExpresswayElevation,
   getLandArcs,
   getOverlookAltitude,
   getOverlookTowerClearance,
@@ -201,6 +203,65 @@ describe('getCityGroundHeight', () => {
   test('the tallest reachable roof wins when footprints stack', () => {
     const low = { ...building, height: 2 }
     expect(getCityGroundHeight([low, building], radius, 0.5, 10, 6)).toBeCloseTo(5, 6)
+  })
+})
+
+describe('getExpresswayElevation', () => {
+  const radius = 3200
+  const expressway = getCityExpressway(radius)
+
+  test('small habitats have no expressway', () => {
+    expect(getCityExpressway(18)).toBeNull()
+    expect(getCityExpressway(799)).toBeNull()
+  })
+
+  test('the deck corridor sits at deck height, the streets outside at 0', () => {
+    if (expressway === null) throw new Error('expected an expressway at r=3200')
+    expect(
+      getExpresswayElevation(expressway, radius, 1.234, expressway.axial)
+    ).toBeCloseTo(expressway.deckHeight, 6)
+    expect(
+      getExpresswayElevation(
+        expressway,
+        radius,
+        1.234,
+        expressway.axial + expressway.deckWidth * 0.5 + expressway.rampWidth + 2
+      )
+    ).toBe(0)
+    expect(getExpresswayElevation(expressway, radius, 1.234, 0)).toBe(0)
+  })
+
+  test('a ramp climbs linearly from street level to the deck', () => {
+    if (expressway === null) throw new Error('expected an expressway at r=3200')
+    const ramp = expressway.ramps[0]
+    const rampAxial =
+      expressway.axial + expressway.deckWidth * 0.5 + expressway.rampWidth * 0.5
+
+    for (const t of [0.05, 0.25, 0.5, 0.75, 0.95]) {
+      const azimuth = ramp.azimuthStart + t * ramp.azimuthSpan
+      expect(getExpresswayElevation(expressway, radius, azimuth, rampAxial)).toBeCloseTo(
+        expressway.deckHeight * t,
+        6
+      )
+    }
+
+    // Just before the base and past the top, the lane is street level.
+    expect(
+      getExpresswayElevation(
+        expressway,
+        radius,
+        ramp.azimuthStart - 0.01,
+        rampAxial
+      )
+    ).toBe(0)
+  })
+
+  test('one ramp per land strip, evenly spaced for a symmetric collider ring', () => {
+    if (expressway === null) throw new Error('expected an expressway at r=3200')
+    expect(expressway.ramps).toHaveLength(3)
+    const spacing =
+      expressway.ramps[1].azimuthStart - expressway.ramps[0].azimuthStart
+    expect(spacing).toBeCloseTo((Math.PI * 2) / 3, 6)
   })
 })
 

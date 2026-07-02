@@ -178,6 +178,10 @@ export class DriveRuntime {
       omega: number
       radius: number
       units: UnitsContext
+      // Height of an elevated road surface (expressway deck/ramp) above the
+      // wall at a point; 0 where there is none. Contact itself is real Rapier
+      // panels — this only tells the tire model it is on a floor.
+      surfaceElevation?: (azimuth: number, axialPosition: number) => number
     }
   ): DriveFrame | null {
     if (!this.driving || this.body === null) {
@@ -204,7 +208,16 @@ export class DriveRuntime {
     const azimuth = Math.atan2(rotatingPosition.z, rotatingPosition.x)
     const radialDistance = Math.hypot(rotatingPosition.x, rotatingPosition.z)
     const restingRadial = config.radius - CAR_COLLIDER_RADIUS
-    const grounded = Math.abs(radialDistance - restingRadial) <= GROUND_TOLERANCE
+    // Two candidate floors: the wall, and (where one exists) the expressway
+    // surface overhead. Under the deck the street stays a valid floor, so
+    // grounding is "near EITHER resting radius", not a single target.
+    const elevation =
+      config.surfaceElevation?.(azimuth, rotatingPosition.y) ?? 0
+    const restingElevated = config.radius - elevation - CAR_COLLIDER_RADIUS
+    const grounded =
+      Math.abs(radialDistance - restingRadial) <= GROUND_TOLERANCE ||
+      (elevation > 0 &&
+        Math.abs(radialDistance - restingElevated) <= GROUND_TOLERANCE)
 
     surfaceOutward.set(Math.cos(azimuth), 0, Math.sin(azimuth))
     surfaceTangent.set(-Math.sin(azimuth), 0, Math.cos(azimuth))

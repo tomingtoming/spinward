@@ -1220,6 +1220,15 @@ export class Cityscape {
     side: THREE.DoubleSide
   })
 
+  // On-ramp ribbons. Double-sided so the spiral needs no winding care, with
+  // the residential asphalt skin so the lane reads as road, not structure.
+  private readonly expresswayRampMaterial = new THREE.MeshStandardMaterial({
+    map: this.localRoadTexture,
+    roughness: 0.9,
+    metalness: 0,
+    side: THREE.DoubleSide
+  })
+
   // Red aviation warning lights on the tallest rooftops. Each beacon strobes on
   // its own phase (per-instance aBlinkPhase), driven by a shared time uniform —
   // so the city overhead twinkles with independent red flashes rather than one
@@ -1784,6 +1793,7 @@ export class Cityscape {
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
     this.expresswayFasciaMaterial.dispose()
+    this.expresswayRampMaterial.dispose()
     this.roofClutterMaterial.dispose()
     this.landmarkDomeMaterial.dispose()
     this.trafficBodyMaterial.dispose()
@@ -3115,6 +3125,51 @@ export class Cityscape {
       )
       rail.translate(0, expressway.axial + side * (expressway.deckWidth * 0.5 - 0.15), 0)
       group.add(new THREE.Mesh(rail, this.bridgeEdgeMaterial))
+    }
+
+    // On-ramps: spiral ribbons following the exact linear climb the physics
+    // treads and getExpresswayElevation use, one per land strip.
+    const rampInner = expressway.axial + expressway.deckWidth * 0.5
+    const rampOuter = rampInner + expressway.rampWidth
+
+    for (const ramp of expressway.ramps) {
+      const steps = 40
+      const positions = new Float32Array((steps + 1) * 2 * 3)
+      const uvs = new Float32Array((steps + 1) * 2 * 2)
+      const indices: number[] = []
+
+      for (let index = 0; index <= steps; index += 1) {
+        const t = index / steps
+        const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+        const surfaceRadius = radius - expressway.deckHeight * t
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+
+        for (const [edge, axial] of [
+          [0, rampInner],
+          [1, rampOuter]
+        ] as const) {
+          const vertex = (index * 2 + edge) * 3
+          positions[vertex] = cos * surfaceRadius
+          positions[vertex + 1] = axial
+          positions[vertex + 2] = sin * surfaceRadius
+          const uv = (index * 2 + edge) * 2
+          uvs[uv] = edge
+          uvs[uv + 1] = (t * ramp.azimuthSpan * radius) / 12
+        }
+
+        if (index < steps) {
+          const a = index * 2
+          indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+        }
+      }
+
+      const ribbon = new THREE.BufferGeometry()
+      ribbon.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      ribbon.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+      ribbon.setIndex(indices)
+      ribbon.computeVertexNormals()
+      group.add(new THREE.Mesh(ribbon, this.expresswayRampMaterial))
     }
 
     // Pylons every ~75 m of arc, skipped over the window strips (the deck

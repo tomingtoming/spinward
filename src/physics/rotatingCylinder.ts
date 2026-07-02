@@ -4,12 +4,24 @@ import type { RapierModule } from './rapierContext'
 import { getStableWallThicknessReal, scaleLengthForRapier } from './rapierBoundary'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
+// Physics spec for the elevated expressway, in REAL metres (scaled for
+// Rapier inside rebuild, like radius/length). Mirrors cityLayout's
+// CityExpressway — keep the two in lockstep via buildExpresswayWallConfig.
+export type ExpresswayWallConfig = {
+  axial: number
+  deckHeight: number
+  deckWidth: number
+  rampWidth: number
+  ramps: Array<{ azimuthStart: number; azimuthSpan: number }>
+}
+
 export type RotatingCylinderConfig = {
   radius: number
   length: number
   units?: UnitsContext
   segmentCount?: number
   wallThickness?: number
+  expressway?: ExpresswayWallConfig | null
 }
 
 export type CylinderWallPanel = {
@@ -92,6 +104,82 @@ export const buildCylinderWallPanels = ({
   return panels
 }
 
+// Panels for the expressway: a full symmetric deck ring (so the kinematic
+// body's centre of mass stays on the axis, which the contact surface velocity
+// depends on) plus short ramp treads pitched to the climb. Everything in the
+// SCALED space of the given config, like buildCylinderWallPanels.
+export const buildExpresswayPanels = (
+  config: RotatingCylinderConfig & { expressway: ExpresswayWallConfig },
+  realRadius: number
+): CylinderWallPanel[] => {
+  const panels: CylinderWallPanel[] = []
+  const { expressway } = config
+  const halfThickness = (config.wallThickness ?? 2) * 0.5
+  const deckRadius = config.radius - expressway.deckHeight
+  const segments = resolveCylinderWallSegmentCount({
+    radius: realRadius - (expressway.deckHeight / config.radius) * realRadius,
+    segmentCount: undefined
+  })
+  const panelWidth = 2 * deckRadius * Math.tan(Math.PI / segments)
+
+  for (let index = 0; index < segments; index += 1) {
+    const angle = (index / segments) * Math.PI * 2
+    panels.push({
+      translation: new THREE.Vector3(
+        Math.cos(angle) * (deckRadius + halfThickness),
+        expressway.axial,
+        Math.sin(angle) * (deckRadius + halfThickness)
+      ),
+      rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle),
+      halfExtents: new THREE.Vector3(
+        halfThickness,
+        expressway.deckWidth * 0.5,
+        panelWidth * 0.5
+      )
+    })
+  }
+
+  // Ramp treads: ~9 real metres of arc each, surface following the linear
+  // climb, pitched by rotating the box a touch further about the axis (the
+  // surface normal lives in the outward-tangent plane, so pitch IS an extra
+  // yaw here — see the -angle comment above).
+  const rampAxial =
+    expressway.axial + expressway.deckWidth * 0.5 + expressway.rampWidth * 0.5
+
+  for (const ramp of expressway.ramps) {
+    const arcLength = ramp.azimuthSpan * realRadius
+    const treadCount = Math.max(6, Math.ceil(arcLength / 9))
+    const pitch = Math.atan(
+      expressway.deckHeight / Math.max(ramp.azimuthSpan * config.radius, 1e-6)
+    )
+
+    for (let index = 0; index < treadCount; index += 1) {
+      const t = (index + 0.5) / treadCount
+      const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+      const surfaceRadius = config.radius - expressway.deckHeight * t
+      const treadArc = ramp.azimuthSpan / treadCount
+      // Slight overlap hides the seams between pitched treads.
+      const treadHalfLength = surfaceRadius * treadArc * 0.62
+
+      panels.push({
+        translation: new THREE.Vector3(
+          Math.cos(angle) * (surfaceRadius + halfThickness),
+          rampAxial,
+          Math.sin(angle) * (surfaceRadius + halfThickness)
+        ),
+        rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle + pitch),
+        halfExtents: new THREE.Vector3(
+          halfThickness,
+          expressway.rampWidth * 0.5,
+          treadHalfLength
+        )
+      })
+    }
+  }
+
+  return panels
+}
+
 type WallCollider = ReturnType<InstanceType<RapierModule['World']>['createCollider']>
 
 export const createRotatingCylinderBody = (
@@ -132,6 +220,24 @@ export const createRotatingCylinderBody = (
     // at the player's feet, so the wall surface read as static and friction
     // braked walkers/cars toward inertial rest (~13 m/s lost at izma scale).
     const builtPanels = buildCylinderWallPanels(scaledConfig)
+
+    if (nextConfig.expressway != null) {
+      builtPanels.push(
+        ...buildExpresswayPanels(
+          {
+            ...scaledConfig,
+            expressway: {
+              ...nextConfig.expressway,
+              axial: scaleLengthForRapier(nextConfig.expressway.axial, units),
+              deckHeight: scaleLengthForRapier(nextConfig.expressway.deckHeight, units),
+              deckWidth: scaleLengthForRapier(nextConfig.expressway.deckWidth, units),
+              rampWidth: scaleLengthForRapier(nextConfig.expressway.rampWidth, units)
+            }
+          },
+          nextConfig.radius
+        )
+      )
+    }
     // Rounded edges: bodies rest a few millimeters into the face, so a sharp
     // neighbour edge at each seam was a lip that hard-blocked tangential
     // motion. A fillet bigger than the rest penetration turns the seam into

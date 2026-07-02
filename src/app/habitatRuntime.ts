@@ -1,5 +1,6 @@
 import type { HabitatTopology, HabitatType } from '../sim/habitatConfig'
 import { rpmToOmega } from '../units/units'
+import { getCityExpressway, type CityExpressway } from '../objects/cityLayout'
 
 const MIN_CAMERA_FAR = 4000
 
@@ -42,7 +43,12 @@ type CameraLike = {
 }
 
 type RotatingCylinderLike<TUnits> = {
-  rebuild: (config: { radius: number; length: number; units: TUnits }) => void
+  rebuild: (config: {
+    radius: number
+    length: number
+    units: TUnits
+    expressway?: CityExpressway | null
+  }) => void
   setAngularVelocity: (omega: number) => void
 }
 
@@ -112,7 +118,10 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
   dependencies.cylinderWall.rebuild({
     radius: config.radius,
     length: config.span,
-    units: config.units
+    units: config.units,
+    // The viaduct's deck ring + ramp treads co-rotate on the wall body, so
+    // the car (and thrown balls) get real contact with them.
+    expressway: getCityExpressway(config.radius)
   })
   dependencies.cylinderWall.setAngularVelocity(rpmToOmega(config.rpm))
   dependencies.starfield.setFrameAngle(config.frameAngle)
