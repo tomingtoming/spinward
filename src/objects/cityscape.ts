@@ -1091,9 +1091,14 @@ export class Cityscape {
   private readonly mirrorDayColor = new THREE.Color()
 
   private readonly maxBuildings: number | undefined
+  private readonly farMinAngularSize: number
 
-  constructor(dimensions: CityscapeDimensions, options?: { maxBuildings?: number }) {
+  constructor(
+    dimensions: CityscapeDimensions,
+    options?: { maxBuildings?: number; farMinAngularSize?: number }
+  ) {
     this.maxBuildings = options?.maxBuildings
+    this.farMinAngularSize = options?.farMinAngularSize ?? 0.004
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -1661,14 +1666,6 @@ export class Cityscape {
     this.buildRoofClutter(near)
   }
 
-  // The angular size below which a far building is dropped. ~0.004 rad is a
-  // handful of pixels on every target device; anything smaller is shimmer
-  // fuel and vertex cost, not skyline. The threshold scales with each
-  // building's actual chord distance, so nothing pops at the near-arc
-  // boundary (a 1 km neighbour only needs ~4 m to stay) while the far side
-  // keeps just the silhouettes that read (~26 m at Izma's 2R).
-  private static readonly FAR_MIN_ANGULAR_SIZE = 0.004
-
   // The far batch persists across focus steps: allocated once per plan at
   // full-plan capacity, then rewritten in place and truncated via .count.
   // The old dispose-and-rebuild allocated ~megabytes per step, a visible
@@ -1715,7 +1712,12 @@ export class Cityscape {
       const chord = 2 * this.radius * Math.sin(theta * 0.5)
       const maxDimension = Math.max(building.width, building.depth, building.height)
 
-      if (maxDimension < chord * Cityscape.FAR_MIN_ANGULAR_SIZE) {
+      // Constant-screen-size cull: below farMinAngularSize radians a building
+      // is a few pixels of shimmer fuel, not skyline. The threshold scales
+      // with each building's own chord distance, so nothing pops at the
+      // near-arc boundary (a 1 km neighbour only needs metres to stay) while
+      // the far side keeps just the silhouettes that read.
+      if (maxDimension < chord * this.farMinAngularSize) {
         continue
       }
 
