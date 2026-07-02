@@ -199,6 +199,64 @@ const buildRoofClutterKit = () => {
   return merged
 }
 
+// Ambient traffic: one low-poly car kit shared by every instance. Painted
+// body/cabin take instanceColor (material 0); head- and taillight boxes are
+// separate material groups so they can glow at night. Local frame: +Z is the
+// direction of travel, +Y is up (toward the axis), wheels sit on y = 0.
+const buildTrafficCarGeometry = () => {
+  const parts: Array<{ geometry: THREE.BufferGeometry; materialIndex: number }> = []
+
+  const body = new THREE.BoxGeometry(1.8, 0.65, 4.3)
+  body.translate(0, 0.325, 0)
+  parts.push({ geometry: body, materialIndex: 0 })
+
+  const cabin = new THREE.BoxGeometry(1.6, 0.55, 2.1)
+  cabin.translate(0, 0.9, -0.25)
+  parts.push({ geometry: cabin, materialIndex: 0 })
+
+  const headlights = new THREE.BoxGeometry(1.5, 0.18, 0.08)
+  headlights.translate(0, 0.5, 2.16)
+  parts.push({ geometry: headlights, materialIndex: 1 })
+
+  const taillights = new THREE.BoxGeometry(1.5, 0.15, 0.08)
+  taillights.translate(0, 0.55, -2.16)
+  parts.push({ geometry: taillights, materialIndex: 2 })
+
+  const merged = mergeWithMaterialGroups(parts)
+
+  for (const part of parts) {
+    part.geometry.dispose()
+  }
+
+  if (merged === null) {
+    throw new Error('traffic car kit failed to merge')
+  }
+
+  return merged
+}
+
+// Everything update() needs to place one car, precomputed at assignment time.
+type TrafficRoute = {
+  // 'avenue' runs along the axis at a fixed azimuth; 'street' runs along the
+  // arc at a fixed axial position.
+  kind: 'avenue' | 'street'
+  // Lane centre: azimuth (radians) for avenues, axial metres for streets.
+  laneAzimuth: number
+  laneAxial: number
+  // Travel span: start coordinate (axial metres for avenues, arc metres for
+  // streets) and length, plus the road-surface radius the wheels sit on.
+  spanStart: number
+  spanLength: number
+  surfaceRadius: number
+  direction: 1 | -1
+  speedMetersPerSecond: number
+  phaseMeters: number
+  scale: number
+}
+
+const trafficForward = new THREE.Vector3()
+const trafficRight = new THREE.Vector3()
+
 const tangent = new THREE.Vector3()
 const inward = new THREE.Vector3()
 const binormal = new THREE.Vector3()
@@ -234,6 +292,10 @@ const MIRROR_DAY = new THREE.Color(0xffffff)
 const MIRROR_NIGHT = new THREE.Color(0x55657a)
 const LAMP_DAY = new THREE.Color(0x6b5a40)
 const LAMP_NIGHT = new THREE.Color(0xffe2b0)
+const HEADLIGHT_DAY = new THREE.Color(0x9aa0a8)
+const HEADLIGHT_NIGHT = new THREE.Color(0xfff3cf)
+const TAILLIGHT_DAY = new THREE.Color(0x7a2622)
+const TAILLIGHT_NIGHT = new THREE.Color(0xff2d1f)
 const SPINE_DAY = new THREE.Color(0xffeec4)
 const SPINE_NIGHT = new THREE.Color(0x8a7f63)
 // Night city signature: luminous road veins, red rooftop beacons, and windows
@@ -984,6 +1046,24 @@ export class Cityscape {
     metalness: 0.3
   })
 
+  // Ambient traffic. The body takes per-instance paint; the light strips are
+  // unlit and swing between "off plastic" (day) and HDR glow (night) in
+  // setDaylight, like the street lamps.
+  private readonly trafficBodyMaterial = new THREE.MeshStandardMaterial({
+    roughness: 0.35,
+    metalness: 0.55
+  })
+
+  private readonly headlightMaterial = new THREE.MeshBasicMaterial({
+    color: 0x9aa0a8,
+    toneMapped: false
+  })
+
+  private readonly taillightMaterial = new THREE.MeshBasicMaterial({
+    color: 0x7a2622,
+    toneMapped: false
+  })
+
   // The plaza dome: glassy civic architecture with a faint self-glow so it
   // stays a landmark after dark without its own light.
   private readonly landmarkDomeMaterial = new THREE.MeshStandardMaterial({
@@ -1049,6 +1129,12 @@ export class Cityscape {
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
   private roofClutter: THREE.InstancedMesh | null = null
+  // Ambient traffic: a persistent capacity-sized batch; focus changes only
+  // reassign routes, update() moves the cars every frame.
+  private traffic: THREE.InstancedMesh | null = null
+  private trafficRoutes: TrafficRoute[] = []
+  private trafficTime = 0
+  private cityPlanRoads: CityRoad[] = []
   private collisionBuildings: CityBuilding[] = []
   private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
   private windowStrips: THREE.Mesh[] = []
@@ -1084,13 +1170,15 @@ export class Cityscape {
 
   private readonly maxBuildings: number | undefined
   private readonly farMinAngularSize: number
+  private readonly maxTraffic: number
 
   constructor(
     dimensions: CityscapeDimensions,
-    options?: { maxBuildings?: number; farMinAngularSize?: number }
+    options?: { maxBuildings?: number; farMinAngularSize?: number; maxTraffic?: number }
   ) {
     this.maxBuildings = options?.maxBuildings
     this.farMinAngularSize = options?.farMinAngularSize ?? 0.004
+    this.maxTraffic = options?.maxTraffic ?? 160
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -1165,6 +1253,64 @@ export class Cityscape {
   // Advance the beacon strobe. Called once per frame from the render loop.
   update(deltaSeconds: number) {
     this.beaconTime.value += deltaSeconds
+    this.updateTraffic(deltaSeconds)
+  }
+
+  private updateTraffic(deltaSeconds: number) {
+    const mesh = this.traffic
+
+    if (mesh === null || this.trafficRoutes.length === 0) {
+      return
+    }
+
+    this.trafficTime += deltaSeconds
+
+    for (let index = 0; index < this.trafficRoutes.length; index += 1) {
+      const route = this.trafficRoutes[index]
+      const progress = THREE.MathUtils.euclideanModulo(
+        route.phaseMeters + route.speedMetersPerSecond * this.trafficTime,
+        route.spanLength
+      )
+      // Direction -1 runs the same span backwards, so both lanes wrap without
+      // ever reversing mid-road.
+      const along =
+        route.direction === 1
+          ? route.spanStart + progress
+          : route.spanStart + route.spanLength - progress
+
+      let azimuth: number
+      let axial: number
+
+      if (route.kind === 'avenue') {
+        azimuth = route.laneAzimuth
+        axial = along
+      } else {
+        azimuth = route.laneAzimuth + along / Math.max(this.radius, 1e-6)
+        axial = route.laneAxial
+      }
+
+      const cos = Math.cos(azimuth)
+      const sin = Math.sin(azimuth)
+      inward.set(-cos, 0, -sin)
+
+      if (route.kind === 'avenue') {
+        trafficForward.set(0, route.direction, 0)
+      } else {
+        trafficForward.set(-sin, 0, cos).multiplyScalar(route.direction)
+      }
+
+      // Right-handed car frame: X = up × forward, Y = up (toward the axis),
+      // Z = travel direction (the kit's nose).
+      trafficRight.copy(inward).cross(trafficForward)
+      basis.makeBasis(trafficRight, inward, trafficForward)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition.set(cos, 0, sin).multiplyScalar(route.surfaceRadius).setY(axial)
+      instanceScale.setScalar(route.scale)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
@@ -1234,6 +1380,7 @@ export class Cityscape {
     }
 
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
+    this.cityPlanRoads = plan.roads
     this.buildBuildings(plan.buildings)
     this.buildRoads(plan.roads, radius)
     this.buildPatches(plan.patches, radius, length)
@@ -1341,6 +1488,8 @@ export class Cityscape {
     this.roadMaterial.emissiveIntensity = night * 1.55
     this.localRoadMaterial.emissiveIntensity = night * 0.95
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
+    this.headlightMaterial.color.lerpColors(HEADLIGHT_NIGHT, HEADLIGHT_DAY, daylight)
+    this.taillightMaterial.color.lerpColors(TAILLIGHT_NIGHT, TAILLIGHT_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
     this.axisSpineMaterial.opacity = 0.35 + daylight * 0.5
     // This runs every daylight tick, so it OWNS the fade values — keep it in
@@ -1461,6 +1610,9 @@ export class Cityscape {
     this.towerAccentMaterial.dispose()
     this.roofClutterMaterial.dispose()
     this.landmarkDomeMaterial.dispose()
+    this.trafficBodyMaterial.dispose()
+    this.headlightMaterial.dispose()
+    this.taillightMaterial.dispose()
     this.cableMaterial.dispose()
     this.spineRingMaterial.dispose()
   }
@@ -1501,6 +1653,15 @@ export class Cityscape {
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
+    this.cityPlanRoads = []
+    this.trafficRoutes = []
+
+    if (this.traffic !== null) {
+      this.traffic.geometry.dispose()
+      this.group.remove(this.traffic)
+      this.traffic = null
+    }
+
     this.disposeBuildingBatches()
 
     for (const patch of this.patchMeshes) {
@@ -1660,6 +1821,166 @@ export class Cityscape {
 
     this.updateFarBatch(far)
     this.buildRoofClutter(near)
+    this.rebuildTraffic()
+  }
+
+  private ensureTrafficMesh() {
+    if (this.traffic !== null || this.maxTraffic <= 0) {
+      return
+    }
+
+    const mesh = new THREE.InstancedMesh(
+      buildTrafficCarGeometry(),
+      [this.trafficBodyMaterial, this.headlightMaterial, this.taillightMaterial],
+      this.maxTraffic
+    )
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    mesh.frustumCulled = false
+    this.traffic = mesh
+    this.group.add(mesh)
+  }
+
+  // Deal the car fleet onto the arterial roads around the focus arc and the
+  // plaza's axial band — beyond that a car is sub-pixel, so the whole budget
+  // stays where it can be seen. Seeded per focus step: deterministic, and a
+  // re-focus reshuffles routes without reallocating the mesh.
+  private rebuildTraffic() {
+    this.trafficRoutes = []
+
+    if (this.maxTraffic <= 0 || this.radius <= 0 || this.cityPlanRoads.length === 0) {
+      if (this.traffic !== null) {
+        this.traffic.count = 0
+      }
+      return
+    }
+
+    this.ensureTrafficMesh()
+    const mesh = this.traffic
+
+    if (mesh === null) {
+      return
+    }
+
+    const junctionGap = Math.max(0.03, this.radius * 1.5e-5)
+    const laneOffset = getArterialRoadWidth(this.radius, this.length) * 0.22
+    // Tight windows on purpose: the fleet size is fixed, so every metre of
+    // candidate road dilutes cars-per-metre. Sized for ~one car per 60 m so a
+    // street view always has several in sight, like a living city.
+    const arcWindow = getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6)
+    const axialWindow = Math.max(1200, getCityNearDistance(this.radius) * 1.2)
+
+    type Candidate = {
+      road: CityRoad
+      isAvenue: boolean
+      spanStart: number
+      spanLength: number
+    }
+    const candidates: Candidate[] = []
+    let totalSpan = 0
+
+    for (const road of this.cityPlanRoads) {
+      if (road.kind !== 'arterial') {
+        continue
+      }
+
+      const isAvenue = road.axialLength > road.tangentWidth
+      const arcDistance = Math.abs(wrapAngleToPi(road.azimuth - this.cityFocusAzimuth))
+
+      if (isAvenue) {
+        if (arcDistance > arcWindow) {
+          continue
+        }
+
+        // Only the stretch of the avenue inside the axial window carries cars.
+        const halfLength = road.axialLength * 0.5
+        const spanStart = Math.max(road.axial - halfLength, -axialWindow)
+        const spanEnd = Math.min(road.axial + halfLength, axialWindow)
+
+        if (spanEnd - spanStart < 60) {
+          continue
+        }
+
+        candidates.push({ road, isAvenue, spanStart, spanLength: spanEnd - spanStart })
+      } else {
+        const halfArc = road.tangentWidth * 0.5 / this.radius
+
+        if (arcDistance > arcWindow + halfArc || Math.abs(road.axial) > axialWindow) {
+          continue
+        }
+
+        // Arc metres relative to the road's centre azimuth.
+        candidates.push({
+          road,
+          isAvenue,
+          spanStart: -road.tangentWidth * 0.5,
+          spanLength: road.tangentWidth
+        })
+      }
+
+      totalSpan += candidates[candidates.length - 1].spanLength
+    }
+
+    if (candidates.length === 0 || totalSpan <= 0) {
+      mesh.count = 0
+      return
+    }
+
+    const random = createSeededRandom(0x7a55c0de ^ Math.round(this.cityFocusAzimuth * 1024))
+    let count = 0
+
+    for (const candidate of candidates) {
+      if (count >= this.maxTraffic) {
+        break
+      }
+
+      const share = Math.max(
+        1,
+        Math.round((this.maxTraffic * candidate.spanLength) / totalSpan)
+      )
+
+      for (let i = 0; i < share && count < this.maxTraffic; i += 1) {
+        const direction = random() < 0.5 ? 1 : -1
+        const surfaceRadius =
+          this.radius - 0.2 - (candidate.isAvenue ? junctionGap : 0)
+
+        this.trafficRoutes.push({
+          kind: candidate.isAvenue ? 'avenue' : 'street',
+          laneAzimuth:
+            candidate.road.azimuth +
+            (candidate.isAvenue ? (direction * laneOffset) / this.radius : 0),
+          laneAxial: candidate.isAvenue
+            ? 0
+            : candidate.road.axial + direction * laneOffset,
+          spanStart: candidate.spanStart,
+          spanLength: candidate.spanLength,
+          surfaceRadius,
+          direction,
+          speedMetersPerSecond: 7 + random() * 9,
+          phaseMeters: random() * candidate.spanLength,
+          scale: 0.85 + random() * 0.45,
+          })
+
+        // Mostly white/silver/graphite paint, with the occasional loud one.
+        const paintRoll = random()
+        instanceColor.setHSL(
+          paintRoll > 0.9 ? random() : 0.6,
+          paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
+          0.25 + random() * 0.55
+        )
+        mesh.setColorAt(count, instanceColor)
+        count += 1
+      }
+    }
+
+    mesh.count = count
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+
+    // Place everyone immediately so a focus change never shows a frame of
+    // stale cars parked on the old roads.
+    this.updateTraffic(0)
   }
 
   // The far batch persists across focus steps: allocated once per plan at

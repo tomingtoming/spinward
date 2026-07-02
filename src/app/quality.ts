@@ -10,6 +10,8 @@ export type QualityProfile = {
   // knob trades far-side instance count against near-arc plan density:
   // raising it pays for a denser plan without touching the arc you stand in.
   farMinAngularSize: number
+  // Ambient traffic budget (cars simulated+drawn around the focus arc).
+  maxTraffic: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -31,6 +33,7 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: 1.75,
       maxBuildings: 12000,
       farMinAngularSize: 0.01,
+      maxTraffic: 160,
       bloom: false
     }
   }
@@ -40,6 +43,7 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
+      maxTraffic: 280,
       bloom: false
     }
   }
@@ -48,6 +52,7 @@ export const getQualityProfile = (): QualityProfile => {
     pixelRatioCap: Number.POSITIVE_INFINITY,
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
+    maxTraffic: 420,
     bloom: true
   }
 }
