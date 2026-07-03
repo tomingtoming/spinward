@@ -121,9 +121,9 @@ export const respawnExterior = (
   //  - inertial rest (this) shows the megastructure turning; the surface
   //    sweeps past, so reattaching means matching its speed, as it should.
   exteriorRotatingVelocity.set(
-    config.omega * exteriorRotatingPosition.z,
+    -config.omega * exteriorRotatingPosition.z,
     0,
-    -config.omega * exteriorRotatingPosition.x
+    config.omega * exteriorRotatingPosition.x
   )
   resetPlayerToFreeFly(state, {
     rotatingPosition: exteriorRotatingPosition,
