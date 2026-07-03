@@ -313,8 +313,10 @@ export const getCityExpressway = (
   const deckHeight = 18
   // ~5% grade: comfortable to drive, short enough to read as one structure.
   const rampSpan = (deckHeight / 0.05) / radius
-  // Wide enough to steer onto at speed — 7 m proved too tight in playtests.
-  const rampWidth = 12
+  // Wide enough to steer onto at speed — covers the street's viaduct-side
+  // half plus a couple of metres past the centreline, so straddling the
+  // middle line still catches the treads.
+  const rampWidth = 14
 
   // Anchor the RAMP MOUTHS on a cross-street row: on foot a half-metre kerb
   // is a step, but the car can only enter the ramp head-on along its lane, so
@@ -345,11 +347,11 @@ export const getCityExpressway = (
     // Ramp mouths open just past each strip's avenue junction — far enough
     // that the flat approach apron (~15% of the span) clears the crossing
     // instead of spilling across to its far side.
+    // The mouth opens right where you exit the avenue junction: turn onto
+    // the street's viaduct-side half and the apron is already under you.
     ramps: getLandStripCenters().map((center) => ({
       azimuthStart:
-        center +
-        (rampSpan * radius * 0.15 + getArterialRoadWidth(radius, length) * 0.5 + 8) /
-          radius,
+        center + (getArterialRoadWidth(radius, length) * 0.5 + 6) / radius,
       azimuthSpan: rampSpan
     }))
   }

@@ -3181,6 +3181,45 @@ export class Cityscape {
       ribbon.setIndex(indices)
       ribbon.computeVertexNormals()
       group.add(new THREE.Mesh(ribbon, this.expresswayRampMaterial))
+
+      // Lit edge lines along the whole climbing lane — the entrance must be
+      // unmissable on the tarmac, day or night (the apron itself only reads
+      // as \"a slightly different road\" from a car seat).
+      for (const edgeAxial of [rampInner + 0.35, rampOuter - 0.35]) {
+        const edgePositions = new Float32Array((steps + 1) * 2 * 3)
+        const edgeIndices: number[] = []
+
+        for (let index = 0; index <= steps; index += 1) {
+          const t = tStart + (index / steps) * (tEnd - tStart)
+          const climb = Math.max(0, Math.min(1, t))
+          const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+          const lineRadius =
+            radius - baseLift - (expressway.deckHeight - baseLift) * climb - 0.06
+          const cos = Math.cos(angle)
+          const sin = Math.sin(angle)
+
+          for (const [edge, offset] of [
+            [0, -0.3],
+            [1, 0.3]
+          ] as const) {
+            const vertex = (index * 2 + edge) * 3
+            edgePositions[vertex] = cos * lineRadius
+            edgePositions[vertex + 1] = edgeAxial + offset
+            edgePositions[vertex + 2] = sin * lineRadius
+          }
+
+          if (index < steps) {
+            const a = index * 2
+            edgeIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+          }
+        }
+
+        const edgeGeometry = new THREE.BufferGeometry()
+        edgeGeometry.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3))
+        edgeGeometry.setIndex(edgeIndices)
+        edgeGeometry.computeVertexNormals()
+        group.add(new THREE.Mesh(edgeGeometry, this.bridgeEdgeMaterial))
+      }
     }
 
     // Collector wedges: past each ramp top the deck widens to under the lane
