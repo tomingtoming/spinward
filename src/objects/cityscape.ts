@@ -3128,7 +3128,8 @@ export class Cityscape {
     }
 
     // On-ramps: spiral ribbons following the exact linear climb the physics
-    // treads and getExpresswayElevation use, one per land strip.
+    // treads and getExpresswayElevation use, one per land strip. Past the top
+    // the collector wedge (below) carries the lane onto the deck.
     const rampInner = expressway.axial + expressway.deckWidth * 0.5
     const rampOuter = rampInner + expressway.rampWidth
 
@@ -3180,6 +3181,66 @@ export class Cityscape {
       ribbon.setIndex(indices)
       ribbon.computeVertexNormals()
       group.add(new THREE.Mesh(ribbon, this.expresswayRampMaterial))
+    }
+
+    // Collector wedges: past each ramp top the deck widens to under the lane
+    // and a lit barrier runs diagonally back to the main carriageway, so the
+    // merge reads on the tarmac exactly where the physics funnels you.
+    for (const ramp of expressway.ramps) {
+      const collectorStart = ramp.azimuthStart + ramp.azimuthSpan
+      const collectorArc = expressway.collectorSpan
+      const segments = getArcSegments(collectorArc, radius)
+
+      const band = new THREE.CylinderGeometry(
+        deckRadius,
+        deckRadius,
+        expressway.rampWidth,
+        segments,
+        1,
+        true,
+        getThetaStart(collectorStart + collectorArc * 0.5, collectorArc),
+        collectorArc
+      )
+      band.translate(0, rampInner + expressway.rampWidth * 0.5, 0)
+      bakeRoadUvs(band, collectorArc * deckRadius, true)
+      const bandMesh = new THREE.Mesh(band, this.roadMaterial)
+      bandMesh.renderOrder = 1
+      group.add(bandMesh)
+
+      // The funnel barrier: a thin bright wall from the lane's outer edge at
+      // the collector mouth, tapering to the deck edge at its end.
+      const barrierSteps = 24
+      const barrierPositions = new Float32Array((barrierSteps + 1) * 2 * 3)
+      const barrierIndices: number[] = []
+
+      for (let index = 0; index <= barrierSteps; index += 1) {
+        const t = index / barrierSteps
+        const angle = collectorStart + t * collectorArc
+        const axial = rampOuter + (rampInner - rampOuter) * t
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+
+        for (const [edge, barrierRadius] of [
+          [0, deckRadius],
+          [1, deckRadius - 1.1]
+        ] as const) {
+          const vertex = (index * 2 + edge) * 3
+          barrierPositions[vertex] = cos * barrierRadius
+          barrierPositions[vertex + 1] = axial
+          barrierPositions[vertex + 2] = sin * barrierRadius
+        }
+
+        if (index < barrierSteps) {
+          const a = index * 2
+          barrierIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+        }
+      }
+
+      const barrier = new THREE.BufferGeometry()
+      barrier.setAttribute('position', new THREE.BufferAttribute(barrierPositions, 3))
+      barrier.setIndex(barrierIndices)
+      barrier.computeVertexNormals()
+      group.add(new THREE.Mesh(barrier, this.bridgeEdgeMaterial))
     }
 
     // Pylons every ~75 m of arc, skipped over the window strips (the deck

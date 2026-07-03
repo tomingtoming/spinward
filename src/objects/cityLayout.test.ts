@@ -208,11 +208,11 @@ describe('getCityGroundHeight', () => {
 
 describe('getExpresswayElevation', () => {
   const radius = 3200
-  const expressway = getCityExpressway(radius)
+  const expressway = getCityExpressway(radius, 40000)
 
   test('small habitats have no expressway', () => {
-    expect(getCityExpressway(18)).toBeNull()
-    expect(getCityExpressway(799)).toBeNull()
+    expect(getCityExpressway(18, 120)).toBeNull()
+    expect(getCityExpressway(799, 10000)).toBeNull()
   })
 
   test('the deck corridor sits at deck height, the streets outside at 0', () => {

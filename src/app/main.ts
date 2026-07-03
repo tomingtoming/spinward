@@ -417,7 +417,7 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpanMeters(),
     units: getUnits(),
-    expressway: getCityExpressway(habitatConfig.radius)
+    expressway: getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
   // Real co-rotating building colliders, streamed near the car (P1). Inflated a
@@ -1279,7 +1279,7 @@ export const bootstrapApp = async () => {
   // walker's ground sampler and the car's grounding share this, so foot and
   // wheel agree with the physics colliders about where the deck is.
   const sampleExpresswayElevation = (azimuth: number, axialPosition: number) => {
-    const expressway = getCityExpressway(habitatConfig.radius)
+    const expressway = getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
     return expressway === null
       ? 0
       : getExpresswayElevation(expressway, habitatConfig.radius, azimuth, axialPosition)

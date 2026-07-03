@@ -81,6 +81,11 @@ export type CityExpressway = {
   deckHeight: number
   deckWidth: number
   rampWidth: number
+  // Azimuth span of the collector past each ramp top: the deck is locally
+  // widened to under the (straight) ramp lane and an angled barrier funnels
+  // traffic onto the main carriageway — hold-the-throttle merging, like a
+  // real highway gore.
+  collectorSpan: number
   ramps: ExpresswayRamp[]
 }
 
@@ -237,6 +242,26 @@ export const getLocalRoadWidth = (radius: number, length?: number) =>
 export const getSidewalkWidth = (radius: number, length?: number) =>
   Math.min(5, Math.max(1.2, getCityCellSize(radius, length) * 0.15))
 
+// Even block counts put an avenue at the strip center and a street at
+// axial 0: the spawn point lands exactly on an arterial crossroads.
+// Habitats too small for two viable blocks keep a single one instead of
+// collapsing below the minimum block size.
+export const evenBlockCount = (raw: number) =>
+  Math.round(raw) < 2 ? Math.max(1, Math.round(raw)) : 2 * Math.max(1, Math.round(raw / 2))
+
+// The axial pitch of the cross-street grid — shared by planCity and the
+// expressway placement so the ramp mouths can sit ON street rows.
+export const getCityBlockLength = (radius: number, length: number) => {
+  const cell = getCityCellSize(radius, length)
+  const axialExtent = Math.max(0, length * 0.5 - cell) * 2
+
+  if (axialExtent <= 0) {
+    return 0
+  }
+
+  return axialExtent / evenBlockCount(axialExtent / (cell * BLOCK_AXIAL_CELLS))
+}
+
 // Spawn plaza around (azimuth 0, axial 0) is kept clear of buildings so the
 // start marker and respawn point stay walkable.
 // Human-scale: clamped in absolute meters so giant habitats do not carve
@@ -276,25 +301,42 @@ export const getPlazaLandmark = (radius: number): CityLandmark => {
 // The ring runs just south of the plaza block so it fills the spawn vista
 // without cutting the crossroads. Small habitats skip it: an 18 m viaduct
 // on a playground-sized drum would be a wall, not a skyline.
-export const getCityExpressway = (radius: number): CityExpressway | null => {
+export const getCityExpressway = (
+  radius: number,
+  length: number
+): CityExpressway | null => {
   if (radius < 800) {
     return null
   }
 
-  const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius) * 0.7))
+  const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius, length) * 0.7))
   const deckHeight = 18
   // ~5% grade: comfortable to drive, short enough to read as one structure.
   const rampSpan = (deckHeight / 0.05) / radius
   // Wide enough to steer onto at speed — 7 m proved too tight in playtests.
   const rampWidth = 12
 
+  // Anchor the RAMP MOUTHS on a cross-street row: on foot a half-metre kerb
+  // is a step, but the car can only enter the ramp head-on along its lane, so
+  // the lane must BE a road — drive the cross street through the avenue
+  // junction and the tarmac simply continues up the viaduct.
+  const blockLength = getCityBlockLength(radius, length)
+  const targetAxial = -Math.max(140, Math.min(400, radius * 0.055))
+  const streetRow =
+    blockLength > 0 && Math.abs(blockLength) < length * 0.35
+      ? -Math.max(1, Math.round(-targetAxial / blockLength)) * blockLength
+      : targetAxial
+  const axial = streetRow - deckWidth * 0.5 - rampWidth * 0.5
+
   return {
-    axial: -Math.max(140, Math.min(400, radius * 0.055)),
+    axial,
     // The corridor also shields the ramp lane beside the deck.
     corridorHalfWidth: deckWidth * 0.5 + rampWidth + 4,
     deckHeight,
     deckWidth,
     rampWidth,
+    // ~3.5-degree funnel: rampWidth of axial taper over ~240 m of arc.
+    collectorSpan: (rampWidth / Math.tan(0.06)) / radius,
     // Ramp bases sit just past each strip's spawn-side crossroads, so the
     // one on the home strip is discoverable within a block of the plaza.
     ramps: getLandStripCenters().map((center) => ({
@@ -320,18 +362,35 @@ export const getExpresswayElevation = (
     return expressway.deckHeight
   }
 
-  const rampInner = expressway.axial + expressway.deckWidth * 0.5
-  const rampOuter = rampInner + expressway.rampWidth
-
-  if (axial < rampInner || axial > rampOuter || radius <= 0) {
+  if (radius <= 0) {
     return 0
   }
+
+  const laneInner = expressway.axial + expressway.deckWidth * 0.5
+  const laneOuter = laneInner + expressway.rampWidth
 
   for (const ramp of expressway.ramps) {
     const progress = wrapToPi(azimuth - ramp.azimuthStart) / ramp.azimuthSpan
 
-    if (progress >= 0 && progress <= 1) {
+    // The climb itself, in the straight ramp lane beside the deck.
+    if (
+      progress >= 0 &&
+      progress <= 1 &&
+      axial >= laneInner &&
+      axial <= laneOuter
+    ) {
       return expressway.deckHeight * progress
+    }
+
+    // The collector past the top: deck height across the widened band (deck
+    // plus lane) while the barrier funnels traffic onto the carriageway.
+    if (
+      progress > 1 &&
+      progress <= 1 + expressway.collectorSpan / ramp.azimuthSpan &&
+      axial >= expressway.axial - expressway.deckWidth * 0.5 &&
+      axial <= laneOuter
+    ) {
+      return expressway.deckHeight
     }
   }
 
@@ -692,12 +751,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // fields rather than emptying to pure wilderness.
     return clamp01(Math.max(core, district) + ripple + 0.2)
   }
-  // Even block counts put an avenue at the strip center and a street at
-  // axial 0: the spawn point lands exactly on an arterial crossroads.
-  // Habitats too small for two viable blocks keep a single one instead of
-  // collapsing below the minimum block size.
-  const evenBlockCount = (raw: number) =>
-    Math.round(raw) < 2 ? Math.max(1, Math.round(raw)) : 2 * Math.max(1, Math.round(raw / 2))
+
   const blocksTangentCount = evenBlockCount(tangentExtent / (cell * BLOCK_TANGENT_CELLS))
   const blocksAxialCount = evenBlockCount(axialExtent / (cell * BLOCK_AXIAL_CELLS))
   const blockWidth = tangentExtent / blocksTangentCount
@@ -744,7 +798,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const landmark = getPlazaLandmark(radius)
   const landmarkClearance =
     landmark.domeRadius + Math.max(4, getSidewalkWidth(radius, length))
-  const expressway = getCityExpressway(radius)
+  const expressway = getCityExpressway(radius, length)
 
   const placeBuilding = (
     stripCenter: number,

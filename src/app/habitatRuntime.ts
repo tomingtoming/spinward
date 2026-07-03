@@ -121,7 +121,7 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     units: config.units,
     // The viaduct's deck ring + ramp treads co-rotate on the wall body, so
     // the car (and thrown balls) get real contact with them.
-    expressway: getCityExpressway(config.radius)
+    expressway: getCityExpressway(config.radius, config.span)
   })
   dependencies.cylinderWall.setAngularVelocity(rpmToOmega(config.rpm))
   dependencies.starfield.setFrameAngle(config.frameAngle)
