@@ -363,6 +363,18 @@ export const getCityExpressway = (
   }
 }
 
+// Street-side forgiveness margin of the ramp's catch band, in metres. Full
+// near the ground (imprecise gore entries still hook on), gone by ~3.5 m of
+// elevation so nothing hovers beside the visible ramp higher up. Shared by
+// the elevation function and the physics treads.
+export const getExpresswayRampCatchBonus = (
+  expressway: CityExpressway,
+  progress: number
+) => {
+  const elevation = expressway.deckHeight * Math.max(0, Math.min(1, progress))
+  return 1.2 * Math.max(0, 1 - elevation / 3.5)
+}
+
 // The drivable/walkable elevation of the expressway surface at a point, in
 // metres above the wall. 0 anywhere off the structure — including UNDER the
 // deck, where the street level is the real surface; callers decide by
@@ -389,12 +401,15 @@ export const getExpresswayElevation = (
   for (const ramp of expressway.ramps) {
     const progress = wrapToPi(azimuth - ramp.azimuthStart) / ramp.azimuthSpan
 
-    // The climb itself, in the straight ramp lane beside the deck.
+    // The climb itself, in the straight ramp lane beside the deck. Near the
+    // ground the catch band reaches a couple of metres past the painted lane
+    // on the street side: a car straddling the gore point used to climb half
+    // a metre and slide off sideways onto the street below.
     if (
       progress >= 0 &&
       progress <= 1 &&
       axial >= laneInner &&
-      axial <= laneOuter
+      axial <= laneOuter + getExpresswayRampCatchBonus(expressway, progress)
     ) {
       return expressway.deckHeight * progress
     }

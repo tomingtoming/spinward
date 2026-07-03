@@ -218,12 +218,19 @@ export const buildExpresswayPanels = (
       const treadHalfLength = surfaceRadius * treadArc * 0.62
       const treadPitch = t < 1 ? pitch : 0
 
+      // Street-side catch bonus near the ground (mirror of cityLayout's
+      // getExpresswayRampCatchBonus, in this file's scaled space): a gore
+      // straddler still hooks on instead of sliding to the street.
+      const treadElevation = expressway.deckHeight * Math.max(0, Math.min(1, t))
+      const catchBonus =
+        1.2 * metre * Math.max(0, 1 - treadElevation / (3.5 * metre))
+
       panels.push({
         translation: new THREE.Vector3(
           // Toward the ground the climb continues below grade (t < 0 sinks
           // the tread outside the wall surface — a flush, catch-free mouth).
           Math.cos(angle) * (surfaceRadius + halfThickness),
-          rampAxial,
+          rampAxial + catchBonus * 0.5,
           Math.sin(angle) * (surfaceRadius + halfThickness)
         ),
         // Climbing +azimuth means the surface radius SHRINKS along local +Z,
@@ -233,10 +240,60 @@ export const buildExpresswayPanels = (
         rotation: new THREE.Quaternion().setFromAxisAngle(spinAxis, -angle - treadPitch),
         halfExtents: new THREE.Vector3(
           halfThickness,
-          expressway.rampWidth * 0.5,
+          expressway.rampWidth * 0.5 + catchBonus * 0.5,
           treadHalfLength
         )
       })
+
+      // Kerbs along both lane edges through the climb proper: once you are
+      // on the ramp you cannot slip off sideways. The mouth (t < 0.08) stays
+      // open so imprecise entries roll on, and the top hands over to the
+      // collector's own kerbs and funnel.
+      if (t > 0.08 && t < 0.97) {
+        for (const side of [-1, 1] as const) {
+          // The street-side kerb rides the catch band's outer edge and, low
+          // on the climb, angles gently inward with barrier-slick friction:
+          // a gore straddler slides along it INTO the lane instead of
+          // stalling against it (same physics as the collector funnel).
+          const guiding = side === 1 && t < 0.4
+          const kerbAxial =
+            side === -1
+              ? rampAxial - expressway.rampWidth * 0.5 + 0.2 * metre
+              : rampAxial +
+                expressway.rampWidth * 0.5 +
+                catchBonus -
+                0.2 * metre
+
+          const kerbRotation = new THREE.Quaternion().setFromAxisAngle(
+            spinAxis,
+            -angle - treadPitch
+          )
+
+          if (guiding) {
+            kerbRotation.multiply(
+              new THREE.Quaternion().setFromAxisAngle(
+                new THREE.Vector3(1, 0, 0),
+                0.04
+              )
+            )
+          }
+
+          panels.push({
+            translation: new THREE.Vector3(
+              Math.cos(angle) * (surfaceRadius - 0.4 * metre),
+              kerbAxial,
+              Math.sin(angle) * (surfaceRadius - 0.4 * metre)
+            ),
+            rotation: kerbRotation,
+            halfExtents: new THREE.Vector3(
+              0.4 * metre,
+              0.2 * metre,
+              treadHalfLength
+            ),
+            friction: guiding ? 0.05 : undefined
+          })
+        }
+      }
     }
 
     // The collector: flat deck-height floor across the widened band (deck

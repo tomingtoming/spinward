@@ -117,3 +117,76 @@ test(
   },
   30000
 )
+
+test(
+  'a gore-straddling entry is caught and guided up instead of sliding to the street',
+  async () => {
+    const rapier = await initRapier()
+    const world = new rapier.World({ x: 0, y: 0, z: 0 })
+    const units = createUnitsContext(IZMA_SIM_SCALE)
+    applyWorldLengthUnit(world, IZMA_SIM_SCALE)
+
+    const expressway = getCityExpressway(IZMA_RADIUS, IZMA_LENGTH)
+    if (expressway === null) throw new Error('expected an expressway at Izma scale')
+
+    const wall = createRotatingCylinderBody(rapier, world, {
+      radius: IZMA_RADIUS,
+      length: IZMA_LENGTH,
+      units,
+      expressway
+    })
+    wall.setAngularVelocity(IZMA_OMEGA)
+
+    const drive = new DriveRuntime()
+    drive.rebuild({ rapier, world, units })
+
+    const ramp = expressway.ramps[0]
+    // Exactly ON the lane's street-side edge — the gore point a driver aiming
+    // at the wedge straddles. This used to climb half a metre and slip off
+    // sideways onto the street ("the car runs on the road under the slope").
+    const goreEdge =
+      expressway.axial + expressway.deckWidth * 0.5 + expressway.rampWidth
+    drive.parkAt(ramp.azimuthStart - 20 / IZMA_RADIUS, goreEdge, Math.PI / 2)
+
+    let frameAngle = 0
+    drive.enter(frameAngle, IZMA_OMEGA, IZMA_RADIUS, { rapier, world, units })
+
+    const surfaceElevation = (azimuth: number, axial: number) =>
+      getExpresswayElevation(expressway, IZMA_RADIUS, azimuth, axial)
+    const deltaSeconds = 1 / 60
+    let maxGroundedElevation = -1
+
+    for (let step = 0; step < 60 * 60; step += 1) {
+      frameAngle += IZMA_OMEGA * deltaSeconds
+      drive.preStep(
+        { throttle: drive.lastSpeed < 15 ? 1 : 0, steer: 0, brake: 0 },
+        {
+          deltaSeconds,
+          frameAngle,
+          omega: IZMA_OMEGA,
+          radius: IZMA_RADIUS,
+          units,
+          surfaceElevation
+        }
+      )
+      world.timestep = deltaSeconds
+      world.step()
+      drive.postStep({ frameAngle, units })
+
+      if (drive.lastGrounded) {
+        maxGroundedElevation = Math.max(maxGroundedElevation, drive.lastRadialGap - 0.5)
+      }
+    }
+
+    // The catch band + slick guiding kerb must deliver the straddler to the
+    // deck, merged onto the main carriageway.
+    expect(maxGroundedElevation).toBeGreaterThan(expressway.deckHeight - 1.5)
+    expect(
+      Math.abs(drive.surface.axialPosition - expressway.axial)
+    ).toBeLessThan(expressway.deckWidth * 0.5 + 0.5)
+
+    drive.dispose()
+    wall.dispose()
+  },
+  30000
+)

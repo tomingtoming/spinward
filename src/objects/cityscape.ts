@@ -3220,6 +3220,39 @@ export class Cityscape {
         edgeGeometry.computeVertexNormals()
         group.add(new THREE.Mesh(edgeGeometry, this.bridgeEdgeMaterial))
       }
+
+      // One-way chevrons down the lane centre: the ramp only lifts traffic
+      // travelling +azimuth, and from a car seat the climb looks identical
+      // from either end — drivers coming the other way used to sail under
+      // the visual ramp at street level, reading it as \"fell through\".
+      const chevronCount = 14
+      const chevronPositions = new Float32Array(chevronCount * 3 * 3)
+      const laneCentreAxial = rampInner + expressway.rampWidth * 0.5
+
+      for (let index = 0; index < chevronCount; index += 1) {
+        const t = 0.02 + (index / chevronCount) * 0.95
+        const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+        const climb = Math.max(0, Math.min(1, t))
+        const chevronRadius =
+          radius - baseLift - (expressway.deckHeight - baseLift) * climb - 0.08
+        const tipAngle = angle + 4 / radius
+
+        const write = (slot: number, pointAngle: number, axial: number) => {
+          const base = (index * 3 + slot) * 3
+          chevronPositions[base] = Math.cos(pointAngle) * chevronRadius
+          chevronPositions[base + 1] = axial
+          chevronPositions[base + 2] = Math.sin(pointAngle) * chevronRadius
+        }
+
+        write(0, angle, laneCentreAxial - 2.2)
+        write(1, angle, laneCentreAxial + 2.2)
+        write(2, tipAngle, laneCentreAxial)
+      }
+
+      const chevrons = new THREE.BufferGeometry()
+      chevrons.setAttribute('position', new THREE.BufferAttribute(chevronPositions, 3))
+      chevrons.computeVertexNormals()
+      group.add(new THREE.Mesh(chevrons, this.bridgeEdgeMaterial))
     }
 
     // Collector wedges: past each ramp top the deck widens to under the lane
