@@ -8,6 +8,7 @@ import type { HabitatType } from '../sim/habitatConfig'
 const axisEndRotatingPosition = new THREE.Vector3()
 const overlookRotatingPosition = new THREE.Vector3()
 const exteriorRotatingPosition = new THREE.Vector3()
+const exteriorRotatingVelocity = new THREE.Vector3()
 
 // How far outside the hull the exterior vantage sits, as a multiple of the hull
 // radius — far enough to read the whole cylinder and the mirror end, close
@@ -110,11 +111,23 @@ export const respawnExterior = (
   const outward = config.radius * EXTERIOR_RADIUS_FACTOR
   const axial = config.type === 'cylinder' ? -config.length * 0.3 : 0
   exteriorRotatingPosition.set(outward, axial, 0)
-  // Zero rotating velocity, like every other respawn point (resetPlayerToFreeFly
-  // defaults to it) — the player co-rotates with the habitat, so the colony
-  // reads as still from the exterior vantage instead of visibly spinning past.
+  // INERTIAL rest: the rotating-frame velocity -(omega x r) cancels the spin,
+  // so the observer hangs still in space and the colony visibly rotates past.
+  // This has flip-flopped once, so both options for the record:
+  //  - co-rotating (zero rotating velocity, like interior respawns) keeps the
+  //    colony still in view, but an unpowered body cannot orbit: it is really
+  //    on a tangent line and drifts outward — and it hides the spin, which is
+  //    the whole reason the exterior vantage exists.
+  //  - inertial rest (this) shows the megastructure turning; the surface
+  //    sweeps past, so reattaching means matching its speed, as it should.
+  exteriorRotatingVelocity.set(
+    config.omega * exteriorRotatingPosition.z,
+    0,
+    -config.omega * exteriorRotatingPosition.x
+  )
   resetPlayerToFreeFly(state, {
     rotatingPosition: exteriorRotatingPosition,
+    rotatingVelocity: exteriorRotatingVelocity,
     frameAngle: config.frameAngle,
     omega: config.omega
   })

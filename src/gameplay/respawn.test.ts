@@ -49,7 +49,7 @@ test('respawnOverlook places the player co-rotating above the plaza', () => {
   expect(rotatingPosition.z).toBeCloseTo(0, 6)
 })
 
-test('respawnExterior hangs the player co-rotating, not cancelling the spin', () => {
+test('respawnExterior hangs the player at inertial rest, letting the colony spin past', () => {
   const radius = 18
   const omega = 0.5
   const frameAngle = 0.2
@@ -81,9 +81,13 @@ test('respawnExterior hangs the player co-rotating, not cancelling the spin', ()
   expect(rotatingPosition.x).toBeCloseTo(radius * 1.6, 6)
   expect(rotatingPosition.y).toBeCloseTo(-120 * 0.3, 6)
   expect(rotatingPosition.z).toBeCloseTo(0, 6)
-  // The point: zero velocity in the rotating frame, like every other respawn
-  // (not the old cancel-the-spin inertial-rest velocity).
-  expect(rotatingVelocity.length()).toBeCloseTo(0, 6)
+  // The point: at rest in the INERTIAL frame, hanging in space while the
+  // colony rotates past. (This flip-flopped once: co-rotating kept the colony
+  // still in view but hid the spin — the reason the vantage exists — and a
+  // free body can't orbit anyway.) Inertial rest = rotating-frame velocity
+  // of magnitude omega * r, sweeping backwards.
+  expect(state.inertialVelocity.length()).toBeCloseTo(0, 6)
+  expect(rotatingVelocity.length()).toBeCloseTo(omega * radius * 1.6, 6)
 })
 
 test('getOverlookAltitude is clamped for tiny and giant habitats', () => {
