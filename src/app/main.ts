@@ -1431,7 +1431,15 @@ export const bootstrapApp = async () => {
     // applied: a jetpack tone tracking the throttle, a paced throttle/brake
     // rumble on the left hand, and a tick on each snap turn.
     const vrFeedback = vrLocomotion.feedback
-    audio.setJetpackThrottle(vrFeedback.throttle)
+
+    // Right-stick vertical flick cycles the throwable (up = next). Backward
+    // steps around the 3-item ring by cycling twice.
+    if (vrFeedback.projectileCycle === 1) {
+      cycleSelectedProjectile()
+    } else if (vrFeedback.projectileCycle === -1) {
+      cycleSelectedProjectile()
+      cycleSelectedProjectile()
+    }
     if (renderer.xr.isPresenting) {
       const leftRumble = Math.max(vrFeedback.throttle, vrFeedback.brakeAmount)
       feedbackHapticAccumulator += deltaSeconds
@@ -1464,6 +1472,18 @@ export const bootstrapApp = async () => {
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + omega * deltaSeconds, Math.PI * 2)
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
+    // The jetpack hiss follows EVERY thrust source, not just the VR trigger:
+    // held jump climbing away, WASD/stick translation in the air, Shift
+    // descent — if the pack is pushing, it is heard. Sampled before the step
+    // consumes (and rescales) the intent vector.
+    const jetpackAcousticThrottle =
+      playerTraversal.mode === 'free-fly' && !drive.driving
+        ? Math.min(
+            1,
+            Math.max(vrFeedback.throttle, locomotionIntent.freeFlyThrust.length())
+          )
+        : 0
+    audio.setJetpackThrottle(jetpackAcousticThrottle)
 
     const jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
     // While driving, the VR jump button (right A) is the dismount, not a jump.

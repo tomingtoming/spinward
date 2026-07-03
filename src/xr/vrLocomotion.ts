@@ -69,6 +69,9 @@ export class VRLocomotion {
   private readonly inputSourceByController = new Map<THREE.XRTargetRaySpace, XRInputSource>()
   private readonly gripByController = new Map<THREE.XRTargetRaySpace, THREE.XRGripSpace>()
   private readonly snapTurnState = createSnapTurnState()
+  // Right stick VERTICAL flicks cycle the throwable (stick click was the old
+  // binding and nobody's thumb found it) — same arm/reset hysteresis as snap.
+  private readonly projectileFlickState = createSnapTurnState()
   private readonly freeFlyAttitude = createJetpackOrientationState()
   private readonly clutchState = createHandClutchState()
   private readonly freeFlyInertialOrientation = new THREE.Quaternion()
@@ -84,7 +87,9 @@ export class VRLocomotion {
     throttle: 0,
     brakeAmount: 0,
     snapped: false,
-    modeChanged: false
+    modeChanged: false,
+    // +1 = next throwable, -1 = previous; consumed by the app each frame.
+    projectileCycle: 0
   }
 
   setProfile(profile: LocomotionProfile) {
@@ -203,6 +208,7 @@ export class VRLocomotion {
     let leftStickY = 0
     let leftStickMagnitudeSq = 0
     let snapAxisX = 0
+    let snapAxisY = 0
     let snapAxisMagnitudeSq = 0
     let ascendHeld = false
 
@@ -224,6 +230,7 @@ export class VRLocomotion {
       ) {
         snapAxisMagnitudeSq = stickMagnitudeSq
         snapAxisX = axisX
+        snapAxisY = axisY
       }
 
       // A held on EITHER hand = jetpack ascend ("up" on both hands; consumed in
@@ -260,6 +267,13 @@ export class VRLocomotion {
     }
 
     const snapIntent = consumeSnapTurn(snapAxisX, this.snapTurnState)
+    // Vertical flick = cycle throwable, but only when the stick is clearly
+    // vertical so a diagonal snap-turn flick cannot double-fire. Stick up is
+    // -Y in the xr-standard mapping; up = next.
+    const projectileFlick =
+      Math.abs(snapAxisY) > Math.abs(snapAxisX) * 1.2
+        ? -consumeSnapTurn(snapAxisY, this.projectileFlickState)
+        : (consumeSnapTurn(0, this.projectileFlickState), 0)
 
     // Grounded snap rotates the yaw rig; free-fly snap rotates the jetpack
     // attitude itself (handled in the free-fly branch below).
@@ -319,7 +333,13 @@ export class VRLocomotion {
         intent.freeFlyThrust.add(viewUp)
       }
 
-      this.setFeedback(throttle, leftSqueezeValue, snapIntent !== 0, modeChanged)
+      this.setFeedback(
+        throttle,
+        leftSqueezeValue,
+        snapIntent !== 0,
+        modeChanged,
+        projectileFlick
+      )
       this.clutchDebug.update(null, 'free-fly', {
         linearBrake: leftSqueezeValue > CLUTCH_THRESHOLD
       })
@@ -358,7 +378,7 @@ export class VRLocomotion {
       clutchRotationIntent.roll = 0
     }
 
-    this.setFeedback(0, 0, snapIntent !== 0, modeChanged)
+    this.setFeedback(0, 0, snapIntent !== 0, modeChanged, projectileFlick)
     this.clutchDebug.update(clutchInput, 'grounded', {
       detachReady:
         this.liftLaunchEnabled &&
@@ -414,12 +434,16 @@ export class VRLocomotion {
     throttle: number,
     brakeAmount: number,
     snapped: boolean,
-    modeChanged: boolean
+    modeChanged: boolean,
+    projectileCycle = 0
   ) {
     this.feedback.throttle = throttle
     this.feedback.brakeAmount = brakeAmount
     this.feedback.snapped = snapped
     this.feedback.modeChanged = modeChanged
+    // One-frame pulse: branches without the flick read (driving,
+    // flat-screen) clear it by default.
+    this.feedback.projectileCycle = projectileCycle
   }
 
   private applyLeftStickMovement(

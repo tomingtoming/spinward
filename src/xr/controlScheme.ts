@@ -40,7 +40,7 @@ export const VR_CONTROL_LEGEND: readonly ControlSection[] = [
     title: 'ON FOOT',
     bindings: [
       { input: 'L Stick', action: 'Walk' },
-      { input: 'R Stick', action: 'Snap turn' },
+      { input: 'R Stick', action: 'Snap turn · flick ↑↓ ammo' },
       { input: 'L Grip', action: 'Climb / pull' },
       { input: 'A (either)', action: 'Jump → fly' },
       { input: 'R Trigger', action: 'Grab / throw' },
@@ -56,7 +56,7 @@ export const VR_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'L Stick', action: 'Strafe / climb' },
       { input: 'A (either)', action: 'Ascend' },
       { input: 'L Grip', action: 'Stop (brake)' },
-      { input: 'R Stick', action: 'Snap turn' },
+      { input: 'R Stick', action: 'Snap turn · flick ↑↓ ammo' },
       { input: 'R Trigger', action: 'Grab / throw' },
       { input: 'R B', action: 'Travel / warp' }
     ]
