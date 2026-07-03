@@ -915,9 +915,34 @@ export const bootstrapApp = async () => {
   hud.setVisible(debugVisuals.showHud)
 
   if (debugEnabled) {
-    // Console access to the scene graph for headless/manual debugging — same
-    // ?debug gate as the lil-gui panel, absent from a normal session.
+    // Console access for headless/manual debugging — same ?debug gate as the
+    // lil-gui panel, absent from a normal session. __spinwardDrive lets a
+    // debugging session teleport the rover to a spot (e.g. a ramp mouth) and
+    // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
+    ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
+      runtime: drive,
+      world: physicsWorld,
+      enterAt: (azimuth: number, axialPosition: number, heading: number) => {
+        drive.parkAt(azimuth, axialPosition, heading)
+        drive.enter(frameAngle, rpmToOmega(habitatConfig.rpm), habitatConfig.radius, {
+          rapier,
+          world: physicsWorld,
+          units: getUnits()
+        })
+        // Seat the rig at the car (same as VR pointer entry), so the driver
+        // camera actually rides along in a remote debug session.
+        resetPlayerToGrounded(playerTraversal, {
+          axialPosition: drive.surface.axialPosition,
+          azimuth: drive.surface.azimuth,
+          radius: habitatConfig.radius,
+          frameAngle,
+          omega: rpmToOmega(habitatConfig.rpm)
+        })
+        applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+        desktopLookControls.resetLook()
+      }
+    }
   }
 
   // The thrower's own motion rides on the ball. While driving that is the CAR's

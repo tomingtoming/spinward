@@ -347,11 +347,17 @@ export const getCityExpressway = (
     // Ramp mouths open just past each strip's avenue junction — far enough
     // that the flat approach apron (~15% of the span) clears the crossing
     // instead of spilling across to its far side.
-    // The mouth opens right where you exit the avenue junction: turn onto
-    // the street's viaduct-side half and the apron is already under you.
+    // The mouth opens one apron-length past the avenue junction, so the flat
+    // approach apron (15% of the span, drawn/backfilled behind the mouth)
+    // begins right where you exit the junction WITHOUT spilling back across
+    // it (that regression made the apron slice diagonally over the avenue).
     ramps: getLandStripCenters().map((center) => ({
       azimuthStart:
-        center + (getArterialRoadWidth(radius, length) * 0.5 + 6) / radius,
+        center +
+        (rampSpan * radius * 0.15 +
+          getArterialRoadWidth(radius, length) * 0.5 +
+          6) /
+          radius,
       azimuthSpan: rampSpan
     }))
   }
