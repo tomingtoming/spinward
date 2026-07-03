@@ -326,7 +326,12 @@ export const getCityExpressway = (
     blockLength > 0 && Math.abs(blockLength) < length * 0.35
       ? -Math.max(1, Math.round(-targetAxial / blockLength)) * blockLength
       : targetAxial
-  const axial = streetRow - deckWidth * 0.5 - rampWidth * 0.5
+  // The ramp lane takes the street's VIADUCT-SIDE HALF (its outer edge on the
+  // centreline), like a real on-ramp fork: keep to that half and the tarmac
+  // lifts you; the other half passes underneath. Overlapping the whole street
+  // put the 12 m lane in the middle of a 24 m road, so most approaches simply
+  // slipped past the rising treads at ground level.
+  const axial = streetRow - rampWidth - deckWidth * 0.5
 
   return {
     axial,
@@ -337,10 +342,14 @@ export const getCityExpressway = (
     rampWidth,
     // ~3.5-degree funnel: rampWidth of axial taper over ~240 m of arc.
     collectorSpan: (rampWidth / Math.tan(0.06)) / radius,
-    // Ramp bases sit just past each strip's spawn-side crossroads, so the
-    // one on the home strip is discoverable within a block of the plaza.
+    // Ramp mouths open just past each strip's avenue junction — far enough
+    // that the flat approach apron (~15% of the span) clears the crossing
+    // instead of spilling across to its far side.
     ramps: getLandStripCenters().map((center) => ({
-      azimuthStart: center + 40 / radius,
+      azimuthStart:
+        center +
+        (rampSpan * radius * 0.15 + getArterialRoadWidth(radius, length) * 0.5 + 8) /
+          radius,
       azimuthSpan: rampSpan
     }))
   }
