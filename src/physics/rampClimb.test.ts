@@ -108,6 +108,14 @@ test(
     // barrier, the car must be cruising ON the main deck band, grounded.
     expect(drive.lastGrounded).toBe(true)
     expect(drive.lastRadialGap - 0.5).toBeGreaterThan(expressway.deckHeight - 1.5)
+    // Presentation contract: the surface height the car mesh and driver
+    // camera are drawn at must track the physics (it was once pinned to the
+    // wall radius — the sphere climbed while everything visible stayed on
+    // the street).
+    expect(drive.lastElevation).toBeGreaterThan(expressway.deckHeight - 2)
+    // Stopping up here must keep the car up here, for drawing and re-entry.
+    drive.exit()
+    expect(drive.parkedElevation).toBeGreaterThan(expressway.deckHeight - 2)
     expect(
       Math.abs(drive.surface.axialPosition - expressway.axial)
     ).toBeLessThan(expressway.deckWidth * 0.5 + 0.5)

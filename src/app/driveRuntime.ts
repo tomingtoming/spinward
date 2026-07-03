@@ -68,6 +68,12 @@ export class DriveRuntime {
   lastSpeed = 0
   lastRadialGap = 0
   lastContacts = 0
+  // Elevation of the surface under the wheels (0 on the streets, up to
+  // deckHeight on the expressway). PRESENTATION MUST USE THIS: the car mesh
+  // and the driver camera were once pinned to the wall radius, so the physics
+  // sphere climbed the ramp while everything the player saw stayed at street
+  // level — "the car cannot get onto the ramp", in three different reports.
+  parkedElevation = 0
   // The car's velocity in the rotating (colony) frame after the last step — a
   // dismounting walker carries it so stepping out of a moving car keeps momentum.
   readonly lastRotatingVelocity = new THREE.Vector3()
@@ -123,11 +129,17 @@ export class DriveRuntime {
     )
   }
 
-  parkAt(azimuth: number, axialPosition: number, heading: number) {
+  // The riding surface's height above the wall, from the live physics pose.
+  get lastElevation() {
+    return Math.max(0, this.lastRadialGap - CAR_COLLIDER_RADIUS)
+  }
+
+  parkAt(azimuth: number, axialPosition: number, heading: number, elevation = 0) {
     this.driving = false
     this.surface.azimuth = azimuth
     this.surface.axialPosition = axialPosition
     this.heading = heading
+    this.parkedElevation = elevation
     this.body?.setEnabled(false)
   }
 
@@ -148,7 +160,7 @@ export class DriveRuntime {
     const sin = Math.sin(this.surface.azimuth)
     rotatingPosition
       .set(cos, 0, sin)
-      .multiplyScalar(radius - CAR_COLLIDER_RADIUS)
+      .multiplyScalar(radius - this.parkedElevation - CAR_COLLIDER_RADIUS)
       .setY(this.surface.axialPosition)
     rotatingPositionToInertial(rotatingPosition, frameAngle, inertialPosition)
     rotatingVelocity.set(0, 0, 0)
@@ -166,6 +178,9 @@ export class DriveRuntime {
 
   exit() {
     this.driving = false
+    // Remember the height we stopped at, so a car left on the viaduct is
+    // drawn there and re-entered there (not teleported to the street below).
+    this.parkedElevation = this.lastElevation
     this.body?.setEnabled(false)
   }
 

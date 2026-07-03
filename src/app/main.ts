@@ -472,7 +472,7 @@ export const bootstrapApp = async () => {
       drive.surface.azimuth,
       drive.surface.axialPosition,
       drive.heading,
-      habitatConfig.radius
+      habitatConfig.radius - drive.parkedElevation
     )
   }
 
@@ -722,7 +722,9 @@ export const bootstrapApp = async () => {
     const exitAzimuth = drive.surface.azimuth + 2.6 / habitatConfig.radius
     carExitPosition
       .set(Math.cos(exitAzimuth), 0, Math.sin(exitAzimuth))
-      .multiplyScalar(habitatConfig.radius - PLAYER_DISMOUNT_HEIGHT)
+      .multiplyScalar(
+        habitatConfig.radius - drive.parkedElevation - PLAYER_DISMOUNT_HEIGHT
+      )
       .setY(drive.surface.axialPosition)
     resetPlayerToFreeFly(playerTraversal, {
       rotatingPosition: carExitPosition,
@@ -735,7 +737,7 @@ export const bootstrapApp = async () => {
       drive.surface.azimuth,
       drive.surface.axialPosition,
       drive.heading,
-      habitatConfig.radius
+      habitatConfig.radius - drive.parkedElevation
     )
     audio.playClick()
   }
@@ -1591,11 +1593,15 @@ export const bootstrapApp = async () => {
         frameAngle,
         omega
       })
+      // Ride at the car's ACTUAL surface height — pinning these to the wall
+      // radius left the camera and mesh at street level while the physics
+      // sphere climbed the expressway ramp overhead.
+      playerTraversal.groundHeight = drive.lastElevation
       car.setPose(
         drive.surface.azimuth,
         drive.surface.axialPosition,
         drive.heading,
-        habitatConfig.radius
+        habitatConfig.radius - drive.lastElevation
       )
     }
     const reattachStatus =
