@@ -8,7 +8,7 @@ import { getCityExpressway, getExpresswayElevation } from '../objects/cityLayout
 // its grounding in agreement with the real Rapier contact.
 describe('expressway physics panels', () => {
   const radius = 3200
-  const expressway = getCityExpressway(radius)
+  const expressway = getCityExpressway(radius, 40000)
 
   // The analytic ramp line the treads discretise: below grade before the
   // mouth (t < 0), linear climb, flat at deck height past the top.

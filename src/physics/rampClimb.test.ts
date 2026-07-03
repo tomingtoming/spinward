@@ -24,7 +24,7 @@ test(
     const units = createUnitsContext(IZMA_SIM_SCALE)
     applyWorldLengthUnit(world, IZMA_SIM_SCALE)
 
-    const expressway = getCityExpressway(IZMA_RADIUS)
+    const expressway = getCityExpressway(IZMA_RADIUS, IZMA_LENGTH)
     if (expressway === null) throw new Error('expected an expressway at Izma scale')
 
     const wall = createRotatingCylinderBody(rapier, world, {
@@ -50,15 +50,20 @@ test(
     const surfaceElevation = (azimuth: number, axial: number) =>
       getExpresswayElevation(expressway, IZMA_RADIUS, azimuth, axial)
 
+    // Drive like a person, not a cannonball: hold ~15 m/s. The first version
+    // of this test ran open throttle, hit the ramp at 67 m/s and LAUNCHED
+    // over the deck — the height assertion passed mid-air and proved nothing
+    // about a controlled climb.
+    const targetSpeed = 15
     const deltaSeconds = 1 / 60
-    let maxElevation = -1
-    let lastElevation = -1
+    let maxGroundedElevation = -1
+    let airborneSeconds = 0
     const trace: string[] = []
 
-    for (let step = 0; step < 60 * 90; step += 1) {
+    for (let step = 0; step < 60 * 60; step += 1) {
       frameAngle += IZMA_OMEGA * deltaSeconds
       drive.preStep(
-        { throttle: 1, steer: 0, brake: 0 },
+        { throttle: drive.lastSpeed < targetSpeed ? 1 : 0, steer: 0, brake: 0 },
         {
           deltaSeconds,
           frameAngle,
@@ -73,23 +78,120 @@ test(
       drive.postStep({ frameAngle, units })
 
       const elevation = drive.lastRadialGap - 0.5
-      maxElevation = Math.max(maxElevation, elevation)
-      lastElevation = elevation
 
-      if (step % 300 === 299) {
+      if (drive.lastGrounded) {
+        maxGroundedElevation = Math.max(maxGroundedElevation, elevation)
+      } else if (elevation > 1) {
+        airborneSeconds += deltaSeconds
+      }
+
+      if (step % 120 === 119) {
         trace.push(
           `t=${((step + 1) * deltaSeconds).toFixed(0)}s elev=${elevation.toFixed(2)} speed=${drive.lastSpeed.toFixed(1)} grounded=${drive.lastGrounded} axial=${drive.surface.axialPosition.toFixed(1)}`
         )
       }
     }
 
-    // Reaching (near) deck height proves mouth, treads and grade all work.
-    if (maxElevation < expressway.deckHeight - 2) {
+    if (
+      maxGroundedElevation <= expressway.deckHeight - 1.5 ||
+      Math.abs(drive.surface.axialPosition - expressway.axial) >=
+        expressway.deckWidth * 0.5 + 0.5
+    ) {
       console.log(trace.join('\n'))
     }
-    expect(maxElevation).toBeGreaterThan(expressway.deckHeight - 2)
-    // And it should still be up there, not have fallen off the side.
-    expect(lastElevation).toBeGreaterThan(5)
+
+    // A CONTROLLED climb: reach deck height IN CONTACT, not by being flung.
+    expect(maxGroundedElevation).toBeGreaterThan(expressway.deckHeight - 1.5)
+    // And without meaningful airtime above the ramp.
+    expect(airborneSeconds).toBeLessThan(3)
+    // The full hold-the-throttle user story: after the collector's funnel
+    // barrier, the car must be cruising ON the main deck band, grounded.
+    expect(drive.lastGrounded).toBe(true)
+    expect(drive.lastRadialGap - 0.5).toBeGreaterThan(expressway.deckHeight - 1.5)
+    // Presentation contract: the surface height the car mesh and driver
+    // camera are drawn at must track the physics (it was once pinned to the
+    // wall radius — the sphere climbed while everything visible stayed on
+    // the street).
+    expect(drive.lastElevation).toBeGreaterThan(expressway.deckHeight - 2)
+    // Stopping up here must keep the car up here, for drawing and re-entry.
+    drive.exit()
+    expect(drive.parkedElevation).toBeGreaterThan(expressway.deckHeight - 2)
+    expect(
+      Math.abs(drive.surface.axialPosition - expressway.axial)
+    ).toBeLessThan(expressway.deckWidth * 0.5 + 0.5)
+
+    drive.dispose()
+    wall.dispose()
+  },
+  30000
+)
+
+test(
+  'a gore-straddling entry is caught and guided up instead of sliding to the street',
+  async () => {
+    const rapier = await initRapier()
+    const world = new rapier.World({ x: 0, y: 0, z: 0 })
+    const units = createUnitsContext(IZMA_SIM_SCALE)
+    applyWorldLengthUnit(world, IZMA_SIM_SCALE)
+
+    const expressway = getCityExpressway(IZMA_RADIUS, IZMA_LENGTH)
+    if (expressway === null) throw new Error('expected an expressway at Izma scale')
+
+    const wall = createRotatingCylinderBody(rapier, world, {
+      radius: IZMA_RADIUS,
+      length: IZMA_LENGTH,
+      units,
+      expressway
+    })
+    wall.setAngularVelocity(IZMA_OMEGA)
+
+    const drive = new DriveRuntime()
+    drive.rebuild({ rapier, world, units })
+
+    const ramp = expressway.ramps[0]
+    // Exactly ON the lane's street-side edge — the gore point a driver aiming
+    // at the wedge straddles. This used to climb half a metre and slip off
+    // sideways onto the street ("the car runs on the road under the slope").
+    const goreEdge =
+      expressway.axial + expressway.deckWidth * 0.5 + expressway.rampWidth
+    drive.parkAt(ramp.azimuthStart - 20 / IZMA_RADIUS, goreEdge, Math.PI / 2)
+
+    let frameAngle = 0
+    drive.enter(frameAngle, IZMA_OMEGA, IZMA_RADIUS, { rapier, world, units })
+
+    const surfaceElevation = (azimuth: number, axial: number) =>
+      getExpresswayElevation(expressway, IZMA_RADIUS, azimuth, axial)
+    const deltaSeconds = 1 / 60
+    let maxGroundedElevation = -1
+
+    for (let step = 0; step < 60 * 60; step += 1) {
+      frameAngle += IZMA_OMEGA * deltaSeconds
+      drive.preStep(
+        { throttle: drive.lastSpeed < 15 ? 1 : 0, steer: 0, brake: 0 },
+        {
+          deltaSeconds,
+          frameAngle,
+          omega: IZMA_OMEGA,
+          radius: IZMA_RADIUS,
+          units,
+          surfaceElevation
+        }
+      )
+      world.timestep = deltaSeconds
+      world.step()
+      drive.postStep({ frameAngle, units })
+
+      if (drive.lastGrounded) {
+        maxGroundedElevation = Math.max(maxGroundedElevation, drive.lastRadialGap - 0.5)
+      }
+    }
+
+    // The catch band + slick guiding kerb must deliver the straddler to the
+    // deck, merged onto the main carriageway.
+    expect(maxGroundedElevation).toBeGreaterThan(expressway.deckHeight - 1.5)
+    expect(
+      Math.abs(drive.surface.axialPosition - expressway.axial)
+    ).toBeLessThan(expressway.deckWidth * 0.5 + 0.5)
 
     drive.dispose()
     wall.dispose()

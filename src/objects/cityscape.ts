@@ -3128,7 +3128,8 @@ export class Cityscape {
     }
 
     // On-ramps: spiral ribbons following the exact linear climb the physics
-    // treads and getExpresswayElevation use, one per land strip.
+    // treads and getExpresswayElevation use, one per land strip. Past the top
+    // the collector wedge (below) carries the lane onto the deck.
     const rampInner = expressway.axial + expressway.deckWidth * 0.5
     const rampOuter = rampInner + expressway.rampWidth
 
@@ -3180,6 +3181,138 @@ export class Cityscape {
       ribbon.setIndex(indices)
       ribbon.computeVertexNormals()
       group.add(new THREE.Mesh(ribbon, this.expresswayRampMaterial))
+
+      // Lit edge lines along the whole climbing lane — the entrance must be
+      // unmissable on the tarmac, day or night (the apron itself only reads
+      // as \"a slightly different road\" from a car seat).
+      for (const edgeAxial of [rampInner + 0.35, rampOuter - 0.35]) {
+        const edgePositions = new Float32Array((steps + 1) * 2 * 3)
+        const edgeIndices: number[] = []
+
+        for (let index = 0; index <= steps; index += 1) {
+          const t = tStart + (index / steps) * (tEnd - tStart)
+          const climb = Math.max(0, Math.min(1, t))
+          const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+          const lineRadius =
+            radius - baseLift - (expressway.deckHeight - baseLift) * climb - 0.06
+          const cos = Math.cos(angle)
+          const sin = Math.sin(angle)
+
+          for (const [edge, offset] of [
+            [0, -0.3],
+            [1, 0.3]
+          ] as const) {
+            const vertex = (index * 2 + edge) * 3
+            edgePositions[vertex] = cos * lineRadius
+            edgePositions[vertex + 1] = edgeAxial + offset
+            edgePositions[vertex + 2] = sin * lineRadius
+          }
+
+          if (index < steps) {
+            const a = index * 2
+            edgeIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+          }
+        }
+
+        const edgeGeometry = new THREE.BufferGeometry()
+        edgeGeometry.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3))
+        edgeGeometry.setIndex(edgeIndices)
+        edgeGeometry.computeVertexNormals()
+        group.add(new THREE.Mesh(edgeGeometry, this.bridgeEdgeMaterial))
+      }
+
+      // One-way chevrons down the lane centre: the ramp only lifts traffic
+      // travelling +azimuth, and from a car seat the climb looks identical
+      // from either end — drivers coming the other way used to sail under
+      // the visual ramp at street level, reading it as \"fell through\".
+      const chevronCount = 14
+      const chevronPositions = new Float32Array(chevronCount * 3 * 3)
+      const laneCentreAxial = rampInner + expressway.rampWidth * 0.5
+
+      for (let index = 0; index < chevronCount; index += 1) {
+        const t = 0.02 + (index / chevronCount) * 0.95
+        const angle = ramp.azimuthStart + t * ramp.azimuthSpan
+        const climb = Math.max(0, Math.min(1, t))
+        const chevronRadius =
+          radius - baseLift - (expressway.deckHeight - baseLift) * climb - 0.08
+        const tipAngle = angle + 4 / radius
+
+        const write = (slot: number, pointAngle: number, axial: number) => {
+          const base = (index * 3 + slot) * 3
+          chevronPositions[base] = Math.cos(pointAngle) * chevronRadius
+          chevronPositions[base + 1] = axial
+          chevronPositions[base + 2] = Math.sin(pointAngle) * chevronRadius
+        }
+
+        write(0, angle, laneCentreAxial - 2.2)
+        write(1, angle, laneCentreAxial + 2.2)
+        write(2, tipAngle, laneCentreAxial)
+      }
+
+      const chevrons = new THREE.BufferGeometry()
+      chevrons.setAttribute('position', new THREE.BufferAttribute(chevronPositions, 3))
+      chevrons.computeVertexNormals()
+      group.add(new THREE.Mesh(chevrons, this.bridgeEdgeMaterial))
+    }
+
+    // Collector wedges: past each ramp top the deck widens to under the lane
+    // and a lit barrier runs diagonally back to the main carriageway, so the
+    // merge reads on the tarmac exactly where the physics funnels you.
+    for (const ramp of expressway.ramps) {
+      const collectorStart = ramp.azimuthStart + ramp.azimuthSpan
+      const collectorArc = expressway.collectorSpan
+      const segments = getArcSegments(collectorArc, radius)
+
+      const band = new THREE.CylinderGeometry(
+        deckRadius,
+        deckRadius,
+        expressway.rampWidth,
+        segments,
+        1,
+        true,
+        getThetaStart(collectorStart + collectorArc * 0.5, collectorArc),
+        collectorArc
+      )
+      band.translate(0, rampInner + expressway.rampWidth * 0.5, 0)
+      bakeRoadUvs(band, collectorArc * deckRadius, true)
+      const bandMesh = new THREE.Mesh(band, this.roadMaterial)
+      bandMesh.renderOrder = 1
+      group.add(bandMesh)
+
+      // The funnel barrier: a thin bright wall from the lane's outer edge at
+      // the collector mouth, tapering to the deck edge at its end.
+      const barrierSteps = 24
+      const barrierPositions = new Float32Array((barrierSteps + 1) * 2 * 3)
+      const barrierIndices: number[] = []
+
+      for (let index = 0; index <= barrierSteps; index += 1) {
+        const t = index / barrierSteps
+        const angle = collectorStart + t * collectorArc
+        const axial = rampOuter + (rampInner - rampOuter) * t
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+
+        for (const [edge, barrierRadius] of [
+          [0, deckRadius],
+          [1, deckRadius - 1.1]
+        ] as const) {
+          const vertex = (index * 2 + edge) * 3
+          barrierPositions[vertex] = cos * barrierRadius
+          barrierPositions[vertex + 1] = axial
+          barrierPositions[vertex + 2] = sin * barrierRadius
+        }
+
+        if (index < barrierSteps) {
+          const a = index * 2
+          barrierIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+        }
+      }
+
+      const barrier = new THREE.BufferGeometry()
+      barrier.setAttribute('position', new THREE.BufferAttribute(barrierPositions, 3))
+      barrier.setIndex(barrierIndices)
+      barrier.computeVertexNormals()
+      group.add(new THREE.Mesh(barrier, this.bridgeEdgeMaterial))
     }
 
     // Pylons every ~75 m of arc, skipped over the window strips (the deck

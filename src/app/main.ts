@@ -417,7 +417,7 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpanMeters(),
     units: getUnits(),
-    expressway: getCityExpressway(habitatConfig.radius)
+    expressway: getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
   // Real co-rotating building colliders, streamed near the car (P1). Inflated a
@@ -472,7 +472,7 @@ export const bootstrapApp = async () => {
       drive.surface.azimuth,
       drive.surface.axialPosition,
       drive.heading,
-      habitatConfig.radius
+      habitatConfig.radius - drive.parkedElevation
     )
   }
 
@@ -722,7 +722,9 @@ export const bootstrapApp = async () => {
     const exitAzimuth = drive.surface.azimuth + 2.6 / habitatConfig.radius
     carExitPosition
       .set(Math.cos(exitAzimuth), 0, Math.sin(exitAzimuth))
-      .multiplyScalar(habitatConfig.radius - PLAYER_DISMOUNT_HEIGHT)
+      .multiplyScalar(
+        habitatConfig.radius - drive.parkedElevation - PLAYER_DISMOUNT_HEIGHT
+      )
       .setY(drive.surface.axialPosition)
     resetPlayerToFreeFly(playerTraversal, {
       rotatingPosition: carExitPosition,
@@ -735,7 +737,7 @@ export const bootstrapApp = async () => {
       drive.surface.azimuth,
       drive.surface.axialPosition,
       drive.heading,
-      habitatConfig.radius
+      habitatConfig.radius - drive.parkedElevation
     )
     audio.playClick()
   }
@@ -915,9 +917,34 @@ export const bootstrapApp = async () => {
   hud.setVisible(debugVisuals.showHud)
 
   if (debugEnabled) {
-    // Console access to the scene graph for headless/manual debugging — same
-    // ?debug gate as the lil-gui panel, absent from a normal session.
+    // Console access for headless/manual debugging — same ?debug gate as the
+    // lil-gui panel, absent from a normal session. __spinwardDrive lets a
+    // debugging session teleport the rover to a spot (e.g. a ramp mouth) and
+    // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
+    ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
+      runtime: drive,
+      world: physicsWorld,
+      enterAt: (azimuth: number, axialPosition: number, heading: number) => {
+        drive.parkAt(azimuth, axialPosition, heading)
+        drive.enter(frameAngle, rpmToOmega(habitatConfig.rpm), habitatConfig.radius, {
+          rapier,
+          world: physicsWorld,
+          units: getUnits()
+        })
+        // Seat the rig at the car (same as VR pointer entry), so the driver
+        // camera actually rides along in a remote debug session.
+        resetPlayerToGrounded(playerTraversal, {
+          axialPosition: drive.surface.axialPosition,
+          azimuth: drive.surface.azimuth,
+          radius: habitatConfig.radius,
+          frameAngle,
+          omega: rpmToOmega(habitatConfig.rpm)
+        })
+        applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+        desktopLookControls.resetLook()
+      }
+    }
   }
 
   // The thrower's own motion rides on the ball. While driving that is the CAR's
@@ -1279,7 +1306,7 @@ export const bootstrapApp = async () => {
   // walker's ground sampler and the car's grounding share this, so foot and
   // wheel agree with the physics colliders about where the deck is.
   const sampleExpresswayElevation = (azimuth: number, axialPosition: number) => {
-    const expressway = getCityExpressway(habitatConfig.radius)
+    const expressway = getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
     return expressway === null
       ? 0
       : getExpresswayElevation(expressway, habitatConfig.radius, azimuth, axialPosition)
@@ -1566,11 +1593,15 @@ export const bootstrapApp = async () => {
         frameAngle,
         omega
       })
+      // Ride at the car's ACTUAL surface height — pinning these to the wall
+      // radius left the camera and mesh at street level while the physics
+      // sphere climbed the expressway ramp overhead.
+      playerTraversal.groundHeight = drive.lastElevation
       car.setPose(
         drive.surface.azimuth,
         drive.surface.axialPosition,
         drive.heading,
-        habitatConfig.radius
+        habitatConfig.radius - drive.lastElevation
       )
     }
     const reattachStatus =
