@@ -93,7 +93,9 @@ export class GameAudio {
     return this.muted
   }
 
-  private makeLoopingNoise(seconds: number, kind: 'white' | 'brown') {
+  // 'pink' is the rain colour: white through a one-pole lowpass mix reads as
+  // rain on foliage/pavement, where pure white reads as radio static.
+  private makeLoopingNoise(seconds: number, kind: 'white' | 'brown' | 'pink') {
     const ctx = this.context
 
     if (ctx === null) {
@@ -102,16 +104,19 @@ export class GameAudio {
 
     const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
     const data = buffer.getChannelData(0)
-    let brown = 0
+    let smooth = 0
 
     for (let index = 0; index < data.length; index += 1) {
       const white = Math.random() * 2 - 1
 
       if (kind === 'white') {
         data[index] = white
+      } else if (kind === 'pink') {
+        smooth = smooth * 0.94 + white * 0.06
+        data[index] = white * 0.35 + smooth * 3.2
       } else {
-        brown = (brown + 0.02 * white) / 1.02
-        data[index] = brown * 3.5
+        smooth = (smooth + 0.02 * white) / 1.02
+        data[index] = smooth * 3.5
       }
     }
 
@@ -513,21 +518,11 @@ export class GameAudio {
         return
       }
 
-      const seconds = 3
-      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
-      const data = buffer.getChannelData(0)
-      // Pink-ish noise (white through a one-pole lowpass mix) reads as rain on
-      // foliage/pavement; pure white reads as radio static.
-      let smooth = 0
-      for (let index = 0; index < data.length; index += 1) {
-        const white = Math.random() * 2 - 1
-        smooth = smooth * 0.94 + white * 0.06
-        data[index] = white * 0.35 + smooth * 3.2
-      }
+      const noise = this.makeLoopingNoise(3, 'pink')
 
-      const noise = ctx.createBufferSource()
-      noise.buffer = buffer
-      noise.loop = true
+      if (noise === null) {
+        return
+      }
 
       const filter = ctx.createBiquadFilter()
       filter.type = 'bandpass'
