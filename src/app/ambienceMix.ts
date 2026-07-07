@@ -33,9 +33,10 @@ export type AmbienceMix = {
 // The city bed is audible on the streets and gone by the cloud deck.
 const CITY_FULL_FRACTION = 0.92
 const CITY_SILENT_FRACTION = 0.55
-// Walking (~6 m/s) stays calm; a jetpack dive or a fast drive builds to a howl.
-const WIND_SILENT_SPEED = 7
-const WIND_FULL_SPEED = 45
+// Walking (~6 m/s) and small hops stay calm; a committed jetpack dive or a
+// flat-out drive builds toward the (quiet, low) full rumble.
+const WIND_SILENT_SPEED = 10
+const WIND_FULL_SPEED = 50
 // Night streets still murmur a little.
 const CITY_NIGHT_FLOOR = 0.55
 

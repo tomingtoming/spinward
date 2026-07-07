@@ -10,7 +10,9 @@
 const AMBIENCE_GAIN = 0.05
 const MASTER_GAIN = 0.6
 const CITY_BED_GAIN = 0.07
-const WIND_GAIN = 0.22
+// Deliberately quiet: the wind is a physics cue under the scene, never a
+// noise bed over it.
+const WIND_GAIN = 0.09
 const SELF_GAIN = 0.8
 // Resting-ish heart: the readout of a person floating alone in a hard vacuum.
 const HEARTBEAT_PERIOD_SECONDS = 0.95
@@ -199,27 +201,38 @@ export class GameAudio {
       swell.start()
     }
 
-    // Wind: airspeed noise, brightness tracking the speed (setEnvironment).
-    const windNoise = this.makeLoopingNoise(3, 'white')
+    // Wind: a low turbulent rumble, not a bright hiss. Pink noise through a
+    // dark lowpass, breathing on a slow gust LFO — bright white noise with a
+    // fast onset reads as TV static switching on, which is exactly the wrong
+    // texture for the serene dives/rides where the wind is most audible.
+    const windNoise = this.makeLoopingNoise(3, 'pink')
 
     if (windNoise !== null) {
-      const windHighpass = ctx.createBiquadFilter()
-      windHighpass.type = 'highpass'
-      windHighpass.frequency.value = 300
-
       this.windFilter = ctx.createBiquadFilter()
       this.windFilter.type = 'lowpass'
-      this.windFilter.frequency.value = 400
-      this.windFilter.Q.value = 0.6
+      this.windFilter.frequency.value = 180
+      this.windFilter.Q.value = 0.5
+
+      // Gusts: a series gain the LFO breathes through, so silence stays silent.
+      const gust = ctx.createGain()
+      gust.gain.value = 1
+      const gustLfo = ctx.createOscillator()
+      gustLfo.type = 'sine'
+      gustLfo.frequency.value = 0.35
+      const gustDepth = ctx.createGain()
+      gustDepth.gain.value = 0.35
+      gustLfo.connect(gustDepth)
+      gustDepth.connect(gust.gain)
 
       this.windGain = ctx.createGain()
       this.windGain.gain.value = 0
 
-      windNoise.connect(windHighpass)
-      windHighpass.connect(this.windFilter)
-      this.windFilter.connect(this.windGain)
+      windNoise.connect(this.windFilter)
+      this.windFilter.connect(gust)
+      gust.connect(this.windGain)
       this.windGain.connect(world)
       windNoise.start()
+      gustLfo.start()
     }
 
     // The self voice bypasses the world duck: breath swells on a slow cycle,
@@ -305,8 +318,10 @@ export class GameAudio {
     )
 
     const wind = Math.max(0, Math.min(1, mix.wind))
-    this.windGain?.gain.setTargetAtTime(wind * WIND_GAIN, now, 0.12)
-    this.windFilter?.frequency.setTargetAtTime(400 + wind * 2600, now, 0.12)
+    // Slow swell (a gust builds, it doesn't switch on) and a dark ceiling:
+    // even at terminal velocity the rumble stays under ~800 Hz.
+    this.windGain?.gain.setTargetAtTime(wind * WIND_GAIN, now, 0.3)
+    this.windFilter?.frequency.setTargetAtTime(180 + wind * 640, now, 0.3)
 
     this.selfGain?.gain.setTargetAtTime(vacuum * SELF_GAIN, now, 0.6)
 
