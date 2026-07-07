@@ -10,6 +10,7 @@ export type TourEventId =
   | 'spin-change'
   | 'drive'
   | 'rain'
+  | 'ride'
   | 'enter-freefly'
   | 'enter-grounded'
 
@@ -21,7 +22,14 @@ export type TourCard = {
 
 // Waypoint and spin cards re-show on every trigger; one-shot discovery cards
 // (throw, jump) only fire the first time so they do not nag.
-const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump', 'drive', 'rain'])
+const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set([
+  'start',
+  'throw',
+  'jump',
+  'drive',
+  'rain',
+  'ride'
+])
 
 // Placeholders swapped for the real, platform-specific wording by
 // resolveTourCard — cards below stay platform-agnostic templates so PC, touch
@@ -90,6 +98,15 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       DRIVE_CONTROLS_TOKEN
     ],
     durationSeconds: 12
+  },
+  ride: {
+    title: 'RIDING OUT OF GRAVITY',
+    body: [
+      'Gravity here is just spin: g = omega^2 x r.',
+      'This climb shrinks your r to zero - feel your weight pour away.',
+      'Watch the felt-g readout. Jump to step off anytime.'
+    ],
+    durationSeconds: 14
   },
   rain: {
     title: 'RAIN LAGS THE SPIN',

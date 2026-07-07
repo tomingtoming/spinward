@@ -17,6 +17,7 @@ export type BeatBarSnapshot = {
   feltGravity: number
   axisAvailable: boolean
   raining: boolean
+  rideAvailable: boolean
 }
 
 export type BeatBarHandle = {
@@ -51,7 +52,8 @@ const makeLabel = (text: string) => {
 export const createBeatBar = (
   onAction: (action: BeatBarAction) => void,
   mount: HTMLElement,
-  onToggleRain?: () => void
+  onToggleRain?: () => void,
+  onRide?: () => void
 ): BeatBarHandle => {
   const root = document.createElement('div')
   root.className = 'beat-bar'
@@ -60,6 +62,8 @@ export const createBeatBar = (
   const overlook = makeButton('Overlook', 'beat-btn', () => onAction('respawn-overlook'))
   const axis = makeButton('Axis', 'beat-btn', () => onAction('respawn-axis-end'))
   const exterior = makeButton('Exterior', 'beat-btn', () => onAction('respawn-exterior'))
+  // The end-cap funicular: the continuous rim→hub version of the Axis warp.
+  const ride = makeButton('Ride', 'beat-btn', () => onRide?.())
 
   const separator = document.createElement('span')
   separator.className = 'beat-sep'
@@ -79,6 +83,7 @@ export const createBeatBar = (
     overlook,
     axis,
     exterior,
+    ride,
     separator,
     makeLabel('Spin'),
     spinDown,
@@ -95,6 +100,7 @@ export const createBeatBar = (
     },
     update: (snapshot) => {
       axis.disabled = !snapshot.axisAvailable
+      ride.disabled = !snapshot.rideAvailable
       rain.classList.toggle('beat-btn--on', snapshot.raining)
     }
   }

@@ -78,6 +78,7 @@ import {
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
+import { CapRideLine } from '../objects/capRideLine'
 import { RainStreaks } from '../objects/rain'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
@@ -87,6 +88,11 @@ import { AtmosphereGlow } from '../objects/atmosphereGlow'
 import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 import { createFullscreenToggle } from '../pc/fullscreen'
+import {
+  createCapRideSample,
+  getCapRideDuration,
+  sampleCapRide
+} from '../gameplay/capRide'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
 import { respawnAxisEnd, respawnExterior, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
@@ -233,9 +239,19 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
   })
+  // The end-cap funicular: rim → hub along the -Y cap's inner face. The ride
+  // itself is driven per-frame in the game loop (capRideState below).
+  const capRideLine = new CapRideLine({
+    radius: habitatConfig.radius,
+    span: getHabitatSpan(habitatConfig)
+  })
+  const capRideState = { active: false, elapsed: 0, duration: 0 }
+  const capRideSample = createCapRideSample()
+
   skyLayer.add(starfield.group)
   skyLayer.add(sun.group)
   skyLayer.add(atmosphereGlow.group)
+  nearLayer.add(capRideLine.group)
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
   nearLayer.add(spaceport.group)
@@ -907,6 +923,12 @@ export const bootstrapApp = async () => {
     // fog.density is owned by the frame loop (it folds the live rain level in
     // every frame); nothing to set here.
     rain.setBounds(habitatConfig.radius)
+    // New dimensions → new track; a ride in progress has no rail under it.
+    capRideState.active = false
+    capRideLine.setDimensions({
+      radius: habitatConfig.radius,
+      span: getHabitatSpanMeters()
+    })
   }
 
   syncHabitat()
@@ -932,8 +954,39 @@ export const bootstrapApp = async () => {
       notifyTourEvent(tourGuide, 'rain')
     }
   }
-  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
-    setRaining(!weather.raining)
+  // Board the end-cap funicular: warp to the boarding pad and start climbing.
+  // The per-frame ride (and the jump-to-step-off dismount) lives in the loop.
+  const startCapRide = () => {
+    const rideTrack = capRideLine.getTrack()
+
+    if (rideTrack === null || capRideState.active || habitatConfig.type !== 'cylinder') {
+      return
+    }
+
+    if (drive.driving) {
+      exitDrive()
+    }
+
+    capRideState.active = true
+    capRideState.elapsed = 0
+    capRideState.duration = getCapRideDuration(rideTrack)
+    sampleCapRide(rideTrack, capRideState.duration, 0, capRideSample)
+    resetPlayerToFreeFly(playerTraversal, {
+      rotatingPosition: capRideSample.position,
+      rotatingVelocity: capRideSample.velocity,
+      frameAngle,
+      omega: rpmToOmega(habitatConfig.rpm)
+    })
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+    capRideLine.placeCabinAt(capRideSample.position)
+    notifyTourEvent(tourGuide, 'ride')
+    audio.playModeChange()
+  }
+  const beatBar = createBeatBar(
+    (action) => handleWatchAction(action),
+    dock.right,
+    () => setRaining(!weather.raining),
+    startCapRide
   )
 
   // Fold the current view into a URL: opening it boots at this exact spot,
@@ -1432,6 +1485,11 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (event.code === 'Digit5') {
+      startCapRide()
+      return
+    }
+
     if (event.code === 'KeyE') {
       tryToggleDrive()
       return
@@ -1723,6 +1781,34 @@ export const bootstrapApp = async () => {
           surfaceElevation: sampleExpresswayElevation
         }
       )
+    }
+
+    // The funicular owns the player while riding: co-rotate them along the
+    // track with the cabin's true velocity, so the accelerometer measures the
+    // g-fade (and the Coriolis lean) out of real motion — nothing is faked.
+    // Jump steps off mid-ride; arrival leaves you floating at the hub.
+    if (capRideState.active) {
+      const rideTrack = capRideLine.getTrack()
+
+      if (rideTrack === null) {
+        capRideState.active = false
+      } else {
+        capRideState.elapsed += deltaSeconds
+        sampleCapRide(rideTrack, capRideState.duration, capRideState.elapsed, capRideSample)
+        resetPlayerToFreeFly(playerTraversal, {
+          rotatingPosition: capRideSample.position,
+          rotatingVelocity: capRideSample.velocity,
+          frameAngle,
+          omega
+        })
+        capRideLine.placeCabinAt(capRideSample.position)
+
+        if (jumpRequested || capRideSample.done) {
+          capRideState.active = false
+          capRideLine.parkCabin()
+          audio.playModeChange()
+        }
+      }
     }
 
     if (playerTraversal.mode === 'grounded' && jumpRequested) {
@@ -2030,7 +2116,8 @@ export const bootstrapApp = async () => {
       rpm: habitatConfig.rpm,
       feltGravity,
       axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
-      raining: weather.raining
+      raining: weather.raining,
+      rideAvailable: habitatConfig.type === 'cylinder'
     })
     debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
@@ -2282,6 +2369,7 @@ export const bootstrapApp = async () => {
     drive.dispose()
     car.dispose()
     rain.dispose()
+    capRideLine.dispose()
     cityscape.dispose()
     spaceport.dispose()
     sun.dispose()

@@ -19,6 +19,7 @@ A WebXR experiment in rotating habitats.
 4. **中心軸(Axis)** — `3` キーで軸端へ。回転半径ゼロ=無重量。街が空になる。`4` キーの Exterior でコロニーの外殻の外へ出て、回る全体を眺めることもできる。外は真空: 世界の音がすべて消え、自分の呼吸と心拍だけが残る。
 5. **回転速度を変える** — 画面下の Spin −/+(VR では wrist UI の rpm)で `g = ω²R` を体感する。
 6. **雨を降らせる** — 画面下の Rain ボタン(または URL に `?rain`)。雨は回転に置いていかれて斜めに降り、傾きは高度で変わる。雲は重力の弱い軸付近に張りつくので、Axis へ向かって昇っていくと雨の上に出る。
+7. **エレベーターで重力の外へ** — `5` キーまたは Travel の Ride。端部キャップの内面(高さ3.2kmの垂直な崖)をケーブルカーで登る。`g = ω²r` の r が足元からゼロへ滑り落ち、体重が抜けていくのを felt g の計器ごと体験する。ジャンプで途中下車、終点はスペースポートのハブ(無重量)。
 
 ## 操作(主要)
 
@@ -32,6 +33,7 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | 弾種切替(Ball / Beam / Firework) | X / 右クリック、または ◈ チップ | —(非VR画面で切替) | ◈ チップのドロップダウン |
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
+| エレベーター(端部キャップ) | 5 または Travel の Ride(ジャンプで途中下車) | —(VR 入場前に開始可) | Travel の Ride |
 | 回転速度 | Spin −/+ ボタン | wrist UI の rpm | Spin −/+ ボタン |
 | 雨 | Rain ボタン、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
 | 共有 | Share: Link(この視点のURLをコピー) / Photo(PNG保存) | — | Share: Link(共有シート) / Photo |
