@@ -18,6 +18,7 @@ A WebXR experiment in rotating habitats.
 3. **展望地点(Overlook)** — `2` キーまたは画面下の Travel ボタン(VR では wrist UI)から。軸に近いほど回転速度が遅く「重力」が弱い。落下すると街が横へ流れていく。
 4. **中心軸(Axis)** — `3` キーで軸端へ。回転半径ゼロ=無重量。街が空になる。`4` キーの Exterior でコロニーの外殻の外へ出て、回る全体を眺めることもできる。
 5. **回転速度を変える** — 画面下の Spin −/+(VR では wrist UI の rpm)で `g = ω²R` を体感する。
+6. **雨を降らせる** — 画面下の Rain ボタン(または URL に `?rain`)。雨は回転に置いていかれて斜めに降り、傾きは高度で変わる。雲は重力の弱い軸付近に張りつくので、Axis へ向かって昇っていくと雨の上に出る。
 
 ## 操作(主要)
 
@@ -32,6 +33,7 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
 | 回転速度 | Spin −/+ ボタン | wrist UI の rpm | Spin −/+ ボタン |
+| 雨 | Rain ボタン、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
 | 操作ガイド | CONTROL チップにホバー / クリック | 左手首の watch UI(左 B でリセンター) | CONTROL チップをタップ |
 | 離陸(free-fly) | F | A(ジャンプ) | Jump 長押し |
 

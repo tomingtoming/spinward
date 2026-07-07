@@ -16,6 +16,7 @@ import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { getDaylight, stepDayNightPhase } from './dayNight'
+import { createWeatherState, stepWeather } from './weather'
 import {
   createSkyGrade,
   getInitialDayNightPhase,
@@ -69,6 +70,7 @@ import {
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
+import { RainStreaks } from '../objects/rain'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
 import { Starfield } from '../objects/starfield'
@@ -88,6 +90,7 @@ import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { applyPresetToSettingsStore, canRespawnOnAxisEnd, getPresetById, getPresetName } from '../presets/presetManager'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
+import { createRainSample, sampleRainField } from '../sim/rainField'
 import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
@@ -212,6 +215,18 @@ export const bootstrapApp = async () => {
   nearLayer.add(habitat.group)
   nearLayer.add(cityscape.group)
   nearLayer.add(spaceport.group)
+
+  // Weather: rain streaks live in the colony-fixed layer (drops co-move with
+  // the air, minus the analytic Coriolis lag). `?rain` deep-links a shower.
+  const weather = createWeatherState(
+    new URLSearchParams(window.location.search).has('rain')
+  )
+  const rain = new RainStreaks(quality.rainStreaks)
+  rain.setBounds(habitatConfig.radius)
+  nearLayer.add(rain.lines)
+  const rainSample = createRainSample()
+  const rainCameraPosition = new THREE.Vector3()
+  const rainCameraVelocity = new THREE.Vector3()
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -865,13 +880,9 @@ export const bootstrapApp = async () => {
       units: getUnits()
     })
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
-    // Haze is the fixed air extinction (AIR_FOG_DENSITY) scaled by how much of a
-    // cross-interior sightline actually lies in air. A cylinder is air to the
-    // axis (fraction 1, unchanged); an open ring like Elysium holds only a thin
-    // shell on its floor, so most of a cross-bore sightline is vacuum and the
-    // far rim stays visible instead of socking in. THREE's fog is uniform, so
-    // this is the representative-sightline approximation, not a per-ray integral.
-    fog.density = AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig)
+    // fog.density is owned by the frame loop (it folds the live rain level in
+    // every frame); nothing to set here.
+    rain.setBounds(habitatConfig.radius)
   }
 
   syncHabitat()
@@ -891,7 +902,15 @@ export const bootstrapApp = async () => {
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
   // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
   // so they live in the right cluster (prepended before the VR button).
-  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right)
+  const setRaining = (raining: boolean) => {
+    weather.raining = raining
+    if (raining) {
+      notifyTourEvent(tourGuide, 'rain')
+    }
+  }
+  const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
+    setRaining(!weather.raining)
+  )
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
@@ -1831,7 +1850,8 @@ export const bootstrapApp = async () => {
     beatBar.update({
       rpm: habitatConfig.rpm,
       feltGravity,
-      axisAvailable: canRespawnOnAxisEnd(habitatConfig.type)
+      axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
+      raining: weather.raining
     })
     debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
@@ -1886,12 +1906,37 @@ export const bootstrapApp = async () => {
       watchPanel.clickHovered()
     }
 
+    // Weather first: the shower strength feeds both the streaks and the
+    // overcast dimming below. The field is sampled at the active carrier
+    // (walker or car) in colony-fixed coordinates; outside the hull there is
+    // no air, so the shower gates off entirely.
+    const rainLevel = stepWeather(weather, deltaSeconds)
+    inertialPositionToRotating(
+      drive.driving ? drive.lastInertialPosition : playerTraversal.inertialPosition,
+      frameAngle,
+      rainCameraPosition
+    )
+    sampleRainField(rainCameraPosition, omega, habitatConfig.radius, rainSample)
+    const rainStrength =
+      playerRegion === 'inside' ? rainLevel * rainSample.strength : 0
+    fillCarrierRotatingVelocity(rainCameraVelocity)
+    rain.update({
+      cameraPosition: rainCameraPosition,
+      rainVelocity: rainSample.velocity,
+      cameraVelocity: rainCameraVelocity,
+      deltaSeconds,
+      intensity: rainStrength
+    })
+    audio.setRainLevel(rainStrength)
+
     dayNightPhase = stepDayNightPhase(
       dayNightPhase,
       deltaSeconds,
       settingsStore.environment.dayCycleSeconds
     )
-    const daylight = getDaylight(dayNightPhase)
+    // Overcast: rain dims the whole light rig coherently (sun beams, fill,
+    // bloom's night boost) by scaling the one daylight scalar they all read.
+    const daylight = getDaylight(dayNightPhase) * (1 - 0.45 * rainLevel)
     light.intensity = 0.22 + daylight * 0.9
 
     // Izma is mirror-lit: its key light is the radial window-mirror beams owned
@@ -1920,6 +1965,14 @@ export const bootstrapApp = async () => {
     // above; this drives only the haze/space/sun colour and exposure.
     sampleSkyGrade(dayNightPhase, getSkyLook(habitatConfig.skyLook), skyGrade)
     fog.color.copy(skyGrade.fog)
+    // The single owner of fog.density. Haze is the fixed air extinction
+    // (AIR_FOG_DENSITY) scaled by how much of a cross-interior sightline
+    // actually lies in air — a cylinder is air to the axis (fraction 1), an
+    // open ring like Elysium is mostly vacuum bore, so the far rim stays
+    // visible instead of socking in (representative-sightline approximation).
+    // Rain murk thickens it while the shower is up.
+    fog.density =
+      AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig) * (1 + 2.5 * rainLevel)
     habitat.setAtmosphere(fog.color, fog.density)
     ;(scene.background as THREE.Color).copy(skyGrade.background)
     sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
@@ -2031,6 +2084,7 @@ export const bootstrapApp = async () => {
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()
+    rain.dispose()
     cityscape.dispose()
     spaceport.dispose()
     sun.dispose()

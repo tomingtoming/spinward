@@ -16,6 +16,8 @@ export type QualityProfile = {
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
   bloom: boolean
+  // Rain streak count (one LineSegments draw call; each drop is 2 vertices).
+  rainStreaks: number
 }
 
 export const getQualityProfile = (): QualityProfile => {
@@ -34,7 +36,8 @@ export const getQualityProfile = (): QualityProfile => {
       maxBuildings: 12000,
       farMinAngularSize: 0.01,
       maxTraffic: 160,
-      bloom: false
+      bloom: false,
+      rainStreaks: 2600
     }
   }
 
@@ -44,7 +47,8 @@ export const getQualityProfile = (): QualityProfile => {
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
       maxTraffic: 280,
-      bloom: false
+      bloom: false,
+      rainStreaks: 4200
     }
   }
 
@@ -53,6 +57,7 @@ export const getQualityProfile = (): QualityProfile => {
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
     maxTraffic: 420,
-    bloom: true
+    bloom: true,
+    rainStreaks: 7000
   }
 }

@@ -13,6 +13,10 @@ export class GameAudio {
   // The looping noise source stays alive via its graph connection to master.
   private jetFilter: BiquadFilterNode | null = null
   private jetGain: GainNode | null = null
+  // Sustained rain voice: looping noise shaped into a hiss-patter, level
+  // tracking the shower strength each frame (same lazy pattern as the jetpack).
+  private rainFilter: BiquadFilterNode | null = null
+  private rainGain: GainNode | null = null
 
   // Call from a user-gesture handler; safe to call repeatedly.
   unlock() {
@@ -281,6 +285,63 @@ export class GameAudio {
     // setTargetAtTime smooths per-frame updates so the level/brightness glides.
     this.jetGain.gain.setTargetAtTime(level * 0.16, now, 0.05)
     this.jetFilter.frequency.setTargetAtTime(240 + level * 1600, now, 0.05)
+  }
+
+  // Sustained rain hiss whose level and brightness track the shower (0..1).
+  // Call every frame; ramps to silence at zero so it never clicks.
+  setRainLevel(level: number) {
+    const ctx = this.context
+    const master = this.master
+
+    if (ctx === null || master === null) {
+      return
+    }
+
+    const amount = Math.max(0, Math.min(1, level))
+
+    if (this.rainGain === null || this.rainFilter === null) {
+      // Don't build the voice until it actually rains.
+      if (amount <= 0) {
+        return
+      }
+
+      const seconds = 3
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      // Pink-ish noise (white through a one-pole lowpass mix) reads as rain on
+      // foliage/pavement; pure white reads as radio static.
+      let smooth = 0
+      for (let index = 0; index < data.length; index += 1) {
+        const white = Math.random() * 2 - 1
+        smooth = smooth * 0.94 + white * 0.06
+        data[index] = white * 0.35 + smooth * 3.2
+      }
+
+      const noise = ctx.createBufferSource()
+      noise.buffer = buffer
+      noise.loop = true
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.value = 1500
+      filter.Q.value = 0.35
+
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+
+      noise.connect(filter)
+      filter.connect(gain)
+      gain.connect(master)
+      noise.start()
+
+      this.rainFilter = filter
+      this.rainGain = gain
+    }
+
+    const now = ctx.currentTime
+    // A slow-ish glide: showers swell, they don't step.
+    this.rainGain.gain.setTargetAtTime(amount * 0.11, now, 0.25)
+    this.rainFilter.frequency.setTargetAtTime(1100 + amount * 1400, now, 0.25)
   }
 
   playClick() {
