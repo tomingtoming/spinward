@@ -880,13 +880,8 @@ export const bootstrapApp = async () => {
       units: getUnits()
     })
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
-    // Haze is the fixed air extinction (AIR_FOG_DENSITY) scaled by how much of a
-    // cross-interior sightline actually lies in air. A cylinder is air to the
-    // axis (fraction 1, unchanged); an open ring like Elysium holds only a thin
-    // shell on its floor, so most of a cross-bore sightline is vacuum and the
-    // far rim stays visible instead of socking in. THREE's fog is uniform, so
-    // this is the representative-sightline approximation, not a per-ray integral.
-    fog.density = AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig)
+    // fog.density is owned by the frame loop (it folds the live rain level in
+    // every frame); nothing to set here.
     rain.setBounds(habitatConfig.radius)
   }
 
@@ -1970,8 +1965,12 @@ export const bootstrapApp = async () => {
     // above; this drives only the haze/space/sun colour and exposure.
     sampleSkyGrade(dayNightPhase, getSkyLook(habitatConfig.skyLook), skyGrade)
     fog.color.copy(skyGrade.fog)
-    // Rain murk: thicker air while the shower is up (on top of the habitat's
-    // base extinction, which syncHabitat owns).
+    // The single owner of fog.density. Haze is the fixed air extinction
+    // (AIR_FOG_DENSITY) scaled by how much of a cross-interior sightline
+    // actually lies in air — a cylinder is air to the axis (fraction 1), an
+    // open ring like Elysium is mostly vacuum bore, so the far rim stays
+    // visible instead of socking in (representative-sightline approximation).
+    // Rain murk thickens it while the shower is up.
     fog.density =
       AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig) * (1 + 2.5 * rainLevel)
     habitat.setAtmosphere(fog.color, fog.density)
