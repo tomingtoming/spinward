@@ -16,6 +16,7 @@ import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { getDaylight, stepDayNightPhase } from './dayNight'
+import { computeAmbienceMix } from './ambienceMix'
 import { createWeatherState, stepWeather } from './weather'
 import {
   createSkyGrade,
@@ -225,8 +226,8 @@ export const bootstrapApp = async () => {
   rain.setBounds(habitatConfig.radius)
   nearLayer.add(rain.lines)
   const rainSample = createRainSample()
-  const rainCameraPosition = new THREE.Vector3()
-  const rainCameraVelocity = new THREE.Vector3()
+  const carrierRotatingPosition = new THREE.Vector3()
+  const carrierRotatingVelocity = new THREE.Vector3()
 
   const playerRig = new THREE.Group()
   const viewRig = new THREE.Group()
@@ -1914,16 +1915,16 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(
       drive.driving ? drive.lastInertialPosition : playerTraversal.inertialPosition,
       frameAngle,
-      rainCameraPosition
+      carrierRotatingPosition
     )
-    sampleRainField(rainCameraPosition, omega, habitatConfig.radius, rainSample)
+    sampleRainField(carrierRotatingPosition, omega, habitatConfig.radius, rainSample)
     const rainStrength =
       playerRegion === 'inside' ? rainLevel * rainSample.strength : 0
-    fillCarrierRotatingVelocity(rainCameraVelocity)
+    fillCarrierRotatingVelocity(carrierRotatingVelocity)
     rain.update({
-      cameraPosition: rainCameraPosition,
+      cameraPosition: carrierRotatingPosition,
       rainVelocity: rainSample.velocity,
-      cameraVelocity: rainCameraVelocity,
+      cameraVelocity: carrierRotatingVelocity,
       deltaSeconds,
       intensity: rainStrength
     })
@@ -1937,6 +1938,21 @@ export const bootstrapApp = async () => {
     // Overcast: rain dims the whole light rig coherently (sun beams, fill,
     // bloom's night boost) by scaling the one daylight scalar they all read.
     const daylight = getDaylight(dayNightPhase) * (1 - 0.45 * rainLevel)
+
+    // What you hear follows where you are: street murmur near the floor, wind
+    // at airspeed through the co-rotating air, and outside the hull the world
+    // bus mutes — leaving only your own breath and heartbeat.
+    audio.setEnvironment(
+      computeAmbienceMix({
+        radialFraction:
+          Math.hypot(carrierRotatingPosition.x, carrierRotatingPosition.z) /
+          Math.max(1e-6, habitatConfig.radius),
+        inside: playerRegion === 'inside',
+        airspeed: carrierRotatingVelocity.length(),
+        daylight
+      })
+    )
+
     light.intensity = 0.22 + daylight * 0.9
 
     // Izma is mirror-lit: its key light is the radial window-mirror beams owned
