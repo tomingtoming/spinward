@@ -40,6 +40,8 @@ export type WatchRenderSnapshot = {
   jetpackAcceleration: number
   reattachThreshold: number
   axisEndRespawnEnabled: boolean
+  // Latched weather state, so the Rain toggle can render its on-state.
+  raining: boolean
   radiusFineStep: number
   radiusCoarseStep: number
   lengthFineStep: number
@@ -67,6 +69,7 @@ export const createWatchRenderSnapshot = (
     ballCount: number
     feltGravity: number
     feltSpeed: number
+    raining: boolean
     absoluteVelocity: {
       x: number
       y: number
@@ -97,6 +100,7 @@ export const createWatchRenderSnapshot = (
   surfaceGravity: settingsStore.getSurfaceGravity(),
   feltGravity: runtime.feltGravity,
   feltSpeed: runtime.feltSpeed,
+  raining: runtime.raining,
   simScale: settingsStore.habitat.simScale,
   ballCount: runtime.ballCount,
   throwScale: settingsStore.habitat.ballSpeedScale,
@@ -122,7 +126,13 @@ export const createWatchRenderSnapshot = (
 export const isWatchActionDisabled = (
   snapshot: WatchRenderSnapshot,
   action: WatchActionId
-) => action === 'respawn-axis-end' && !snapshot.axisEndRespawnEnabled
+) => {
+  if (action === 'respawn-axis-end') {
+    return !snapshot.axisEndRespawnEnabled
+  }
+
+  return false
+}
 
 export const applyWatchAction = (
   settingsStore: SettingsStore,

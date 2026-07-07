@@ -92,6 +92,7 @@ grounded ではヨーリグを、free-fly では姿勢クォータニオン自�
   右手チック（`audio.playClick()`）。
 - **手首の常設凡例**：左手首 watch UI の **Controls** ページに上記バインド表が出る
   （受動表示・`controlScheme` から描画）。home 画面の `Controls` ボタンから開く。
+- **watch UI からの世界操作**：home 画面の下段に **Rain** トグル（降雨中は点灯）。
 
 ## 実装の所在（開発者向け）
 

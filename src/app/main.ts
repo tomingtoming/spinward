@@ -849,6 +849,10 @@ export const bootstrapApp = async () => {
         syncHabitat()
         settingsDirty = false
         return true
+      case 'rain-toggle':
+        audio.playClick()
+        setRaining(!weather.raining)
+        return true
       case 'respawn':
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
@@ -1996,6 +2000,7 @@ export const bootstrapApp = async () => {
       ballCount: balls.length,
       feltGravity,
       feltSpeed,
+      raining: weather.raining,
       absoluteVelocity: {
         x: playerTraversal.inertialVelocity.x,
         y: playerTraversal.inertialVelocity.y,

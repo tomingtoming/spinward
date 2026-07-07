@@ -27,6 +27,7 @@ test('home screen keeps travel, spin and the category nav one tap away', () => {
     'respawn-exterior'
   ])
   expect(layout.categoryButtons?.map((button) => button.id)).toEqual([
+    'weather-rain-toggle',
     'nav-habitat',
     'nav-tweaks',
     'nav-legend'
