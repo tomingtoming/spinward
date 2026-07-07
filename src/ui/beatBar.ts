@@ -16,6 +16,7 @@ export type BeatBarSnapshot = {
   rpm: number
   feltGravity: number
   axisAvailable: boolean
+  raining: boolean
 }
 
 export type BeatBarHandle = {
@@ -49,7 +50,8 @@ const makeLabel = (text: string) => {
 // is dropped here — it is already shown by the dock's ω and felt-g chips.
 export const createBeatBar = (
   onAction: (action: BeatBarAction) => void,
-  mount: HTMLElement
+  mount: HTMLElement,
+  onToggleRain?: () => void
 ): BeatBarHandle => {
   const root = document.createElement('div')
   root.className = 'beat-bar'
@@ -65,6 +67,12 @@ export const createBeatBar = (
   const spinDown = makeButton('−', 'beat-btn beat-btn--step', () => onAction('rpm-coarse-decrement'))
   const spinUp = makeButton('+', 'beat-btn beat-btn--step', () => onAction('rpm-coarse-increment'))
 
+  // Weather beat: rain is the payoff where the spin becomes visible in the
+  // sky, so it sits on the bar next to Spin rather than in a settings panel.
+  const rainSeparator = document.createElement('span')
+  rainSeparator.className = 'beat-sep'
+  const rain = makeButton('Rain', 'beat-btn', () => onToggleRain?.())
+
   root.append(
     makeLabel('Travel'),
     surface,
@@ -74,7 +82,9 @@ export const createBeatBar = (
     separator,
     makeLabel('Spin'),
     spinDown,
-    spinUp
+    spinUp,
+    rainSeparator,
+    rain
   )
   mount.prepend(root)
 
@@ -85,6 +95,7 @@ export const createBeatBar = (
     },
     update: (snapshot) => {
       axis.disabled = !snapshot.axisAvailable
+      rain.classList.toggle('beat-btn--on', snapshot.raining)
     }
   }
 }

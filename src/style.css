@@ -410,6 +410,12 @@ button {
   cursor: default;
 }
 
+/* Latched toggle (Rain): brighter fill + border so the on-state reads at a glance. */
+.beat-bar .beat-btn--on {
+  background: rgba(24, 105, 132, 0.92);
+  border-color: rgba(147, 240, 255, 0.85);
+}
+
 .beat-bar .beat-btn--step {
   min-width: 32px;
   font-size: 16px;
