@@ -7,13 +7,16 @@
 //   m = g|f            grounded / free-fly
 //   a = azimuth (rad)  grounded surface spot
 //   ax = axial (m)
+//   gh = m             grounded ground height (rooftops; omitted at street level)
 //   p = x,y,z          free-fly rotating-frame position (m)
 //   q = x,y,z,w        camera world orientation (colony-fixed frame)
 //   t = 0..1           day/night phase
 //   rpm = number       spin override
+//   r / len = m        habitat radius/length overrides (customised presets)
+//   rain               weather flag (also honoured hand-typed)
 
 export type SharePose =
-  | { mode: 'grounded'; azimuth: number; axialPosition: number }
+  | { mode: 'grounded'; azimuth: number; axialPosition: number; groundHeight: number }
   | { mode: 'free-fly'; position: { x: number; y: number; z: number } }
 
 export type ShareOrientation = { x: number; y: number; z: number; w: number }
@@ -23,17 +26,32 @@ export type ShareState = {
   orientation: ShareOrientation | null
   dayNightPhase: number | null
   rpm: number | null
+  radius: number | null
+  length: number | null
+  raining: boolean
 }
 
 export type EncodeShareInput = {
   presetId: string | null
   rpm: number
   presetRpm: number | null
+  // Habitat dimensions vs the preset's own: divergences ride along so a
+  // customised habitat restores at the right scale (a pose is meaningless in
+  // a differently-sized world).
+  radius: number
+  presetRadius: number | null
+  length: number
+  presetLength: number | null
   dayNightPhase: number
   raining: boolean
   pose: SharePose
   orientation: ShareOrientation
 }
+
+// The settings store's own ranges; decode clamps into them so a mangled link
+// cannot build a degenerate habitat.
+const RADIUS_RANGE = { min: 10, max: 100000 }
+const LENGTH_RANGE = { min: 40, max: 200000 }
 
 const round = (value: number, decimals: number) => {
   const factor = 10 ** decimals
@@ -69,6 +87,10 @@ export const encodeShareState = ({
   presetId,
   rpm,
   presetRpm,
+  radius,
+  presetRadius,
+  length,
+  presetLength,
   dayNightPhase,
   raining,
   pose,
@@ -80,10 +102,18 @@ export const encodeShareState = ({
     params.set('preset', presetId)
   }
 
-  // Spin only when it diverges from the preset's own, so vanilla links stay
-  // short and a later preset rebalance is not pinned by old URLs.
+  // Spin/dimensions only when they diverge from the preset's own, so vanilla
+  // links stay short and a later preset rebalance is not pinned by old URLs.
   if (presetRpm === null || Math.abs(rpm - presetRpm) > 1e-6) {
     params.set('rpm', String(round(rpm, 3)))
+  }
+
+  if (presetRadius === null || Math.abs(radius - presetRadius) > 1e-6) {
+    params.set('r', String(round(radius, 1)))
+  }
+
+  if (presetLength === null || Math.abs(length - presetLength) > 1e-6) {
+    params.set('len', String(round(length, 1)))
   }
 
   params.set('t', String(round(dayNightPhase, 3)))
@@ -96,6 +126,10 @@ export const encodeShareState = ({
     params.set('m', 'g')
     params.set('a', String(round(pose.azimuth, 5)))
     params.set('ax', String(round(pose.axialPosition, 1)))
+    // Street level is the overwhelmingly common case; keep it out of the URL.
+    if (pose.groundHeight > 0.05) {
+      params.set('gh', String(round(pose.groundHeight, 1)))
+    }
   } else {
     params.set('m', 'f')
     params.set(
@@ -129,9 +163,15 @@ export const decodeShareState = (search: string): ShareState => {
   if (mode === 'g') {
     const azimuth = parseNumber(params.get('a'))
     const axialPosition = parseNumber(params.get('ax'))
+    const groundHeight = parseNumber(params.get('gh')) ?? 0
 
     if (azimuth !== null && axialPosition !== null) {
-      pose = { mode: 'grounded', azimuth, axialPosition }
+      pose = {
+        mode: 'grounded',
+        azimuth,
+        axialPosition,
+        groundHeight: Math.max(0, groundHeight)
+      }
     }
   } else if (mode === 'f') {
     const position = parseTuple(params.get('p'), 3)
@@ -159,11 +199,22 @@ export const decodeShareState = (search: string): ShareState => {
 
   const phase = parseNumber(params.get('t'))
   const rpm = parseNumber(params.get('rpm'))
+  const radius = parseNumber(params.get('r'))
+  const length = parseNumber(params.get('len'))
 
   return {
     pose,
     orientation,
     dayNightPhase: phase !== null && phase >= 0 && phase <= 1 ? phase : null,
-    rpm: rpm !== null && rpm >= 0 && rpm <= 12 ? rpm : null
+    rpm: rpm !== null && rpm >= 0 && rpm <= 12 ? rpm : null,
+    radius:
+      radius !== null && radius >= RADIUS_RANGE.min && radius <= RADIUS_RANGE.max
+        ? radius
+        : null,
+    length:
+      length !== null && length >= LENGTH_RANGE.min && length <= LENGTH_RANGE.max
+        ? length
+        : null,
+    raining: params.has('rain')
   }
 }

@@ -16,7 +16,7 @@ export const createShareBar = (
   mount: HTMLElement,
   handlers: {
     onShareLink: () => Promise<ShareOutcome>
-    onPhoto: () => boolean
+    onPhoto: () => Promise<boolean>
   }
 ): ShareBarHandle => {
   const root = document.createElement('div')
@@ -61,9 +61,10 @@ export const createShareBar = (
   })
 
   const photo = makeButton('Photo', () => {
-    if (handlers.onPhoto()) {
-      flash(photo, 'Photo', 'Saved!')
-    }
+    // 'Saved!' only after the encoder actually produced the download.
+    void handlers.onPhoto().then((saved) => {
+      flash(photo, 'Photo', saved ? 'Saved!' : 'Failed')
+    })
   })
 
   root.append(label, link, photo)

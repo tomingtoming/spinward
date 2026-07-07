@@ -124,17 +124,25 @@ export const bootstrapApp = async () => {
   // close-range physics play. `?preset=` deep-links any preset for testing
   // and sharing.
   const requestedPreset = new URLSearchParams(window.location.search).get('preset')
-  applyPresetToSettingsStore(
-    settingsStore,
+  // The preset a session is BASED on, kept across parameter tweaks: the store
+  // flips currentPresetId to 'custom' on any adjustment, but a share link must
+  // still name the base habitat (topology, sky look) plus the divergences.
+  let lastAppliedPresetId =
     requestedPreset !== null && getPresetById(requestedPreset) !== null
       ? requestedPreset
       : 'izma'
-  )
-  // Share links restore spin / time-of-day / pose on top of the preset boot
-  // (?rain is read by the weather state below, ?preset= above).
+  applyPresetToSettingsStore(settingsStore, lastAppliedPresetId)
+  // Share links restore spin / dimensions / time-of-day / pose on top of the
+  // preset boot (?rain feeds the weather state below, ?preset= above).
   const shareState = decodeShareState(window.location.search)
   if (shareState.rpm !== null) {
     settingsStore.setHabitatConfig({ rpm: shareState.rpm })
+  }
+  if (shareState.radius !== null) {
+    settingsStore.setHabitatConfig({ radius: shareState.radius })
+  }
+  if (shareState.length !== null) {
+    settingsStore.setHabitatConfig({ length: shareState.length })
   }
   const habitatConfig = settingsStore.habitat
   const reattachTuning = settingsStore.reattach
@@ -233,10 +241,9 @@ export const bootstrapApp = async () => {
   nearLayer.add(spaceport.group)
 
   // Weather: rain streaks live in the colony-fixed layer (drops co-move with
-  // the air, minus the analytic Coriolis lag). `?rain` deep-links a shower.
-  const weather = createWeatherState(
-    new URLSearchParams(window.location.search).has('rain')
-  )
+  // the air, minus the analytic Coriolis lag). `?rain` deep-links a shower —
+  // decoded by the share codec so the whole URL scheme lives in one module.
+  const weather = createWeatherState(shareState.raining)
   const rain = new RainStreaks(quality.rainStreaks)
   rain.setBounds(habitatConfig.radius)
   nearLayer.add(rain.lines)
@@ -833,6 +840,7 @@ export const bootstrapApp = async () => {
       case 'preset':
         audio.playClick()
         frameAngle = 0
+        lastAppliedPresetId = runtimeAction.presetId
         applyPresetToSettingsStore(settingsStore, runtimeAction.presetId)
         clearAllBalls()
         rebuildPlayerTraversal('inner-wall')
@@ -942,7 +950,10 @@ export const bootstrapApp = async () => {
       ? {
           mode: 'grounded',
           azimuth: surface.azimuth,
-          axialPosition: surface.axialPosition
+          axialPosition: surface.axialPosition,
+          // Rooftops: without this a shared rooftop vista restores at street
+          // level, inside the building the sharer was standing on.
+          groundHeight: playerTraversal.groundHeight
         }
       : {
           mode: 'free-fly',
@@ -952,11 +963,17 @@ export const bootstrapApp = async () => {
             shareFreeFlyScratch
           )
         }
-    const preset = getPresetById(habitatConfig.currentPresetId)
+    // The base preset survives parameter tweaks (currentPresetId flips to
+    // 'custom' on any adjustment); divergent spin/dimensions ride as overrides.
+    const preset = getPresetById(lastAppliedPresetId)
     const query = encodeShareState({
-      presetId: preset !== null ? habitatConfig.currentPresetId : null,
+      presetId: lastAppliedPresetId,
       rpm: habitatConfig.rpm,
       presetRpm: preset?.real.rpm ?? null,
+      radius: habitatConfig.radius,
+      presetRadius: preset?.real.radius_m ?? null,
+      length: habitatConfig.length,
+      presetLength: preset?.real.length_m ?? null,
       dayNightPhase,
       raining: weather.raining,
       pose,
@@ -971,17 +988,37 @@ export const bootstrapApp = async () => {
   // grounded→free-fly seeding adopts it into the rig attitude on frame one.
   const applySharedPose = (pose: SharePose, orientation: ShareOrientation | null) => {
     const omega = rpmToOmega(habitatConfig.rpm)
+    const habitatSpan = getHabitatSpan(habitatConfig)
 
+    // The codec only guarantees finiteness; the bounds live here where the
+    // habitat is known. Clamping (not rejecting) keeps a coordinate-mangled
+    // link opening somewhere sensible instead of in empty black space.
     if (pose.mode === 'grounded') {
+      const halfSpan = Math.max(0, habitatSpan * 0.5 - 1.5)
       resetPlayerToGrounded(playerTraversal, {
-        axialPosition: pose.axialPosition,
-        azimuth: pose.azimuth,
+        axialPosition: THREE.MathUtils.clamp(pose.axialPosition, -halfSpan, halfSpan),
+        azimuth: THREE.MathUtils.euclideanModulo(pose.azimuth, Math.PI * 2),
         radius: habitatConfig.radius,
         frameAngle,
-        omega
+        omega,
+        groundHeight: THREE.MathUtils.clamp(pose.groundHeight, 0, habitatConfig.radius * 0.5)
       })
     } else {
       shareFreeFlyScratch.set(pose.position.x, pose.position.y, pose.position.z)
+      // Radial cap comfortably beyond the Exterior vantage (1.6 R), axial cap
+      // half a span beyond either end.
+      const radial = Math.hypot(shareFreeFlyScratch.x, shareFreeFlyScratch.z)
+      const maxRadial = habitatConfig.radius * 2.5
+      if (radial > maxRadial) {
+        const scale = maxRadial / radial
+        shareFreeFlyScratch.x *= scale
+        shareFreeFlyScratch.z *= scale
+      }
+      shareFreeFlyScratch.y = THREE.MathUtils.clamp(
+        shareFreeFlyScratch.y,
+        -habitatSpan,
+        habitatSpan
+      )
       resetPlayerToFreeFly(playerTraversal, {
         rotatingPosition: shareFreeFlyScratch,
         frameAngle,

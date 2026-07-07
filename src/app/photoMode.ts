@@ -4,11 +4,14 @@
 // the caller re-renders synchronously via `renderFrame` and the pixels are
 // read in the same task, while they are still this frame's.
 
+// Resolves true only once the encoded blob is actually handed to the browser
+// as a download — a null blob (0x0 backgrounded canvas, encoder allocation
+// failure) resolves false so the caller never flashes a success it didn't earn.
 export const capturePhoto = (
   source: HTMLCanvasElement,
   renderFrame: () => void,
   { url, filename }: { url: string; filename: string }
-): boolean => {
+): Promise<boolean> => {
   renderFrame()
 
   const canvas = document.createElement('canvas')
@@ -16,8 +19,8 @@ export const capturePhoto = (
   canvas.height = source.height
   const ctx = canvas.getContext('2d')
 
-  if (ctx === null) {
-    return false
+  if (ctx === null || canvas.width === 0 || canvas.height === 0) {
+    return Promise.resolve(false)
   }
 
   ctx.drawImage(source, 0, 0)
@@ -53,19 +56,21 @@ export const capturePhoto = (
   ctx.textAlign = 'right'
   ctx.fillText(url, canvas.width - pad, baseline)
 
-  canvas.toBlob((blob) => {
-    if (blob === null) {
-      return
-    }
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (blob === null) {
+        resolve(false)
+        return
+      }
 
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = filename
-    link.click()
-    // Revoking synchronously races the download's read of the blob
-    // (net::ERR_FAILED); give the browser a moment to take it.
-    window.setTimeout(() => URL.revokeObjectURL(link.href), 10000)
-  }, 'image/png')
-
-  return true
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = filename
+      link.click()
+      // Revoking synchronously races the download's read of the blob
+      // (net::ERR_FAILED); give the browser a moment to take it.
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 10000)
+      resolve(true)
+    }, 'image/png')
+  })
 }
