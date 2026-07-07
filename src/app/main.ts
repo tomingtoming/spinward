@@ -1975,7 +1975,12 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
-    const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
+    const playerRegion = getPlayerTraversalRegion(
+      playerTraversal,
+      habitatConfig.radius,
+      habitatSpan,
+      frameAngle
+    )
 
     // Felt g-force: difference the active body's real inertial velocity (resync
     // across the walk↔drive handoff so the swap isn't read as a spike). It

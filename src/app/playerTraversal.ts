@@ -570,8 +570,14 @@ export const applyPlayerTraversalState = (
   playerRig.position.copy(inertialPositionToRotating(state.inertialPosition, frameAngle, renderPosition))
 }
 
+// Inside means inside the HULL: within the ends axially AND within the wall
+// radially. The radial check matters — the Exterior vantage hangs at 1.6 R
+// but only 0.3 L along the axis, so an axial-only test called that vacuum
+// viewpoint 'inside' (and everything keyed on the region — the vacuum audio
+// duck, the rain gate, the HUD chip — misfired with it).
 export const getPlayerTraversalRegion = (
   state: PlayerTraversalState,
+  radius: number,
   length: number,
   frameAngle: number
 ) => {
@@ -579,10 +585,13 @@ export const getPlayerTraversalRegion = (
     return getSurfaceRigRegion(state.surface, length)
   }
 
-  return Math.abs(inertialPositionToRotating(state.inertialPosition, frameAngle, renderPosition).y) <=
-    Math.max(0, length * 0.5 - 1.5)
-    ? 'inside'
-    : 'outside'
+  inertialPositionToRotating(state.inertialPosition, frameAngle, renderPosition)
+  const withinEnds =
+    Math.abs(renderPosition.y) <= Math.max(0, length * 0.5 - 1.5)
+  const withinWall =
+    Math.hypot(renderPosition.x, renderPosition.z) <= radius + 1
+
+  return withinEnds && withinWall ? 'inside' : 'outside'
 }
 
 export const getIdleLocomotionIntent = () => createLocomotionIntent()
