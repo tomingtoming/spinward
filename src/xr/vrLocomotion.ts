@@ -107,6 +107,14 @@ export class VRLocomotion {
     this.snapYaw = 0
   }
 
+  // Seat the standing view yaw on the rig NOW. A boot-time share restore
+  // computes the camera-local orientation against its parent, which normally
+  // only picks up the spawn yaw on the first update() — computing against the
+  // pre-update identity would bake a spurious quarter turn into the look.
+  applySpawnView() {
+    this.applyGroundedView()
+  }
+
   constructor(
     controllers: XRControllerSpaces[],
     private readonly playerRig: THREE.Group,
