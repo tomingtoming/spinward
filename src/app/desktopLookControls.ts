@@ -122,6 +122,15 @@ export class DesktopLookControls {
     window.addEventListener('keyup', this.handleKeyUp)
   }
 
+  // Deep-linked share views boot facing a specific way. Cancels the intro
+  // reveal (the reveal animates pitch and would fight the restored look).
+  setLook(yaw: number, pitch: number) {
+    this.introElapsed = null
+    this.yaw = yaw
+    this.pitch = THREE.MathUtils.clamp(pitch, -MAX_PITCH, MAX_PITCH)
+    this.camera.rotation.set(this.pitch, this.yaw, this.roll)
+  }
+
   dispose() {
     this.element.removeEventListener('contextmenu', this.handleContextMenu)
     this.element.removeEventListener('pointerdown', this.handlePointerDown)

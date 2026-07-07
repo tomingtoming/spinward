@@ -17,6 +17,13 @@ import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { getDaylight, stepDayNightPhase } from './dayNight'
 import { computeAmbienceMix } from './ambienceMix'
+import { capturePhoto } from './photoMode'
+import {
+  decodeShareState,
+  encodeShareState,
+  type ShareOrientation,
+  type SharePose
+} from './shareLink'
 import { createWeatherState, stepWeather } from './weather'
 import {
   createSkyGrade,
@@ -97,6 +104,7 @@ import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
 import { createDockBar } from '../ui/dockBar'
+import { createShareBar } from '../ui/shareBar'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -122,6 +130,12 @@ export const bootstrapApp = async () => {
       ? requestedPreset
       : 'izma'
   )
+  // Share links restore spin / time-of-day / pose on top of the preset boot
+  // (?rain is read by the weather state below, ?preset= above).
+  const shareState = decodeShareState(window.location.search)
+  if (shareState.rpm !== null) {
+    settingsStore.setHabitatConfig({ rpm: shareState.rpm })
+  }
   const habitatConfig = settingsStore.habitat
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = {
@@ -156,7 +170,8 @@ export const bootstrapApp = async () => {
   // sunset — a cylinder has no limb), other presets keep the cool legacy grade.
   // Boot at the look's chosen time of day.
   const skyGrade = createSkyGrade()
-  let dayNightPhase = getInitialDayNightPhase(habitatConfig.skyLook)
+  let dayNightPhase =
+    shareState.dayNightPhase ?? getInitialDayNightPhase(habitatConfig.skyLook)
   const audio = new GameAudio()
   // The Sun's true (Sol) colour. The colony beam stays this at every hour — see
   // the setSunlight call below for why colony dusk carries no warm tint.
@@ -912,6 +927,132 @@ export const bootstrapApp = async () => {
   const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
     setRaining(!weather.raining)
   )
+
+  // Fold the current view into a URL: opening it boots at this exact spot,
+  // look, hour, spin and weather. The photo burns the wordmark + site in, so
+  // a posted image and "see it yourself" travel together.
+  const shareQuaternionScratch = new THREE.Quaternion()
+  const shareFreeFlyScratch = new THREE.Vector3()
+  const buildShareUrl = () => {
+    camera.updateWorldMatrix(true, false)
+    camera.getWorldQuaternion(shareQuaternionScratch)
+    const grounded = drive.driving || playerTraversal.mode === 'grounded'
+    const surface = drive.driving ? drive.surface : playerTraversal.surface
+    const pose: SharePose = grounded
+      ? {
+          mode: 'grounded',
+          azimuth: surface.azimuth,
+          axialPosition: surface.axialPosition
+        }
+      : {
+          mode: 'free-fly',
+          position: inertialPositionToRotating(
+            playerTraversal.inertialPosition,
+            frameAngle,
+            shareFreeFlyScratch
+          )
+        }
+    const preset = getPresetById(habitatConfig.currentPresetId)
+    const query = encodeShareState({
+      presetId: preset !== null ? habitatConfig.currentPresetId : null,
+      rpm: habitatConfig.rpm,
+      presetRpm: preset?.real.rpm ?? null,
+      dayNightPhase,
+      raining: weather.raining,
+      pose,
+      orientation: shareQuaternionScratch
+    })
+    return `${window.location.origin}${window.location.pathname}?${query}`
+  }
+
+  // Boot-time restore of a shared pose: seat the traversal state first, then
+  // recover the look. Grounded hands yaw/pitch to the look controls (they own
+  // the camera euler); free-fly sets the camera directly and the controls'
+  // grounded→free-fly seeding adopts it into the rig attitude on frame one.
+  const applySharedPose = (pose: SharePose, orientation: ShareOrientation | null) => {
+    const omega = rpmToOmega(habitatConfig.rpm)
+
+    if (pose.mode === 'grounded') {
+      resetPlayerToGrounded(playerTraversal, {
+        axialPosition: pose.axialPosition,
+        azimuth: pose.azimuth,
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega
+      })
+    } else {
+      shareFreeFlyScratch.set(pose.position.x, pose.position.y, pose.position.z)
+      resetPlayerToFreeFly(playerTraversal, {
+        rotatingPosition: shareFreeFlyScratch,
+        frameAngle,
+        omega
+      })
+    }
+
+    applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
+
+    if (orientation === null) {
+      return
+    }
+
+    shareQuaternionScratch.set(orientation.x, orientation.y, orientation.z, orientation.w)
+    // The camera's parent chain must be in its steady state (spawn view yaw on
+    // the viewRig) before the shared world orientation is folded into a local.
+    vrLocomotion.applySpawnView()
+    viewRig.updateWorldMatrix(true, false)
+    const cameraLocal = viewRig
+      .getWorldQuaternion(new THREE.Quaternion())
+      .invert()
+      .multiply(shareQuaternionScratch)
+
+    if (pose.mode === 'grounded') {
+      const euler = new THREE.Euler().setFromQuaternion(cameraLocal, 'YXZ')
+      desktopLookControls.setLook(euler.y, euler.x)
+    } else {
+      camera.quaternion.copy(cameraLocal)
+    }
+  }
+
+  const shareBar = createShareBar(dock.right, {
+    onShareLink: async () => {
+      const url = buildShareUrl()
+
+      // Touch gets the system share sheet (X/LINE/etc. one tap away);
+      // desktop copies. A dismissed sheet falls through to the clipboard.
+      if (isTouchDevice() && typeof navigator.share === 'function') {
+        try {
+          await navigator.share({ title: 'Spinward', url })
+          return 'shared'
+        } catch {
+          // fall through
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(url)
+        return 'copied'
+      } catch {
+        return 'failed'
+      }
+    },
+    onPhoto: () =>
+      capturePhoto(
+        renderer.domElement,
+        () => {
+          // Fresh pixels: the drawing buffer is cleared after compositing, so
+          // re-render synchronously along the same path the loop uses.
+          if (bloomComposer !== null && !renderer.xr.isPresenting) {
+            bloomComposer.render()
+          } else {
+            renderer.render(scene, camera)
+          }
+        },
+        {
+          url: 'spinward.toming.app',
+          filename: `spinward-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png`
+        }
+      )
+  })
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
   // stays clean — append `?debug` to the URL to bring it back top-right.
@@ -2070,9 +2211,12 @@ export const bootstrapApp = async () => {
   })
 
   notifyTourEvent(tourGuide, 'start')
-  // First-boot "look up" reveal: show the far side of the colony overhead
-  // before the player settles. Desktop/mobile only; XR is head-tracked.
-  if (!renderer.xr.isPresenting) {
+  // A shared link spawns where it points; otherwise the first-boot "look up"
+  // reveal shows the far side of the colony overhead before the player
+  // settles. Desktop/mobile only; XR is head-tracked.
+  if (shareState.pose !== null) {
+    applySharedPose(shareState.pose, shareState.orientation)
+  } else if (!renderer.xr.isPresenting) {
     desktopLookControls.startIntroReveal()
   }
   gameLoop.start()
@@ -2110,6 +2254,7 @@ export const bootstrapApp = async () => {
     fullscreenToggle?.dispose()
     hud.destroy()
     beatBar.destroy()
+    shareBar.destroy()
     dock.destroy()
     desktopLookControls.dispose()
     disposePlayerTraversalState(playerTraversal)
