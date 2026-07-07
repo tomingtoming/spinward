@@ -2230,14 +2230,17 @@ export const bootstrapApp = async () => {
 
     // What you hear follows where you are: street murmur near the floor, wind
     // at airspeed through the co-rotating air, and outside the hull the world
-    // bus mutes — leaving only your own breath and heartbeat.
+    // bus mutes — leaving only your own breath and heartbeat. The funicular's
+    // cabin shields its rider: the ride is the serene beat, so its ~77 m/s
+    // climb must not read as a wind blast.
     audio.setEnvironment(
       computeAmbienceMix({
         radialFraction:
           Math.hypot(carrierRotatingPosition.x, carrierRotatingPosition.z) /
           Math.max(1e-6, habitatConfig.radius),
         inside: playerRegion === 'inside',
-        airspeed: carrierRotatingVelocity.length(),
+        airspeed:
+          carrierRotatingVelocity.length() * (capRideState.active ? 0.3 : 1),
         daylight
       })
     )
