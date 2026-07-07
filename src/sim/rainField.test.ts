@@ -112,3 +112,56 @@ describe('sampleRainField', () => {
     expect(sample.strength).toBe(0)
   })
 })
+
+describe('rain on an open ring (thin air shell, vacuum bore)', () => {
+  // Elysium: R = 30 km, air only in the floor shell (depth = 2 km).
+  const RING_RADIUS = 30000
+  const RING_AIR_DEPTH = 2000
+  const RING_OMEGA = (Math.PI * 2) / 348
+
+  test('the vacuum bore is bone dry', () => {
+    const sample = createRainSample()
+    // Mid-bore: far inside the old 0.35 R cloud deck, but there is no air here.
+    sampleRainField(
+      new THREE.Vector3(RING_RADIUS * 0.5, 0, 0),
+      RING_OMEGA,
+      RING_RADIUS,
+      sample,
+      RING_AIR_DEPTH
+    )
+    expect(sample.strength).toBe(0)
+    expect(sample.velocity.length()).toBe(0)
+  })
+
+  test('it still rains inside the shell, under a deck near the top of the air', () => {
+    const sample = createRainSample()
+    sampleRainField(
+      new THREE.Vector3(RING_RADIUS - 200, 0, 0),
+      RING_OMEGA,
+      RING_RADIUS,
+      sample,
+      RING_AIR_DEPTH
+    )
+    expect(sample.strength).toBe(1)
+
+    // Just above the shell's cloud deck (top of the air): dry again.
+    sampleRainField(
+      new THREE.Vector3(RING_RADIUS - RING_AIR_DEPTH * 0.95, 0, 0),
+      RING_OMEGA,
+      RING_RADIUS,
+      sample,
+      RING_AIR_DEPTH
+    )
+    expect(sample.strength).toBe(0)
+  })
+
+  test('a full-bore cylinder is unchanged by the default depth', () => {
+    const explicit = createRainSample()
+    const defaulted = createRainSample()
+    const position = new THREE.Vector3(IZMA_RADIUS * 0.6, 0, 0)
+    sampleRainField(position, IZMA_OMEGA, IZMA_RADIUS, explicit, IZMA_RADIUS)
+    sampleRainField(position, IZMA_OMEGA, IZMA_RADIUS, defaulted)
+    expect(explicit.strength).toBe(defaulted.strength)
+    expect(explicit.velocity.toArray()).toEqual(defaulted.velocity.toArray())
+  })
+})

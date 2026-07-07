@@ -231,7 +231,21 @@ test('getPlayerTraversalRegion reports outside for a free-flying player beyond t
     frameAngleEnd: 0.5
   })
 
-  expect(getPlayerTraversalRegion(state, 20, 0.5)).toBe('outside')
+  expect(getPlayerTraversalRegion(state, 10, 20, 0.5)).toBe('outside')
+})
+
+test('getPlayerTraversalRegion reports outside for the exterior vantage (radially clear, axially within)', () => {
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0, 1)
+  // Radially 1.6 R outside the hull but well within the ends — the Exterior
+  // spawn's geometry. An axial-only region test used to call this 'inside',
+  // and everything keyed on the region (vacuum audio, rain gate) misfired.
+  resetPlayerToFreeFly(state, {
+    rotatingPosition: new THREE.Vector3(16, -6, 0),
+    frameAngle: 0.5,
+    omega: 1
+  })
+
+  expect(getPlayerTraversalRegion(state, 10, 20, 0.5)).toBe('outside')
 })
 
 test('physical walking drives the live body velocity toward the intent', async () => {

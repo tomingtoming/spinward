@@ -13,20 +13,37 @@ import * as THREE from 'three'
 //    drag response time τ = v_t/g the equilibrium drift is 2ω·v_t²/g. This is
 //    the slant a resident sees — and it grows as the fall slows aloft.
 //
-// Clouds condense where the spin gravity is weakest, hugging the axis, so
-// rain exists only below the cloud deck (r > cloudRadius) and fades in across
-// a band under it.
+// Clouds condense at the top of the AIR, wherever that is. A full-bore
+// cylinder is pressurized to the axis, so the deck hugs the low-gravity axis
+// region; an open ring (Elysium) holds only a thin shell of air against its
+// floor and the bore is vacuum — there the deck sits just under the shell's
+// top, and the bore stays bone dry. Rain exists only below the deck
+// (r > cloudRadius) and fades in across a band under it.
 
 // Sea-level terminal velocity of a heavy raindrop under 1 g.
 export const RAIN_TERMINAL_SPEED_1G = 8
 const EARTH_G = 9.81
 
-// The cloud deck radius, as a fraction of the habitat radius. Above this
-// (closer to the axis) there is no rain — you are inside/above the clouds.
+// The cloud deck radius, as a fraction of the habitat radius — the full-bore
+// (cylinder) position. Above this (closer to the axis) there is no rain.
 export const CLOUD_DECK_RADIUS_FRACTION = 0.35
-// Rain fades in across this band below the deck, so flying up through the
-// cloud base dissolves the rain instead of clipping it off.
+// Deck clearance below the top of the air: clouds form in the upper reach of
+// the shell, not flush against the vacuum boundary.
+const CLOUD_TOP_OF_AIR_FRACTION = 0.85
+// Rain fades in across this band (a fraction of the AIR depth) below the
+// deck, so flying up through the cloud base dissolves the rain instead of
+// clipping it off. For a cylinder (air depth = radius) this matches the old
+// radius-fraction band exactly.
 const CLOUD_FADE_BAND_FRACTION = 0.12
+
+// Where the cloud deck sits for a given air depth (measured inward from the
+// floor). Cylinder: depth = radius → max(0.35 R, 0.15 R) = the classic 0.35 R.
+// Ring: depth ≪ radius → just under the shell's top, keeping the bore dry.
+export const getCloudDeckRadius = (habitatRadius: number, atmosphereDepth: number) =>
+  Math.max(
+    habitatRadius * CLOUD_DECK_RADIUS_FRACTION,
+    habitatRadius - atmosphereDepth * CLOUD_TOP_OF_AIR_FRACTION
+  )
 
 // The steady drift can exceed the fall speed on small fast habitats
 // (Playground); past this ratio the linear-drag model has left its validity
@@ -69,15 +86,18 @@ export const getRainDriftSpeed = (omega: number, radialDistance: number) => {
 }
 
 // Evaluate the rain velocity field at a colony-fixed position (spin axis = Y).
+// `atmosphereDepth` is how deep the air reaches inward from the floor
+// (getAtmosphereDepth); it defaults to the full bore.
 export const sampleRainField = (
   position: THREE.Vector3,
   omega: number,
   habitatRadius: number,
-  target: RainSample
+  target: RainSample,
+  atmosphereDepth = habitatRadius
 ): RainSample => {
   const radial = Math.hypot(position.x, position.z)
-  const cloudRadius = habitatRadius * CLOUD_DECK_RADIUS_FRACTION
-  const fadeBand = Math.max(1e-6, habitatRadius * CLOUD_FADE_BAND_FRACTION)
+  const cloudRadius = getCloudDeckRadius(habitatRadius, atmosphereDepth)
+  const fadeBand = Math.max(1e-6, atmosphereDepth * CLOUD_FADE_BAND_FRACTION)
 
   target.strength =
     omega <= 0 || habitatRadius <= 0 || radial <= 0

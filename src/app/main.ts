@@ -99,7 +99,11 @@ import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
 import { applyPresetToSettingsStore, canRespawnOnAxisEnd, getPresetById, getPresetName } from '../presets/presetManager'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { createRainSample, sampleRainField } from '../sim/rainField'
-import { getAirColumnFraction, getHabitatSpan } from '../sim/habitatConfig'
+import {
+  getAirColumnFraction,
+  getAtmosphereDepth,
+  getHabitatSpan
+} from '../sim/habitatConfig'
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
@@ -1971,7 +1975,12 @@ export const bootstrapApp = async () => {
       scale: debugVisuals.forceVectorScale,
       visible: debugVisuals.showForceVectors
     })
-    const playerRegion = getPlayerTraversalRegion(playerTraversal, habitatSpan, frameAngle)
+    const playerRegion = getPlayerTraversalRegion(
+      playerTraversal,
+      habitatConfig.radius,
+      habitatSpan,
+      frameAngle
+    )
 
     // Felt g-force: difference the active body's real inertial velocity (resync
     // across the walk↔drive handoff so the swap isn't read as a spike). It
@@ -2100,7 +2109,21 @@ export const bootstrapApp = async () => {
       frameAngle,
       carrierRotatingPosition
     )
-    sampleRainField(carrierRotatingPosition, omega, habitatConfig.radius, rainSample)
+    // The air can be thinner than the bore: an open ring holds only a shell
+    // against its floor, and both the rain field (cloud deck at the top of the
+    // air) and the ambience (vacuum in the bore) read that depth.
+    const atmosphereDepth = getAtmosphereDepth(habitatConfig)
+    const carrierRadial = Math.hypot(carrierRotatingPosition.x, carrierRotatingPosition.z)
+    const carrierInAir =
+      playerRegion === 'inside' &&
+      carrierRadial >= habitatConfig.radius - atmosphereDepth - 1
+    sampleRainField(
+      carrierRotatingPosition,
+      omega,
+      habitatConfig.radius,
+      rainSample,
+      atmosphereDepth
+    )
     const rainStrength =
       playerRegion === 'inside' ? rainLevel * rainSample.strength : 0
     fillCarrierRotatingVelocity(carrierRotatingVelocity)
@@ -2123,14 +2146,13 @@ export const bootstrapApp = async () => {
     const daylight = getDaylight(dayNightPhase) * (1 - 0.45 * rainLevel)
 
     // What you hear follows where you are: street murmur near the floor, wind
-    // at airspeed through the co-rotating air, and outside the hull the world
-    // bus mutes — leaving only your own breath and heartbeat.
+    // at airspeed through the co-rotating air, and wherever the air ends —
+    // outside the hull, or in an open ring's vacuum bore — the world bus
+    // mutes, leaving only your own breath and heartbeat.
     audio.setEnvironment(
       computeAmbienceMix({
-        radialFraction:
-          Math.hypot(carrierRotatingPosition.x, carrierRotatingPosition.z) /
-          Math.max(1e-6, habitatConfig.radius),
-        inside: playerRegion === 'inside',
+        radialFraction: carrierRadial / Math.max(1e-6, habitatConfig.radius),
+        inAir: carrierInAir,
         airspeed: carrierRotatingVelocity.length(),
         daylight
       })
