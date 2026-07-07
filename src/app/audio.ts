@@ -1,13 +1,38 @@
 // Synthesized audio: no assets, everything generated with WebAudio. The
 // context unlocks on the first user gesture (browser autoplay policy).
+//
+// Two buses hang off the master:
+//  · world — every sound the AIR carries (ambience, city, wind, rain, impacts).
+//    Outside the hull there is no air, so the whole bus ducks to silence.
+//  · self — what your own body makes (breath, heartbeat). It rises exactly
+//    when the world goes quiet: the vacuum is not silent, it is just you.
 
 const AMBIENCE_GAIN = 0.05
 const MASTER_GAIN = 0.6
+const CITY_BED_GAIN = 0.07
+// Deliberately quiet: the wind is a physics cue under the scene, never a
+// noise bed over it.
+const WIND_GAIN = 0.09
+const SELF_GAIN = 0.8
+// Resting-ish heart: the readout of a person floating alone in a hard vacuum.
+const HEARTBEAT_PERIOD_SECONDS = 0.95
+
+export type EnvironmentMix = {
+  city: number
+  wind: number
+  vacuum: number
+}
 
 export class GameAudio {
   private context: AudioContext | null = null
   private master: GainNode | null = null
+  private world: GainNode | null = null
   private ambienceGain: GainNode | null = null
+  private cityGain: GainNode | null = null
+  private windGain: GainNode | null = null
+  private windFilter: BiquadFilterNode | null = null
+  private selfGain: GainNode | null = null
+  private nextHeartTime = 0
   private muted = false
   // Sustained jetpack voice (built lazily, modulated each frame by throttle).
   // The looping noise source stays alive via its graph connection to master.
@@ -39,7 +64,15 @@ export class GameAudio {
     this.master = this.context.createGain()
     this.master.gain.value = this.muted ? 0 : MASTER_GAIN
     this.master.connect(this.context.destination)
+    this.world = this.context.createGain()
+    this.world.gain.value = 1
+    this.world.connect(this.master)
     this.startAmbience()
+  }
+
+  // Air-carried sounds route here so the vacuum duck silences them together.
+  private get worldBus(): GainNode | null {
+    return this.world ?? this.master
   }
 
   get isMuted() {
@@ -62,29 +95,56 @@ export class GameAudio {
     return this.muted
   }
 
-  // Habitat hum: looping filtered noise + a faint low drone.
-  private startAmbience() {
+  // 'pink' is the rain colour: white through a one-pole lowpass mix reads as
+  // rain on foliage/pavement, where pure white reads as radio static.
+  private makeLoopingNoise(seconds: number, kind: 'white' | 'brown' | 'pink') {
     const ctx = this.context
-    const master = this.master
 
-    if (ctx === null || master === null) {
-      return
+    if (ctx === null) {
+      return null
     }
 
-    const seconds = 4
     const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
     const data = buffer.getChannelData(0)
-    let brown = 0
+    let smooth = 0
 
     for (let index = 0; index < data.length; index += 1) {
       const white = Math.random() * 2 - 1
-      brown = (brown + 0.02 * white) / 1.02
-      data[index] = brown * 3.5
+
+      if (kind === 'white') {
+        data[index] = white
+      } else if (kind === 'pink') {
+        smooth = smooth * 0.94 + white * 0.06
+        data[index] = white * 0.35 + smooth * 3.2
+      } else {
+        smooth = (smooth + 0.02 * white) / 1.02
+        data[index] = smooth * 3.5
+      }
     }
 
     const noise = ctx.createBufferSource()
     noise.buffer = buffer
     noise.loop = true
+    return noise
+  }
+
+  // The standing voices, all built once and silent until their gains rise:
+  // structure hum (always), city bed + wind (setEnvironment), breath (vacuum).
+  private startAmbience() {
+    const ctx = this.context
+    const world = this.world
+    const master = this.master
+
+    if (ctx === null || world === null || master === null) {
+      return
+    }
+
+    // Habitat hum: looping filtered noise + a faint low drone.
+    const noise = this.makeLoopingNoise(4, 'brown')
+
+    if (noise === null) {
+      return
+    }
 
     const noiseFilter = ctx.createBiquadFilter()
     noiseFilter.type = 'lowpass'
@@ -106,9 +166,176 @@ export class GameAudio {
     noiseFilter.connect(this.ambienceGain)
     drone.connect(droneGain)
     droneGain.connect(this.ambienceGain)
-    this.ambienceGain.connect(master)
+    this.ambienceGain.connect(world)
     noise.start()
     drone.start()
+
+    // City bed: a mid-band murmur with a slow swell, the far streets breathing.
+    const cityNoise = this.makeLoopingNoise(5, 'white')
+
+    if (cityNoise !== null) {
+      const cityFilter = ctx.createBiquadFilter()
+      cityFilter.type = 'bandpass'
+      cityFilter.frequency.value = 750
+      cityFilter.Q.value = 0.4
+
+      // The swell rides a series gain so a silent city stays exactly silent.
+      const undulate = ctx.createGain()
+      undulate.gain.value = 1
+      const swell = ctx.createOscillator()
+      swell.type = 'sine'
+      swell.frequency.value = 0.06
+      const swellDepth = ctx.createGain()
+      swellDepth.gain.value = 0.3
+      swell.connect(swellDepth)
+      swellDepth.connect(undulate.gain)
+
+      this.cityGain = ctx.createGain()
+      this.cityGain.gain.value = 0
+
+      cityNoise.connect(cityFilter)
+      cityFilter.connect(undulate)
+      undulate.connect(this.cityGain)
+      this.cityGain.connect(world)
+      cityNoise.start()
+      swell.start()
+    }
+
+    // Wind: a low turbulent rumble, not a bright hiss. Pink noise through a
+    // dark lowpass, breathing on a slow gust LFO — bright white noise with a
+    // fast onset reads as TV static switching on, which is exactly the wrong
+    // texture for the serene dives/rides where the wind is most audible.
+    const windNoise = this.makeLoopingNoise(3, 'pink')
+
+    if (windNoise !== null) {
+      this.windFilter = ctx.createBiquadFilter()
+      this.windFilter.type = 'lowpass'
+      this.windFilter.frequency.value = 180
+      this.windFilter.Q.value = 0.5
+
+      // Gusts: a series gain the LFO breathes through, so silence stays silent.
+      const gust = ctx.createGain()
+      gust.gain.value = 1
+      const gustLfo = ctx.createOscillator()
+      gustLfo.type = 'sine'
+      gustLfo.frequency.value = 0.35
+      const gustDepth = ctx.createGain()
+      gustDepth.gain.value = 0.35
+      gustLfo.connect(gustDepth)
+      gustDepth.connect(gust.gain)
+
+      this.windGain = ctx.createGain()
+      this.windGain.gain.value = 0
+
+      windNoise.connect(this.windFilter)
+      this.windFilter.connect(gust)
+      gust.connect(this.windGain)
+      this.windGain.connect(world)
+      windNoise.start()
+      gustLfo.start()
+    }
+
+    // The self voice bypasses the world duck: breath swells on a slow cycle,
+    // the heartbeat is scheduled per beat in setEnvironment.
+    this.selfGain = ctx.createGain()
+    this.selfGain.gain.value = 0
+    this.selfGain.connect(master)
+
+    const breathNoise = this.makeLoopingNoise(4, 'white')
+
+    if (breathNoise !== null) {
+      const breathFilter = ctx.createBiquadFilter()
+      breathFilter.type = 'lowpass'
+      breathFilter.frequency.value = 480
+      breathFilter.Q.value = 0.4
+
+      // In-and-out at ~10 breaths/min: an LFO around a positive base gain.
+      const breathShape = ctx.createGain()
+      breathShape.gain.value = 0.11
+      const breathLfo = ctx.createOscillator()
+      breathLfo.type = 'sine'
+      breathLfo.frequency.value = 0.16
+      const breathDepth = ctx.createGain()
+      breathDepth.gain.value = 0.09
+      breathLfo.connect(breathDepth)
+      breathDepth.connect(breathShape.gain)
+
+      breathNoise.connect(breathFilter)
+      breathFilter.connect(breathShape)
+      breathShape.connect(this.selfGain)
+      breathNoise.start()
+      breathLfo.start()
+    }
+  }
+
+  // A single lub-dub into the self bus.
+  private scheduleHeartbeat(when: number) {
+    const ctx = this.context
+    const selfGain = this.selfGain
+
+    if (ctx === null || selfGain === null) {
+      return
+    }
+
+    const thump = (at: number, hz: number, level: number) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(hz, at)
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, hz * 0.6), at + 0.1)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.0001, at)
+      gain.gain.exponentialRampToValueAtTime(level, at + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.12)
+
+      osc.connect(gain)
+      gain.connect(selfGain)
+      osc.start(at)
+      osc.stop(at + 0.14)
+    }
+
+    thump(when, 56, 0.5)
+    thump(when + 0.3, 44, 0.32)
+  }
+
+  // Call every frame with the computed ambience mix (see app/ambienceMix.ts).
+  setEnvironment(mix: EnvironmentMix) {
+    const ctx = this.context
+    const world = this.world
+
+    if (ctx === null || world === null) {
+      return
+    }
+
+    const now = ctx.currentTime
+    const vacuum = Math.max(0, Math.min(1, mix.vacuum))
+
+    world.gain.setTargetAtTime(1 - vacuum, now, 0.35)
+    this.cityGain?.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, mix.city)) * CITY_BED_GAIN,
+      now,
+      0.5
+    )
+
+    const wind = Math.max(0, Math.min(1, mix.wind))
+    // Slow swell (a gust builds, it doesn't switch on) and a dark ceiling:
+    // even at terminal velocity the rumble stays under ~800 Hz.
+    this.windGain?.gain.setTargetAtTime(wind * WIND_GAIN, now, 0.3)
+    this.windFilter?.frequency.setTargetAtTime(180 + wind * 640, now, 0.3)
+
+    this.selfGain?.gain.setTargetAtTime(vacuum * SELF_GAIN, now, 0.6)
+
+    // Keep the heartbeat scheduled a beat ahead while in vacuum.
+    if (vacuum > 0.05) {
+      if (this.nextHeartTime < now) {
+        this.nextHeartTime = now + 0.2
+      }
+
+      while (this.nextHeartTime < now + 0.8) {
+        this.scheduleHeartbeat(this.nextHeartTime)
+        this.nextHeartTime += HEARTBEAT_PERIOD_SECONDS
+      }
+    }
   }
 
   // Filtered noise burst with a falling band-pass sweep.
@@ -144,10 +371,11 @@ export class GameAudio {
     thud.stop(now + 0.24)
   }
 
-  // Short ping whose volume follows the impact speed.
+  // Short ping whose volume follows the impact speed. Air-carried: silent in
+  // vacuum via the world bus.
   playBounce(impactSpeed: number) {
     const ctx = this.context
-    const master = this.master
+    const master = this.worldBus
 
     if (ctx === null || master === null) {
       return
@@ -177,10 +405,10 @@ export class GameAudio {
 
   // Heavy boom for the beam / firework bursts: a deep falling sine for weight
   // plus a low noise crack — much heavier than the ball's playBounce ping.
-  // `loudness` is 0..1 (nearer impacts louder).
+  // `loudness` is 0..1 (nearer impacts louder). Air-carried (world bus).
   playExplosion(loudness: number) {
     const ctx = this.context
-    const master = this.master
+    const master = this.worldBus
 
     if (ctx === null || master === null) {
       return
@@ -205,7 +433,7 @@ export class GameAudio {
     boom.stop(now + 0.62)
 
     // A low, fast-falling noise crack layered on top of the boom.
-    this.playNoiseSweep(700, 110, level * 0.7, 0.28)
+    this.playNoiseSweep(700, 110, level * 0.7, 0.28, master)
   }
 
   // Distinct rising chirp when locomotion flips grounded<->free-fly.
@@ -288,10 +516,10 @@ export class GameAudio {
   }
 
   // Sustained rain hiss whose level and brightness track the shower (0..1).
-  // Call every frame; ramps to silence at zero so it never clicks.
+  // Call every frame; ramps to silence at zero so it never clicks. Air-carried.
   setRainLevel(level: number) {
     const ctx = this.context
-    const master = this.master
+    const master = this.worldBus
 
     if (ctx === null || master === null) {
       return
@@ -305,21 +533,11 @@ export class GameAudio {
         return
       }
 
-      const seconds = 3
-      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate)
-      const data = buffer.getChannelData(0)
-      // Pink-ish noise (white through a one-pole lowpass mix) reads as rain on
-      // foliage/pavement; pure white reads as radio static.
-      let smooth = 0
-      for (let index = 0; index < data.length; index += 1) {
-        const white = Math.random() * 2 - 1
-        smooth = smooth * 0.94 + white * 0.06
-        data[index] = white * 0.35 + smooth * 3.2
-      }
+      const noise = this.makeLoopingNoise(3, 'pink')
 
-      const noise = ctx.createBufferSource()
-      noise.buffer = buffer
-      noise.loop = true
+      if (noise === null) {
+        return
+      }
 
       const filter = ctx.createBiquadFilter()
       filter.type = 'bandpass'
@@ -371,10 +589,11 @@ export class GameAudio {
     fromHz: number,
     toHz: number,
     level: number,
-    seconds: number
+    seconds: number,
+    destination?: GainNode
   ) {
     const ctx = this.context
-    const master = this.master
+    const master = destination ?? this.master
 
     if (ctx === null || master === null) {
       return
