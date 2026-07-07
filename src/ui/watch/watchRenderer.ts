@@ -364,7 +364,11 @@ export const renderWatch = (
     }
 
     for (const button of layout.categoryButtons ?? []) {
-      drawButton(ctx, button, hoveredAction, { accent: true })
+      drawButton(ctx, button, hoveredAction, {
+        accent: true,
+        // The Rain toggle latches: show its on-state like an active preset.
+        active: button.id === 'weather-rain-toggle' && snapshot.raining
+      })
     }
 
     return

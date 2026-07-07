@@ -30,6 +30,7 @@ export type WatchActionId =
   | 'respawn-overlook'
   | 'respawn-axis-end'
   | 'respawn-exterior'
+  | 'weather-rain-toggle'
 
 export type WatchButton = {
   id: WatchActionId
@@ -177,16 +178,17 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   const spinRow = makeParameterRow('rpm', spinSection.top + 40, width)
   const gravityGaugeY = spinSection.top + 180
 
-  // Three categories now (Comfort retired) — widen to fill the same span the
-  // old four-up row spanned, so the HOME screen doesn't look lopsided.
-  const categoryWidth = 202
+  // Rain (a world action, latched while raining) shares the bottom row with
+  // the three category screens — four-up, same span as the old three-up row.
+  const categoryWidth = 151
   const categoryGap = 12
   const categoryY = 576
   const categoryStep = categoryWidth + categoryGap
   const categoryButtons = [
-    makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT, categoryY, categoryWidth, 64),
-    makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
-    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64)
+    makeActionButton('weather-rain-toggle', 'Rain', CONTENT_LEFT, categoryY, categoryWidth, 64),
+    makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
+    makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64),
+    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 3, categoryY, categoryWidth, 64)
   ]
 
   return {
