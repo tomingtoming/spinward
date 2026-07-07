@@ -8,14 +8,18 @@ import * as THREE from 'three'
 //  · Wind: airspeed through the CO-ROTATING air, so standing still in a
 //    spinning world is calm and a free-fall dive howls. Walking sits in the
 //    dead zone.
-//  · Vacuum: outside the hull no medium carries the world's sound at all.
-//    What remains is yourself — breath and heartbeat (GameAudio's self voice).
+//  · Vacuum: where there is no air there is no world sound at all — outside
+//    the hull, and also INSIDE an open ring's bore (Elysium holds only a thin
+//    air shell against its floor). What remains is yourself — breath and
+//    heartbeat (GameAudio's self voice).
 
 export type AmbienceInput = {
   // Radial distance / habitat radius: 1 on the floor, 0 on the axis.
   radialFraction: number
-  // Inside the pressurized hull (playerRegion === 'inside').
-  inside: boolean
+  // Inside the AIR: within the hull and within the pressurized shell. A
+  // cylinder is air to the axis; a ring's bore is vacuum (main.ts derives
+  // this from getAtmosphereDepth).
+  inAir: boolean
   // Speed relative to the rotating frame = through the co-rotating air (m/s).
   airspeed: number
   // 0..1 day factor: streets murmur by day, hush at night.
@@ -42,11 +46,11 @@ const CITY_NIGHT_FLOOR = 0.55
 
 export const computeAmbienceMix = ({
   radialFraction,
-  inside,
+  inAir,
   airspeed,
   daylight
 }: AmbienceInput): AmbienceMix => {
-  if (!inside) {
+  if (!inAir) {
     return { city: 0, wind: 0, vacuum: 1 }
   }
 

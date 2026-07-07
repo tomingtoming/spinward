@@ -6,7 +6,7 @@ describe('ambience mix', () => {
   test('street level by day: full city bed, no wind, no vacuum', () => {
     const mix = computeAmbienceMix({
       radialFraction: 1,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 1
     })
@@ -18,13 +18,13 @@ describe('ambience mix', () => {
   test('night streets still murmur, quieter than day', () => {
     const day = computeAmbienceMix({
       radialFraction: 1,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 1
     })
     const night = computeAmbienceMix({
       radialFraction: 1,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 0
     })
@@ -35,19 +35,19 @@ describe('ambience mix', () => {
   test('the city fades out by the cloud deck and is silent at the axis', () => {
     const overlook = computeAmbienceMix({
       radialFraction: 0.98,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 1
     })
     const highAltitude = computeAmbienceMix({
       radialFraction: 0.5,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 1
     })
     const axis = computeAmbienceMix({
       radialFraction: 0,
-      inside: true,
+      inAir: true,
       airspeed: 0,
       daylight: 1
     })
@@ -59,19 +59,19 @@ describe('ambience mix', () => {
   test('walking sits in the wind dead zone; a dive builds toward a howl', () => {
     const walking = computeAmbienceMix({
       radialFraction: 1,
-      inside: true,
+      inAir: true,
       airspeed: 6,
       daylight: 1
     })
     const diving = computeAmbienceMix({
       radialFraction: 0.8,
-      inside: true,
+      inAir: true,
       airspeed: 30,
       daylight: 1
     })
     const terminal = computeAmbienceMix({
       radialFraction: 0.9,
-      inside: true,
+      inAir: true,
       airspeed: 60,
       daylight: 1
     })
@@ -84,12 +84,24 @@ describe('ambience mix', () => {
   test('outside the hull: vacuum — no city, no wind', () => {
     const mix = computeAmbienceMix({
       radialFraction: 1.4,
-      inside: false,
+      inAir: false,
       airspeed: 80,
       daylight: 1
     })
     expect(mix.city).toBe(0)
     expect(mix.wind).toBe(0)
     expect(mix.vacuum).toBe(1)
+  })
+
+  test("an open ring's bore is vacuum too — no wind however fast you fly", () => {
+    // Inside the hull radially (fraction 0.5) but above Elysium's thin air
+    // shell: inAir is false, so the mix is indistinguishable from space.
+    const mix = computeAmbienceMix({
+      radialFraction: 0.5,
+      inAir: false,
+      airspeed: 120,
+      daylight: 1
+    })
+    expect(mix).toEqual({ city: 0, wind: 0, vacuum: 1 })
   })
 })
