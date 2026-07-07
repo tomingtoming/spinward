@@ -923,12 +923,30 @@ export const bootstrapApp = async () => {
     // fog.density is owned by the frame loop (it folds the live rain level in
     // every frame); nothing to set here.
     rain.setBounds(habitatConfig.radius)
-    // New dimensions → new track; a ride in progress has no rail under it.
-    capRideState.active = false
+    // syncHabitat runs on ANY settings notify (a Spin ± tap included), and
+    // touching the spin mid-climb to watch felt-g respond is exactly the
+    // interplay the ride demos — so a ride only cancels when the TRACK itself
+    // moved (dimension change), not on every rebuild.
+    const previousTrack = capRideLine.getTrack()
     capRideLine.setDimensions({
       radius: habitatConfig.radius,
       span: getHabitatSpanMeters()
     })
+    const nextTrack = capRideLine.getTrack()
+    if (
+      capRideState.active &&
+      (previousTrack === null ||
+        nextTrack === null ||
+        previousTrack.baseRadial !== nextTrack.baseRadial ||
+        previousTrack.hubRadial !== nextTrack.hubRadial ||
+        previousTrack.axial !== nextTrack.axial)
+    ) {
+      capRideState.active = false
+    }
+    // A ring has no end cap: hide the rail/pad/cabin instead of leaving them
+    // floating along a face that does not exist (the Ride action is disabled
+    // separately).
+    capRideLine.group.visible = habitatConfig.type === 'cylinder'
   }
 
   syncHabitat()
@@ -1783,34 +1801,6 @@ export const bootstrapApp = async () => {
       )
     }
 
-    // The funicular owns the player while riding: co-rotate them along the
-    // track with the cabin's true velocity, so the accelerometer measures the
-    // g-fade (and the Coriolis lean) out of real motion — nothing is faked.
-    // Jump steps off mid-ride; arrival leaves you floating at the hub.
-    if (capRideState.active) {
-      const rideTrack = capRideLine.getTrack()
-
-      if (rideTrack === null) {
-        capRideState.active = false
-      } else {
-        capRideState.elapsed += deltaSeconds
-        sampleCapRide(rideTrack, capRideState.duration, capRideState.elapsed, capRideSample)
-        resetPlayerToFreeFly(playerTraversal, {
-          rotatingPosition: capRideSample.position,
-          rotatingVelocity: capRideSample.velocity,
-          frameAngle,
-          omega
-        })
-        capRideLine.placeCabinAt(capRideSample.position)
-
-        if (jumpRequested || capRideSample.done) {
-          capRideState.active = false
-          capRideLine.parkCabin()
-          audio.playModeChange()
-        }
-      }
-    }
-
     if (playerTraversal.mode === 'grounded' && jumpRequested) {
       computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
       detachPlayerToFreeFly(playerTraversal, {
@@ -1888,6 +1878,36 @@ export const bootstrapApp = async () => {
     syncPlayerTraversalFromPhysics(playerTraversal)
     syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
 
+    // The funicular owns the player while riding: co-rotate them along the
+    // track with the cabin's true velocity, so the accelerometer measures the
+    // g-fade (and the Coriolis lean) out of real motion — nothing is faked.
+    // Seated AFTER the physics step so the rendered rider sits exactly at the
+    // cabin (a pre-step seat gets advanced ~2 m spinward by the step at Izma's
+    // wall speed). Jump steps off; arrival leaves you floating at the hub.
+    if (capRideState.active) {
+      const rideTrack = capRideLine.getTrack()
+
+      if (rideTrack === null) {
+        capRideState.active = false
+      } else {
+        capRideState.elapsed += deltaSeconds
+        sampleCapRide(rideTrack, capRideState.duration, capRideState.elapsed, capRideSample)
+        resetPlayerToFreeFly(playerTraversal, {
+          rotatingPosition: capRideSample.position,
+          rotatingVelocity: capRideSample.velocity,
+          frameAngle,
+          omega
+        })
+        capRideLine.placeCabinAt(capRideSample.position)
+
+        if (jumpRequested || capRideSample.done) {
+          capRideState.active = false
+          capRideLine.parkCabin()
+          audio.playModeChange()
+        }
+      }
+    }
+
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
       resetPlayerToGrounded(playerTraversal, {
@@ -1908,8 +1928,12 @@ export const bootstrapApp = async () => {
         habitatConfig.radius - drive.lastElevation
       )
     }
+    // No auto-land while the funicular holds the player: the boarding pad
+    // sits within the wall's landing capture band (~1.2 m) at ~0 relative
+    // velocity, and without this gate the ride start thrashes
+    // free-fly→grounded with a landing thud every frame.
     const reattachStatus =
-      playerTraversal.mode === 'free-fly'
+      playerTraversal.mode === 'free-fly' && !capRideState.active
         ? evaluateReattachPlayer(playerTraversal, {
             ...reattachTuning,
             radius: habitatConfig.radius,
@@ -1946,7 +1970,7 @@ export const bootstrapApp = async () => {
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
     let landed = false
-    if (!drive.driving) {
+    if (!drive.driving && !capRideState.active) {
       landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
