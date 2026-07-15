@@ -12,6 +12,13 @@ export type QualityProfile = {
   farMinAngularSize: number
   // Ambient traffic budget (cars simulated+drawn around the focus arc).
   maxTraffic: number
+  // Blender-authored building shells are restricted to a surface-space disk
+  // around the active player/car. LOD0 carries fins/balconies; LOD1 keeps only
+  // the stepped silhouette. Hard caps bound triangles even in dense blocks.
+  detailedLod0Distance: number
+  detailedLod1Distance: number
+  maxDetailedLod0: number
+  maxDetailedLod1: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -21,10 +28,10 @@ export type QualityProfile = {
 }
 
 export const getQualityProfile = (): QualityProfile => {
-  // Budgets assume the azimuth-bucket LOD: only the near arc carries
-  // full-detail shapes, the rest are plain instanced boxes.
+  // Budgets assume surface-space LOD: only the disk around the active player
+  // or car carries authored detail, while the rest are procedural silhouettes.
   if (isTouchDevice() && !isQuestBrowser()) {
-    // Phones spend their building budget on the near arc, not spread thin: a
+    // Phones spend their building budget on the near surface, not spread thin: a
     // uniform maxBuildings cut dilutes the arc you stand in — the only place
     // a small screen reads archetype variety — while most of what it saves
     // is far-side boxes that are sub-pixel at 1.75 DPR anyway. So the plan is
@@ -36,6 +43,10 @@ export const getQualityProfile = (): QualityProfile => {
       maxBuildings: 12000,
       farMinAngularSize: 0.01,
       maxTraffic: 160,
+      detailedLod0Distance: 70,
+      detailedLod1Distance: 220,
+      maxDetailedLod0: 96,
+      maxDetailedLod1: 320,
       bloom: false,
       rainStreaks: 2600
     }
@@ -47,6 +58,10 @@ export const getQualityProfile = (): QualityProfile => {
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
       maxTraffic: 280,
+      detailedLod0Distance: 100,
+      detailedLod1Distance: 350,
+      maxDetailedLod0: 180,
+      maxDetailedLod1: 700,
       bloom: false,
       rainStreaks: 4200
     }
@@ -57,6 +72,10 @@ export const getQualityProfile = (): QualityProfile => {
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
     maxTraffic: 420,
+    detailedLod0Distance: 180,
+    detailedLod1Distance: 600,
+    maxDetailedLod0: 420,
+    maxDetailedLod1: 1600,
     bloom: true,
     rainStreaks: 7000
   }

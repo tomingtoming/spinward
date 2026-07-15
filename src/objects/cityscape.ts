@@ -34,12 +34,34 @@ import {
 } from './cityLayout'
 import { mergeBufferGeometries } from './cylinder'
 import { createWindowGlassTexture } from './cylinderSurface'
+import {
+  disposeDetailedBuildingGeometryPack,
+  loadDetailedBuildingGeometryPack,
+  type DetailedBuildingArchetype,
+  type DetailedBuildingGeometryPack
+} from './buildingAssets'
+import {
+  getBuildingChordDistance,
+  getBuildingSurfaceDistance,
+  selectDetailedBuildingLod,
+  type DetailedBuildingLod
+} from './buildingLod'
 
 type CityscapeDimensions = {
   radius: number
   length: number
   topology?: HabitatTopology
   type?: HabitatType
+}
+
+type CityscapeOptions = {
+  maxBuildings?: number
+  farMinAngularSize?: number
+  maxTraffic?: number
+  detailedLod0Distance?: number
+  detailedLod1Distance?: number
+  maxDetailedLod0?: number
+  maxDetailedLod1?: number
 }
 
 const fullTurn = Math.PI * 2
@@ -928,6 +950,22 @@ const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
   return Math.floor(hash * buckets) % buckets
 }
 
+const detailedArchetypeForBuilding = (
+  building: CityBuilding
+): DetailedBuildingArchetype => {
+  if (building.kind === 'tower') {
+    return 'tower'
+  }
+  if (
+    building.kind === 'slab' ||
+    building.kind === 'setback' ||
+    building.kind === 'lshape'
+  ) {
+    return 'slab'
+  }
+  return 'residential'
+}
+
 export class Cityscape {
   readonly group = new THREE.Group()
 
@@ -1272,8 +1310,16 @@ export class Cityscape {
 
   private farBuildings: THREE.InstancedMesh | null = null
   private cityPlanBuildings: CityBuilding[] = []
+  private cityNearBuildings: CityBuilding[] = []
   private cityFocusAzimuth = 0
+  private cityFocusAxial = 0
+  private cityBatchFocusAzimuth = 0
+  private cityBatchFocusAxial = 0
   private archetypeBatches: THREE.InstancedMesh[] = []
+  private detailedBuildingBatches: THREE.InstancedMesh[] = []
+  private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
+  private detailedLodAssignments = new Map<CityBuilding, DetailedBuildingLod>()
+  private disposed = false
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
   private roofClutter: THREE.InstancedMesh[] = []
@@ -1321,14 +1367,25 @@ export class Cityscape {
   private readonly maxBuildings: number | undefined
   private readonly farMinAngularSize: number
   private readonly maxTraffic: number
+  private readonly detailedLod0Distance: number
+  private readonly detailedLod1Distance: number
+  private readonly maxDetailedLod0: number
+  private readonly maxDetailedLod1: number
 
   constructor(
     dimensions: CityscapeDimensions,
-    options?: { maxBuildings?: number; farMinAngularSize?: number; maxTraffic?: number }
+    options?: CityscapeOptions
   ) {
     this.maxBuildings = options?.maxBuildings
     this.farMinAngularSize = options?.farMinAngularSize ?? 0.004
     this.maxTraffic = options?.maxTraffic ?? 160
+    this.detailedLod0Distance = options?.detailedLod0Distance ?? 100
+    this.detailedLod1Distance = Math.max(
+      this.detailedLod0Distance,
+      options?.detailedLod1Distance ?? 350
+    )
+    this.maxDetailedLod0 = options?.maxDetailedLod0 ?? 180
+    this.maxDetailedLod1 = options?.maxDetailedLod1 ?? 700
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -1353,6 +1410,26 @@ export class Cityscape {
     }
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
+    void this.loadDetailedBuildingAssets()
+  }
+
+  private async loadDetailedBuildingAssets() {
+    try {
+      const pack = await loadDetailedBuildingGeometryPack()
+      if (this.disposed) {
+        disposeDetailedBuildingGeometryPack(pack)
+        return
+      }
+
+      this.detailedBuildingGeometries = pack
+      if (this.cityNearBuildings.length > 0) {
+        this.rebuildNearBuildingBatches()
+      }
+    } catch (error) {
+      // The procedural city is deliberately a complete fallback: a missing or
+      // corrupt cosmetic GLB must never keep WebXR from starting.
+      console.warn('Detailed building pack unavailable; using procedural city', error)
+    }
   }
 
   // Scale each instance's window texture by its own aUvScale attribute. The map
@@ -1750,7 +1827,12 @@ export class Cityscape {
   }
 
   dispose() {
+    this.disposed = true
     this.clear()
+    if (this.detailedBuildingGeometries !== null) {
+      disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
+      this.detailedBuildingGeometries = null
+    }
     for (const material of [
       ...this.buildingSideMaterials,
       this.houseBuildingSideMaterial,
@@ -1803,22 +1885,27 @@ export class Cityscape {
     this.spineRingMaterial.dispose()
   }
 
-  // Near batches are small (~10% of the plan) and cheap to recreate on every
-  // focus step; the far batch is the other ~90%, so it keeps a persistent
-  // capacity-sized buffer and is rewritten in place (see updateFarBatch).
+  // Surface-near batches are small and cheap to recreate on fine focus steps;
+  // the far batch keeps a persistent capacity-sized buffer and is rewritten
+  // only when the coarser focus grid changes (see updateFarBatch).
   private disposeNearBuildingBatches() {
-    for (const batch of [
-      ...this.roofClutter,
-      ...this.archetypeBatches
-    ]) {
+    for (const batch of [...this.roofClutter, ...this.archetypeBatches]) {
       if (batch !== null) {
         batch.geometry.dispose()
         this.group.remove(batch)
       }
     }
 
+    // Each detailed batch clones a tiny class-owned GLB source geometry so its
+    // per-instance UV buffer can be replaced safely on every focus rebuild.
+    for (const batch of this.detailedBuildingBatches) {
+      batch.geometry.dispose()
+      this.group.remove(batch)
+    }
+
     this.roofClutter = []
     this.archetypeBatches = []
+    this.detailedBuildingBatches = []
   }
 
   private disposeBuildingBatches() {
@@ -1835,6 +1922,8 @@ export class Cityscape {
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
+    this.cityNearBuildings = []
+    this.detailedLodAssignments.clear()
     this.cityPlanRoads = []
     this.trafficRoutes = []
     this.cityExpressway = null
@@ -1952,41 +2041,194 @@ export class Cityscape {
     this.rebuildBuildingBatches()
   }
 
-  // Azimuth-bucketed LOD: everything in a cylinder is visible at once, so
-  // detail is budgeted by arc distance from the player instead of frustum.
-  // The near arc gets the shaped archetypes; everything beyond it becomes a
-  // single instanced box batch (same windowed material, so the night-light
-  // skyline survives). Rebucketed at quantized focus steps like the shell.
+  // Compatibility for callers that only know the azimuth. Runtime movement
+  // uses setFocusSurface so axial travel participates in authored-detail LOD.
   setFocusAzimuth(azimuth: number) {
-    const step = getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6) / 3
-    const quantized = Math.round(azimuth / step) * step
-    const diff = Math.abs(wrapAngleToPi(quantized - this.cityFocusAzimuth))
+    this.setFocusSurface(azimuth, this.cityFocusAxial)
+  }
 
-    if (diff < step * 0.5 || this.cityPlanBuildings.length === 0) {
+  // Two focus grids keep movement smooth without rewriting the 48k-capacity
+  // far buffer every few metres. The fine grid rebuilds only nearby GLB and
+  // procedural batches; the coarse grid rebuckets near/far buildings.
+  setFocusSurface(azimuth: number, axial: number) {
+    if (this.cityPlanBuildings.length === 0 || this.radius <= 0) {
       return
     }
 
-    this.cityFocusAzimuth = quantized
-    this.rebuildBuildingBatches()
+    const coarseStepMeters = getCityNearDistance(this.radius) / 3
+    const coarseStepRadians = coarseStepMeters / this.radius
+    const detailStepMeters = Math.max(
+      20,
+      Math.min(this.detailedLod0Distance * 0.4, 80)
+    )
+    const detailStepRadians = detailStepMeters / this.radius
+    const detailAzimuth =
+      Math.round(azimuth / detailStepRadians) * detailStepRadians
+    const detailAxial = Math.round(axial / detailStepMeters) * detailStepMeters
+    const batchAzimuth =
+      Math.round(azimuth / coarseStepRadians) * coarseStepRadians
+    const batchAxial = Math.round(axial / coarseStepMeters) * coarseStepMeters
+    const detailChanged =
+      Math.abs(wrapAngleToPi(detailAzimuth - this.cityFocusAzimuth)) > 1e-7 ||
+      Math.abs(detailAxial - this.cityFocusAxial) > 1e-5
+    const batchChanged =
+      Math.abs(wrapAngleToPi(batchAzimuth - this.cityBatchFocusAzimuth)) > 1e-7 ||
+      Math.abs(batchAxial - this.cityBatchFocusAxial) > 1e-5
+
+    if (!detailChanged && !batchChanged) {
+      return
+    }
+
+    this.cityFocusAzimuth = detailAzimuth
+    this.cityFocusAxial = detailAxial
+
+    if (batchChanged) {
+      this.cityBatchFocusAzimuth = batchAzimuth
+      this.cityBatchFocusAxial = batchAxial
+      this.rebuildBuildingBatches()
+    } else {
+      this.rebuildNearBuildingBatches()
+      this.rebuildTraffic()
+    }
   }
 
   private rebuildBuildingBatches() {
-    this.disposeNearBuildingBatches()
-
-    const nearArc =
-      getCityNearDistance(this.radius) / Math.max(this.radius, 1e-6)
+    const nearDistance = getCityNearDistance(this.radius)
     const near: CityBuilding[] = []
     const far: CityBuilding[] = []
 
     for (const building of this.cityPlanBuildings) {
-      if (Math.abs(wrapAngleToPi(building.azimuth - this.cityFocusAzimuth)) < nearArc) {
+      const distance = getBuildingSurfaceDistance(
+        this.radius,
+        this.cityBatchFocusAzimuth,
+        this.cityBatchFocusAxial,
+        building.azimuth,
+        building.axial
+      )
+      if (distance < nearDistance) {
         near.push(building)
       } else {
         far.push(building)
       }
     }
 
-    // Near arc: plain blocks split by size so their windows stay
+    this.cityNearBuildings = near
+    this.updateFarBatch(far)
+    this.rebuildNearBuildingBatches()
+    this.rebuildTraffic()
+  }
+
+  private rebuildNearBuildingBatches() {
+    this.disposeNearBuildingBatches()
+
+    let procedural = this.cityNearBuildings
+    const pack = this.detailedBuildingGeometries
+
+    if (pack !== null) {
+      type Candidate = { building: CityBuilding; distance: number }
+      const lod0Candidates: Candidate[] = []
+      const lod1Candidates: Candidate[] = []
+      const thresholds = {
+        lod0Distance: this.detailedLod0Distance,
+        lod1Distance: this.detailedLod1Distance,
+        hysteresisFraction: 0.12
+      }
+
+      for (const building of this.cityNearBuildings) {
+        const distance = getBuildingSurfaceDistance(
+          this.radius,
+          this.cityFocusAzimuth,
+          this.cityFocusAxial,
+          building.azimuth,
+          building.axial
+        )
+        const lod = selectDetailedBuildingLod(
+          distance,
+          this.detailedLodAssignments.get(building) ?? null,
+          thresholds
+        )
+
+        if (lod === 0) {
+          lod0Candidates.push({ building, distance })
+        } else if (lod === 1) {
+          lod1Candidates.push({ building, distance })
+        }
+      }
+
+      const byDistance = (a: Candidate, b: Candidate) => a.distance - b.distance
+      const lod0 = lod0Candidates
+        .sort(byDistance)
+        .slice(0, this.maxDetailedLod0)
+        .map((candidate) => candidate.building)
+      const lod1 = lod1Candidates
+        .sort(byDistance)
+        .slice(0, this.maxDetailedLod1)
+        .map((candidate) => candidate.building)
+      const detailed = new Set([...lod0, ...lod1])
+      const nextAssignments = new Map<CityBuilding, DetailedBuildingLod>()
+
+      for (const building of lod0) {
+        nextAssignments.set(building, 0)
+      }
+      for (const building of lod1) {
+        nextAssignments.set(building, 1)
+      }
+
+      this.detailedLodAssignments = nextAssignments
+      procedural = this.cityNearBuildings.filter(
+        (building) => !detailed.has(building)
+      )
+      this.buildDetailedBuildingBatches(lod0, 0)
+      this.buildDetailedBuildingBatches(lod1, 1)
+    } else {
+      this.detailedLodAssignments.clear()
+    }
+
+    this.buildProceduralNearBatches(procedural)
+    this.buildRoofClutter(procedural)
+  }
+
+  private buildDetailedBuildingBatches(
+    plan: CityBuilding[],
+    lod: 0 | 1
+  ) {
+    const pack = this.detailedBuildingGeometries
+    if (pack === null) {
+      return
+    }
+
+    for (const archetype of [
+      'residential',
+      'slab',
+      'tower'
+    ] as const satisfies readonly DetailedBuildingArchetype[]) {
+      const buildings = plan.filter(
+        (building) => detailedArchetypeForBuilding(building) === archetype
+      )
+      if (buildings.length === 0) {
+        continue
+      }
+
+      const sideMaterial =
+        archetype === 'tower'
+          ? this.towerBuildingSideMaterials[2]
+          : archetype === 'slab'
+            ? this.largeBuildingSideMaterials[1]
+            : this.buildingSideMaterials[0]
+      const grid = archetype === 'tower' ? GRID_TOWER : GRID_DENSE
+      const batch = this.buildDetailedBuildingBatch(
+        buildings,
+        pack[archetype][lod],
+        sideMaterial,
+        grid
+      )
+      this.detailedBuildingBatches.push(batch)
+    }
+  }
+
+  private buildProceduralNearBatches(near: CityBuilding[]) {
+
+    // Near disk: plain blocks split by size so their windows stay
     // window-sized; the shaped archetypes each get their own batch.
     const blocks = near.filter((b) => b.kind === 'block')
     const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
@@ -2042,10 +2284,6 @@ export class Cityscape {
         this.archetypeBatches.push(batch)
       }
     }
-
-    this.updateFarBatch(far)
-    this.buildRoofClutter(near)
-    this.rebuildTraffic()
   }
 
   private ensureTrafficMesh() {
@@ -2117,8 +2355,14 @@ export class Cityscape {
 
         // Only the stretch of the avenue inside the axial window carries cars.
         const halfLength = road.axialLength * 0.5
-        const spanStart = Math.max(road.axial - halfLength, -axialWindow)
-        const spanEnd = Math.min(road.axial + halfLength, axialWindow)
+        const spanStart = Math.max(
+          road.axial - halfLength,
+          this.cityFocusAxial - axialWindow
+        )
+        const spanEnd = Math.min(
+          road.axial + halfLength,
+          this.cityFocusAxial + axialWindow
+        )
 
         if (spanEnd - spanStart < 60) {
           continue
@@ -2128,7 +2372,10 @@ export class Cityscape {
       } else {
         const halfArc = road.tangentWidth * 0.5 / this.radius
 
-        if (arcDistance > arcWindow + halfArc || Math.abs(road.axial) > axialWindow) {
+        if (
+          arcDistance > arcWindow + halfArc ||
+          Math.abs(road.axial - this.cityFocusAxial) > axialWindow
+        ) {
           continue
         }
 
@@ -2285,8 +2532,13 @@ export class Cityscape {
     let count = 0
 
     for (const building of far) {
-      const theta = Math.abs(wrapAngleToPi(building.azimuth - this.cityFocusAzimuth))
-      const chord = 2 * this.radius * Math.sin(theta * 0.5)
+      const chord = getBuildingChordDistance(
+        this.radius,
+        this.cityBatchFocusAzimuth,
+        this.cityBatchFocusAxial,
+        building.azimuth,
+        building.axial
+      )
       const maxDimension = Math.max(building.width, building.depth, building.height)
 
       // Constant-screen-size cull: below farMinAngularSize radians a building
@@ -2335,8 +2587,8 @@ export class Cityscape {
     }
   }
 
-  // One clutter kit (water tank + AC boxes + mast) per qualifying near-arc
-  // flat roof. Near arc only: at far-side distances the kit is sub-pixel, so
+  // One clutter kit (water tank + AC boxes + mast) per qualifying near-disk
+  // flat roof. Near only: at far-side distances the kit is sub-pixel, so
   // it would be pure vertex cost. Deterministic without consuming plan RNG —
   // the per-building offsets derive from fields the building already carries.
   private buildRoofClutter(near: CityBuilding[]) {
@@ -2439,6 +2691,67 @@ export class Cityscape {
       this.roofClutter.push(mesh)
       this.group.add(mesh)
     }
+  }
+
+  private buildDetailedBuildingBatch(
+    plan: CityBuilding[],
+    sourceGeometry: THREE.BufferGeometry,
+    sideMaterial: THREE.MeshStandardMaterial,
+    grid: FacadeGrid
+  ) {
+    const geometry = sourceGeometry.clone()
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      [sideMaterial, this.buildingRoofMaterial],
+      plan.length
+    )
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+    const uvScales = new Float32Array(plan.length * 2)
+
+    for (let index = 0; index < plan.length; index += 1) {
+      const building = plan[index]
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - building.height * 0.5)
+        .setY(building.axial)
+      instanceScale.set(building.width, building.height, building.depth)
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+      mesh.setColorAt(
+        index,
+        buildingTone(
+          building.tone,
+          building.urban ?? DEFAULT_URBAN,
+          instanceColor
+        )
+      )
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        building.height,
+        grid,
+        uvScales,
+        index * 2
+      )
+    }
+
+    geometry.setAttribute(
+      'aUvScale',
+      new THREE.InstancedBufferAttribute(uvScales, 2)
+    )
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+    this.group.add(mesh)
+    return mesh
   }
 
   private buildArchetypeBatch(

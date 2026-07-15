@@ -215,7 +215,11 @@ export const bootstrapApp = async () => {
     {
       maxBuildings: quality.maxBuildings,
       farMinAngularSize: quality.farMinAngularSize,
-      maxTraffic: quality.maxTraffic
+      maxTraffic: quality.maxTraffic,
+      detailedLod0Distance: quality.detailedLod0Distance,
+      detailedLod1Distance: quality.detailedLod1Distance,
+      maxDetailedLod0: quality.maxDetailedLod0,
+      maxDetailedLod1: quality.maxDetailedLod1
     }
   )
   const spaceport = new Spaceport({
@@ -1797,7 +1801,10 @@ export const bootstrapApp = async () => {
 
     const playerAzimuth = Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x)
     habitat.setFocusAzimuth(playerAzimuth)
-    cityscape.setFocusAzimuth(playerAzimuth)
+    cityscape.setFocusSurface(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+    )
 
     // Stream the building colliders to whatever we're controlling — the car
     // while driving, otherwise the walker — before stepping.
