@@ -665,24 +665,21 @@ const drawEmissiveRect = (
   color: string,
   alpha: number
 ) => {
-  context.globalAlpha = alpha * 0.18
+  context.globalAlpha = alpha * 0.08
   context.fillStyle = color
   context.fillRect(x - width * 0.35, y - height * 0.35, width * 1.7, height * 1.7)
-  context.globalAlpha = alpha * 0.82
+  context.globalAlpha = alpha * 0.68
   context.fillRect(x, y, width, height)
   context.globalAlpha = 1
 }
 
 // Optional palette override for a facade texture — the lever behind the
 // per-building material variety. Same window grid, different skin: pale tile,
-// warm masonry, checkered curtain glass, and so on.
+// warm masonry, muted curtain glass, and so on.
 type FacadePalette = {
   base: string
   rib: string
   seam?: string
-  // Alternate-cell backdrop; paints a (row+column)-parity checker like the
-  // white-and-glass tower in the reference photo.
-  checker?: string
   litChance?: number
   // Unlit pane colour (defaults to cool sky-reflecting glass).
   coolGlass?: string
@@ -760,19 +757,14 @@ const createFacadeTextureSet = (
       const x = column * cellWidth
       const y = row * cellHeight
 
-      if (palette?.checker !== undefined && (row + column) % 2 === 0) {
-        albedo.fillStyle = palette.checker
-        albedo.fillRect(x, y, cellWidth, cellHeight)
-      }
-
       const windowWidth = cellWidth * (isTower ? 0.42 : isDense ? 0.5 : 0.58)
       const windowHeight = cellHeight * (isDense ? 0.5 : 0.44)
       const offsetX = cellWidth * (isTower ? 0.34 : 0.23) + (random() - 0.5) * cellWidth * 0.08
       const offsetY = cellHeight * 0.26 + (random() - 0.5) * cellHeight * 0.08
       const litChance =
         palette?.litChance ??
-        (variant === 'far' ? 0.58 : variant === 'dense' ? 0.48 : isTower ? 0.42 : 0.34)
-      const stripChance = isTower ? 0.18 : 0.04
+        (variant === 'far' ? 0.3 : variant === 'dense' ? 0.22 : isTower ? 0.24 : 0.18)
+      const stripChance = isTower ? 0.04 : 0.01
       const lit = random() < litChance
       const color = random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
 
@@ -780,8 +772,8 @@ const createFacadeTextureSet = (
       // daylight (lifted albedo) they look glazed; at night the low light sinks
       // them dark while the lit/emissive panes carry the glow.
       albedo.fillStyle = lit
-        ? 'rgba(255, 216, 166, 0.55)'
-        : palette?.coolGlass ?? 'rgba(120, 144, 170, 0.6)'
+        ? 'rgba(232, 216, 190, 0.38)'
+        : palette?.coolGlass ?? 'rgba(105, 127, 151, 0.42)'
       albedo.fillRect(x + offsetX, y + offsetY, windowWidth, windowHeight)
       albedo.fillStyle = 'rgba(255, 255, 255, 0.08)'
       albedo.fillRect(x + offsetX + windowWidth * 0.12, y + offsetY, windowWidth * 0.12, windowHeight)
@@ -814,7 +806,7 @@ const createFacadeTextureSet = (
         )
       }
 
-      if (isDense && random() < 0.04) {
+      if (isDense && random() < 0.008) {
         drawEmissiveRect(
           emissive,
           x + cellWidth * 0.78,
@@ -828,12 +820,15 @@ const createFacadeTextureSet = (
     }
   }
 
-  for (let index = 0; index < (variant === 'far' ? 900 : 140); index += 1) {
+  // A little large-scale variation prevents sterile repetition, but the former
+  // dense sprinkle read as television static once mipmapped across thousands
+  // of buildings. Near facades now rely on the modeled ledges for detail.
+  for (let index = 0; index < (variant === 'far' ? 220 : 18); index += 1) {
     const x = random() * size
     const y = random() * size
     const width = Math.max(1, size * (variant === 'far' ? 0.004 : 0.006))
     const height = Math.max(1, size * (variant === 'far' ? 0.012 : 0.018))
-    albedo.fillStyle = random() < 0.5 ? 'rgba(255, 167, 112, 0.13)' : 'rgba(159, 244, 255, 0.1)'
+    albedo.fillStyle = random() < 0.5 ? 'rgba(255, 184, 136, 0.06)' : 'rgba(159, 218, 238, 0.05)'
     albedo.fillRect(x, y, width, height)
 
     if (variant === 'far' && random() < 0.45) {
@@ -915,30 +910,35 @@ const disposeTextureSet = (textures: TextureSet) => {
 }
 
 // Facade wardrobes. Block batches split by a per-building hash across these
-// palettes so neighbouring buildings stop wearing the same skin; towers get a
-// second, checkered curtain-glass look straight out of the reference photo.
+// palettes so neighbouring buildings stop wearing the same skin.
 const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
   undefined, // the original slate
   {
     base: '#878e94',
     rib: '#5c636b',
     seam: 'rgba(40, 48, 58, 0.12)',
-    coolGlass: 'rgba(96, 116, 136, 0.62)'
+    coolGlass: 'rgba(96, 116, 136, 0.4)'
   }, // pale tile
   {
     base: '#4d423c',
     rib: '#2f2823',
     seam: 'rgba(255, 200, 150, 0.1)',
-    litChance: 0.4
+    litChance: 0.22
   } // warm masonry
 ]
 
-// Two plain slots against one checker keep the showpiece a showpiece — in the
-// reference photo the checkered tower is an accent, not the uniform.
+// Authored towers share one material per instanced batch, so every option must
+// remain calm when repeated. The third slot keeps a warmer metal/concrete cast.
 const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   undefined,
   undefined,
-  { base: '#222b36', rib: '#141a22', checker: '#c3ced7', litChance: 0.5 } // checkered glass
+  {
+    base: '#343b42',
+    rib: '#20262c',
+    seam: 'rgba(208, 190, 170, 0.06)',
+    coolGlass: 'rgba(103, 122, 137, 0.38)',
+    litChance: 0.2
+  }
 ]
 
 // Deterministic palette pick from fields the building already carries — no
@@ -2269,8 +2269,8 @@ export class Cityscape {
       }
     }
 
-    // Towers split across their own two skins — the checkered curtain-glass
-    // variant is the reference photo's showpiece.
+    // Towers split across three restrained skins so the skyline varies without
+    // turning into a high-contrast checkerboard in motion.
     const towers = near.filter((b) => b.kind === 'tower')
 
     for (let palette = 0; palette < TOWER_PALETTES.length; palette += 1) {
