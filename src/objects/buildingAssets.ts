@@ -2,7 +2,11 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 
-export type DetailedBuildingArchetype = 'residential' | 'slab' | 'tower'
+export type DetailedBuildingArchetype =
+  | 'house'
+  | 'residential'
+  | 'slab'
+  | 'tower'
 export type DetailedBuildingGeometryPack = Record<
   DetailedBuildingArchetype,
   [THREE.BufferGeometry, THREE.BufferGeometry]
@@ -12,6 +16,7 @@ const assetNames: Record<
   DetailedBuildingArchetype,
   readonly [string, string]
 > = {
+  house: ['house_a_lod0', 'house_a_lod1'],
   residential: ['residential_a_lod0', 'residential_a_lod1'],
   slab: ['slab_a_lod0', 'slab_a_lod1'],
   tower: ['tower_a_lod0', 'tower_a_lod1']
@@ -33,7 +38,11 @@ const remapMaterialGroups = (source: THREE.Mesh, geometry: THREE.BufferGeometry)
 
   for (const group of geometry.groups) {
     const sourceMaterial = materials[group.materialIndex ?? 0]
-    group.materialIndex = sourceMaterial?.name.includes('ROOF') ? 1 : 0
+    group.materialIndex = sourceMaterial?.name.includes('SIGN')
+      ? 2
+      : sourceMaterial?.name.includes('ROOF')
+        ? 1
+        : 0
   }
 }
 
@@ -75,10 +84,12 @@ const collectGeometry = (source: THREE.Object3D) => {
       ? mesh.material
       : [mesh.material]
     const materialIndex = materials.some((material) =>
-      material.name.includes('ROOF')
+      material.name.includes('SIGN')
     )
-      ? 1
-      : 0
+      ? 2
+      : materials.some((material) => material.name.includes('ROOF'))
+        ? 1
+        : 0
     const count = geometry.index?.count ?? geometry.getAttribute('position').count
     geometry.clearGroups()
     pieces.push({ geometry, count, materialIndex })
@@ -147,6 +158,7 @@ export const loadDetailedBuildingGeometryPack = async () => {
   }
 
   const pack: DetailedBuildingGeometryPack = {
+    house: loadPair('house'),
     residential: loadPair('residential'),
     slab: loadPair('slab'),
     tower: loadPair('tower')
