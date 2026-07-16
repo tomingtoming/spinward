@@ -568,10 +568,17 @@ const FACET_SWEEP_SPREAD = 0.25
 // per-fragment light loop by the window count.
 const SUN_BEAM_BANDS = 4
 
-// Alternating crop stripes for farm blocks; one texture tile is a pair of
-// rows, repeated in world units via baked UVs.
+const hashUnit = (value: number) => {
+  const hashed = Math.sin(value) * 43758.5453123
+  return hashed - Math.floor(hashed)
+}
+
+// One field-scale albedo: narrow crop rows, exposed earth, wheel tracks and
+// drainage seams are baked together so farms gain depth without another map,
+// sampler or draw call. The tile is generated locally and mipmapped, so the
+// extra resolution costs only about 0.3 MiB of GPU memory.
 const createFarmTexture = () => {
-  const size = 64
+  const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -581,17 +588,65 @@ const createFarmTexture = () => {
     throw new Error('2D canvas context is required for the farm texture')
   }
 
-  const rows = ['#5b7a3c', '#c5b05e', '#43653a', '#8a9a4e']
+  const pixels = context.createImageData(size, size)
+  const palettes = [
+    [91, 113, 57],
+    [137, 128, 67],
+    [68, 98, 53],
+    [158, 139, 76]
+  ] as const
+  const rowPixels = 8
 
-  rows.forEach((color, index) => {
-    context.fillStyle = color
-    context.fillRect(0, (index * size) / rows.length, size, size / rows.length)
-  })
+  for (let y = 0; y < size; y += 1) {
+    const row = Math.floor(y / rowPixels)
+    const palette = palettes[row % palettes.length]
+    const acrossRow = (y % rowPixels) / rowPixels
+    const ridge = Math.sin(acrossRow * Math.PI) * 10 - 4
+
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4
+      const grain = hashUnit(x * 12.9898 + y * 78.233) - 0.5
+      const broadVariation =
+        Math.sin((x / size) * Math.PI * 4 + row * 0.73) * 3 +
+        Math.sin((y / size) * Math.PI * 2) * 2
+      // A darker trough at each row edge reads as soil between plants; sparse
+      // bright flecks break the computer-perfect stripe without becoming noise.
+      const trough = acrossRow < 0.16 || acrossRow > 0.84 ? -13 : 0
+      const fleck = grain > 0.43 ? 9 : 0
+      const shade = ridge + broadVariation + grain * 10 + trough + fleck
+
+      pixels.data[index] = THREE.MathUtils.clamp(palette[0] + shade, 0, 255)
+      pixels.data[index + 1] = THREE.MathUtils.clamp(palette[1] + shade, 0, 255)
+      pixels.data[index + 2] = THREE.MathUtils.clamp(
+        palette[2] + shade * 0.55,
+        0,
+        255
+      )
+      pixels.data[index + 3] = 255
+    }
+  }
+
+  context.putImageData(pixels, 0, 0)
+
+  // Seamless field boundaries and paired tractor tracks. These are deliberately
+  // broad enough to survive mipmapping instead of dissolving into shimmer.
+  context.fillStyle = 'rgba(68, 61, 39, 0.72)'
+  context.fillRect(0, 0, 4, size)
+  context.fillRect(size - 4, 0, 4, size)
+  context.fillStyle = 'rgba(91, 76, 43, 0.42)'
+  for (const trackX of [64, 70, 184, 190]) {
+    context.fillRect(trackX, 0, 3, size)
+  }
+  context.fillStyle = 'rgba(190, 173, 105, 0.22)'
+  context.fillRect(6, 0, 2, size)
+  context.fillRect(size - 8, 0, 2, size)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.magFilter = THREE.LinearFilter
   // Crop rows tile many times across a field and are seen at grazing angles —
   // right at your feet and, per-eye in VR, badly. Without anisotropic filtering
   // the stripes shimmer/moiré and read like the road↔field surfaces z-fighting.
@@ -1375,6 +1430,7 @@ export class Cityscape {
 
   private readonly farmMaterial = new THREE.MeshStandardMaterial({
     map: createFarmTexture(),
+    vertexColors: true,
     roughness: 1,
     metalness: 0,
     side: THREE.BackSide
@@ -3598,8 +3654,9 @@ export class Cityscape {
     // Lifted off the ground so log depth (which makes polygonOffset inert)
     // resolves the field-vs-ground and field-vs-road seams. See buildRoads.
     const bandRadius = radius - 0.1
-    // Crop rows stay field-scale even on multi-km habitats.
-    const stripeWorld = Math.min(getCityCellSize(radius, length) * 0.8, 30)
+    // One full texture tile stays field-scale even on multi-km habitats. Its
+    // 32 narrow rows land around 0.6–0.9 m apart at this world size.
+    const textureWorld = Math.min(getCityCellSize(radius, length) * 0.65, 24)
 
     for (const kind of ['park', 'farm'] as const) {
       const geometries: THREE.BufferGeometry[] = []
@@ -3619,16 +3676,43 @@ export class Cityscape {
         )
 
         if (kind === 'farm') {
-          // Constant world-size crop rows regardless of patch size.
+          // Constant world-size crop rows regardless of patch size. Rotate and
+          // phase each field from its position so adjacent blocks do not repeat
+          // in lockstep. All variation remains in one merged mesh/material.
           const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
+          const seed = patch.azimuth * 1729.31 + patch.axial * 0.173
+          const rotated = hashUnit(seed + 11.7) > 0.58
+          const offsetU = hashUnit(seed + 37.1)
+          const offsetV = hashUnit(seed + 83.9)
+          const tangentTiles = patch.tangentExtent / textureWorld
+          const axialTiles = patch.axialExtent / textureWorld
 
           for (let i = 0; i < uv.count; i += 1) {
+            const u = uv.getX(i)
+            const v = uv.getY(i)
             uv.setXY(
               i,
-              uv.getX(i) * (patch.tangentExtent / stripeWorld),
-              uv.getY(i) * (patch.axialExtent / stripeWorld)
+              (rotated ? v * axialTiles : u * tangentTiles) + offsetU,
+              (rotated ? u * tangentTiles : v * axialTiles) + offsetV
             )
           }
+
+          // Mild per-field tint multiplies the shared albedo in the existing
+          // material, making neighbouring crops/fallow plots distinct at no
+          // fragment-sampling cost.
+          const tintChoices = [0xe4efd0, 0xf1ddb7, 0xd2e5bd, 0xe5cfaa]
+          const tint = new THREE.Color(
+            tintChoices[Math.floor(hashUnit(seed + 149.3) * tintChoices.length)]
+          )
+          const colors = new Float32Array(
+            geometry.getAttribute('position').count * 3
+          )
+          for (let i = 0; i < colors.length; i += 3) {
+            colors[i] = tint.r
+            colors[i + 1] = tint.g
+            colors[i + 2] = tint.b
+          }
+          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
         }
 
         geometries.push(geometry)

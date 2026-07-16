@@ -40,16 +40,17 @@ export const getQualityProfile = (): QualityProfile => {
     // now carry the phone GPU budget.
     return {
       pixelRatioCap: 1.75,
-      maxBuildings: 12000,
+      maxBuildings: 16000,
       farMinAngularSize: 0.01,
       maxTraffic: 160,
       // The Izma spawn is an arterial crossroads: even after core infill, the
       // first facade centres sit tens of metres beyond the road and sidewalk.
-      // Keep the hard 96-instance cap, but let those frontages enter LOD0.
+      // The current phone path still has headroom: spend it on visible street
+      // walls, while the aggressive far cull and 1.75 DPR cap stay unchanged.
       detailedLod0Distance: 120,
       detailedLod1Distance: 260,
-      maxDetailedLod0: 96,
-      maxDetailedLod1: 320,
+      maxDetailedLod0: 120,
+      maxDetailedLod1: 480,
       bloom: false,
       rainStreaks: 2600
     }
