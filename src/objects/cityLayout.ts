@@ -960,9 +960,14 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         pitch * 0.36 >= 4
 
       // Downtown lots fill in; the countryside thins out toward fields.
+      // The hero CBD must begin at the spawn crossroads, not one block later.
+      // Global cap pressure can make even an urban=1 row randomly disappear;
+      // add a steep core-only infill term so the first visible frontages are
+      // reliably occupied while suburbs and the rural fringe stay sparse.
+      const coreInfill = clamp01((urban - 0.9) / 0.1)
       const localKeepProbability = Math.min(
         1,
-        keepProbability * (0.08 + urban * 1.12)
+        keepProbability * (0.08 + urban * 1.12) + coreInfill * 0.72
       )
       if (roll.keep > localKeepProbability) {
         index += stride

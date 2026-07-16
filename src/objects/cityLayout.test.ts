@@ -390,6 +390,22 @@ describe('planCity', () => {
     expect(averageHeight(cbd) / averageHeight(fringe)).toBeGreaterThan(2.8)
   })
 
+  test('the Izma spawn crossroads has occupied CBD frontage inside phone LOD0', () => {
+    const radius = 3200
+    const { buildings } = planCity({ radius, length: 40000 })
+    const nearby = buildings.filter((building) =>
+      Math.hypot(building.azimuth * radius, building.axial) <= 120
+    )
+    const nearestCenter = Math.min(
+      ...buildings.map((building) =>
+        Math.hypot(building.azimuth * radius, building.axial)
+      )
+    )
+
+    expect(nearestCenter).toBeLessThan(70)
+    expect(nearby.length).toBeGreaterThanOrEqual(4)
+  })
+
   test('assigns building archetypes with sane shapes', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
     const kinds = new Set(buildings.map((b) => b.kind))

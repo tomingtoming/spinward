@@ -35,16 +35,19 @@ export const getQualityProfile = (): QualityProfile => {
     // uniform maxBuildings cut dilutes the arc you stand in — the only place
     // a small screen reads archetype variety — while most of what it saves
     // is far-side boxes that are sub-pixel at 1.75 DPR anyway. So the plan is
-    // 2x denser than before and the far cull threshold 2.5x higher; measured
-    // on Izma this doubles the near arc while total drawn instances rise
-    // only ~16% (3,140 → 3,644).
+    // denser than the original mobile plan and the far cull threshold stays
+    // aggressive. The hard near-LOD caps, rather than an empty spawn radius,
+    // now carry the phone GPU budget.
     return {
       pixelRatioCap: 1.75,
       maxBuildings: 12000,
       farMinAngularSize: 0.01,
       maxTraffic: 160,
-      detailedLod0Distance: 70,
-      detailedLod1Distance: 220,
+      // The Izma spawn is an arterial crossroads: even after core infill, the
+      // first facade centres sit tens of metres beyond the road and sidewalk.
+      // Keep the hard 96-instance cap, but let those frontages enter LOD0.
+      detailedLod0Distance: 120,
+      detailedLod1Distance: 260,
       maxDetailedLod0: 96,
       maxDetailedLod1: 320,
       bloom: false,
