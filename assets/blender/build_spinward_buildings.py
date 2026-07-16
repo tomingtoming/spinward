@@ -19,7 +19,7 @@ GLB_PATH = ROOT / "public" / "assets" / "buildings" / "spinward-buildings.glb"
 COLLECTION_NAME = "SPINWARD_BUILDINGS"
 BUILDING_ASSET_NAMES = {
     f"{archetype}_a_lod{lod}"
-    for archetype in ("house", "residential", "slab", "tower")
+    for archetype in ("house", "residential", "setback", "slab", "lshape", "tower")
     for lod in (0, 1)
 }
 STREET_ASSET_NAMES = {
@@ -127,6 +127,75 @@ def add_cylinder(
     move_to_collection(obj, collection)
     parts.append(obj)
     return obj
+
+
+def add_conical_frustum(
+    parts: list[bpy.types.Object],
+    collection: bpy.types.Collection,
+    name: str,
+    radius_bottom: float,
+    radius_top: float,
+    depth: float,
+    location: tuple[float, float, float],
+    mat: bpy.types.Material,
+    vertices: int = 8,
+):
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=vertices,
+        radius1=radius_bottom,
+        radius2=radius_top,
+        depth=depth,
+        location=location,
+    )
+    obj = bpy.context.object
+    assert obj is not None
+    obj.name = name
+    obj.data.materials.append(mat)
+    move_to_collection(obj, collection)
+    parts.append(obj)
+    return obj
+
+
+def add_octagonal_balcony_ring(
+    parts: list[bpy.types.Object],
+    collection: bpy.types.Collection,
+    z: float,
+    radius: float,
+    trim: bpy.types.Material,
+    detailed: bool,
+):
+    add_cylinder(parts, collection, "octagonal_balcony", radius, 0.018, (0, 0, z), trim, 8)
+    if not detailed:
+        return
+
+    # Keep rails inside the slab footprint so detailed posts do not change the
+    # normalized outer hull relative to the coarse octagonal balcony.
+    rail_radius = radius - 0.042
+    rail_z = z + 0.08
+    edge_length = 2 * rail_radius * math.sin(math.pi / 8)
+    for index in range(8):
+        angle = index * math.pi * 0.25
+        next_angle = (index + 1) * math.pi * 0.25
+        middle = (angle + next_angle) * 0.5
+        add_box(
+            parts,
+            collection,
+            "octagonal_rail",
+            (edge_length, 0.012, 0.016),
+            (math.cos(middle) * rail_radius, math.sin(middle) * rail_radius, rail_z),
+            trim,
+            rotation=(0, 0, middle + math.pi * 0.5),
+        )
+        add_cylinder(
+            parts,
+            collection,
+            "octagonal_post",
+            0.007,
+            0.085,
+            (math.cos(angle) * rail_radius, math.sin(angle) * rail_radius, z + 0.045),
+            trim,
+            6,
+        )
 
 
 def add_pyramid_roof(
@@ -298,25 +367,76 @@ def build_slab(collection, facade, trim, sign, detailed: bool):
     return join_asset(parts, f"slab_a_lod{0 if detailed else 1}")
 
 
+def build_setback(collection, facade, trim, sign, detailed: bool):
+    parts: list[bpy.types.Object] = []
+    add_box(parts, collection, "setback_lower", (0.98, 0.98, 0.58), (0, 0, 0.29), facade, 0.012)
+    add_box(parts, collection, "setback_terrace", (1.0, 1.0, 0.025), (0, 0, 0.595), trim)
+    add_box(parts, collection, "setback_upper", (0.66, 0.7, 0.38), (0, 0, 0.81), facade, 0.012)
+    add_box(parts, collection, "setback_roof", (0.68, 0.72, 0.025), (0, 0, 1.01), trim)
+    add_box(parts, collection, "setback_sign", (0.12, 0.025, 0.38), (0.38, -0.497, 0.35), sign)
+    add_box(parts, collection, "roof_core", (0.22, 0.2, 0.06), (0.08, 0.03, 0.985), trim)
+    if detailed:
+        # Terrace rail and familiar exterior services sit inside the lower
+        # footprint so LOD0 keeps the same outer hull as LOD1.
+        for x in (-0.43, 0.43):
+            add_box(parts, collection, "terrace_post", (0.012, 0.012, 0.1), (x, -0.43, 0.66), trim)
+        add_box(parts, collection, "terrace_rail", (0.88, 0.012, 0.018), (0, -0.43, 0.71), trim)
+        for x, y in ((-0.29, 0.31), (0.29, -0.31)):
+            add_cylinder(parts, collection, "setback_downpipe", 0.011, 0.35, (x, y, 0.81), trim, 7)
+        add_ac_unit(parts, collection, "y", 1, -0.17, 0.73, 0.66, 0.7, trim)
+    return join_asset(parts, f"setback_a_lod{0 if detailed else 1}")
+
+
+def build_lshape(collection, facade, trim, sign, detailed: bool):
+    parts: list[bpy.types.Object] = []
+    # Matches the procedural L: a full-width rear wing and a shorter front-left
+    # wing. The two authored LODs share these exact masses.
+    add_box(parts, collection, "lshape_long_wing", (0.98, 0.48, 0.94), (0, -0.25, 0.47), facade, 0.012)
+    add_box(parts, collection, "lshape_long_roof", (1.0, 0.5, 0.025), (0, -0.25, 0.955), trim)
+    add_box(parts, collection, "lshape_short_wing", (0.5, 0.5, 0.76), (-0.24, 0.25, 0.38), facade, 0.012)
+    add_box(parts, collection, "lshape_short_roof", (0.52, 0.52, 0.025), (-0.24, 0.25, 0.775), trim)
+    add_box(parts, collection, "lshape_sign", (0.1, 0.025, 0.42), (0.36, -0.497, 0.38), sign)
+    add_box(parts, collection, "roof_hvac", (0.14, 0.12, 0.09), (-0.1, -0.25, 1.02), trim, 0.006)
+    if detailed:
+        add_box(parts, collection, "exterior_corridor", (0.72, 0.035, 0.025), (0.08, -0.493, 0.63), trim)
+        for x in (-0.24, -0.04, 0.16, 0.36):
+            add_box(parts, collection, "corridor_post", (0.01, 0.012, 0.1), (x, -0.493, 0.68), trim)
+        add_box(parts, collection, "corridor_rail", (0.72, 0.012, 0.016), (0.08, -0.493, 0.73), trim)
+        add_cylinder(parts, collection, "lshape_downpipe", 0.011, 0.88, (0.43, -0.43, 0.47), trim, 7)
+        add_ac_unit(parts, collection, "y", 1, -0.2, 0.42, 0.5, 0.5, trim)
+    return join_asset(parts, f"lshape_a_lod{0 if detailed else 1}")
+
+
 def build_tower(collection, facade, trim, sign, detailed: bool):
     del sign
     parts: list[bpy.types.Object] = []
-    width, depth = 0.66, 0.66
-    add_box(parts, collection, "tower_shaft", (width, depth, 0.93), (0, 0, 0.465), facade, 0.014)
+    radius_bottom, radius_top = 0.5, 0.44
+    add_conical_frustum(
+        parts,
+        collection,
+        "tower_shaft",
+        radius_bottom,
+        radius_top,
+        0.93,
+        (0, 0, 0.465),
+        facade,
+        8,
+    )
     for z in (0.17, 0.31, 0.45, 0.59, 0.73, 0.87):
-        add_balcony_ring(parts, collection, z, width, depth, trim, detailed)
-    add_box(parts, collection, "tower_roof", (0.73, 0.73, 0.035), (0, 0, 0.945), trim)
+        radius = radius_bottom + (radius_top - radius_bottom) * (z / 0.93) + 0.035
+        add_octagonal_balcony_ring(parts, collection, z, radius, trim, detailed)
+    add_cylinder(parts, collection, "tower_roof", 0.48, 0.035, (0, 0, 0.945), trim, 8)
     add_box(parts, collection, "roof_core", (0.24, 0.22, 0.09), (0.06, 0.02, 0.985), trim)
     if detailed:
         for x, y in ((-0.29, -0.29), (0.29, 0.29)):
             add_cylinder(parts, collection, "tower_downpipe", 0.011, 0.86, (x, y, 0.47), trim, 7)
-        add_ac_unit(parts, collection, "y", 1, -0.17, 0.37, width, depth, trim)
-        add_ac_unit(parts, collection, "x", 1, 0.16, 0.65, width, depth, trim)
+        add_ac_unit(parts, collection, "y", 1, -0.17, 0.37, 0.72, 0.72, trim)
+        add_ac_unit(parts, collection, "x", 1, 0.16, 0.65, 0.72, 0.72, trim)
         # Rooftop safety cage seen from the elevated road.
         for x in (-0.22, 0.22):
-            add_box(parts, collection, "roof_fence", (0.012, 0.5, 0.11), (x, 0, 1.015), trim)
+            add_box(parts, collection, "roof_fence", (0.012, 0.5, 0.06), (x, 0, 0.99), trim)
         for y in (-0.22, 0.22):
-            add_box(parts, collection, "roof_fence", (0.5, 0.012, 0.11), (0, y, 1.015), trim)
+            add_box(parts, collection, "roof_fence", (0.5, 0.012, 0.06), (0, y, 0.99), trim)
     return join_asset(parts, f"tower_a_lod{0 if detailed else 1}")
 
 
@@ -454,7 +574,14 @@ def build():
     sign = material("SPW_SIGN", (0.28, 0.12, 0.08, 1.0), 0.05)
 
     assets = []
-    for builder in (build_house, build_residential, build_slab, build_tower):
+    for builder in (
+        build_house,
+        build_residential,
+        build_setback,
+        build_slab,
+        build_lshape,
+        build_tower,
+    ):
         assets.append(builder(collection, facade, trim, sign, True))
         assets.append(builder(collection, facade, trim, sign, False))
     for builder in (

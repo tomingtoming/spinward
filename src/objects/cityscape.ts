@@ -44,8 +44,7 @@ import {
 import {
   getBuildingChordDistance,
   getBuildingSurfaceDistance,
-  selectDetailedBuildingLod,
-  type DetailedBuildingLod
+  getDetailedBuildingLodBlend
 } from './buildingLod'
 
 type CityscapeDimensions = {
@@ -63,6 +62,38 @@ type CityscapeOptions = {
   detailedLod1Distance?: number
   maxDetailedLod0?: number
   maxDetailedLod1?: number
+}
+
+// mode +1 keeps pixels below threshold (incoming LOD), -1 keeps pixels above
+// it (outgoing LOD), and 0 draws the instance normally. Paired layers use the
+// same screen-space noise, so every pixel belongs to exactly one LOD.
+type BuildingRenderPlacement = {
+  building: CityBuilding
+  ditherThreshold: number
+  ditherMode: -1 | 0 | 1
+}
+
+const stableBuildingPlacement = (
+  building: CityBuilding
+): BuildingRenderPlacement => ({
+  building,
+  ditherThreshold: 0,
+  ditherMode: 0
+})
+
+const attachBuildingLodDither = (
+  geometry: THREE.BufferGeometry,
+  placements: readonly BuildingRenderPlacement[]
+) => {
+  const values = new Float32Array(placements.length * 2)
+  for (let index = 0; index < placements.length; index += 1) {
+    values[index * 2] = placements[index].ditherThreshold
+    values[index * 2 + 1] = placements[index].ditherMode
+  }
+  geometry.setAttribute(
+    'aLodDither',
+    new THREE.InstancedBufferAttribute(values, 2)
+  )
 }
 
 const fullTurn = Math.PI * 2
@@ -1094,13 +1125,14 @@ const detailedArchetypeForBuilding = (
   if (building.kind === 'tower') {
     return 'tower'
   }
-  if (
-    building.kind === 'slab' ||
-    building.kind === 'setback' ||
-    building.kind === 'lshape' ||
-    building.height > 22
-  ) {
+  if (building.kind === 'setback') {
+    return 'setback'
+  }
+  if (building.kind === 'slab') {
     return 'slab'
+  }
+  if (building.kind === 'lshape') {
+    return 'lshape'
   }
   return 'residential'
 }
@@ -1499,7 +1531,6 @@ export class Cityscape {
   private archetypeBatches: THREE.InstancedMesh[] = []
   private detailedBuildingBatches: THREE.InstancedMesh[] = []
   private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
-  private detailedLodAssignments = new Map<CityBuilding, DetailedBuildingLod>()
   private disposed = false
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
@@ -1594,6 +1625,20 @@ export class Cityscape {
     ]) {
       this.installFacadeUvScale(material)
     }
+    // Ordered screen-door transitions preserve depth writes and opaque draw
+    // order on phones/Quest while making the two authored LOD boundaries blend.
+    for (const material of [
+      ...this.buildingSideMaterials,
+      this.houseBuildingSideMaterial,
+      ...this.largeBuildingSideMaterials,
+      ...this.towerBuildingSideMaterials,
+      this.farBuildingSideMaterial,
+      this.buildingRoofMaterial,
+      ...this.buildingSignMaterials,
+      this.roofClutterMaterial
+    ]) {
+      this.installBuildingLodDither(material)
+    }
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
@@ -1630,6 +1675,28 @@ export class Cityscape {
           '#include <uv_vertex>\n' +
             '#ifdef USE_MAP\n  vMapUv *= aUvScale;\n#endif\n' +
             '#ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv *= aUvScale;\n#endif'
+        )
+    }
+  }
+
+  private installBuildingLodDither(material: THREE.MeshStandardMaterial) {
+    const previousCompile = material.onBeforeCompile
+    material.onBeforeCompile = (shader, renderer) => {
+      previousCompile(shader, renderer)
+      shader.vertexShader =
+        'attribute vec2 aLodDither;\nvarying vec2 vLodDither;\n' +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n  vLodDither = aLodDither;'
+        )
+      shader.fragmentShader =
+        'varying vec2 vLodDither;\n' +
+        shader.fragmentShader.replace(
+          '#include <clipping_planes_fragment>',
+          '#include <clipping_planes_fragment>\n' +
+            '  float lodNoise = fract(52.9829189 * fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715))));\n' +
+            '  if (vLodDither.y > 0.5 && lodNoise >= vLodDither.x) discard;\n' +
+            '  if (vLodDither.y < -0.5 && lodNoise < vLodDither.x) discard;'
         )
     }
   }
@@ -2129,7 +2196,6 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
     this.cityNearBuildings = []
-    this.detailedLodAssignments.clear()
     this.cityPlanRoads = []
     this.trafficRoutes = []
     this.cityExpressway = null
@@ -2268,8 +2334,8 @@ export class Cityscape {
     const coarseStepMeters = getCityNearDistance(this.radius) / 3
     const coarseStepRadians = coarseStepMeters / this.radius
     const detailStepMeters = Math.max(
-      20,
-      Math.min(this.detailedLod0Distance * 0.4, 80)
+      16,
+      Math.min(this.detailedLod0Distance * 0.2, 32)
     )
     const detailStepRadians = detailStepMeters / this.radius
     const detailAzimuth =
@@ -2331,17 +2397,29 @@ export class Cityscape {
   private rebuildNearBuildingBatches() {
     this.disposeNearBuildingBatches()
 
-    let procedural = this.cityNearBuildings
+    let procedural = this.cityNearBuildings.map(stableBuildingPlacement)
     const pack = this.detailedBuildingGeometries
 
     if (pack !== null) {
-      type Candidate = { building: CityBuilding; distance: number }
+      type Candidate = {
+        building: CityBuilding
+        distance: number
+        blend: ReturnType<typeof getDetailedBuildingLodBlend>
+      }
+      const candidates: Candidate[] = []
       const lod0Candidates: Candidate[] = []
       const lod1Candidates: Candidate[] = []
       const thresholds = {
         lod0Distance: this.detailedLod0Distance,
         lod1Distance: this.detailedLod1Distance,
-        hysteresisFraction: 0.12
+        lod0TransitionDistance: Math.max(
+          24,
+          this.detailedLod0Distance * 0.25
+        ),
+        lod1TransitionDistance: Math.max(
+          36,
+          this.detailedLod1Distance * 0.12
+        )
       }
 
       for (const building of this.cityNearBuildings) {
@@ -2352,47 +2430,83 @@ export class Cityscape {
           building.azimuth,
           building.axial
         )
-        const lod = selectDetailedBuildingLod(
+        const candidate = {
+          building,
           distance,
-          this.detailedLodAssignments.get(building) ?? null,
-          thresholds
-        )
+          blend: getDetailedBuildingLodBlend(distance, thresholds)
+        }
+        candidates.push(candidate)
 
-        if (lod === 0) {
-          lod0Candidates.push({ building, distance })
-        } else if (lod === 1) {
-          lod1Candidates.push({ building, distance })
+        if (candidate.blend.lod0 > 0) {
+          lod0Candidates.push(candidate)
+        }
+        if (candidate.blend.lod1 > 0) {
+          lod1Candidates.push(candidate)
         }
       }
 
       const byDistance = (a: Candidate, b: Candidate) => a.distance - b.distance
-      const lod0 = lod0Candidates
-        .sort(byDistance)
-        .slice(0, this.maxDetailedLod0)
-        .map((candidate) => candidate.building)
-      const lod1 = lod1Candidates
-        .sort(byDistance)
-        .slice(0, this.maxDetailedLod1)
-        .map((candidate) => candidate.building)
-      const detailed = new Set([...lod0, ...lod1])
-      const nextAssignments = new Map<CityBuilding, DetailedBuildingLod>()
-
-      for (const building of lod0) {
-        nextAssignments.set(building, 0)
-      }
-      for (const building of lod1) {
-        nextAssignments.set(building, 1)
-      }
-
-      this.detailedLodAssignments = nextAssignments
-      procedural = this.cityNearBuildings.filter(
-        (building) => !detailed.has(building)
+      const selectedLod0 = new Set(
+        lod0Candidates
+          .sort(byDistance)
+          .slice(0, this.maxDetailedLod0)
+          .map((candidate) => candidate.building)
       )
+      const selectedLod1 = new Set(
+        lod1Candidates
+          .sort(byDistance)
+          .slice(0, this.maxDetailedLod1)
+          .map((candidate) => candidate.building)
+      )
+
+      const lod0: BuildingRenderPlacement[] = []
+      const lod1: BuildingRenderPlacement[] = []
+      procedural = []
+
+      for (const candidate of candidates) {
+        const { building, blend } = candidate
+        const useLod0 = blend.lod0 > 0 && selectedLod0.has(building)
+        const useLod1 = blend.lod1 > 0 && selectedLod1.has(building)
+
+        if (useLod0 && useLod1) {
+          // LOD0 is outgoing while LOD1 fills the complementary pixels.
+          lod0.push({
+            building,
+            ditherThreshold: blend.lod1,
+            ditherMode: -1
+          })
+          lod1.push({
+            building,
+            ditherThreshold: blend.lod1,
+            ditherMode: 1
+          })
+        } else if (useLod0) {
+          // If a budget cap drops the partner, retain full coverage instead of
+          // leaving a screen-door hole in the building.
+          lod0.push(stableBuildingPlacement(building))
+        } else if (useLod1 && blend.procedural > 0) {
+          lod1.push({
+            building,
+            ditherThreshold: blend.procedural,
+            ditherMode: -1
+          })
+          procedural.push({
+            building,
+            ditherThreshold: blend.procedural,
+            ditherMode: 1
+          })
+        } else if (useLod1) {
+          lod1.push(stableBuildingPlacement(building))
+        } else {
+          procedural.push(stableBuildingPlacement(building))
+        }
+      }
+
       this.buildDetailedBuildingBatches(lod0, 0)
       this.buildDetailedBuildingBatches(lod1, 1)
-      this.buildHeroStreetDetails(lod0)
-    } else {
-      this.detailedLodAssignments.clear()
+      this.buildHeroStreetDetails([
+        ...new Set([...selectedLod0, ...selectedLod1])
+      ])
     }
 
     this.buildProceduralNearBatches(procedural)
@@ -2539,6 +2653,12 @@ export class Cityscape {
         ],
         matches.length
       )
+      // Sign materials also serve authored buildings and therefore compile the
+      // dither shader; zeroed values keep street props fully opaque.
+      geometry.setAttribute(
+        'aLodDither',
+        new THREE.InstancedBufferAttribute(new Float32Array(matches.length * 2), 2)
+      )
       mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
       mesh.frustumCulled = false
 
@@ -2594,7 +2714,7 @@ export class Cityscape {
   }
 
   private buildDetailedBuildingBatches(
-    plan: CityBuilding[],
+    plan: BuildingRenderPlacement[],
     lod: 0 | 1
   ) {
     const pack = this.detailedBuildingGeometries
@@ -2605,11 +2725,14 @@ export class Cityscape {
     for (const archetype of [
       'house',
       'residential',
+      'setback',
       'slab',
+      'lshape',
       'tower'
     ] as const satisfies readonly DetailedBuildingArchetype[]) {
       const buildings = plan.filter(
-        (building) => detailedArchetypeForBuilding(building) === archetype
+        (placement) =>
+          detailedArchetypeForBuilding(placement.building) === archetype
       )
       if (buildings.length === 0) {
         continue
@@ -2619,21 +2742,33 @@ export class Cityscape {
         archetype === 'house'
           ? this.houseBuildingSideMaterial
           : archetype === 'tower'
-          ? this.towerBuildingSideMaterials[2]
-          : archetype === 'slab'
-            ? this.largeBuildingSideMaterials[1]
-            : this.buildingSideMaterials[0]
+            ? this.towerBuildingSideMaterials[2]
+            : archetype === 'lshape'
+              ? this.largeBuildingSideMaterials[2]
+              : archetype === 'slab'
+                ? this.largeBuildingSideMaterials[1]
+                : archetype === 'setback'
+                  ? this.largeBuildingSideMaterials[0]
+                  : this.buildingSideMaterials[0]
       const grid =
         archetype === 'house'
           ? GRID_HOUSE
           : archetype === 'tower'
             ? GRID_TOWER
-            : archetype === 'slab'
+            : archetype === 'slab' ||
+                archetype === 'setback' ||
+                archetype === 'lshape'
               ? GRID_DENSE
               : GRID_WARM
       const signMaterial =
         this.buildingSignMaterials[
-          archetype === 'house' ? 0 : archetype === 'residential' ? 1 : 2
+          archetype === 'house'
+            ? 0
+            : archetype === 'residential'
+              ? 1
+              : archetype === 'setback'
+                ? 0
+                : 2
         ]
       const batch = this.buildDetailedBuildingBatch(
         buildings,
@@ -2646,19 +2781,27 @@ export class Cityscape {
     }
   }
 
-  private buildProceduralNearBatches(near: CityBuilding[]) {
-
+  private buildProceduralNearBatches(near: BuildingRenderPlacement[]) {
     // Near disk: plain blocks split by size so their windows stay
     // window-sized; the shaped archetypes each get their own batch.
-    const blocks = near.filter((b) => b.kind === 'block')
-    const small = blocks.filter((b) => Math.max(b.width, b.depth, b.height) <= 25)
-    const large = blocks.filter((b) => Math.max(b.width, b.depth, b.height) > 25)
+    const blocks = near.filter((placement) => placement.building.kind === 'block')
+    const small = blocks.filter(
+      ({ building }) =>
+        Math.max(building.width, building.depth, building.height) <= 25
+    )
+    const large = blocks.filter(
+      ({ building }) =>
+        Math.max(building.width, building.depth, building.height) > 25
+    )
 
     // Each size class fans out across the facade palettes, hashed per
     // building, so a street mixes slate, pale-tile and masonry neighbours.
     for (let palette = 0; palette < BLOCK_PALETTES.length; palette += 1) {
       const smallBatch = this.buildBuildingBatch(
-        small.filter((b) => facadePaletteIndex(b, BLOCK_PALETTES.length) === palette),
+        small.filter(
+          ({ building }) =>
+            facadePaletteIndex(building, BLOCK_PALETTES.length) === palette
+        ),
         this.buildingSideMaterials[palette],
         GRID_WARM
       )
@@ -2668,7 +2811,10 @@ export class Cityscape {
       }
 
       const largeBatch = this.buildBuildingBatch(
-        large.filter((b) => facadePaletteIndex(b, BLOCK_PALETTES.length) === palette),
+        large.filter(
+          ({ building }) =>
+            facadePaletteIndex(building, BLOCK_PALETTES.length) === palette
+        ),
         this.largeBuildingSideMaterials[palette],
         GRID_DENSE
       )
@@ -2680,7 +2826,7 @@ export class Cityscape {
 
     for (const kind of ['setback', 'house', 'slab', 'lshape'] as const) {
       const batch = this.buildArchetypeBatch(
-        near.filter((b) => b.kind === kind),
+        near.filter((placement) => placement.building.kind === kind),
         kind
       )
 
@@ -2691,11 +2837,16 @@ export class Cityscape {
 
     // Towers split across three restrained skins so the skyline varies without
     // turning into a high-contrast checkerboard in motion.
-    const towers = near.filter((b) => b.kind === 'tower')
+    const towers = near.filter(
+      (placement) => placement.building.kind === 'tower'
+    )
 
     for (let palette = 0; palette < TOWER_PALETTES.length; palette += 1) {
       const batch = this.buildArchetypeBatch(
-        towers.filter((b) => facadePaletteIndex(b, TOWER_PALETTES.length) === palette),
+        towers.filter(
+          ({ building }) =>
+            facadePaletteIndex(building, TOWER_PALETTES.length) === palette
+        ),
         'tower',
         this.towerBuildingSideMaterials[palette]
       )
@@ -2935,6 +3086,10 @@ export class Cityscape {
       'aUvScale',
       new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
     )
+    geometry.setAttribute(
+      'aLodDither',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
+    )
     this.farBuildings = mesh
     this.group.add(mesh)
   }
@@ -3011,42 +3166,48 @@ export class Cityscape {
   // flat roof. Near only: at far-side distances the kit is sub-pixel, so
   // it would be pure vertex cost. Deterministic without consuming plan RNG —
   // the per-building offsets derive from fields the building already carries.
-  private buildRoofClutter(near: CityBuilding[]) {
+  private buildRoofClutter(near: BuildingRenderPlacement[]) {
     // Nearly every flat roof qualifies now (10 m+ tall, 6 m+ across); the
     // tallest keep priority under the cap, and roomy roofs (18 m+ across)
     // get a second kit so towers read as busy as the reference skyline.
     const flatRoofed = near
       .filter(
-        (b) =>
-          (b.kind === 'block' || b.kind === 'setback' || b.kind === 'slab') &&
-          b.height >= 10 &&
-          Math.min(b.width, b.depth) >= 6
+        ({ building }) =>
+          (building.kind === 'block' ||
+            building.kind === 'setback' ||
+            building.kind === 'slab') &&
+          building.height >= 10 &&
+          Math.min(building.width, building.depth) >= 6
       )
-      .sort((a, b) => b.height - a.height)
+      .sort((a, b) => b.building.height - a.building.height)
       .slice(0, 2000)
 
     if (flatRoofed.length === 0) {
       return
     }
 
-    type Placement = { building: CityBuilding; jitterPhase: number }
+    type Placement = {
+      render: BuildingRenderPlacement
+      jitterPhase: number
+    }
     const placementsByVariant: Placement[][] = Array.from(
       { length: ROOF_CLUTTER_VARIANTS },
       () => []
     )
 
-    for (const building of flatRoofed) {
+    for (const render of flatRoofed) {
+      const { building } = render
       // Deterministic variant + jitter from fields the building already
       // carries — no plan RNG consumed.
       const hash = Math.abs(
         Math.sin(building.azimuth * 91.17 + building.axial * 0.173 + building.tone * 37.7)
       )
       const variant = Math.floor(hash * ROOF_CLUTTER_VARIANTS) % ROOF_CLUTTER_VARIANTS
-      placementsByVariant[variant].push({ building, jitterPhase: 0 })
+      placementsByVariant[variant].push({ render, jitterPhase: 0 })
 
       if (Math.min(building.width, building.depth) >= 18) {
         placementsByVariant[(variant + 1) % ROOF_CLUTTER_VARIANTS].push({
-          building,
+          render,
           jitterPhase: 1
         })
       }
@@ -3060,6 +3221,10 @@ export class Cityscape {
       }
 
       const geometry = buildRoofClutterKit(variant)
+      attachBuildingLodDither(
+        geometry,
+        placements.map((placement) => placement.render)
+      )
       const mesh = new THREE.InstancedMesh(
         geometry,
         this.roofClutterMaterial,
@@ -3069,7 +3234,8 @@ export class Cityscape {
       mesh.frustumCulled = false
 
       for (let index = 0; index < placements.length; index += 1) {
-        const { building, jitterPhase } = placements[index]
+        const { render, jitterPhase } = placements[index]
+        const { building } = render
         const cos = Math.cos(building.azimuth)
         const sin = Math.sin(building.azimuth)
         tangent.set(-sin, 0, cos)
@@ -3114,7 +3280,7 @@ export class Cityscape {
   }
 
   private buildDetailedBuildingBatch(
-    plan: CityBuilding[],
+    plan: BuildingRenderPlacement[],
     sourceGeometry: THREE.BufferGeometry,
     sideMaterial: THREE.MeshStandardMaterial,
     signMaterial: THREE.MeshStandardMaterial,
@@ -3131,7 +3297,7 @@ export class Cityscape {
     const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
-      const building = plan[index]
+      const building = plan[index].building
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
       tangent.set(-sin, 0, cos)
@@ -3167,6 +3333,7 @@ export class Cityscape {
       'aUvScale',
       new THREE.InstancedBufferAttribute(uvScales, 2)
     )
+    attachBuildingLodDither(geometry, plan)
     mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
@@ -3176,7 +3343,7 @@ export class Cityscape {
   }
 
   private buildArchetypeBatch(
-    plan: CityBuilding[],
+    plan: BuildingRenderPlacement[],
     kind: BuildingKind,
     sideMaterialOverride?: THREE.MeshStandardMaterial
   ): THREE.InstancedMesh | null {
@@ -3218,7 +3385,7 @@ export class Cityscape {
     const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
-      const building = plan[index]
+      const building = plan[index].building
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
       tangent.set(-sin, 0, cos)
@@ -3247,6 +3414,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachBuildingLodDither(geometry, plan)
     mesh.instanceMatrix.needsUpdate = true
 
     if (mesh.instanceColor !== null) {
@@ -3258,7 +3426,7 @@ export class Cityscape {
   }
 
   private buildBuildingBatch(
-    plan: CityBuilding[],
+    plan: BuildingRenderPlacement[],
     sideMaterial: THREE.MeshStandardMaterial,
     grid: FacadeGrid
   ): THREE.InstancedMesh | null {
@@ -3283,7 +3451,7 @@ export class Cityscape {
     const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
-      const building = plan[index]
+      const building = plan[index].building
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
 
@@ -3315,6 +3483,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachBuildingLodDither(geometry, plan)
 
     mesh.instanceMatrix.needsUpdate = true
 

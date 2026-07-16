@@ -5,7 +5,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 export type DetailedBuildingArchetype =
   | 'house'
   | 'residential'
+  | 'setback'
   | 'slab'
+  | 'lshape'
   | 'tower'
 export type StreetDetailArchetype =
   | 'shopShutter'
@@ -27,7 +29,9 @@ const assetNames: Record<
 > = {
   house: ['house_a_lod0', 'house_a_lod1'],
   residential: ['residential_a_lod0', 'residential_a_lod1'],
+  setback: ['setback_a_lod0', 'setback_a_lod1'],
   slab: ['slab_a_lod0', 'slab_a_lod1'],
+  lshape: ['lshape_a_lod0', 'lshape_a_lod1'],
   tower: ['tower_a_lod0', 'tower_a_lod1']
 }
 
@@ -194,7 +198,9 @@ export const loadDetailedBuildingGeometryPack = async () => {
   const pack: DetailedBuildingGeometryPack = {
     house: loadPair('house'),
     residential: loadPair('residential'),
+    setback: loadPair('setback'),
     slab: loadPair('slab'),
+    lshape: loadPair('lshape'),
     tower: loadPair('tower'),
     street: Object.fromEntries(
       Object.entries(streetAssetNames).map(([archetype, name]) => {

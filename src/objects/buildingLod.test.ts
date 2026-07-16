@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  getDetailedBuildingLodBlend,
   getBuildingChordDistance,
   getBuildingSurfaceDistance,
   selectDetailedBuildingLod
@@ -29,6 +30,52 @@ describe('building LOD distance', () => {
       6400,
       6
     )
+  })
+})
+
+describe('building LOD blend', () => {
+  const thresholds = {
+    lod0Distance: 100,
+    lod1Distance: 300,
+    lod0TransitionDistance: 20,
+    lod1TransitionDistance: 30
+  }
+
+  test('keeps stable coverage away from transition bands', () => {
+    expect(getDetailedBuildingLodBlend(50, thresholds)).toEqual({
+      lod0: 1,
+      lod1: 0,
+      procedural: 0
+    })
+    expect(getDetailedBuildingLodBlend(180, thresholds)).toEqual({
+      lod0: 0,
+      lod1: 1,
+      procedural: 0
+    })
+    expect(getDetailedBuildingLodBlend(350, thresholds)).toEqual({
+      lod0: 0,
+      lod1: 0,
+      procedural: 1
+    })
+  })
+
+  test('returns complementary coverage at both LOD boundaries', () => {
+    const authoredBlend = getDetailedBuildingLodBlend(100, thresholds)
+    expect(authoredBlend.lod0).toBeCloseTo(0.5)
+    expect(authoredBlend.lod1).toBeCloseTo(0.5)
+    expect(authoredBlend.procedural).toBe(0)
+
+    const proceduralBlend = getDetailedBuildingLodBlend(300, thresholds)
+    expect(proceduralBlend.lod0).toBe(0)
+    expect(proceduralBlend.lod1).toBeCloseTo(0.5)
+    expect(proceduralBlend.procedural).toBeCloseTo(0.5)
+  })
+
+  test('always conserves total building coverage', () => {
+    for (let distance = 0; distance <= 400; distance += 5) {
+      const blend = getDetailedBuildingLodBlend(distance, thresholds)
+      expect(blend.lod0 + blend.lod1 + blend.procedural).toBeCloseTo(1)
+    }
   })
 })
 
