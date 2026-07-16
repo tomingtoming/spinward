@@ -38,7 +38,8 @@ import {
   disposeDetailedBuildingGeometryPack,
   loadDetailedBuildingGeometryPack,
   type DetailedBuildingArchetype,
-  type DetailedBuildingGeometryPack
+  type DetailedBuildingGeometryPack,
+  type StreetDetailArchetype
 } from './buildingAssets'
 import {
   getBuildingChordDistance,
@@ -396,6 +397,9 @@ const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
 const instanceColor = new THREE.Color()
+const streetFront = new THREE.Vector3()
+const streetAlong = new THREE.Vector3()
+const axialForward = new THREE.Vector3(0, 1, 0)
 
 const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 
@@ -412,6 +416,32 @@ const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) =>
 // stay all-near via the floor.
 const getCityNearDistance = (radius: number) =>
   Math.max(150, Math.min(radius * 0.5, 1000))
+
+const HERO_STREET_RADIUS = 180
+const MAX_HERO_STREET_DETAILS = 96
+const STREET_DETAIL_ARCHETYPES = [
+  'shopShutter',
+  'shopGlass',
+  'vendingPair',
+  'serviceCluster',
+  'bicycleRack',
+  'planterAlley'
+] as const satisfies readonly StreetDetailArchetype[]
+const COMMERCIAL_STREET_DETAILS = [
+  'shopShutter',
+  'shopGlass',
+  'shopShutter',
+  'vendingPair',
+  'serviceCluster',
+  'bicycleRack',
+  'planterAlley'
+] as const satisfies readonly StreetDetailArchetype[]
+const RESIDENTIAL_STREET_DETAILS = [
+  'serviceCluster',
+  'bicycleRack',
+  'planterAlley',
+  'vendingPair'
+] as const satisfies readonly StreetDetailArchetype[]
 
 const wrapAngleToPi = (angle: number) => {
   const wrapped = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
@@ -1355,6 +1385,18 @@ export class Cityscape {
     opacity: 0.78
   })
 
+  private readonly streetDetailPaintMaterial = new THREE.MeshStandardMaterial({
+    color: 0xb7b2a6,
+    roughness: 0.82,
+    metalness: 0.04
+  })
+
+  private readonly streetDetailMetalMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3c464a,
+    roughness: 0.58,
+    metalness: 0.34
+  })
+
   // Ambient traffic. The body takes per-instance paint; the light strips are
   // unlit and swing between "off plastic" (day) and HDR glow (night) in
   // setDaylight, like the street lamps.
@@ -1462,6 +1504,9 @@ export class Cityscape {
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
   private roofClutter: THREE.InstancedMesh[] = []
+  // Storefronts and alley props in the spawn-side hero district. Rebuilt with
+  // LOD0 buildings and never emitted for the distant city.
+  private heroStreetBatches: THREE.InstancedMesh[] = []
   // Ambient traffic: a persistent capacity-sized batch; focus changes only
   // reassign routes, update() moves the cars every frame.
   private traffic: THREE.InstancedMesh | null = null
@@ -1869,6 +1914,8 @@ export class Cityscape {
       material.color.setScalar(0.78 + daylight * 0.55)
       material.emissiveIntensity = night * night * 0.75
     }
+    this.streetDetailPaintMaterial.color.setScalar(0.58 + daylight * 0.42)
+    this.streetDetailMetalMaterial.color.setScalar(0.28 + daylight * 0.34)
     // Windows cool from warm dusk amber toward white/cyan as night falls.
     this.buildingSideMaterials[0].emissive.lerpColors(WINDOW_COOL, WINDOW_WARM, daylight)
 
@@ -2029,6 +2076,8 @@ export class Cityscape {
     this.roofClutterMaterial.dispose()
     this.utilityPoleMaterial.dispose()
     this.utilityWireMaterial.dispose()
+    this.streetDetailPaintMaterial.dispose()
+    this.streetDetailMetalMaterial.dispose()
     this.landmarkDomeMaterial.dispose()
     this.trafficBodyMaterial.dispose()
     this.headlightMaterial.dispose()
@@ -2041,7 +2090,11 @@ export class Cityscape {
   // the far batch keeps a persistent capacity-sized buffer and is rewritten
   // only when the coarser focus grid changes (see updateFarBatch).
   private disposeNearBuildingBatches() {
-    for (const batch of [...this.roofClutter, ...this.archetypeBatches]) {
+    for (const batch of [
+      ...this.roofClutter,
+      ...this.heroStreetBatches,
+      ...this.archetypeBatches
+    ]) {
       if (batch !== null) {
         batch.geometry.dispose()
         this.group.remove(batch)
@@ -2056,6 +2109,7 @@ export class Cityscape {
     }
 
     this.roofClutter = []
+    this.heroStreetBatches = []
     this.archetypeBatches = []
     this.detailedBuildingBatches = []
   }
@@ -2336,12 +2390,207 @@ export class Cityscape {
       )
       this.buildDetailedBuildingBatches(lod0, 0)
       this.buildDetailedBuildingBatches(lod1, 1)
+      this.buildHeroStreetDetails(lod0)
     } else {
       this.detailedLodAssignments.clear()
     }
 
     this.buildProceduralNearBatches(procedural)
     this.buildRoofClutter(procedural)
+  }
+
+  private buildHeroStreetDetails(plan: CityBuilding[]) {
+    const pack = this.detailedBuildingGeometries
+    if (pack === null || this.radius <= 0) {
+      return
+    }
+
+    type Placement = {
+      building: CityBuilding
+      archetype: StreetDetailArchetype
+      isAvenue: boolean
+      direction: 1 | -1
+      frontage: number
+      distance: number
+    }
+    const placements: Placement[] = []
+
+    for (const building of plan) {
+      const urban = building.urban ?? DEFAULT_URBAN
+      const centerDistance = Math.hypot(
+        wrapAngleToPi(building.azimuth) * this.radius,
+        building.axial
+      )
+      if (centerDistance > HERO_STREET_RADIUS || urban < 0.55) {
+        continue
+      }
+
+      let nearest:
+        | {
+            isAvenue: boolean
+            direction: 1 | -1
+            frontage: number
+            gap: number
+          }
+        | null = null
+
+      for (const road of this.cityPlanRoads) {
+        const isAvenue = road.axialLength > road.tangentWidth
+        const tangentDelta =
+          wrapAngleToPi(road.azimuth - building.azimuth) * this.radius
+        const axialDelta = road.axial - building.axial
+        let gap: number
+        let direction: 1 | -1
+        let frontage: number
+
+        if (isAvenue) {
+          if (
+            Math.abs(axialDelta) >
+            (road.axialLength + building.depth) * 0.5
+          ) {
+            continue
+          }
+          gap =
+            Math.abs(tangentDelta) -
+            (road.tangentWidth + building.width) * 0.5
+          direction = tangentDelta >= 0 ? 1 : -1
+          frontage = building.depth
+        } else {
+          if (
+            Math.abs(tangentDelta) >
+            (road.tangentWidth + building.width) * 0.5
+          ) {
+            continue
+          }
+          gap =
+            Math.abs(axialDelta) -
+            (road.axialLength + building.depth) * 0.5
+          direction = axialDelta >= 0 ? 1 : -1
+          frontage = building.width
+        }
+
+        // Inner perimeter rows face alleys rather than a generated road. Keep
+        // the authored modules on real public frontages and off back gardens.
+        if (gap < -0.25 || gap > 14 || (nearest !== null && gap >= nearest.gap)) {
+          continue
+        }
+        nearest = { isAvenue, direction, frontage, gap }
+      }
+
+      if (nearest === null) {
+        continue
+      }
+
+      const hash =
+        Math.abs(
+          Math.sin(
+            building.azimuth * 71.3 +
+              building.axial * 0.193 +
+              building.tone * 17.1
+          )
+        ) % 1
+      const choices =
+        building.kind === 'house' || urban < 0.7
+          ? RESIDENTIAL_STREET_DETAILS
+          : COMMERCIAL_STREET_DETAILS
+      const archetype =
+        choices[Math.min(choices.length - 1, Math.floor(hash * choices.length))]
+
+      placements.push({
+        building,
+        archetype,
+        isAvenue: nearest.isAvenue,
+        direction: nearest.direction,
+        frontage: nearest.frontage,
+        distance: centerDistance
+      })
+    }
+
+    placements.sort((a, b) => a.distance - b.distance)
+    placements.length = Math.min(placements.length, MAX_HERO_STREET_DETAILS)
+
+    for (
+      let archetypeIndex = 0;
+      archetypeIndex < STREET_DETAIL_ARCHETYPES.length;
+      archetypeIndex += 1
+    ) {
+      const archetype = STREET_DETAIL_ARCHETYPES[archetypeIndex]
+      const matches = placements.filter(
+        (placement) => placement.archetype === archetype
+      )
+      if (matches.length === 0) {
+        continue
+      }
+
+      const geometry = pack.street[archetype].clone()
+      geometry.computeBoundingBox()
+      const bounds = geometry.boundingBox
+      if (bounds === null) {
+        geometry.dispose()
+        continue
+      }
+      const size = bounds.getSize(new THREE.Vector3())
+      const mesh = new THREE.InstancedMesh(
+        geometry,
+        [
+          this.streetDetailPaintMaterial,
+          this.streetDetailMetalMaterial,
+          this.buildingSignMaterials[archetypeIndex % this.buildingSignMaterials.length]
+        ],
+        matches.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+
+      for (let index = 0; index < matches.length; index += 1) {
+        const placement = matches[index]
+        const building = placement.building
+        const halfBuildingDepth = placement.isAvenue
+          ? building.width * 0.5
+          : building.depth * 0.5
+        const detailOffset = halfBuildingDepth + size.z * 0.5 + 0.08
+        const azimuth = placement.isAvenue
+          ? building.azimuth + (placement.direction * detailOffset) / this.radius
+          : building.azimuth
+        const axial = placement.isAvenue
+          ? building.axial
+          : building.axial + placement.direction * detailOffset
+        const cos = Math.cos(azimuth)
+        const sin = Math.sin(azimuth)
+
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        streetFront
+          .copy(placement.isAvenue ? tangent : axialForward)
+          .multiplyScalar(placement.direction)
+        streetAlong.copy(inward).cross(streetFront).normalize()
+        basis.makeBasis(streetAlong, inward, streetFront)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - 0.03)
+          .setY(axial)
+
+        const stretchFacade =
+          archetype === 'shopShutter' ||
+          archetype === 'shopGlass' ||
+          archetype === 'serviceCluster'
+        const frontageScale = stretchFacade
+          ? THREE.MathUtils.clamp((placement.frontage * 0.72) / size.x, 0.78, 1.35)
+          : 1
+        instanceScale.set(frontageScale, 1, 1)
+        instanceMatrix.compose(
+          instancePosition,
+          instanceQuaternion,
+          instanceScale
+        )
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+      this.heroStreetBatches.push(mesh)
+      this.group.add(mesh)
+    }
   }
 
   private buildDetailedBuildingBatches(

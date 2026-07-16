@@ -17,11 +17,20 @@ ROOT = Path(__file__).resolve().parents[2]
 BLEND_PATH = ROOT / "assets" / "blender" / "spinward-buildings.blend"
 GLB_PATH = ROOT / "public" / "assets" / "buildings" / "spinward-buildings.glb"
 COLLECTION_NAME = "SPINWARD_BUILDINGS"
-ASSET_NAMES = {
+BUILDING_ASSET_NAMES = {
     f"{archetype}_a_lod{lod}"
     for archetype in ("house", "residential", "slab", "tower")
     for lod in (0, 1)
 }
+STREET_ASSET_NAMES = {
+    "street_shop_shutter",
+    "street_shop_glass",
+    "street_vending_pair",
+    "street_service_cluster",
+    "street_bicycle_rack",
+    "street_planter_alley",
+}
+ASSET_NAMES = BUILDING_ASSET_NAMES | STREET_ASSET_NAMES
 
 
 def material(name: str, color: tuple[float, float, float, float], metallic: float = 0.0):
@@ -46,8 +55,9 @@ def add_box(
     location: tuple[float, float, float],
     mat: bpy.types.Material,
     bevel: float = 0.0,
+    rotation: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ):
-    bpy.ops.mesh.primitive_cube_add(location=location)
+    bpy.ops.mesh.primitive_cube_add(location=location, rotation=rotation)
     obj = bpy.context.object
     assert obj is not None
     obj.name = name
@@ -59,6 +69,33 @@ def add_box(
         modifier.segments = 1
         bpy.context.view_layer.objects.active = obj
         bpy.ops.object.modifier_apply(modifier=modifier.name)
+    obj.data.materials.append(mat)
+    move_to_collection(obj, collection)
+    parts.append(obj)
+    return obj
+
+
+def add_torus(
+    parts: list[bpy.types.Object],
+    collection: bpy.types.Collection,
+    name: str,
+    major_radius: float,
+    minor_radius: float,
+    location: tuple[float, float, float],
+    mat: bpy.types.Material,
+    rotation: tuple[float, float, float] = (0.0, 0.0, 0.0),
+):
+    bpy.ops.mesh.primitive_torus_add(
+        major_segments=12,
+        minor_segments=4,
+        major_radius=major_radius,
+        minor_radius=minor_radius,
+        location=location,
+        rotation=rotation,
+    )
+    obj = bpy.context.object
+    assert obj is not None
+    obj.name = name
     obj.data.materials.append(mat)
     move_to_collection(obj, collection)
     parts.append(obj)
@@ -283,6 +320,120 @@ def build_tower(collection, facade, trim, sign, detailed: bool):
     return join_asset(parts, f"tower_a_lod{0 if detailed else 1}")
 
 
+def build_shop_shutter(collection, facade, trim, sign):
+    parts: list[bpy.types.Object] = []
+    add_box(parts, collection, "shop_wall", (3.2, 0.12, 2.5), (0, 0.08, 1.25), facade, 0.025)
+    add_box(parts, collection, "roller_shutter", (2.5, 0.08, 1.85), (-0.18, -0.015, 1.02), trim, 0.018)
+    for z in (0.36, 0.7, 1.04, 1.38, 1.72):
+        add_box(parts, collection, "shutter_slats", (2.38, 0.025, 0.025), (-0.18, -0.07, z), trim)
+    add_box(parts, collection, "striped_awning", (3.35, 0.62, 0.16), (0, -0.3, 2.35), sign, 0.025)
+    add_box(parts, collection, "vertical_sign", (0.34, 0.2, 1.45), (1.82, -0.18, 1.55), sign, 0.025)
+    add_box(parts, collection, "door_frame", (0.38, 0.1, 2.1), (1.2, -0.02, 1.05), trim, 0.012)
+    return join_asset(parts, "street_shop_shutter")
+
+
+def build_shop_glass(collection, facade, trim, sign):
+    parts: list[bpy.types.Object] = []
+    add_box(parts, collection, "shop_wall", (3.4, 0.1, 2.55), (0, 0.08, 1.275), facade, 0.025)
+    for x in (-1.05, -0.35, 0.35, 1.05):
+        add_box(parts, collection, "glass_bay", (0.58, 0.07, 1.62), (x, -0.015, 0.91), trim, 0.015)
+    for x in (-1.4, -0.7, 0, 0.7, 1.4):
+        add_box(parts, collection, "mullion", (0.035, 0.1, 1.82), (x, -0.06, 0.98), trim)
+    add_box(parts, collection, "fascia_sign", (3.2, 0.14, 0.45), (0, -0.05, 2.28), sign, 0.025)
+    add_box(parts, collection, "glass_canopy", (3.5, 0.7, 0.08), (0, -0.32, 1.98), trim, 0.018)
+    return join_asset(parts, "street_shop_glass")
+
+
+def build_vending_pair(collection, facade, trim, sign):
+    parts: list[bpy.types.Object] = []
+    for x, scale in ((-0.43, 1.0), (0.4, 0.92)):
+        add_box(parts, collection, "vending_body", (0.72 * scale, 0.52, 1.82), (x, 0, 0.91), facade, 0.05)
+        add_box(parts, collection, "vending_face", (0.58 * scale, 0.035, 1.16), (x, -0.275, 1.12), sign, 0.018)
+        add_box(parts, collection, "vending_slot", (0.34 * scale, 0.045, 0.16), (x, -0.285, 0.35), trim, 0.012)
+    add_cylinder(parts, collection, "recycle_bin", 0.22, 0.72, (1.02, 0, 0.36), trim, 8)
+    add_box(parts, collection, "vending_lamp", (1.75, 0.12, 0.12), (-0.02, -0.26, 1.78), sign, 0.02)
+    return join_asset(parts, "street_vending_pair")
+
+
+def build_service_cluster(collection, facade, trim, sign):
+    del sign
+    parts: list[bpy.types.Object] = []
+    add_box(parts, collection, "service_wall", (2.65, 0.08, 2.45), (0, 0.12, 1.225), facade, 0.018)
+    for x, z, scale in ((-0.72, 0.62, 1.0), (0.02, 0.72, 0.86)):
+        add_box(parts, collection, "outdoor_unit", (0.62 * scale, 0.42, 0.64 * scale), (x, -0.12, z), trim, 0.035)
+        add_cylinder(
+            parts,
+            collection,
+            "outdoor_fan",
+            0.19 * scale,
+            0.035,
+            (x, -0.345, z),
+            trim,
+            10,
+            (math.pi * 0.5, 0, 0),
+        )
+    for x, height in ((0.62, 2.2), (0.88, 1.85), (1.1, 2.35)):
+        add_cylinder(parts, collection, "service_pipe", 0.035, height, (x, 0, height * 0.5), trim, 7)
+    add_box(parts, collection, "meter_box", (0.46, 0.22, 0.7), (0.75, -0.1, 1.35), trim, 0.025)
+    add_box(parts, collection, "junction_box", (0.32, 0.18, 0.42), (1.1, -0.08, 1.55), trim, 0.02)
+    return join_asset(parts, "street_service_cluster")
+
+
+def build_bicycle_rack(collection, facade, trim, sign):
+    del facade, sign
+    parts: list[bpy.types.Object] = []
+    for bike, y in enumerate((-0.34, 0.0, 0.34)):
+        x_shift = (bike - 1) * 0.12
+        for x in (-0.42, 0.42):
+            add_torus(
+                parts,
+                collection,
+                "bicycle_wheel",
+                0.29,
+                0.026,
+                (x + x_shift, y, 0.32),
+                trim,
+                (math.pi * 0.5, 0, 0),
+            )
+        add_box(
+            parts,
+            collection,
+            "bicycle_frame",
+            (0.78, 0.035, 0.045),
+            (x_shift, y, 0.5),
+            trim,
+            rotation=(0, -0.28, 0),
+        )
+        add_box(
+            parts,
+            collection,
+            "bicycle_frame",
+            (0.52, 0.035, 0.045),
+            (x_shift - 0.08, y, 0.54),
+            trim,
+            rotation=(0, 0.72, 0),
+        )
+        add_cylinder(parts, collection, "seat_post", 0.018, 0.46, (x_shift, y, 0.6), trim, 6)
+        add_box(parts, collection, "handlebar", (0.28, 0.035, 0.035), (0.33 + x_shift, y, 0.7), trim)
+    for x in (-0.72, 0, 0.72):
+        add_cylinder(parts, collection, "rack_post", 0.025, 0.64, (x, 0.52, 0.32), trim, 7)
+    add_box(parts, collection, "rack_bar", (1.6, 0.05, 0.05), (0, 0.52, 0.62), trim)
+    return join_asset(parts, "street_bicycle_rack")
+
+
+def build_planter_alley(collection, facade, trim, sign):
+    parts: list[bpy.types.Object] = []
+    add_box(parts, collection, "alley_canopy", (2.8, 0.65, 0.12), (0, 0.08, 2.35), sign, 0.025)
+    add_box(parts, collection, "utility_cabinet", (0.62, 0.4, 1.4), (-1.0, 0, 0.7), trim, 0.035)
+    for x, radius, height in ((-0.25, 0.28, 0.48), (0.42, 0.34, 0.55), (1.05, 0.24, 0.42)):
+        add_cylinder(parts, collection, "planter", radius, height, (x, -0.08, height * 0.5), facade, 8)
+        add_cylinder(parts, collection, "shrub", radius * 0.78, height * 1.45, (x, -0.08, height + height * 0.62), sign, 7)
+    for x in (-1.45, 1.45):
+        add_cylinder(parts, collection, "alley_bollard", 0.08, 0.82, (x, -0.12, 0.41), trim, 8)
+    add_box(parts, collection, "drain_channel", (2.85, 0.28, 0.055), (0, -0.32, 0.03), trim)
+    return join_asset(parts, "street_planter_alley")
+
+
 def build():
     scene = bpy.context.scene
     scene.unit_settings.system = "METRIC"
@@ -306,6 +457,15 @@ def build():
     for builder in (build_house, build_residential, build_slab, build_tower):
         assets.append(builder(collection, facade, trim, sign, True))
         assets.append(builder(collection, facade, trim, sign, False))
+    for builder in (
+        build_shop_shutter,
+        build_shop_glass,
+        build_vending_pair,
+        build_service_cluster,
+        build_bicycle_rack,
+        build_planter_alley,
+    ):
+        assets.append(builder(collection, facade, trim, sign))
 
     bpy.ops.object.select_all(action="DESELECT")
     for obj in assets:

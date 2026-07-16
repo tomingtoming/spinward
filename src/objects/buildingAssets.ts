@@ -7,10 +7,19 @@ export type DetailedBuildingArchetype =
   | 'residential'
   | 'slab'
   | 'tower'
+export type StreetDetailArchetype =
+  | 'shopShutter'
+  | 'shopGlass'
+  | 'vendingPair'
+  | 'serviceCluster'
+  | 'bicycleRack'
+  | 'planterAlley'
 export type DetailedBuildingGeometryPack = Record<
   DetailedBuildingArchetype,
   [THREE.BufferGeometry, THREE.BufferGeometry]
->
+> & {
+  street: Record<StreetDetailArchetype, THREE.BufferGeometry>
+}
 
 const assetNames: Record<
   DetailedBuildingArchetype,
@@ -20,6 +29,15 @@ const assetNames: Record<
   residential: ['residential_a_lod0', 'residential_a_lod1'],
   slab: ['slab_a_lod0', 'slab_a_lod1'],
   tower: ['tower_a_lod0', 'tower_a_lod1']
+}
+
+const streetAssetNames: Record<StreetDetailArchetype, string> = {
+  shopShutter: 'street_shop_shutter',
+  shopGlass: 'street_shop_glass',
+  vendingPair: 'street_vending_pair',
+  serviceCluster: 'street_service_cluster',
+  bicycleRack: 'street_bicycle_rack',
+  planterAlley: 'street_planter_alley'
 }
 
 const buildingPackUrl = '/assets/buildings/spinward-buildings.glb'
@@ -141,6 +159,22 @@ const normalizeGeometry = (source: THREE.Object3D) => {
   return geometry
 }
 
+const prepareStreetGeometry = (source: THREE.Object3D) => {
+  const geometry = collectGeometry(source)
+  geometry.computeBoundingBox()
+
+  const bounds = geometry.boundingBox
+  if (bounds === null) {
+    throw new Error(`Street detail ${source.name} has no bounds`)
+  }
+
+  const center = bounds.getCenter(new THREE.Vector3())
+  geometry.translate(-center.x, -bounds.min.y, -center.z)
+  geometry.computeBoundingBox()
+  geometry.computeBoundingSphere()
+  return geometry
+}
+
 export const loadDetailedBuildingGeometryPack = async () => {
   const gltf = await new GLTFLoader().loadAsync(buildingPackUrl)
 
@@ -161,7 +195,16 @@ export const loadDetailedBuildingGeometryPack = async () => {
     house: loadPair('house'),
     residential: loadPair('residential'),
     slab: loadPair('slab'),
-    tower: loadPair('tower')
+    tower: loadPair('tower'),
+    street: Object.fromEntries(
+      Object.entries(streetAssetNames).map(([archetype, name]) => {
+        const source = gltf.scene.getObjectByName(name)
+        if (source === undefined) {
+          throw new Error(`Street detail asset is missing ${name}`)
+        }
+        return [archetype, prepareStreetGeometry(source)]
+      })
+    ) as Record<StreetDetailArchetype, THREE.BufferGeometry>
   }
 
   gltf.scene.traverse((object) => {
@@ -183,8 +226,12 @@ export const loadDetailedBuildingGeometryPack = async () => {
 export const disposeDetailedBuildingGeometryPack = (
   pack: DetailedBuildingGeometryPack
 ) => {
-  for (const pair of Object.values(pack)) {
+  for (const archetype of Object.keys(assetNames) as DetailedBuildingArchetype[]) {
+    const pair = pack[archetype]
     pair[0].dispose()
     pair[1].dispose()
+  }
+  for (const geometry of Object.values(pack.street)) {
+    geometry.dispose()
   }
 }
