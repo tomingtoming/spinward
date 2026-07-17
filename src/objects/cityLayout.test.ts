@@ -373,8 +373,37 @@ describe('planCity', () => {
     expect(buildings.length).toBeLessThanOrEqual(12000)
     // The downtown/countryside urbanization field intentionally leaves the
     // outskirts to fields and low-rise hamlets, so the city no longer saturates
-    // the cap — but it stays a substantial, dense-cored colony.
-    expect(buildings.length).toBeGreaterThan(4000)
+    // the cap — but the compact CBD remains substantial.
+    expect(buildings.length).toBeGreaterThan(2500)
+  })
+
+  test('CBD massing is dramatically denser and taller than the fringe', () => {
+    const { buildings } = planCity({ radius: 3200, length: 40000 })
+    const cbd = buildings.filter((building) => (building.urban ?? 0) >= 0.65)
+    const fringe = buildings.filter((building) => (building.urban ?? 0) < 0.16)
+    const averageHeight = (items: CityBuilding[]) =>
+      items.reduce((sum, building) => sum + building.height, 0) / items.length
+
+    expect(cbd.length).toBeGreaterThan(1000)
+    expect(fringe.length).toBeGreaterThan(0)
+    expect(cbd.length / fringe.length).toBeGreaterThan(5)
+    expect(averageHeight(cbd) / averageHeight(fringe)).toBeGreaterThan(2.8)
+  })
+
+  test('the Izma spawn crossroads has occupied CBD frontage inside phone LOD0', () => {
+    const radius = 3200
+    const { buildings } = planCity({ radius, length: 40000 })
+    const nearby = buildings.filter((building) =>
+      Math.hypot(building.azimuth * radius, building.axial) <= 120
+    )
+    const nearestCenter = Math.min(
+      ...buildings.map((building) =>
+        Math.hypot(building.azimuth * radius, building.axial)
+      )
+    )
+
+    expect(nearestCenter).toBeLessThan(70)
+    expect(nearby.length).toBeGreaterThanOrEqual(4)
   })
 
   test('assigns building archetypes with sane shapes', () => {

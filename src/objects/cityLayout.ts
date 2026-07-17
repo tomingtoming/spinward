@@ -125,7 +125,6 @@ const BLOCK_AXIAL_CELLS = 4
 const LOT_FRACTION = 0.62
 const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.08
-const FARM_BLOCK_PROBABILITY = 0.1
 const MAX_TREES = 1500
 // Building rows nest inward until the block core is used up.
 const MAX_BLOCK_RINGS = 4
@@ -773,15 +772,21 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const urbanizationAt = (tangentMeters: number, axialMeters: number) => {
     const tNorm = tangentExtent > 0 ? tangentMeters / (tangentExtent * 0.5) : 0
     const aNorm = axialHalf > 0 ? axialMeters / axialHalf : 0
-    // Broad downtown over the plaza, easing through suburb to countryside.
-    const core = Math.max(0, 1 - Math.hypot(tNorm, aNorm * 0.85) * 0.82)
-    // A secondary district offset down one end so it is not a lone bullseye.
-    const district = 0.7 * Math.max(0, 1 - Math.hypot((tNorm + 0.5) * 1.3, (aNorm - 0.55) * 1.1))
-    // Low-frequency ripple so the urban edge is ragged, not a clean circle.
-    const ripple = 0.12 * Math.cos(aNorm * 4.1) * Math.cos(tNorm * 3.3)
-    // A suburban baseline so the outskirts keep scattered hamlets between the
-    // fields rather than emptying to pure wilderness.
-    return clamp01(Math.max(core, district) + ripple + 0.2)
+    // A compact CBD over the plaza. Smoothstep steepens both shoulders: the
+    // core stays intensely urban, then falls through suburb into a genuinely
+    // sparse fringe instead of leaving the whole strip at medium density.
+    const coreRaw = Math.max(0, 1 - Math.hypot(tNorm * 0.96, aNorm * 0.82))
+    const core = coreRaw * coreRaw * (3 - 2 * coreRaw)
+    // A smaller secondary district keeps the plan from becoming a perfect
+    // bullseye, but it no longer lifts the whole far end of the habitat.
+    const districtRaw = Math.max(
+      0,
+      1 - Math.hypot((tNorm + 0.48) * 1.7, (aNorm - 0.52) * 1.45)
+    )
+    const district = 0.76 * districtRaw * districtRaw
+    // Rag the urban edge without restoring the old high suburban baseline.
+    const ripple = 0.065 * Math.cos(aNorm * 4.1) * Math.cos(tNorm * 3.3)
+    return clamp01(Math.max(core, district) + ripple + 0.035)
   }
 
   const blocksTangentCount = evenBlockCount(tangentExtent / (cell * BLOCK_TANGENT_CELLS))
@@ -941,8 +946,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const grainRoll =
         (roll.along * 61.7 + roll.depth * 13.3) -
         Math.floor(roll.along * 61.7 + roll.depth * 13.3)
-      const mergeProbability = 0.14 + urban * 0.08
-      const splitProbability = 0.24 * (1 - urban * 0.5)
+      const mergeProbability = 0.12 + urban * 0.07
+      const splitProbability = 0.28 * (1 - urban * 0.68)
       let stride = 1
 
       if (grainRoll < mergeProbability && index + 1 < count) {
@@ -955,7 +960,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         pitch * 0.36 >= 4
 
       // Downtown lots fill in; the countryside thins out toward fields.
-      if (roll.keep > keepProbability * (0.55 + urban * 0.45)) {
+      // The hero CBD must begin at the spawn crossroads, not one block later.
+      // Global cap pressure can make even an urban=1 row randomly disappear;
+      // add a steep core-only infill term so the first visible frontages are
+      // reliably occupied while suburbs and the rural fringe stay sparse.
+      const coreInfill = clamp01((urban - 0.9) / 0.1)
+      const localKeepProbability = Math.min(
+        1,
+        keepProbability * (0.08 + urban * 1.12) + coreInfill * 0.72
+      )
+      if (roll.keep > localKeepProbability) {
         index += stride
         continue
       }
@@ -978,7 +992,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       let height =
         heightBase *
         (0.25 + heightRoll * heightRoll * 1.1) *
-        (0.35 + urban * 0.65) *
+        (0.18 + urban * 0.95) *
         (1 + (stride - 1) * 0.12)
 
       if (splitLot) {
@@ -1068,6 +1082,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       } else if (kindRoll > setbackThreshold * 0.75) {
         kind = 'lshape'
       }
+
+      height = Math.min(height, 78)
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
 
@@ -1167,7 +1183,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         const blockUrban = urbanizationAt((tangent0 + tangent1) * 0.5, blockCenterAxial)
         // The countryside turns mostly to farm fields; downtown keeps the
         // original sparse green allotment.
-        const farmProbability = Math.min(0.58, FARM_BLOCK_PROBABILITY + (1 - blockUrban) * 0.42)
+        const rurality = 1 - blockUrban
+        const farmProbability = Math.min(0.78, 0.02 + rurality * rurality * 0.82)
 
         if (
           zoneRoll < PARK_BLOCK_PROBABILITY + farmProbability &&
@@ -1230,7 +1247,19 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         let ringAxial0 = axial0
         let ringAxial1 = axial1
 
-        for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
+        // The CBD fills the whole perimeter block; the fringe keeps only its
+        // road-facing row. This makes massing density—not merely facade colour
+        // or height—change across the city while preserving the same road grid.
+        const ringBudget =
+          blockUrban >= 0.65
+            ? MAX_BLOCK_RINGS
+            : blockUrban >= 0.35
+              ? 3
+              : blockUrban >= 0.16
+                ? 2
+                : 1
+
+        for (let ring = 0; ring < ringBudget; ring += 1) {
           const ringWidth = ringTangent1 - ringTangent0
           const ringLength = ringAxial1 - ringAxial0
 
