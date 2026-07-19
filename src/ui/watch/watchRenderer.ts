@@ -198,6 +198,19 @@ const drawHomeHeader = (
     left,
     130
   )
+
+  // Live perf line opposite the habitat stats: windowed fps and the active
+  // depth-buffer mode, so an on-device A/B never has to leave the headset.
+  // Full counters live on the TWEAKS RENDER card.
+  ctx.textAlign = 'right'
+  ctx.fillStyle = TEXT_DIM
+  ctx.font = '600 18px "Avenir Next", sans-serif'
+  ctx.fillText(
+    `${Math.round(snapshot.fps)} fps · ${snapshot.depthMode.toUpperCase()}`,
+    layout.width - SECTION_PADDING.right - 18,
+    102
+  )
+  ctx.textAlign = 'left'
 }
 
 const drawSubHeader = (
@@ -278,6 +291,50 @@ const drawGravityGauge = (
   ctx.fillStyle = TEXT_FAINT
   ctx.font = '600 13px "Avenir Next", sans-serif'
   ctx.fillText('1g', markerX + 6, gaugeY + 8)
+}
+
+const formatTriangles = (triangles: number) =>
+  triangles >= 1e6
+    ? `${(triangles / 1e6).toFixed(1)}M`
+    : `${Math.round(triangles / 1e3)}k`
+
+// TWEAKS RENDER card: the full perf counters (draws are what VR pays twice)
+// and the depth-buffer switch for the on-device log-vs-plain A/B.
+const drawRenderCard = (
+  ctx: CanvasRenderingContext2D,
+  layout: WatchScreenLayout,
+  snapshot: WatchRenderSnapshot,
+  hoveredAction: WatchActionId | null
+) => {
+  if (layout.renderSection === undefined || layout.depthButton === undefined) {
+    return
+  }
+
+  drawSectionCard(
+    ctx,
+    layout.width,
+    layout.renderSection,
+    'LOG never z-fights but blocks early-Z · switching reloads'
+  )
+
+  const left = SECTION_PADDING.left + 20
+  const top = layout.renderSection.top
+  const drawReadout = (label: string, value: string, x: number) => {
+    ctx.fillStyle = TEXT_DIM
+    ctx.font = '600 15px "Avenir Next", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(label, x, top + 82)
+    ctx.fillStyle = TEXT_BRIGHT
+    ctx.font = '700 26px "Avenir Next", sans-serif'
+    ctx.fillText(value, x, top + 114)
+  }
+
+  drawReadout('DEPTH', snapshot.depthMode.toUpperCase(), left)
+  drawReadout('DRAWS', `${snapshot.drawCalls}`, left + 150)
+  drawReadout('TRIS', formatTriangles(snapshot.triangles), left + 300)
+
+  drawButton(ctx, layout.depthButton, hoveredAction)
 }
 
 const drawLegendGroup = (
@@ -395,5 +452,9 @@ export const renderWatch = (
     for (const row of layout.rows) {
       drawStepperRow(ctx, row, formatWatchParameterValue(row.key, snapshot), hoveredAction)
     }
+  }
+
+  if (layout.renderSection !== undefined && layout.depthButton !== undefined) {
+    drawRenderCard(ctx, layout, snapshot, hoveredAction)
   }
 }
