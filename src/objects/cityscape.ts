@@ -36,9 +36,15 @@ import { mergeBufferGeometries } from './cylinder'
 import { createWindowGlassTexture } from './cylinderSurface'
 import {
   disposeDetailedBuildingGeometryPack,
+  disposeKenneyBuildingGeometryPack,
+  KENNEY_COMMERCIAL_VARIANTS,
+  KENNEY_SUBURBAN_VARIANTS,
   loadDetailedBuildingGeometryPack,
+  loadKenneyBuildingGeometryPack,
   type DetailedBuildingArchetype,
   type DetailedBuildingGeometryPack,
+  type KenneyBuildingGeometryPack,
+  type KenneyBuildingSet,
   type StreetDetailArchetype
 } from './buildingAssets'
 import {
@@ -1214,6 +1220,29 @@ const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
   return Math.floor(hash * buckets) % buckets
 }
 
+// District architecture: which Kenney kit (if any) dresses this building in
+// the near disk. The old town wears Commercial storefronts regardless of its
+// procedural kind; the sparse countryside's detached houses come from
+// Suburban. Everything else keeps the authored Japanese kit. Deterministic
+// from fields the building already carries — no plan RNG consumed.
+const kenneyPickForBuilding = (
+  building: CityBuilding
+): { set: KenneyBuildingSet; variant: number } | null => {
+  if ((building.oldTown ?? 0) >= 0.5) {
+    return {
+      set: 'commercial',
+      variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
+    }
+  }
+  if (building.kind === 'house' && (building.urban ?? 1) < 0.4) {
+    return {
+      set: 'suburban',
+      variant: facadePaletteIndex(building, KENNEY_SUBURBAN_VARIANTS.length)
+    }
+  }
+  return null
+}
+
 const detailedArchetypeForBuilding = (
   building: CityBuilding
 ): DetailedBuildingArchetype => {
@@ -1644,6 +1673,7 @@ export class Cityscape {
   private archetypeBatches: THREE.InstancedMesh[] = []
   private detailedBuildingBatches: THREE.InstancedMesh[] = []
   private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
+  private kenneyBuildingGeometries: KenneyBuildingGeometryPack | null = null
   private roadTilePack: RoadTileGeometryPack | null = null
   private roadTileMeshes: THREE.InstancedMesh[] = []
   private readonly roadTileDistance: number
@@ -1761,8 +1791,32 @@ export class Cityscape {
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
+    void this.loadKenneyBuildingAssets()
     if (this.roadTileDistance > 0) {
       void this.loadRoadTileAssets()
+    }
+  }
+
+  private async loadKenneyBuildingAssets() {
+    try {
+      const pack = await loadKenneyBuildingGeometryPack()
+      if (this.disposed) {
+        disposeKenneyBuildingGeometryPack(pack)
+        return
+      }
+
+      // The kit materials join the LOD screen-door system like every other
+      // building material.
+      this.installBuildingLodDither(pack.commercialMaterial)
+      this.installBuildingLodDither(pack.suburbanMaterial)
+      this.kenneyBuildingGeometries = pack
+      if (this.cityNearBuildings.length > 0) {
+        this.rebuildNearBuildingBatches()
+      }
+    } catch (error) {
+      // Same contract as the other packs: authored geometry is cosmetic, the
+      // Japanese kit and the procedural city are complete fallbacks.
+      console.warn('Kenney building pack unavailable; using authored/procedural', error)
     }
   }
 
@@ -2347,6 +2401,10 @@ export class Cityscape {
     if (this.detailedBuildingGeometries !== null) {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
       this.detailedBuildingGeometries = null
+    }
+    if (this.kenneyBuildingGeometries !== null) {
+      disposeKenneyBuildingGeometryPack(this.kenneyBuildingGeometries)
+      this.kenneyBuildingGeometries = null
     }
     if (this.roadTilePack !== null) {
       disposeRoadTileGeometryPack(this.roadTilePack)
@@ -2991,6 +3049,44 @@ export class Cityscape {
       return
     }
 
+    // District split: Kenney-dressed buildings leave the Japanese-kit plan
+    // and batch per (set, variant) below.
+    const kenneyPack = this.kenneyBuildingGeometries
+    const japanesePlan: BuildingRenderPlacement[] = []
+    const kenneyGroups = new Map<string, {
+      set: KenneyBuildingSet
+      variant: number
+      list: BuildingRenderPlacement[]
+    }>()
+
+    for (const placement of plan) {
+      const pick = kenneyPack === null ? null : kenneyPickForBuilding(placement.building)
+      if (pick === null) {
+        japanesePlan.push(placement)
+        continue
+      }
+      const key = `${pick.set}:${pick.variant}`
+      const group = kenneyGroups.get(key) ?? { ...pick, list: [] }
+      group.list.push(placement)
+      kenneyGroups.set(key, group)
+    }
+
+    if (kenneyPack !== null) {
+      for (const group of kenneyGroups.values()) {
+        const pair = kenneyPack[group.set][group.variant]
+        this.detailedBuildingBatches.push(
+          this.buildKenneyBuildingBatch(
+            group.list,
+            pair[lod],
+            group.set === 'commercial'
+              ? kenneyPack.commercialMaterial
+              : kenneyPack.suburbanMaterial,
+            group.set === 'commercial' ? 'stretch' : 'uniform'
+          )
+        )
+      }
+    }
+
     for (const archetype of [
       'house',
       'residential',
@@ -2999,7 +3095,7 @@ export class Cityscape {
       'lshape',
       'tower'
     ] as const satisfies readonly DetailedBuildingArchetype[]) {
-      const buildings = plan.filter(
+      const buildings = japanesePlan.filter(
         (placement) =>
           detailedArchetypeForBuilding(placement.building) === archetype
       )
@@ -3446,7 +3542,9 @@ export class Cityscape {
             building.kind === 'setback' ||
             building.kind === 'slab') &&
           building.height >= 10 &&
-          Math.min(building.width, building.depth) >= 6
+          Math.min(building.width, building.depth) >= 6 &&
+          // Kenney-dressed buildings bring their own styled roofs.
+          kenneyPickForBuilding(building) === null
       )
       .sort((a, b) => b.building.height - a.building.height)
       .slice(0, 2000)
@@ -3608,6 +3706,66 @@ export class Cityscape {
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
     }
+    this.group.add(mesh)
+    return mesh
+  }
+
+  // A Kenney-kit batch: the kit's palette material carries the colour, so
+  // there is no per-instance tone and no facade UV grid — just the footprint
+  // transform and the LOD dither attribute. Commercial models are window-grid
+  // prisms and stretch to the lot like the authored pack ('stretch', unit-box
+  // geometry); suburban houses keep their aspect and fit the lot uniformly
+  // ('uniform', base-at-0 geometry) with the leftover lot as garden.
+  private buildKenneyBuildingBatch(
+    plan: BuildingRenderPlacement[],
+    sourceGeometry: THREE.BufferGeometry,
+    material: THREE.MeshStandardMaterial,
+    fit: 'stretch' | 'uniform'
+  ) {
+    const geometry = sourceGeometry.clone()
+    const mesh = new THREE.InstancedMesh(geometry, material, plan.length)
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+    const modelSize =
+      fit === 'uniform'
+        ? (geometry.boundingBox ?? new THREE.Box3()).getSize(new THREE.Vector3())
+        : null
+
+    for (let index = 0; index < plan.length; index += 1) {
+      const building = plan[index].building
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+
+      if (fit === 'uniform' && modelSize !== null) {
+        const scale = Math.min(
+          building.width / Math.max(modelSize.x, 1e-6),
+          building.height / Math.max(modelSize.y, 1e-6),
+          building.depth / Math.max(modelSize.z, 1e-6)
+        )
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius)
+          .setY(building.axial)
+        instanceScale.setScalar(scale)
+      } else {
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - building.height * 0.5)
+          .setY(building.axial)
+        instanceScale.set(building.width, building.height, building.depth)
+      }
+
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+    }
+
+    attachBuildingLodDither(geometry, plan)
+    mesh.instanceMatrix.needsUpdate = true
     this.group.add(mesh)
     return mesh
   }
