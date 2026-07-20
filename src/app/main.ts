@@ -56,6 +56,7 @@ import {
   respawnPlayerAxisEndRuntime,
   respawnPlayerExteriorRuntime,
   respawnPlayerInnerWallRuntime,
+  respawnPlayerOldTownRuntime,
   respawnPlayerOverlookRuntime
 } from './playerRespawnRuntime'
 import {
@@ -70,6 +71,7 @@ import { Explosions } from '../objects/explosion'
 import { PROJECTILES, cycleProjectile, type ProjectileType } from '../gameplay/projectileTypes'
 import { Car } from '../objects/car'
 import {
+  getArrivalSquare,
   getCityExpressway,
   getCityGroundHeight,
   getExpresswayElevation,
@@ -88,7 +90,13 @@ import { getQualityProfile } from './quality'
 import { MobileControls, isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 import { createFullscreenToggle } from '../pc/fullscreen'
 import { JUMP_SPEED, computeJumpLaunchVelocity } from '../gameplay/jump'
-import { respawnAxisEnd, respawnExterior, respawnInnerWall, respawnOverlook } from '../gameplay/respawn'
+import {
+  respawnAxisEnd,
+  respawnExterior,
+  respawnInnerWall,
+  respawnOldTown,
+  respawnOverlook
+} from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { ControlPlatform } from '../xr/controlScheme'
@@ -670,6 +678,31 @@ export const bootstrapApp = async () => {
     )
   }
 
+  const respawnPlayerOldTown = () => {
+    const didRespawn = respawnPlayerOldTownRuntime(
+      {
+        respawnOldTown,
+        applyPlayerTraversalState
+      },
+      {
+        playerTraversal,
+        playerRig,
+        length: getHabitatSpanMeters(),
+        radius: habitatConfig.radius,
+        frameAngle,
+        omega: rpmToOmega(habitatConfig.rpm)
+      }
+    )
+    if (didRespawn) {
+      // Arrive facing down the construction timeline: the old town around
+      // you, the civic core far down the axial boulevard ahead.
+      desktopLookControls.resetLook()
+      mobileControls?.resetLook()
+      vrLocomotion?.faceAxis(1)
+    }
+    return didRespawn
+  }
+
   const respawnPlayerOverlook = () => {
     const didRespawn = respawnPlayerOverlookRuntime(
       {
@@ -866,6 +899,9 @@ export const bootstrapApp = async () => {
         if (runtimeAction.mode === 'inner-wall') {
           notifyTourEvent(tourGuide, 'surface')
           return respawnPlayerInnerWall()
+        }
+        if (runtimeAction.mode === 'old-town') {
+          return respawnPlayerOldTown()
         }
         if (runtimeAction.mode === 'overlook') {
           notifyTourEvent(tourGuide, 'overlook')
@@ -1441,6 +1477,11 @@ export const bootstrapApp = async () => {
 
     if (event.code === 'Digit4') {
       handleWatchAction('respawn-exterior')
+      return
+    }
+
+    if (event.code === 'Digit5') {
+      handleWatchAction('respawn-old-town')
       return
     }
 
@@ -2051,6 +2092,8 @@ export const bootstrapApp = async () => {
       rpm: habitatConfig.rpm,
       feltGravity,
       axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
+      oldTownAvailable:
+        getArrivalSquare(habitatConfig.radius, getHabitatSpanMeters()) !== null,
       raining: weather.raining
     })
     debugGui?.update()

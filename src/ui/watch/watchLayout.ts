@@ -27,6 +27,7 @@ export type WatchActionId =
   | 'preset-apply-cooper'
   | 'preset-apply-elysium'
   | 'respawn-inner-wall'
+  | 'respawn-old-town'
   | 'respawn-overlook'
   | 'respawn-axis-end'
   | 'respawn-exterior'
@@ -162,16 +163,17 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
 
 const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   const travelSection: WatchSection = { top: 158, height: 150, title: 'TRAVEL' }
-  // Four travel destinations now (Surface/Overlook/Axis/Exterior); narrow the
-  // buttons so the row still spans the same width as the old three.
-  const travelButtonWidth = 147
+  // Five travel destinations now (Surface/Old Town/Overlook/Axis/Exterior);
+  // narrow the buttons so the row still spans the same width as the old four.
+  const travelButtonWidth = 115
   const travelButtonY = travelSection.top + 78
   const travelButtonStep = travelButtonWidth + 10
   const travelButtons = [
     makeActionButton('respawn-inner-wall', 'Surface', CONTENT_LEFT, travelButtonY, travelButtonWidth, 64),
-    makeActionButton('respawn-overlook', 'Overlook', CONTENT_LEFT + travelButtonStep, travelButtonY, travelButtonWidth, 64),
-    makeActionButton('respawn-axis-end', 'Axis', CONTENT_LEFT + travelButtonStep * 2, travelButtonY, travelButtonWidth, 64),
-    makeActionButton('respawn-exterior', 'Exterior', CONTENT_LEFT + travelButtonStep * 3, travelButtonY, travelButtonWidth, 64)
+    makeActionButton('respawn-old-town', 'Old Town', CONTENT_LEFT + travelButtonStep, travelButtonY, travelButtonWidth, 64),
+    makeActionButton('respawn-overlook', 'Overlook', CONTENT_LEFT + travelButtonStep * 2, travelButtonY, travelButtonWidth, 64),
+    makeActionButton('respawn-axis-end', 'Axis', CONTENT_LEFT + travelButtonStep * 3, travelButtonY, travelButtonWidth, 64),
+    makeActionButton('respawn-exterior', 'Exterior', CONTENT_LEFT + travelButtonStep * 4, travelButtonY, travelButtonWidth, 64)
   ]
 
   const spinSection: WatchSection = { top: 322, height: 232, title: 'SPIN & GRAVITY' }

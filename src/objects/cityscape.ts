@@ -726,16 +726,24 @@ const bakeRoadUvs = (
   }
 }
 
-const buildingTone = (tone: number, urban: number, target: THREE.Color) => {
+const buildingTone = (
+  tone: number,
+  urban: number,
+  oldTown: number,
+  target: THREE.Color
+) => {
   // Districts read through the palette: downtown skews glassy blue (higher
   // saturation, fewer warm facades), the countryside keeps plastered warmth.
   // `urban` comes from the same zoning field that drives height/archetype mix,
-  // so the colour gradient lines up with the skyline gradient for free.
-  const warmCut = 0.85 - (1 - urban) * 0.25
+  // so the colour gradient lines up with the skyline gradient for free. The
+  // old town overrides the density cue: it is as dense as downtown but wears
+  // the warm plaster/brick of the first construction era, so the axial
+  // timeline reads in colour as well as in massing.
+  const warmCut = 0.85 - (1 - urban) * 0.25 - 0.5 * oldTown
   const isWarm = tone > warmCut
   const hue = isWarm ? 0.07 : 0.58
-  const saturation = isWarm ? 0.2 : 0.12 + urban * 0.12
-  const lightness = 0.38 + tone * 0.34
+  const saturation = isWarm ? 0.2 + 0.05 * oldTown : 0.12 + urban * 0.12
+  const lightness = 0.38 + tone * 0.34 - 0.05 * oldTown
   return target.setHSL(hue, saturation, lightness)
 }
 
@@ -3197,7 +3205,7 @@ export class Cityscape {
       mesh.setMatrixAt(count, instanceMatrix)
       mesh.setColorAt(
         count,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -3373,6 +3381,7 @@ export class Cityscape {
         buildingTone(
           building.tone,
           building.urban ?? DEFAULT_URBAN,
+          building.oldTown ?? 0,
           instanceColor
         )
       )
@@ -3458,7 +3467,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -3527,7 +3536,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, instanceColor)
+        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,

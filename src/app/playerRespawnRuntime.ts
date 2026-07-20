@@ -69,6 +69,40 @@ export const respawnPlayerOverlookRuntime = <TPlayerRig, TPlayerTraversal>(
   return true
 }
 
+export const respawnPlayerOldTownRuntime = <TPlayerRig, TPlayerTraversal>(
+  dependencies: {
+    respawnOldTown: (
+      playerTraversal: TPlayerTraversal,
+      config: {
+        radius: number
+        length: number
+        frameAngle: number
+        omega: number
+      }
+    ) => boolean
+    applyPlayerTraversalState: ApplyPlayerTraversalState<TPlayerRig, TPlayerTraversal>
+  },
+  config: RespawnPlayerRuntimeConfig<TPlayerRig, TPlayerTraversal> & { length: number }
+) => {
+  const didRespawn = dependencies.respawnOldTown(config.playerTraversal, {
+    radius: config.radius,
+    length: config.length,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+
+  if (didRespawn) {
+    dependencies.applyPlayerTraversalState(
+      config.playerRig,
+      config.playerTraversal,
+      config.radius,
+      config.frameAngle
+    )
+  }
+
+  return didRespawn
+}
+
 export const respawnPlayerAxisEndRuntime = <TPlayerRig, TPlayerTraversal>(
   dependencies: {
     respawnAxisEnd: (

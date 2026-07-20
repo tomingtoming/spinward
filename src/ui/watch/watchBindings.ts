@@ -1,5 +1,6 @@
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
+import { getArrivalSquare } from '../../objects/cityLayout'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
 import { getHabitatSpan } from '../../sim/habitatConfig'
 import type { SettingsStore } from '../../state/settingsStore'
@@ -40,6 +41,7 @@ export type WatchRenderSnapshot = {
   jetpackAcceleration: number
   reattachThreshold: number
   axisEndRespawnEnabled: boolean
+  oldTownRespawnEnabled: boolean
   // Latched weather state, so the Rain toggle can render its on-state.
   raining: boolean
   radiusFineStep: number
@@ -107,6 +109,11 @@ export const createWatchRenderSnapshot = (
   jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
   reattachThreshold: settingsStore.reattach.radialTolerance,
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
+  oldTownRespawnEnabled:
+    getArrivalSquare(
+      settingsStore.habitat.radius,
+      getHabitatSpan(settingsStore.habitat)
+    ) !== null,
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
   lengthFineStep: settingsStore.getLengthFineStep(),
@@ -129,6 +136,10 @@ export const isWatchActionDisabled = (
 ) => {
   if (action === 'respawn-axis-end') {
     return !snapshot.axisEndRespawnEnabled
+  }
+
+  if (action === 'respawn-old-town') {
+    return !snapshot.oldTownRespawnEnabled
   }
 
   return false

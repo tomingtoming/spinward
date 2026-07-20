@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 import type { PlayerTraversalState } from '../app/playerTraversal'
 import { resetPlayerToGrounded, resetPlayerToFreeFly } from '../app/playerTraversal'
-import { getOverlookAltitude } from '../objects/cityLayout'
+import { getArrivalSquare, getOverlookAltitude } from '../objects/cityLayout'
 import type { HabitatType } from '../sim/habitatConfig'
 
 const axisEndRotatingPosition = new THREE.Vector3()
@@ -62,6 +62,38 @@ export const respawnOverlook = (
     frameAngle: config.frameAngle,
     omega: config.omega
   })
+}
+
+// The old-town arrival square at the port end — where a traveller down from
+// the spaceport hub first stands on spin gravity. Only exists on habitats
+// long enough to hold distinct districts (getArrivalSquare returns null on
+// small drums and rings), so callers use the return value to gate the UI.
+export const canRespawnAtOldTown = (radius: number, length: number) =>
+  getArrivalSquare(radius, length) !== null
+
+export const respawnOldTown = (
+  state: PlayerTraversalState,
+  config: {
+    radius: number
+    length: number
+    frameAngle: number
+    omega: number
+  }
+) => {
+  const square = getArrivalSquare(config.radius, config.length)
+
+  if (square === null) {
+    return false
+  }
+
+  resetPlayerToGrounded(state, {
+    axialPosition: square.axial,
+    azimuth: 0,
+    radius: config.radius,
+    frameAngle: config.frameAngle,
+    omega: config.omega
+  })
+  return true
 }
 
 export const respawnAxisEnd = (

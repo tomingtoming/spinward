@@ -7,7 +7,7 @@ export type RuntimeWatchAction =
     }
   | {
       kind: 'respawn'
-      mode: 'inner-wall' | 'overlook' | 'axis-end' | 'exterior'
+      mode: 'inner-wall' | 'old-town' | 'overlook' | 'axis-end' | 'exterior'
     }
   | { kind: 'rain-toggle' }
   | null
@@ -26,6 +26,8 @@ export const resolveRuntimeWatchAction = (
       return { kind: 'preset', presetId: 'elysium' }
     case 'respawn-inner-wall':
       return { kind: 'respawn', mode: 'inner-wall' }
+    case 'respawn-old-town':
+      return { kind: 'respawn', mode: 'old-town' }
     case 'respawn-overlook':
       return { kind: 'respawn', mode: 'overlook' }
     case 'respawn-axis-end':

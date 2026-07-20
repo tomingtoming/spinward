@@ -7,6 +7,7 @@ import {
 import {
   LAND_STRIP_COUNT,
   STRIP_ARC_RADIANS,
+  getArrivalSquare,
   getCityCellSize,
   getCityExpressway,
   getCityGroundHeight,
@@ -20,6 +21,7 @@ import {
   getWindowStripArcs,
   isAzimuthOnLandArc,
   isAzimuthOnLandStrip,
+  isInsideArrivalSquare,
   isInsidePlaza,
   planCity,
   resolveCitySurfaceCollision,
@@ -379,7 +381,11 @@ describe('planCity', () => {
 
   test('CBD massing is dramatically denser and taller than the fringe', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
-    const cbd = buildings.filter((building) => (building.urban ?? 0) >= 0.65)
+    // The old town is as dense as the CBD but deliberately LOW, so it is
+    // excluded here and asserted separately below.
+    const cbd = buildings.filter(
+      (building) => (building.urban ?? 0) >= 0.65 && (building.oldTown ?? 0) < 0.3
+    )
     const fringe = buildings.filter((building) => (building.urban ?? 0) < 0.16)
     const averageHeight = (items: CityBuilding[]) =>
       items.reduce((sum, building) => sum + building.height, 0) / items.length
@@ -388,6 +394,68 @@ describe('planCity', () => {
     expect(fringe.length).toBeGreaterThan(0)
     expect(cbd.length / fringe.length).toBeGreaterThan(5)
     expect(averageHeight(cbd) / averageHeight(fringe)).toBeGreaterThan(2.8)
+  })
+
+  test('the port-end old town is dense but low, with no towers or slabs', () => {
+    const radius = 3200
+    const length = 40000
+    const { buildings } = planCity({ radius, length })
+    const axialHalf = length * 0.5 - getCityCellSize(radius, length)
+    const oldTown = buildings.filter((building) => (building.oldTown ?? 0) >= 0.6)
+    const cbd = buildings.filter(
+      (building) => (building.urban ?? 0) >= 0.65 && (building.oldTown ?? 0) < 0.3
+    )
+    const averageHeight = (items: CityBuilding[]) =>
+      items.reduce((sum, building) => sum + building.height, 0) / items.length
+
+    expect(oldTown.length).toBeGreaterThan(300)
+
+    // The whole district hugs the port (-Y) end.
+    for (const building of oldTown) {
+      expect(building.axial).toBeLessThan(-axialHalf * 0.5)
+    }
+
+    // Dense-but-low: mid-rise walk-ups, well under the civic core's skyline.
+    expect(averageHeight(oldTown)).toBeLessThan(averageHeight(cbd) * 0.7)
+
+    for (const building of oldTown) {
+      expect(building.kind === 'tower' || building.kind === 'slab').toBe(false)
+    }
+  })
+
+  test('the axial timeline reads: the settled port half outbuilds the frontier half', () => {
+    const { buildings } = planCity({ radius: 3200, length: 40000 })
+    const portHalf = buildings.filter((building) => building.axial < 0).length
+    const frontierHalf = buildings.length - portHalf
+
+    expect(portHalf / Math.max(1, frontierHalf)).toBeGreaterThan(1.15)
+  })
+
+  test('the arrival square sits on an old-town cross-street row and stays clear', () => {
+    const radius = 3200
+    const length = 40000
+    const square = getArrivalSquare(radius, length)
+
+    expect(square).not.toBeNull()
+
+    const axialHalf = length * 0.5 - getCityCellSize(radius, length)
+    // In the old town, not at the civic centre.
+    expect(square!.axial).toBeLessThan(-axialHalf * 0.6)
+
+    const { buildings } = planCity({ radius, length })
+
+    for (const building of buildings) {
+      expect(
+        isInsideArrivalSquare(building.azimuth, building.axial, radius, square!.axial)
+      ).toBe(false)
+    }
+  })
+
+  test('small drums and rings keep the single-core city (no arrival square)', () => {
+    // Playground drum: too few axial blocks for districts.
+    expect(getArrivalSquare(18, 120)).toBeNull()
+    // Elysium-like ring: thin axial span.
+    expect(getArrivalSquare(30000, 2000)).toBeNull()
   })
 
   test('the Izma spawn crossroads has occupied CBD frontage inside phone LOD0', () => {
