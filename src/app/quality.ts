@@ -19,6 +19,10 @@ export type QualityProfile = {
   detailedLod1Distance: number
   maxDetailedLod0: number
   maxDetailedLod1: number
+  // Kenney road-tile overlay (curbs/sidewalks/junction pieces) range around
+  // the player. A few hundred instances in ≤5 draw calls; the painted roads
+  // remain the far LOD.
+  roadTileDistance: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -51,6 +55,7 @@ export const getQualityProfile = (): QualityProfile => {
       detailedLod1Distance: 260,
       maxDetailedLod0: 120,
       maxDetailedLod1: 480,
+      roadTileDistance: 130,
       bloom: false,
       rainStreaks: 2600
     }
@@ -66,6 +71,7 @@ export const getQualityProfile = (): QualityProfile => {
       detailedLod1Distance: 350,
       maxDetailedLod0: 180,
       maxDetailedLod1: 700,
+      roadTileDistance: 150,
       bloom: false,
       rainStreaks: 4200
     }
@@ -80,6 +86,7 @@ export const getQualityProfile = (): QualityProfile => {
     detailedLod1Distance: 600,
     maxDetailedLod0: 420,
     maxDetailedLod1: 1600,
+    roadTileDistance: 240,
     bloom: true,
     rainStreaks: 7000
   }

@@ -42,6 +42,15 @@ import {
   type StreetDetailArchetype
 } from './buildingAssets'
 import {
+  disposeRoadTileGeometryPack,
+  getRoadTileLiftMeters,
+  loadRoadTileGeometryPack,
+  planRoadTilePlacements,
+  ROAD_TILE_HEIGHT_SCALE,
+  type RoadTileGeometryPack,
+  type RoadTileKind
+} from './roadTiles'
+import {
   getBuildingChordDistance,
   getBuildingSurfaceDistance,
   getDetailedBuildingLodBlend
@@ -62,6 +71,8 @@ type CityscapeOptions = {
   detailedLod1Distance?: number
   maxDetailedLod0?: number
   maxDetailedLod1?: number
+  // Kenney road-tile overlay range around the player; 0 disables the layer.
+  roadTileDistance?: number
 }
 
 // mode +1 keeps pixels below threshold (incoming LOD), -1 keeps pixels above
@@ -424,6 +435,8 @@ const inward = new THREE.Vector3()
 const binormal = new THREE.Vector3()
 const basis = new THREE.Matrix4()
 const instanceMatrix = new THREE.Matrix4()
+const roadTileYawQuaternion = new THREE.Quaternion()
+const localYAxis = new THREE.Vector3(0, 1, 0)
 const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
@@ -1595,6 +1608,9 @@ export class Cityscape {
   private archetypeBatches: THREE.InstancedMesh[] = []
   private detailedBuildingBatches: THREE.InstancedMesh[] = []
   private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
+  private roadTilePack: RoadTileGeometryPack | null = null
+  private roadTileMeshes: THREE.InstancedMesh[] = []
+  private readonly roadTileDistance: number
   private disposed = false
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
@@ -1667,6 +1683,7 @@ export class Cityscape {
     )
     this.maxDetailedLod0 = options?.maxDetailedLod0 ?? 180
     this.maxDetailedLod1 = options?.maxDetailedLod1 ?? 700
+    this.roadTileDistance = options?.roadTileDistance ?? 0
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -1706,6 +1723,105 @@ export class Cityscape {
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
+    if (this.roadTileDistance > 0) {
+      void this.loadRoadTileAssets()
+    }
+  }
+
+  private async loadRoadTileAssets() {
+    try {
+      const pack = await loadRoadTileGeometryPack()
+      if (this.disposed) {
+        disposeRoadTileGeometryPack(pack)
+        return
+      }
+
+      this.roadTilePack = pack
+      this.rebuildRoadTiles()
+    } catch (error) {
+      // Same contract as the building pack: the painted roads are a complete
+      // fallback, so a missing cosmetic GLB never blocks boot.
+      console.warn('Road tile pack unavailable; keeping painted roads', error)
+    }
+  }
+
+  private clearRoadTiles() {
+    for (const mesh of this.roadTileMeshes) {
+      this.group.remove(mesh)
+      mesh.dispose()
+    }
+    this.roadTileMeshes = []
+  }
+
+  // Re-instance the near-player road overlay. Cheap enough to run on every
+  // detail-focus step: a full rebuild is a few hundred matrix composes.
+  private rebuildRoadTiles() {
+    this.clearRoadTiles()
+
+    if (
+      this.roadTilePack === null ||
+      this.roadTileDistance <= 0 ||
+      this.cityPlanRoads.length === 0 ||
+      this.radius <= 0
+    ) {
+      return
+    }
+
+    const placements = planRoadTilePlacements({
+      roads: this.cityPlanRoads,
+      radius: this.radius,
+      focusAzimuth: this.cityFocusAzimuth,
+      focusAxial: this.cityFocusAxial,
+      rangeMeters: this.roadTileDistance
+    })
+
+    const byKind = new Map<RoadTileKind, typeof placements>()
+    for (const placement of placements) {
+      const list = byKind.get(placement.kind) ?? []
+      list.push(placement)
+      byKind.set(placement.kind, list)
+    }
+
+    for (const [kind, list] of byKind) {
+      const mesh = new THREE.InstancedMesh(
+        this.roadTilePack.geometries[kind],
+        this.roadTilePack.material,
+        list.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+
+      for (let index = 0; index < list.length; index += 1) {
+        const placement = list[index]
+        const cos = Math.cos(placement.azimuth)
+        const sin = Math.sin(placement.azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        roadTileYawQuaternion.setFromAxisAngle(
+          localYAxis,
+          placement.quarterTurns * (Math.PI / 2)
+        )
+        instanceQuaternion.multiply(roadTileYawQuaternion)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - getRoadTileLiftMeters(this.radius))
+          .setY(placement.axial)
+        instanceScale.set(
+          placement.alongMeters,
+          ROAD_TILE_HEIGHT_SCALE,
+          placement.crossMeters
+        )
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+      this.roadTileMeshes.push(mesh)
+      this.group.add(mesh)
+    }
   }
 
   private async loadDetailedBuildingAssets() {
@@ -1926,6 +2042,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.buildBuildings(plan.buildings)
+    this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
     this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
@@ -2157,6 +2274,10 @@ export class Cityscape {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
       this.detailedBuildingGeometries = null
     }
+    if (this.roadTilePack !== null) {
+      disposeRoadTileGeometryPack(this.roadTilePack)
+      this.roadTilePack = null
+    }
     for (const material of [
       ...this.buildingSideMaterials,
       this.houseBuildingSideMaterial,
@@ -2256,6 +2377,7 @@ export class Cityscape {
   }
 
   private clear() {
+    this.clearRoadTiles()
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
@@ -2429,6 +2551,10 @@ export class Cityscape {
     } else {
       this.rebuildNearBuildingBatches()
       this.rebuildTraffic()
+    }
+
+    if (detailChanged || batchChanged) {
+      this.rebuildRoadTiles()
     }
   }
 
