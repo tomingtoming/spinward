@@ -6,6 +6,7 @@
 
 export type BeatBarAction =
   | 'respawn-inner-wall'
+  | 'respawn-old-town'
   | 'respawn-overlook'
   | 'respawn-axis-end'
   | 'respawn-exterior'
@@ -16,6 +17,7 @@ export type BeatBarSnapshot = {
   rpm: number
   feltGravity: number
   axisAvailable: boolean
+  oldTownAvailable: boolean
   raining: boolean
 }
 
@@ -57,6 +59,10 @@ export const createBeatBar = (
   root.className = 'beat-bar'
 
   const surface = makeButton('Surface', 'beat-btn', () => onAction('respawn-inner-wall'))
+  // The port-end old town: the colony's first-built district, and the arrival
+  // square where a traveller down from the spaceport hub steps onto spin
+  // gravity. Hidden on habitats too small to have districts.
+  const oldTown = makeButton('Old Town', 'beat-btn', () => onAction('respawn-old-town'))
   const overlook = makeButton('Overlook', 'beat-btn', () => onAction('respawn-overlook'))
   const axis = makeButton('Axis', 'beat-btn', () => onAction('respawn-axis-end'))
   const exterior = makeButton('Exterior', 'beat-btn', () => onAction('respawn-exterior'))
@@ -76,6 +82,7 @@ export const createBeatBar = (
   root.append(
     makeLabel('Travel'),
     surface,
+    oldTown,
     overlook,
     axis,
     exterior,
@@ -95,6 +102,7 @@ export const createBeatBar = (
     },
     update: (snapshot) => {
       axis.disabled = !snapshot.axisAvailable
+      oldTown.hidden = !snapshot.oldTownAvailable
       rain.classList.toggle('beat-btn--on', snapshot.raining)
     }
   }

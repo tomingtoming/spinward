@@ -113,5 +113,6 @@ test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says 
 
   expect(isWatchActionDisabled(snapshot, 'respawn-axis-end')).toBe(false)
   expect(isWatchActionDisabled({ ...snapshot, axisEndRespawnEnabled: false }, 'respawn-axis-end')).toBe(true)
+  expect(isWatchActionDisabled({ ...snapshot, oldTownRespawnEnabled: false }, 'respawn-old-town')).toBe(true)
   expect(isWatchActionDisabled(snapshot, 'rpm-fine-increment')).toBe(false)
 })

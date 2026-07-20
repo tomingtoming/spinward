@@ -20,6 +20,9 @@ export type CityBuilding = {
   // 0..1 urbanization at this lot (downtown = 1). Drives the facade palette;
   // optional so synthetic footprints (tower, tests) can omit it.
   urban?: number
+  // 0..1 old-town field at this lot (port-end first-generation district).
+  // Drives the warm facade shift; optional like `urban`.
+  oldTown?: number
 }
 
 export type RoadKind = 'arterial' | 'local'
@@ -271,6 +274,78 @@ export const getPlazaTangentHalfWidth = (radius: number) =>
   Math.min(16, Math.max(8, radius * 0.04))
 export const getPlazaAxialHalfLength = (radius: number) =>
   Math.min(14, Math.max(8, radius * 0.04))
+
+// ── Port-end old town ───────────────────────────────────────────────────
+// The colony was built from the -Y end: the spaceport hub and the mirror
+// hinges live there (spaceport.ts anchors hubCenterY at -length/2), so the
+// first pressurised, first settled ground is the port end. The axial
+// coordinate is therefore a construction timeline — old town at the port,
+// civic core at the centre, frontier farmland toward the far cap.
+// Normalised axial position of the old-town core (-1 = port end cap).
+const OLD_TOWN_CENTER_ANORM = -0.86
+// Districts need room to read as districts: enough street-grid rows along
+// the axis AND a real two-dimensional grid across the strip. Small drums,
+// long-thin toys and rings all keep the single-core city.
+const OLD_TOWN_MIN_AXIAL_BLOCKS = 8
+const OLD_TOWN_MIN_TANGENT_BLOCKS = 4
+
+const getAxialBlockCount = (radius: number, length: number) => {
+  const cell = getCityCellSize(radius, length)
+  const axialExtent = Math.max(0, length * 0.5 - cell) * 2
+  return axialExtent > 0 ? evenBlockCount(axialExtent / (cell * BLOCK_AXIAL_CELLS)) : 0
+}
+
+// Tangent block count of a default land strip. Wider topologies (Cooper's
+// full circle) only have MORE tangent room, so this is a safe floor that
+// keeps the helper free of a topology parameter.
+const getTangentBlockCountFloor = (radius: number, length: number) => {
+  const cell = getCityCellSize(radius, length)
+  const tangentExtent = STRIP_ARC_RADIANS * LAND_STRIP_USABLE_FRACTION * radius
+  return evenBlockCount(tangentExtent / (cell * BLOCK_TANGENT_CELLS))
+}
+
+export const hasOldTown = (radius: number, length: number) =>
+  getAxialBlockCount(radius, length) >= OLD_TOWN_MIN_AXIAL_BLOCKS &&
+  getTangentBlockCountFloor(radius, length) >= OLD_TOWN_MIN_TANGENT_BLOCKS
+
+// The arrival square: a plaza-sized clearing on the old town's arterial
+// crossroads, where a traveller down from the port hub first stands on spin
+// gravity. Snapped to a cross-street row (arterials run every 4th row, same
+// cadence as streetKindAt) so it sits on a crossroads like the civic plaza.
+export const getArrivalSquare = (
+  radius: number,
+  length: number
+): { axial: number } | null => {
+  if (!hasOldTown(radius, length)) {
+    return null
+  }
+
+  const cell = getCityCellSize(radius, length)
+  const axialHalf = Math.max(0, length * 0.5 - cell)
+  const blockLength = getCityBlockLength(radius, length)
+
+  if (blockLength <= 0) {
+    return null
+  }
+
+  const count = getAxialBlockCount(radius, length)
+  const targetRow = (OLD_TOWN_CENTER_ANORM * axialHalf + axialHalf) / blockLength
+  const row = Math.min(count, Math.max(0, Math.round(targetRow / 4) * 4))
+  return { axial: -axialHalf + row * blockLength }
+}
+
+export const isInsideArrivalSquare = (
+  azimuth: number,
+  axial: number,
+  radius: number,
+  arrivalAxial: number
+) => {
+  const tangentOffset = Math.abs(wrapToPi(azimuth)) * radius
+  return (
+    tangentOffset < getPlazaTangentHalfWidth(radius) &&
+    Math.abs(axial - arrivalAxial) < getPlazaAxialHalfLength(radius)
+  )
+}
 
 // Overlook travel altitude above the surface — shared with the respawn logic
 // so the observation tower tops out just below the spawn point.
@@ -762,13 +837,15 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const axialHalf = Math.max(0, length * 0.5 - cell)
   const axialExtent = axialHalf * 2
 
-  // City "メリハリ": a downtown over the plaza (strip centre, axial 0) that falls
-  // off to pastoral countryside at the strip edges. Drives building height,
-  // density, archetype mix and farm-vs-built zoning so high-rises cluster where
-  // people concentrate and fields take the outskirts. Computed per land strip
-  // from a building/block's tangential + axial position, so it needs no RNG and
-  // never changes the deterministic roll order.
+  // City "メリハリ": the zoning field. The axial coordinate doubles as the
+  // colony's construction timeline (see the old-town block above): a dense
+  // low-rise old town at the port end, the civic CBD over the plaza, and a
+  // frontier that thins into farmland toward the far cap. Drives building
+  // height, density, archetype mix and farm-vs-built zoning. Computed per
+  // land strip from a building/block's tangential + axial position, so it
+  // needs no RNG and never changes the deterministic roll order.
   const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
+  const oldTownEnabled = hasOldTown(radius, length)
   const urbanizationAt = (tangentMeters: number, axialMeters: number) => {
     const tNorm = tangentExtent > 0 ? tangentMeters / (tangentExtent * 0.5) : 0
     const aNorm = axialHalf > 0 ? axialMeters / axialHalf : 0
@@ -777,16 +854,28 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // sparse fringe instead of leaving the whole strip at medium density.
     const coreRaw = Math.max(0, 1 - Math.hypot(tNorm * 0.96, aNorm * 0.82))
     const core = coreRaw * coreRaw * (3 - 2 * coreRaw)
-    // A smaller secondary district keeps the plan from becoming a perfect
-    // bullseye, but it no longer lifts the whole far end of the habitat.
-    const districtRaw = Math.max(
+    // The old town: a band hugging the port end across most of the strip
+    // width, axially tight. Density comes from `urban`; its LOW massing and
+    // fine parcel grain come from the separate oldTown channel below.
+    const oldTownRaw = Math.max(
       0,
-      1 - Math.hypot((tNorm + 0.48) * 1.7, (aNorm - 0.52) * 1.45)
+      1 - Math.hypot(tNorm * 0.75, (aNorm - OLD_TOWN_CENTER_ANORM) * 3.2)
     )
-    const district = 0.76 * districtRaw * districtRaw
+    const oldTown = oldTownEnabled
+      ? oldTownRaw * oldTownRaw * (3 - 2 * oldTownRaw)
+      : 0
+    // Settlement-age gradient: the port half was pressurised and settled
+    // first, so its countryside keeps a denser scatter of hamlets than the
+    // frontier half, which stays open field almost to the cap.
+    const settled = 0.08 * clamp01(-aNorm)
     // Rag the urban edge without restoring the old high suburban baseline.
     const ripple = 0.065 * Math.cos(aNorm * 4.1) * Math.cos(tNorm * 3.3)
-    return clamp01(Math.max(core, district) + ripple + 0.035)
+    return {
+      urban: clamp01(
+        Math.max(core, oldTown * 0.94) + settled + ripple + 0.035
+      ),
+      oldTown
+    }
   }
 
   const blocksTangentCount = evenBlockCount(tangentExtent / (cell * BLOCK_TANGENT_CELLS))
@@ -836,6 +925,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const landmarkClearance =
     landmark.domeRadius + Math.max(4, getSidewalkWidth(radius, length))
   const expressway = getCityExpressway(radius, length)
+  // The old town keeps a plaza-sized clearing of its own — the arrival
+  // square — so the port-end respawn always lands on open ground.
+  const arrivalSquare = getArrivalSquare(radius, length)
+  const isInsideAnySquare = (azimuth: number, axial: number) =>
+    isInsidePlaza(azimuth, axial, radius) ||
+    (arrivalSquare !== null &&
+      isInsideArrivalSquare(azimuth, axial, radius, arrivalSquare.axial))
 
   const placeBuilding = (
     stripCenter: number,
@@ -846,7 +942,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     height: number,
     tone: number,
     kind: BuildingKind,
-    urban: number
+    urban: number,
+    oldTown: number
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -854,7 +951,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
     const azimuth = stripCenter + tangentCenter / radius
 
-    if (isInsidePlaza(azimuth, axialCenter, radius)) {
+    if (isInsideAnySquare(azimuth, axialCenter)) {
       return
     }
 
@@ -887,7 +984,17 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       return
     }
 
-    buildings.push({ azimuth, axial: axialCenter, width, depth, height, tone, kind, urban })
+    buildings.push({
+      azimuth,
+      axial: axialCenter,
+      width,
+      depth,
+      height,
+      tone,
+      kind,
+      urban,
+      oldTown
+    })
   }
 
   // A row of buildings along one block edge, all fronting the same road.
@@ -900,7 +1007,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     rowStart: number,
     rowEnd: number,
     depthMax: number,
-    urban: number
+    urban: number,
+    oldTown: number
   ) => {
     const span = rowEnd - rowStart
     const count = Math.floor(span / lot)
@@ -946,8 +1054,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const grainRoll =
         (roll.along * 61.7 + roll.depth * 13.3) -
         Math.floor(roll.along * 61.7 + roll.depth * 13.3)
-      const mergeProbability = 0.12 + urban * 0.07
-      const splitProbability = 0.28 * (1 - urban * 0.68)
+      // Old-town parcels stay narrow: the district accreted lot by lot under
+      // early material budgets, so split pairs dominate over merged plots —
+      // the fine grain that makes it read as grown-first, not planned-last.
+      const mergeProbability = 0.12 + urban * 0.07 - 0.08 * oldTown
+      const splitProbability = 0.28 * (1 - urban * 0.68) + 0.26 * oldTown
       let stride = 1
 
       if (grainRoll < mergeProbability && index + 1 < count) {
@@ -988,12 +1099,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const alongCenter =
         rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
       // Downtown stands tall; the outskirts stay low-rise. A merged plot
-      // hosts a proportionally bigger building.
+      // hosts a proportionally bigger building. The old town is dense but
+      // LOW — first-generation construction, accreted rather than replaced —
+      // so its massing stays under a mid-rise envelope while density (keep /
+      // infill, driven by `urban`) stays downtown-tight.
       let height =
         heightBase *
         (0.25 + heightRoll * heightRoll * 1.1) *
         (0.18 + urban * 0.95) *
-        (1 + (stride - 1) * 0.12)
+        (1 + (stride - 1) * 0.12) *
+        (1 - 0.52 * oldTown)
 
       if (splitLot) {
         // A pair of modest in-fill buildings sharing one pitch — the small
@@ -1026,7 +1141,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               infillHeight,
               tone,
               infillKind,
-              urban
+              urban,
+              oldTown
             )
           } else {
             placeBuilding(
@@ -1038,7 +1154,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               infillHeight,
               tone,
               infillKind,
-              urban
+              urban,
+              oldTown
             )
           }
         }
@@ -1054,13 +1171,18 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       // subdivide the ONE existing kindRoll, so the deterministic roll order
       // (and every other roll's meaning) is untouched.
       let kind: BuildingKind = 'block'
-      const towerThreshold = 0.84 - urban * 0.26
-      const setbackThreshold = 0.62 - urban * 0.16
+      // No towers or podium slabs in the old town: those are the civic core's
+      // furniture. The old town keeps perimeter blocks and walk-ups, and its
+      // low heights must NOT fold into detached houses — dense low-rise, not
+      // a suburb — so the house band narrows as oldTown rises.
+      const towerThreshold = 0.84 - urban * 0.26 + 0.3 * oldTown
+      const setbackThreshold = 0.62 - urban * 0.16 + 0.25 * oldTown
+      const houseBand = 0.55 - 0.35 * oldTown
 
-      if (height < heightBase * 0.45 && kindRoll < 0.55) {
+      if (height < heightBase * 0.45 && kindRoll < houseBand) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (kindRoll > towerThreshold) {
+      } else if (kindRoll > towerThreshold && oldTown < 0.5) {
         kind = 'tower'
         const slim = Math.min(along, depth) * 0.85
         along = slim
@@ -1072,7 +1194,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
         // The podium slab is downtown furniture — a commercial base with a
         // narrower residential bar on top. The countryside keeps setbacks.
-        if (bandPosition > 0.6 && urban > 0.45) {
+        if (bandPosition > 0.6 && urban > 0.45 && oldTown < 0.5) {
           kind = 'slab'
           height = Math.min(height * 1.15, 70)
         } else {
@@ -1097,7 +1219,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           height,
           toneRoll,
           kind,
-          urban
+          urban,
+          oldTown
         )
       } else {
         placeBuilding(
@@ -1109,7 +1232,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           height,
           toneRoll,
           kind,
-          urban
+          urban,
+          oldTown
         )
       }
 
@@ -1180,15 +1304,27 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         const zoneRoll = random()
         const blockCenterAzimuth = stripCenter + ((tangent0 + tangent1) * 0.5) / radius
         const blockCenterAxial = (axial0 + axial1) * 0.5
-        const blockUrban = urbanizationAt((tangent0 + tangent1) * 0.5, blockCenterAxial)
+        const { urban: blockUrban, oldTown: blockOldTown } = urbanizationAt(
+          (tangent0 + tangent1) * 0.5,
+          blockCenterAxial
+        )
         // The countryside turns mostly to farm fields; downtown keeps the
         // original sparse green allotment.
         const rurality = 1 - blockUrban
         const farmProbability = Math.min(0.78, 0.02 + rurality * rurality * 0.82)
+        // The spawn crossroads and the arrival square open onto real frontage
+        // on all four corners (the hero-vista contract that coreInfill keeps
+        // occupied): their adjacent blocks never zone away to park or farm.
+        const guardsVista =
+          Math.abs(wrapToPi(blockCenterAzimuth)) * radius < blockWidth &&
+          (Math.abs(blockCenterAxial) < blockLength ||
+            (arrivalSquare !== null &&
+              Math.abs(blockCenterAxial - arrivalSquare.axial) < blockLength))
 
         if (
           zoneRoll < PARK_BLOCK_PROBABILITY + farmProbability &&
-          !isInsidePlaza(blockCenterAzimuth, blockCenterAxial, radius)
+          !guardsVista &&
+          !isInsideAnySquare(blockCenterAzimuth, blockCenterAxial)
         ) {
           const kind: CityPatchKind =
             zoneRoll < PARK_BLOCK_PROBABILITY ? 'park' : 'farm'
@@ -1221,7 +1357,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
                 (tangent0 + cell * 0.3 + tangentRoll * (innerWidth - cell * 0.6)) / radius
               const treeAxial = axial0 + cell * 0.3 + axialRoll * (innerLength - cell * 0.6)
 
-              if (isInsidePlaza(treeAzimuth, treeAxial, radius)) {
+              if (isInsideAnySquare(treeAzimuth, treeAxial)) {
                 continue
               }
 
@@ -1268,8 +1404,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           }
 
           const ringDepth = Math.min(cell * 0.9, ringWidth * 0.35, ringLength * 0.35)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
           placeEdgeRow(
             stripCenter,
             'street',
@@ -1278,7 +1414,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent0 + ringDepth + sidewalk,
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
-            blockUrban
+            blockUrban,
+            blockOldTown
           )
           placeEdgeRow(
             stripCenter,
@@ -1288,7 +1425,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent0 + ringDepth + sidewalk,
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
-            blockUrban
+            blockUrban,
+            blockOldTown
           )
 
           const inset = ringDepth + sidewalk * 1.5
@@ -1307,7 +1445,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         if (
           coreWidth >= cell * 0.45 &&
           coreLength >= cell * 0.45 &&
-          !isInsidePlaza(coreAzimuth, coreAxial, radius)
+          !isInsideAnySquare(coreAzimuth, coreAxial)
         ) {
           patches.push({
             azimuth: coreAzimuth,

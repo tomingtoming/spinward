@@ -8,8 +8,10 @@ import {
   respawnAxisEnd,
   respawnExterior,
   respawnInnerWall,
+  respawnOldTown,
   respawnOverlook
 } from './respawn'
+import { getArrivalSquare } from '../objects/cityLayout'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { createUnitsContext } from '../units/units'
 
@@ -47,6 +49,42 @@ test('respawnOverlook places the player co-rotating above the plaza', () => {
   expect(rotatingPosition.x).toBeCloseTo(radius - getOverlookAltitude(radius), 6)
   expect(rotatingPosition.y).toBeCloseTo(0, 6)
   expect(rotatingPosition.z).toBeCloseTo(0, 6)
+})
+
+test('respawnOldTown grounds the player on the arrival square at the port end', () => {
+  const radius = 3200
+  const length = 40000
+  const state = createPlayerTraversalState({ axialPosition: 5, azimuth: 1 }, radius, 0.4, 1.1)
+
+  const didRespawn = respawnOldTown(state, {
+    radius,
+    length,
+    frameAngle: 0.4,
+    omega: 1.1
+  })
+
+  expect(didRespawn).toBe(true)
+  expect(state.mode).toBe('grounded')
+  expect(state.surface.azimuth).toBeCloseTo(0, 6)
+  expect(state.surface.axialPosition).toBeCloseTo(getArrivalSquare(radius, length)!.axial, 6)
+  // The arrival square is in the old town near the port (-Y) end.
+  expect(state.surface.axialPosition).toBeLessThan(-length * 0.25)
+})
+
+test('respawnOldTown refuses habitats too small for districts', () => {
+  const state = createPlayerTraversalState({ axialPosition: 5, azimuth: 1 }, 18, 0.4, 1.1)
+
+  const didRespawn = respawnOldTown(state, {
+    radius: 18,
+    length: 120,
+    frameAngle: 0.4,
+    omega: 1.1
+  })
+
+  expect(didRespawn).toBe(false)
+  // The failed respawn must not move the player.
+  expect(state.surface.axialPosition).toBeCloseTo(5, 6)
+  expect(state.surface.azimuth).toBeCloseTo(1, 6)
 })
 
 test('respawnExterior hangs the player at inertial rest, letting the colony spin past', () => {

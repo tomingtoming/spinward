@@ -107,6 +107,15 @@ export class VRLocomotion {
     this.snapYaw = 0
   }
 
+  // Seat the standing view along the habitat axis (+1 faces the far cap).
+  // The grounded rig's local -Z is the -tangent direction, so a -90-degree
+  // snap yaw turns the view onto +axis. Applied immediately so a respawn on
+  // the same frame reads the new heading (same reason as applySpawnView).
+  faceAxis(sign: 1 | -1) {
+    this.snapYaw = sign * (-Math.PI / 2)
+    this.applyGroundedView()
+  }
+
   // Seat the standing view yaw on the rig NOW. A boot-time share restore
   // computes the camera-local orientation against its parent, which normally
   // only picks up the spawn yaw on the first update() — computing against the

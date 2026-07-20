@@ -26,6 +26,10 @@ test('resolveRuntimeWatchAction maps respawn watch actions to runtime respawn mo
     kind: 'respawn',
     mode: 'inner-wall'
   })
+  expect(resolveRuntimeWatchAction('respawn-old-town')).toEqual({
+    kind: 'respawn',
+    mode: 'old-town'
+  })
   expect(resolveRuntimeWatchAction('respawn-overlook')).toEqual({
     kind: 'respawn',
     mode: 'overlook'
