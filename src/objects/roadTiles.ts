@@ -209,8 +209,25 @@ export const planRoadTilePlacements = (
     return []
   }
 
-  const avenues = roads.filter((road) => road.axialLength > road.tangentWidth)
-  const streets = roads.filter((road) => road.axialLength <= road.tangentWidth)
+  // With back alleys the plan carries thousands of road rects; every pairing
+  // below is quadratic, so first keep only the roads whose rectangle comes
+  // near the focus window. Any junction that could matter to an in-range fill
+  // lies within the window, so both of its roads survive this filter.
+  const prefilterMargin = rangeMeters + MAX_ALONG_AXIAL * 2
+  const nearRoads = roads.filter((road) => {
+    const tangentGap = Math.max(
+      0,
+      Math.abs(wrapToPi(focusAzimuth - road.azimuth)) * radius - road.tangentWidth * 0.5
+    )
+    const axialGap = Math.max(
+      0,
+      Math.abs(focusAxial - road.axial) - road.axialLength * 0.5
+    )
+    return Math.hypot(tangentGap, axialGap) <= prefilterMargin
+  })
+
+  const avenues = nearRoads.filter((road) => road.axialLength > road.tangentWidth)
+  const streets = nearRoads.filter((road) => road.axialLength <= road.tangentWidth)
   const placements: RoadTilePlacement[] = []
 
   const tileCross = (width: number) => width / ROAD_DECK_FRACTION

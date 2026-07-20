@@ -17,6 +17,7 @@ import {
   getOverlookTowerClearance,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
+  getSidewalkWidth,
   getWindowArcs,
   getWindowStripArcs,
   isAzimuthOnLandArc,
@@ -294,7 +295,7 @@ describe('planCity', () => {
     }
   })
 
-  test('road hierarchy: arterials wide but realistic, locals narrow', () => {
+  test('road hierarchy: arterials wide but realistic, locals narrow, alleys lanes', () => {
     for (const [radius, length] of [[18, 120], [3200, 40000], [30000, 2000]] as const) {
       const { roads } = planCity({ radius, length })
       const kinds = new Set(roads.map((road) => road.kind))
@@ -306,10 +307,64 @@ describe('planCity', () => {
         if (road.kind === 'arterial') {
           expect(width).toBeGreaterThanOrEqual(6)
           expect(width).toBeLessThanOrEqual(24)
-        } else {
+        } else if (road.kind === 'local') {
           expect(width).toBeGreaterThanOrEqual(4)
           expect(width).toBeLessThanOrEqual(8)
+        } else {
+          expect(width).toBeGreaterThanOrEqual(2.5)
+          expect(width).toBeLessThanOrEqual(getSidewalkWidth(radius, length) * 1.5 + 1e-6)
         }
+      }
+    }
+  })
+
+  test('dense block interiors carry back alleys between the building rings', () => {
+    const { roads } = planCity({ radius: 3200, length: 40000 })
+    const alleys = roads.filter((road) => road.kind === 'alley')
+
+    expect(alleys.length).toBeGreaterThan(1000)
+
+    for (const alley of alleys) {
+      expect(isAzimuthOnLandStrip(alley.azimuth)).toBe(true)
+    }
+  })
+
+  test('no building stands without street frontage (the alley guarantee)', () => {
+    const radius = 3200
+    const length = 40000
+    const { roads, buildings } = planCity({ radius, length })
+    const sidewalk = getSidewalkWidth(radius, length)
+
+    // Sampled: the full cross product is 80M pairs. The worst allowed
+    // frontage is the sidewalk between a perimeter row and its block road;
+    // inner rows sit flush on their alley.
+    for (let index = 0; index < buildings.length; index += 13) {
+      const building = buildings[index]
+      let nearest = Infinity
+
+      for (const road of roads) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+        nearest = Math.min(nearest, Math.max(tangentGap, axialGap, 0))
+        if (nearest === 0) {
+          break
+        }
+      }
+
+      expect(nearest).toBeLessThanOrEqual(sidewalk + 0.5)
+    }
+  })
+
+  test('no building overlaps an alley at city scale', () => {
+    const radius = 3200
+    const { roads, buildings } = planCity({ radius, length: 40000 })
+    const alleys = roads.filter((road) => road.kind === 'alley')
+
+    for (let index = 0; index < buildings.length; index += 9) {
+      const building = buildings[index]
+
+      for (const alley of alleys) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, alley, radius)
+        expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
       }
     }
   })

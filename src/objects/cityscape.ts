@@ -672,7 +672,48 @@ const createFarmTexture = () => {
 // sides), V repeats along the road in ROAD_TEXTURE_WORLD_METERS units.
 export const ROAD_TEXTURE_WORLD_METERS = 12
 
-const createRoadTexture = (kind: 'arterial' | 'local') => {
+// The painted roads are the far LOD of the Kenney tile overlay, so the day
+// albedo speaks the tile colormap's language: the same asphalt grey, the same
+// muted blue-grey lane paint, the same orange centre line. Markings that used
+// to be near-white on near-black read as a fluorescent grid from a distance —
+// exactly the seam the overlay was supposed to hide.
+const drawRoadSurface = (
+  context: CanvasRenderingContext2D,
+  size: number,
+  kind: 'arterial' | 'local',
+  style: 'albedo' | 'glow'
+) => {
+  // The glow variant keeps the legacy near-black base and bright markings:
+  // it feeds the emissiveMap, so the night city keeps its teal-grid signature
+  // even though the daytime albedo is now muted.
+  context.fillStyle =
+    style === 'glow' ? '#000000' : kind === 'arterial' ? '#36383f' : '#3d4046'
+  context.fillRect(0, 0, size, size)
+
+  // Edge lines on both sides (symmetric, so the BackSide mirror is free).
+  context.fillStyle =
+    style === 'glow' ? 'rgba(218, 224, 230, 0.5)' : 'rgba(142, 149, 179, 0.55)'
+  context.fillRect(8, 0, 5, size)
+  context.fillRect(size - 13, 0, 5, size)
+
+  if (kind === 'arterial') {
+    // Solid warm center line plus dashed lane separators (4 lanes).
+    context.fillStyle =
+      style === 'glow' ? 'rgba(226, 196, 116, 0.85)' : 'rgba(255, 126, 68, 0.8)'
+    context.fillRect(size / 2 - 3, 0, 6, size)
+    context.fillStyle =
+      style === 'glow' ? 'rgba(220, 226, 232, 0.7)' : 'rgba(160, 168, 201, 0.6)'
+    context.fillRect(62, 16, 4, 120)
+    context.fillRect(size - 66, 16, 4, 120)
+  } else {
+    // Faint short center dash for residential streets.
+    context.fillStyle =
+      style === 'glow' ? 'rgba(210, 216, 222, 0.22)' : 'rgba(160, 168, 201, 0.25)'
+    context.fillRect(size / 2 - 2, 40, 4, 88)
+  }
+}
+
+const createRoadTexture = (kind: 'arterial' | 'local', style: 'albedo' | 'glow' = 'albedo') => {
   const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -683,26 +724,7 @@ const createRoadTexture = (kind: 'arterial' | 'local') => {
     throw new Error('2D canvas context is required for the road texture')
   }
 
-  context.fillStyle = kind === 'arterial' ? '#15191f' : '#20262d'
-  context.fillRect(0, 0, size, size)
-
-  // Edge lines on both sides (symmetric, so the BackSide mirror is free).
-  context.fillStyle = 'rgba(218, 224, 230, 0.5)'
-  context.fillRect(8, 0, 5, size)
-  context.fillRect(size - 13, 0, 5, size)
-
-  if (kind === 'arterial') {
-    // Solid warm center line plus dashed lane separators (4 lanes).
-    context.fillStyle = 'rgba(226, 196, 116, 0.85)'
-    context.fillRect(size / 2 - 3, 0, 6, size)
-    context.fillStyle = 'rgba(220, 226, 232, 0.7)'
-    context.fillRect(62, 16, 4, 120)
-    context.fillRect(size - 66, 16, 4, 120)
-  } else {
-    // Faint short center dash for residential streets.
-    context.fillStyle = 'rgba(210, 216, 222, 0.22)'
-    context.fillRect(size / 2 - 2, 40, 4, 88)
-  }
+  drawRoadSurface(context, size, kind, style)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -1417,6 +1439,8 @@ export class Cityscape {
   // (setDaylight). The texture is shared between albedo and emissive map.
   private readonly arterialRoadTexture = createRoadTexture('arterial')
   private readonly localRoadTexture = createRoadTexture('local')
+  private readonly arterialRoadGlowTexture = createRoadTexture('arterial', 'glow')
+  private readonly localRoadGlowTexture = createRoadTexture('local', 'glow')
 
   // No polygonOffset on any land-layer material: the logarithmic depth buffer
   // writes gl_FragDepth, which discards the rasterizer's polygon offset
@@ -1425,9 +1449,21 @@ export class Cityscape {
   private readonly localRoadMaterial = new THREE.MeshStandardMaterial({
     map: this.localRoadTexture,
     emissive: ROAD_GLOW.clone(),
-    emissiveMap: this.localRoadTexture,
+    emissiveMap: this.localRoadGlowTexture,
     emissiveIntensity: 0,
     roughness: 0.9,
+    metalness: 0,
+    side: THREE.BackSide
+  })
+
+  // Back lanes: bare concrete, deliberately WITHOUT the night glow — the
+  // teal grid stays the arterial/local signature while the alleys read as
+  // the unlit service capillaries between the rings. Painted at full range
+  // so block interiors show their lanes from any altitude (the near tile
+  // overlay only reaches a couple hundred meters).
+  private readonly alleyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x43464e,
+    roughness: 0.95,
     metalness: 0,
     side: THREE.BackSide
   })
@@ -1435,7 +1471,7 @@ export class Cityscape {
   private readonly roadMaterial = new THREE.MeshStandardMaterial({
     map: this.arterialRoadTexture,
     emissive: ROAD_GLOW.clone(),
-    emissiveMap: this.arterialRoadTexture,
+    emissiveMap: this.arterialRoadGlowTexture,
     emissiveIntensity: 0,
     roughness: 0.9,
     metalness: 0,
@@ -1639,6 +1675,7 @@ export class Cityscape {
   private endSun: THREE.DirectionalLight | null = null
   private roads: THREE.Mesh | null = null
   private localRoads: THREE.Mesh | null = null
+  private alleyRoads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
   private trees: THREE.InstancedMesh | null = null
   private lamps: THREE.InstancedMesh | null = null
@@ -1690,6 +1727,7 @@ export class Cityscape {
     for (const material of [
       this.roadMaterial,
       this.localRoadMaterial,
+      this.alleyMaterial,
       this.bridgeMaterial,
       this.bridgeEdgeMaterial
     ]) {
@@ -1767,8 +1805,44 @@ export class Cityscape {
       return
     }
 
+    // Arterial cross-streets continue over the windows as bridges (see
+    // buildWindowBridges), so for the overlay each arterial street row is ONE
+    // full ring: the tiles run onto the bridge decks and the strip-edge
+    // junctions become crossroads instead of dead-end Ts. The pseudo-ring is
+    // sized to the bridge deck (deckWidth * ROAD_DECK_FRACTION), slightly
+    // narrower than the street tiles were, so nothing overhangs the glass.
+    // One ring per axial row — the three per-strip street rects would
+    // otherwise triple-tile the same ring.
+    let plannerRoads = this.cityPlanRoads
+    if (getWindowArcs(this.topology).length > 0) {
+      const deckWidth = THREE.MathUtils.clamp(
+        getArterialRoadWidth(this.radius, this.length) * 1.15,
+        4,
+        28
+      )
+      const seenRingAxials: number[] = []
+      plannerRoads = []
+      for (const road of this.cityPlanRoads) {
+        const isArterialStreet =
+          road.kind === 'arterial' && road.tangentWidth > road.axialLength
+        if (!isArterialStreet) {
+          plannerRoads.push(road)
+          continue
+        }
+        if (seenRingAxials.some((axial) => Math.abs(axial - road.axial) < 0.5)) {
+          continue
+        }
+        seenRingAxials.push(road.axial)
+        plannerRoads.push({
+          ...road,
+          tangentWidth: Math.PI * 2 * this.radius,
+          axialLength: deckWidth * 0.8
+        })
+      }
+    }
+
     const placements = planRoadTilePlacements({
-      roads: this.cityPlanRoads,
+      roads: plannerRoads,
       radius: this.radius,
       focusAzimuth: this.cityFocusAzimuth,
       focusAxial: this.cityFocusAxial,
@@ -2312,6 +2386,9 @@ export class Cityscape {
     this.roadMaterial.dispose()
     this.localRoadMaterial.map?.dispose()
     this.localRoadMaterial.dispose()
+    this.alleyMaterial.dispose()
+    this.arterialRoadGlowTexture.dispose()
+    this.localRoadGlowTexture.dispose()
     this.bridgeMaterial.map?.dispose()
     this.bridgeMaterial.dispose()
     this.bridgeEdgeMaterial.dispose()
@@ -2419,7 +2496,8 @@ export class Cityscape {
       this.spineRings,
       this.bridges,
       this.bridgeEdges,
-      this.localRoads
+      this.localRoads,
+      this.alleyRoads
     ]) {
       if (single !== null) {
         single.geometry.dispose()
@@ -2437,6 +2515,7 @@ export class Cityscape {
     this.bridges = null
     this.bridgeEdges = null
     this.localRoads = null
+    this.alleyRoads = null
 
     if (this.towerGroup !== null) {
       for (const child of this.towerGroup.children) {
@@ -3692,7 +3771,7 @@ export class Cityscape {
     // clearance is absolute meters: proportional offsets float at head
     // height on multi-kilometer habitats. Arterials and residential
     // streets get separate meshes so their surfaces read differently.
-    for (const kind of ['arterial', 'local'] as const) {
+    for (const kind of ['arterial', 'local', 'alley'] as const) {
       const geometries: THREE.BufferGeometry[] = []
 
       for (const road of roads) {
@@ -3712,7 +3791,13 @@ export class Cityscape {
         // depth step is ~R·1.7e-6 m, so a fixed 3 cm gap thins to ~6 steps on
         // Izma and LOSES on Elysium — scale it with the habitat instead.
         const junctionGap = Math.max(0.03, radius * 1.5e-5)
-        const roadRadius = radius - 0.2 - (isAvenue ? junctionGap : 0)
+        // Alleys ride between the fields (R-0.1) and the streets (R-0.2):
+        // they never cross another road, so they only need to clear the
+        // ground layers under them.
+        const roadRadius =
+          kind === 'alley'
+            ? radius - 0.15
+            : radius - 0.2 - (isAvenue ? junctionGap : 0)
         const arcRadians = road.tangentWidth / radius
         const segments = getArcSegments(arcRadians, radius)
         const geometry = new THREE.CylinderGeometry(
@@ -3746,14 +3831,20 @@ export class Cityscape {
 
       const mesh = new THREE.Mesh(
         merged,
-        kind === 'arterial' ? this.roadMaterial : this.localRoadMaterial
+        kind === 'arterial'
+          ? this.roadMaterial
+          : kind === 'local'
+            ? this.localRoadMaterial
+            : this.alleyMaterial
       )
       mesh.renderOrder = 1
 
       if (kind === 'arterial') {
         this.roads = mesh
-      } else {
+      } else if (kind === 'local') {
         this.localRoads = mesh
+      } else {
+        this.alleyRoads = mesh
       }
 
       this.group.add(mesh)

@@ -25,7 +25,14 @@ export type CityBuilding = {
   oldTown?: number
 }
 
-export type RoadKind = 'arterial' | 'local'
+// 'alley': the back lanes between building rings inside a block. They exist
+// so that NO building stands without street frontage — the inner rings front
+// these lanes. Alleys are real roads in the plan (the near-player road-tile
+// overlay paves them) but the painted far-LOD pipeline, lamps, traffic and
+// bridges all filter on 'arterial'/'local' and deliberately skip them: from
+// a distance a back lane reads as a dark gap, and the night glow grid stays
+// the arterial/local signature.
+export type RoadKind = 'arterial' | 'local' | 'alley'
 
 export type CityRoad = {
   azimuth: number
@@ -893,11 +900,17 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     let estLength = innerLengthEstimate
 
     for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
-      if (estWidth < cell * 0.6 || estLength < cell * 0.6) {
+      const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
+
+      if (estWidth < minSpan || estLength < minSpan) {
         break
       }
 
-      const ringDepth = Math.min(cell * 0.9, estWidth * 0.35, estLength * 0.35)
+      const ringDepth = Math.min(
+        ring === 0 ? cell * 0.9 : cell * 0.35,
+        estWidth * 0.35,
+        estLength * 0.35
+      )
       lotsPerBlockEstimate +=
         2 * Math.max(0, Math.floor(estLength / lot)) +
         2 * Math.max(0, Math.floor((estWidth - 2 * (ringDepth + sidewalk)) / lot))
@@ -1096,8 +1109,16 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       let along =
         stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lot * (0.74 + alongRoll * 0.24)
       let depth = depthMax * (0.55 + depthRoll * 0.45)
-      const alongCenter =
-        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
+      // The end-of-row jitter must not push a building past the row span:
+      // beyond it lies the back ALLEY (a real road since the frontage
+      // guarantee), and a lot that drifts into the lane both blocks it and
+      // breaks the no-building-on-road invariant.
+      const clampAlongToRow = (centre: number, extent: number) =>
+        Math.min(rowEnd - extent * 0.5, Math.max(rowStart + extent * 0.5, centre))
+      const alongCenter = clampAlongToRow(
+        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2,
+        along
+      )
       // Downtown stands tall; the outskirts stay low-rise. A merged plot
       // hosts a proportionally bigger building. The old town is dense but
       // LOW — first-generation construction, accreted rather than replaced —
@@ -1126,7 +1147,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         const frontCenter = edgeCoordinate + edgeSide * infillDepth * 0.5
 
         for (const side of [-1, 1] as const) {
-          const centre = alongCenter + side * pitch * 0.24
+          const centre = clampAlongToRow(alongCenter + side * pitch * 0.24, infillAlong)
           // A derived second tone so the pair does not read as twins.
           const tone =
             side === -1 ? toneRoll : toneRoll * 0.63 + 0.31 - Math.floor(toneRoll * 0.63 + 0.31)
@@ -1399,11 +1420,60 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           const ringWidth = ringTangent1 - ringTangent0
           const ringLength = ringAxial1 - ringAxial0
 
-          if (ringWidth < cell * 0.6 || ringLength < cell * 0.6) {
+          // The perimeter ring hosts the deep frontage slabs; INNER rings are
+          // shallow infill rows. At city scale the old uniform depth (cell*0.9
+          // ~72 m) plus its inset consumed the whole block, so ring 1 never
+          // ran and dense block interiors were left as bare strips of ground
+          // touching the perimeter's backs — buildings on a roadless void.
+          // Shallow inner rows (and their alley, below) fill the interior
+          // until the backs nearly meet at the block spine.
+          const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
+
+          if (ringWidth < minSpan || ringLength < minSpan) {
             break
           }
 
-          const ringDepth = Math.min(cell * 0.9, ringWidth * 0.35, ringLength * 0.35)
+          // Every ring after the first fronts a real back lane, not bare
+          // ground: the inset between the outer ring's building backs and
+          // this ring's fronts is exactly sidewalk*1.5 wide, and that band
+          // becomes an 'alley' road loop. This is the no-building-without-
+          // frontage guarantee — the reason inner rings are allowed to exist.
+          // The two axial legs extend across the corners; the tangential legs
+          // butt against them, so the loop covers the corner squares once.
+          // Emitted deterministically from the ring rectangle (no RNG), so
+          // the building layout is untouched. Tiny habitats whose band is
+          // too narrow for a lane keep their legacy alley-free interior.
+          const alleyBand = sidewalk * 1.5
+          if (ring > 0 && alleyBand >= 2.5) {
+            const alleyAxialCenter = (ringAxial0 + ringAxial1) * 0.5
+            const alleyAxialSpan = ringLength + 2 * alleyBand
+            for (const side of [-1, 1] as const) {
+              roads.push({
+                azimuth:
+                  stripCenter +
+                  ((side === -1 ? ringTangent0 : ringTangent1) + side * alleyBand * 0.5) /
+                    radius,
+                axial: alleyAxialCenter,
+                tangentWidth: alleyBand,
+                axialLength: alleyAxialSpan,
+                kind: 'alley'
+              })
+              roads.push({
+                azimuth: stripCenter + ((ringTangent0 + ringTangent1) * 0.5) / radius,
+                axial:
+                  (side === -1 ? ringAxial0 : ringAxial1) + side * alleyBand * 0.5,
+                tangentWidth: ringWidth,
+                axialLength: alleyBand,
+                kind: 'alley'
+              })
+            }
+          }
+
+          const ringDepth = Math.min(
+            ring === 0 ? cell * 0.9 : cell * 0.35,
+            ringWidth * 0.35,
+            ringLength * 0.35
+          )
           placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
           placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
           placeEdgeRow(
