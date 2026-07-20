@@ -1,4 +1,6 @@
+import type { DepthMode } from '../../app/depthMode'
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
+import type { PerfStats } from '../../app/perfMeter'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
 import { getHabitatSpan } from '../../sim/habitatConfig'
@@ -42,6 +44,12 @@ export type WatchRenderSnapshot = {
   axisEndRespawnEnabled: boolean
   // Latched weather state, so the Rain toggle can render its on-state.
   raining: boolean
+  // Live perf readouts (windowed fps, last-frame renderer counters) and the
+  // active depth-buffer mode, for the wrist perf line and the RENDER card.
+  fps: number
+  drawCalls: number
+  triangles: number
+  depthMode: DepthMode
   radiusFineStep: number
   radiusCoarseStep: number
   lengthFineStep: number
@@ -70,6 +78,8 @@ export const createWatchRenderSnapshot = (
     feltGravity: number
     feltSpeed: number
     raining: boolean
+    perf: PerfStats
+    depthMode: DepthMode
     absoluteVelocity: {
       x: number
       y: number
@@ -101,6 +111,10 @@ export const createWatchRenderSnapshot = (
   feltGravity: runtime.feltGravity,
   feltSpeed: runtime.feltSpeed,
   raining: runtime.raining,
+  fps: runtime.perf.fps,
+  drawCalls: runtime.perf.drawCalls,
+  triangles: runtime.perf.triangles,
+  depthMode: runtime.depthMode,
   simScale: settingsStore.habitat.simScale,
   ballCount: runtime.ballCount,
   throwScale: settingsStore.habitat.ballSpeedScale,

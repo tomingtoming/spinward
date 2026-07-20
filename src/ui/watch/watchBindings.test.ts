@@ -38,6 +38,8 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
     ballCount: 3,
     feltGravity: 9.80665,
     feltSpeed: -1,
+    perf: { fps: 71.8, drawCalls: 210, triangles: 1800000 },
+    depthMode: 'plain',
     absoluteVelocity: {
       x: 1.25,
       y: -2.5,
@@ -57,6 +59,10 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
   expect(snapshot.jetpackAcceleration).toBeCloseTo(13.5, 6)
   expect(snapshot.reattachThreshold).toBeCloseTo(0.35, 6)
   expect(snapshot.ballCount).toBe(3)
+  expect(snapshot.fps).toBeCloseTo(71.8, 6)
+  expect(snapshot.drawCalls).toBe(210)
+  expect(snapshot.triangles).toBe(1800000)
+  expect(snapshot.depthMode).toBe('plain')
   expect(snapshot.absoluteVelocityX).toBeCloseTo(1.25, 6)
   expect(snapshot.absoluteVelocityY).toBeCloseTo(-2.5, 6)
   expect(snapshot.absoluteVelocityZ).toBeCloseTo(3.75, 6)
@@ -95,6 +101,8 @@ test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says 
     ballCount: 0,
     feltGravity: 0,
     feltSpeed: -1,
+    perf: { fps: 0, drawCalls: 0, triangles: 0 },
+    depthMode: 'log',
     absoluteVelocity: {
       x: 0,
       y: 0,

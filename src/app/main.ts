@@ -12,9 +12,11 @@ import {
 } from './observerMode'
 import { GameAudio } from './audio'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
+import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
+import { createPerfMeter } from './perfMeter'
 import { getDaylight, stepDayNightPhase } from './dayNight'
 import { computeAmbienceMix } from './ambienceMix'
 import { capturePhoto } from './photoMode'
@@ -297,13 +299,28 @@ export const bootstrapApp = async () => {
   // no precision out there and coplanar surfaces — roads/fields on the ground,
   // glass on the wall — z-fight. Log depth redistributes precision across the
   // whole range and keeps the near plane small (so VR hands stay un-clipped).
-  const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
+  // But log depth writes gl_FragDepth, which disables early-Z — on tile GPUs
+  // (Quest, phones) every occluded fragment of the night city still shades.
+  // The wrist RENDER card toggles 'log' vs 'plain' (persisted; ?depth= URL
+  // param overrides) to price that tax on-device. Reversed-Z would give both,
+  // but three's WebXR path takes projection matrices straight from the XR
+  // runtime, so the reversedDepthBuffer flag cannot apply in-headset.
+  const depthMode = loadDepthMode()
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    logarithmicDepthBuffer: depthMode === 'log'
+  })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
   renderer.xr.setReferenceSpaceType('local-floor')
+  // The perf meter reads renderer.info once per game-loop tick; manual reset
+  // lets the counters accumulate across bloom's sub-passes instead of being
+  // wiped by every internal render() call.
+  renderer.info.autoReset = false
+  const perfMeter = createPerfMeter()
 
   // Bloom makes the night city glow (windows, teal road grid, beacons, the sun).
   // EffectComposer does NOT compose with WebXR's multi-view rendering, so bloom
@@ -860,6 +877,10 @@ export const bootstrapApp = async () => {
       case 'rain-toggle':
         audio.playClick()
         setRaining(!weather.raining)
+        return true
+      case 'depth-toggle':
+        audio.playClick()
+        toggleDepthModeAndReload(depthMode)
         return true
       case 'respawn':
         audio.playClick()
@@ -1582,6 +1603,11 @@ export const bootstrapApp = async () => {
   let feedbackHapticAccumulator = 0
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+    // Sample the previous frame's accumulated renderer counters, then clear
+    // them for the passes this tick will issue.
+    perfMeter.frame(deltaSeconds, renderer.info.render)
+    renderer.info.reset()
+
     if (settingsDirty) {
       syncHabitat()
       settingsDirty = false
@@ -2017,6 +2043,8 @@ export const bootstrapApp = async () => {
       feltGravity,
       feltSpeed,
       raining: weather.raining,
+      perf: perfMeter.stats(),
+      depthMode,
       absoluteVelocity: {
         x: playerTraversal.inertialVelocity.x,
         y: playerTraversal.inertialVelocity.y,

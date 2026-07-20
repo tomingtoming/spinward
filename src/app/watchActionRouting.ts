@@ -10,6 +10,7 @@ export type RuntimeWatchAction =
       mode: 'inner-wall' | 'overlook' | 'axis-end' | 'exterior'
     }
   | { kind: 'rain-toggle' }
+  | { kind: 'depth-toggle' }
   | null
 
 export const resolveRuntimeWatchAction = (
@@ -34,6 +35,8 @@ export const resolveRuntimeWatchAction = (
       return { kind: 'respawn', mode: 'exterior' }
     case 'weather-rain-toggle':
       return { kind: 'rain-toggle' }
+    case 'depth-mode-toggle':
+      return { kind: 'depth-toggle' }
     default:
       return null
   }

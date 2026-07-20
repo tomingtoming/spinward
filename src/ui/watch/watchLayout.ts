@@ -31,6 +31,7 @@ export type WatchActionId =
   | 'respawn-axis-end'
   | 'respawn-exterior'
   | 'weather-rain-toggle'
+  | 'depth-mode-toggle'
 
 export type WatchButton = {
   id: WatchActionId
@@ -77,6 +78,9 @@ export type WatchScreenLayout = {
   // HABITAT + TWEAKS stepper rows.
   rowsSection?: WatchSection
   rows?: WatchRow[]
+  // TWEAKS render card (perf readouts + the depth-buffer switch).
+  renderSection?: WatchSection
+  depthButton?: WatchButton
 }
 
 export const WATCH_CANVAS_SIZE = {
@@ -253,6 +257,20 @@ const createTweaksLayout = (width: number, height: number): WatchScreenLayout =>
   }
   const rows = keys.map((key, index) => makeParameterRow(key, rowsSection.top + 48 + index * 86, width))
 
+  // RENDER card: perf readouts plus the depth-buffer A/B. The switch is a
+  // plain button rather than a stepper — flipping the depth strategy rebuilds
+  // the renderer, so pressing it reloads the page.
+  const renderSection: WatchSection = { top: 540, height: 128, title: 'RENDER' }
+  const depthButtonWidth = 190
+  const depthButton = makeActionButton(
+    'depth-mode-toggle',
+    'Switch ↻',
+    width - SECTION_RIGHT - 18 - depthButtonWidth,
+    renderSection.top + 50,
+    depthButtonWidth,
+    62
+  )
+
   return {
     screen: 'tweaks',
     width,
@@ -261,7 +279,9 @@ const createTweaksLayout = (width: number, height: number): WatchScreenLayout =>
     title: 'TWEAKS',
     rowsSection,
     rows,
-    buttons: [backButton, ...rows.flatMap((row) => row.buttons)]
+    renderSection,
+    depthButton,
+    buttons: [backButton, ...rows.flatMap((row) => row.buttons), depthButton]
   }
 }
 
