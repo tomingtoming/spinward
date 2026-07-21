@@ -267,7 +267,7 @@ export const loadDetailedBuildingGeometryPack = async () => {
 // CBD keeps the authored Japanese kit — each district gets its own
 // architectural language.
 
-export type KenneyBuildingSet = 'commercial' | 'suburban'
+export type KenneyBuildingSet = 'commercial' | 'skyscraper' | 'suburban'
 
 export const KENNEY_COMMERCIAL_VARIANTS = [
   'a',
@@ -275,20 +275,155 @@ export const KENNEY_COMMERCIAL_VARIANTS = [
   'c',
   'd',
   'e',
+  'f',
   'g',
+  'h',
   'i',
-  'k'
+  'j',
+  'k',
+  'l',
+  'm',
+  'n'
 ] as const
-export const KENNEY_SUBURBAN_VARIANTS = ['a', 'c', 'f', 'k', 'q', 'u'] as const
+// The five tall office prisms from the same Commercial kit: the CBD's
+// architectural language. Stretch-fit like the mid-rises; no low-detail
+// set ships, so the detailed geometry serves both LODs.
+export const KENNEY_SKYSCRAPER_VARIANTS = ['a', 'b', 'c', 'd', 'e'] as const
+export const KENNEY_SUBURBAN_VARIANTS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'k',
+  'l',
+  'o',
+  'q',
+  's',
+  'u'
+] as const
 
 const KENNEY_BUILDING_BASE = '/assets/buildings/kenney'
 
 export type KenneyBuildingGeometryPack = {
   // Per variant: [lod0, lod1] unit-box geometries.
   commercial: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  skyscraper: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
   suburban: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
   commercialMaterial: THREE.MeshStandardMaterial
   suburbanMaterial: THREE.MeshStandardMaterial
+}
+
+// The Kenney kits ship no emissive of their own, but the night skyline of
+// lit windows is a signature of the city. The colormap cannot tell glass
+// from wall (blue variants paint both from one gradient band), so windows
+// are found GEOMETRICALLY: vertical faces recessed behind their local wall
+// plane are glass. The verdict is painted into an aWindowGlow vertex
+// attribute; the shader multiplies the material's warm emissive by it, and
+// the frame loop drives emissiveIntensity with the day cycle like every
+// other facade.
+export const paintWindowGlowAttribute = (geometry: THREE.BufferGeometry) => {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const triangleCount = (index !== null ? index.count : position.count) / 3
+  const vertexAt = (tri: number, corner: number) => {
+    const raw = tri * 3 + corner
+    return index !== null ? index.getX(raw) : raw
+  }
+
+  type Face = { offset: number; area: number; tri: number }
+  const buckets = new Map<string, Face[]>()
+  const p0 = new THREE.Vector3()
+  const p1 = new THREE.Vector3()
+  const p2 = new THREE.Vector3()
+  const e1 = new THREE.Vector3()
+  const e2 = new THREE.Vector3()
+  const n = new THREE.Vector3()
+
+  for (let tri = 0; tri < triangleCount; tri += 1) {
+    p0.fromBufferAttribute(position, vertexAt(tri, 0))
+    p1.fromBufferAttribute(position, vertexAt(tri, 1))
+    p2.fromBufferAttribute(position, vertexAt(tri, 2))
+    n.copy(e1.subVectors(p1, p0)).cross(e2.subVectors(p2, p0))
+    const area = n.length() / 2
+    if (area < 1e-12) {
+      continue
+    }
+    n.divideScalar(area * 2)
+    if (Math.abs(n.y) > 0.3) {
+      continue
+    }
+    const axis = Math.abs(n.x) > Math.abs(n.z) ? 'x' : 'z'
+    const along = axis === 'x' ? n.x : n.z
+    if (Math.abs(along) < 0.9) {
+      continue
+    }
+    const sign = along > 0 ? 1 : -1
+    const centroidY = (p0.y + p1.y + p2.y) / 3
+    const offset =
+      sign * ((axis === 'x' ? p0.x + p1.x + p2.x : p0.z + p1.z + p2.z) / 3)
+    // Stepped masses have walls at several depths: bucket per height band
+    // so each floor step finds its own wall plane.
+    const key = `${axis}${sign}:${Math.round(centroidY * 10)}`
+    const faces = buckets.get(key) ?? []
+    faces.push({ offset, area, tri })
+    buckets.set(key, faces)
+  }
+
+  const glow = new Float32Array(position.count)
+  for (const faces of buckets.values()) {
+    // The wall plane is the area-weighted dominant offset bin, so trims that
+    // PROTRUDE past the wall do not drag the reference outward.
+    const bins = new Map<number, number>()
+    for (const face of faces) {
+      const bin = Math.round(face.offset / 0.004)
+      bins.set(bin, (bins.get(bin) ?? 0) + face.area)
+    }
+    let wallBin = 0
+    let wallArea = -1
+    for (const [bin, area] of bins) {
+      if (area > wallArea) {
+        wallArea = area
+        wallBin = bin
+      }
+    }
+    const wallOffset = wallBin * 0.004
+    for (const face of faces) {
+      if (wallOffset - face.offset > 0.003) {
+        glow[vertexAt(face.tri, 0)] = 1
+        glow[vertexAt(face.tri, 1)] = 1
+        glow[vertexAt(face.tri, 2)] = 1
+      }
+    }
+  }
+  geometry.setAttribute('aWindowGlow', new THREE.BufferAttribute(glow, 1))
+}
+
+// Shader hook for the kit materials: emissive (warm, day-cycle-driven)
+// applies only where aWindowGlow says glass.
+export const installKenneyWindowGlow = (material: THREE.MeshStandardMaterial) => {
+  material.emissive = new THREE.Color(0xffe9c4)
+  material.emissiveIntensity = 0
+  const previousCompile = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    previousCompile(shader, renderer)
+    shader.vertexShader =
+      'attribute float aWindowGlow;\nvarying float vWindowGlow;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n  vWindowGlow = aWindowGlow;'
+      )
+    shader.fragmentShader =
+      'varying float vWindowGlow;\n' +
+      shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vWindowGlow;'
+      )
+  }
+  material.needsUpdate = true
 }
 
 const captureKitMaterial = (scene: THREE.Object3D) => {
@@ -330,10 +465,12 @@ export const loadKenneyBuildingGeometryPack =
         }
       }
 
-      return normalizeGeometry(gltf.scene)
+      const geometry = normalizeGeometry(gltf.scene)
+      paintWindowGlowAttribute(geometry)
+      return geometry
     }
 
-    // All 22 files load CONCURRENTLY: awaited one by one on a live page the
+    // All the kit files load CONCURRENTLY: awaited one by one on a live page the
     // fetch+parse+texture-decode of each round trip serializes against the
     // render loop and the pack takes minutes to arrive — the city would sit
     // on its fallbacks long after boot.
@@ -373,6 +510,21 @@ export const loadKenneyBuildingGeometryPack =
             }
           }
           const geometry = normalizeGeometryUniform(gltf.scene)
+          paintWindowGlowAttribute(geometry)
+          return [geometry, geometry]
+        }
+      )
+    )
+
+    // The skyscrapers ship in the Commercial kit and share its colormap, so
+    // their materials are dropped in favour of the captured commercial one.
+    const skyscraper = await Promise.all(
+      KENNEY_SKYSCRAPER_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => {
+          const geometry = await loadOne(
+            `${KENNEY_BUILDING_BASE}/commercial/building-skyscraper-${variant}.glb`,
+            null
+          )
           return [geometry, geometry]
         }
       )
@@ -382,7 +534,7 @@ export const loadKenneyBuildingGeometryPack =
       throw new Error('Kenney building kits are missing their palette material')
     }
 
-    return { commercial, suburban, commercialMaterial, suburbanMaterial }
+    return { commercial, skyscraper, suburban, commercialMaterial, suburbanMaterial }
   }
 
 export const disposeKenneyBuildingGeometryPack = (
@@ -392,13 +544,19 @@ export const disposeKenneyBuildingGeometryPack = (
     pair[0].dispose()
     pair[1].dispose()
   }
+  for (const pair of pack.skyscraper) {
+    // lod0 and lod1 share the geometry.
+    pair[0].dispose()
+  }
   for (const pair of pack.suburban) {
     // lod0 and lod1 share the geometry.
     pair[0].dispose()
   }
   pack.commercialMaterial.map?.dispose()
+  pack.commercialMaterial.emissiveMap?.dispose()
   pack.commercialMaterial.dispose()
   pack.suburbanMaterial.map?.dispose()
+  pack.suburbanMaterial.emissiveMap?.dispose()
   pack.suburbanMaterial.dispose()
 }
 
@@ -416,17 +574,25 @@ export const disposeKenneyBuildingGeometryPack = (
 // longest side, so runtime geometry reproduces these ratios exactly.
 const KENNEY_SUBURBAN_RAW_SIZES: ReadonlyArray<readonly [number, number, number]> = [
   [1.3, 0.83, 1.03], // a — dormered single-storey
+  [1.83, 1.14, 1.14], // b — wide two-storey
   [1.29, 1.03, 1.03], // c — two-storey, stepped wing
+  [1.76, 1.24, 1.03], // d — long two-storey
+  [1.3, 1.14, 1.03], // e — two-storey
   [1.43, 1.14, 1.41], // f — large two-storey
+  [1.45, 0.77, 1.18], // g — single-storey ranch
+  [1.3, 0.74, 0.92], // h — small single-storey
   [0.92, 1.15, 1.02], // k — narrow mono-pitch two-storey
+  [1.03, 1.05, 1.02], // l — compact two-storey
+  [1.27, 1.14, 1.03], // o — two-storey
   [1.24, 0.92, 0.89], // q — flat-roof two-storey with carport
+  [1.41, 1.14, 1.09], // s — two-storey
   [1.43, 1.14, 1.09] // u — two-storey with garage
 ]
 
 // Real-world stature each variant depicts (m). Storeys priced at ~3.2 m
 // plus roof; the dormered bungalow sits under the full two-storey band.
 export const KENNEY_SUBURBAN_HEIGHT_M: readonly number[] = [
-  6.0, 7.5, 8.0, 7.5, 6.5, 7.5
+  6.0, 7.5, 7.5, 7.8, 7.5, 8.0, 4.8, 4.6, 7.5, 7.2, 7.5, 6.5, 7.5, 7.5
 ]
 
 // Houses sit at the BACK of their parcel — rear wall this far off the back
@@ -455,14 +621,16 @@ export const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
   return Math.floor(hash * buckets) % buckets
 }
 
-// District architecture: which Kenney kit (if any) dresses this building in
-// the near disk. The old town wears Commercial storefronts regardless of its
-// procedural kind; the sparse countryside's detached houses come from
-// Suburban. Everything else keeps the authored Japanese kit. Deterministic
+// District architecture: which Kenney kit dresses this building in the near
+// disk. The whole skyline speaks Kenney now — the authored Japanese kit is
+// retired for buildings: the old town wears Commercial storefronts, the
+// countryside's detached houses come from Suburban, the CBD's tall
+// furniture (tower/setback/slab) wears the Commercial kit's skyscraper
+// prisms, and every remaining mass is a Commercial mid-rise. Deterministic
 // from fields the building already carries — no plan RNG consumed.
 export const kenneyPickForBuilding = (
   building: CityBuilding
-): { set: KenneyBuildingSet; variant: number } | null => {
+): { set: KenneyBuildingSet; variant: number } => {
   if ((building.oldTown ?? 0) >= 0.5) {
     return {
       set: 'commercial',
@@ -475,7 +643,20 @@ export const kenneyPickForBuilding = (
       variant: facadePaletteIndex(building, KENNEY_SUBURBAN_VARIANTS.length)
     }
   }
-  return null
+  if (
+    building.kind === 'tower' ||
+    building.kind === 'setback' ||
+    building.kind === 'slab'
+  ) {
+    return {
+      set: 'skyscraper',
+      variant: facadePaletteIndex(building, KENNEY_SKYSCRAPER_VARIANTS.length)
+    }
+  }
+  return {
+    set: 'commercial',
+    variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
+  }
 }
 
 export type SuburbanHouseFit = {

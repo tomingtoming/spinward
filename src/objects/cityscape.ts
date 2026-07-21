@@ -39,11 +39,11 @@ import {
   disposeKenneyBuildingGeometryPack,
   facadePaletteIndex,
   fitSuburbanHouse,
+  installKenneyWindowGlow,
   kenneyPickForBuilding,
   loadDetailedBuildingGeometryPack,
   loadKenneyBuildingGeometryPack,
   suburbanLotBoundary,
-  type DetailedBuildingArchetype,
   type DetailedBuildingGeometryPack,
   type KenneyBuildingGeometryPack,
   type KenneyBuildingSet,
@@ -1215,26 +1215,6 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   }
 ]
 
-const detailedArchetypeForBuilding = (
-  building: CityBuilding
-): DetailedBuildingArchetype => {
-  if (building.kind === 'house') {
-    return 'house'
-  }
-  if (building.kind === 'tower') {
-    return 'tower'
-  }
-  if (building.kind === 'setback') {
-    return 'setback'
-  }
-  if (building.kind === 'slab') {
-    return 'slab'
-  }
-  if (building.kind === 'lshape') {
-    return 'lshape'
-  }
-  return 'residential'
-}
 
 export class Cityscape {
   readonly group = new THREE.Group()
@@ -1792,7 +1772,9 @@ export class Cityscape {
       }
 
       // The kit materials join the LOD screen-door system like every other
-      // building material.
+      // building material, and their windows join the night city.
+      installKenneyWindowGlow(pack.commercialMaterial)
+      installKenneyWindowGlow(pack.suburbanMaterial)
       this.installBuildingLodDither(pack.commercialMaterial)
       this.installBuildingLodDither(pack.suburbanMaterial)
       this.kenneyBuildingGeometries = pack
@@ -2275,6 +2257,14 @@ export class Cityscape {
     }
     this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
     this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
+    // The Kenney kits glow through their glass-masked emissive maps, so the
+    // whole skyline keeps the night-window signature.
+    if (this.kenneyBuildingGeometries !== null) {
+      this.kenneyBuildingGeometries.commercialMaterial.emissiveIntensity =
+        windowGlow * 0.5
+      this.kenneyBuildingGeometries.suburbanMaterial.emissiveIntensity =
+        windowGlow * 0.38
+    }
     // The facade albedo is authored dark (a night base + lit-window cut-outs);
     // lift it hard through the day so sunlit walls read as a daytime city rather
     // than the dim night skin. Roofs lift too, and dim below 1 at night so only
@@ -2731,9 +2721,10 @@ export class Cityscape {
     this.disposeNearBuildingBatches()
 
     let procedural = this.cityNearBuildings.map(stableBuildingPlacement)
-    const pack = this.detailedBuildingGeometries
 
-    if (pack !== null) {
+    // The LOD selection keys on the Kenney pack: it dresses every building,
+    // and until it arrives the procedural city carries the whole near disk.
+    if (this.kenneyBuildingGeometries !== null) {
       type Candidate = {
         building: CityBuilding
         distance: number
@@ -3050,15 +3041,14 @@ export class Cityscape {
     plan: BuildingRenderPlacement[],
     lod: 0 | 1
   ) {
-    const pack = this.detailedBuildingGeometries
-    if (pack === null) {
+    // The whole skyline is Kenney: every near building batches per
+    // (set, variant). The Japanese kit is retired for buildings — its GLB
+    // stays loaded only for the street furniture.
+    const kenneyPack = this.kenneyBuildingGeometries
+    if (kenneyPack === null) {
       return
     }
 
-    // District split: Kenney-dressed buildings leave the Japanese-kit plan
-    // and batch per (set, variant) below.
-    const kenneyPack = this.kenneyBuildingGeometries
-    const japanesePlan: BuildingRenderPlacement[] = []
     const kenneyGroups = new Map<string, {
       set: KenneyBuildingSet
       variant: number
@@ -3066,96 +3056,34 @@ export class Cityscape {
     }>()
 
     for (const placement of plan) {
-      const pick = kenneyPack === null ? null : kenneyPickForBuilding(placement.building)
-      if (pick === null) {
-        japanesePlan.push(placement)
-        continue
-      }
+      const pick = kenneyPickForBuilding(placement.building)
       const key = `${pick.set}:${pick.variant}`
       const group = kenneyGroups.get(key) ?? { ...pick, list: [] }
       group.list.push(placement)
       kenneyGroups.set(key, group)
     }
 
-    if (kenneyPack !== null) {
-      for (const group of kenneyGroups.values()) {
-        const pair = kenneyPack[group.set][group.variant]
-        this.detailedBuildingBatches.push(
-          this.buildKenneyBuildingBatch(
-            group.list,
-            pair[lod],
-            group.set === 'commercial'
-              ? kenneyPack.commercialMaterial
-              : kenneyPack.suburbanMaterial,
-            group.set === 'commercial' ? 'stretch' : 'uniform'
-          )
+    for (const group of kenneyGroups.values()) {
+      const pair = kenneyPack[group.set][group.variant]
+      this.detailedBuildingBatches.push(
+        this.buildKenneyBuildingBatch(
+          group.list,
+          pair[lod],
+          group.set === 'suburban'
+            ? kenneyPack.suburbanMaterial
+            : kenneyPack.commercialMaterial,
+          group.set === 'suburban' ? 'uniform' : 'stretch'
         )
-      }
-
-      // Lot boundaries ride the same pack gate: while the Japanese-kit
-      // fallback still fills whole lots, a hedge inside it would clip.
-      if (lod === 0) {
-        this.buildSuburbanBoundaryBatches(plan)
-      }
+      )
     }
 
-    for (const archetype of [
-      'house',
-      'residential',
-      'setback',
-      'slab',
-      'lshape',
-      'tower'
-    ] as const satisfies readonly DetailedBuildingArchetype[]) {
-      const buildings = japanesePlan.filter(
-        (placement) =>
-          detailedArchetypeForBuilding(placement.building) === archetype
-      )
-      if (buildings.length === 0) {
-        continue
-      }
-
-      const sideMaterial =
-        archetype === 'house'
-          ? this.houseBuildingSideMaterial
-          : archetype === 'tower'
-            ? this.towerBuildingSideMaterials[2]
-            : archetype === 'lshape'
-              ? this.largeBuildingSideMaterials[2]
-              : archetype === 'slab'
-                ? this.largeBuildingSideMaterials[1]
-                : archetype === 'setback'
-                  ? this.largeBuildingSideMaterials[0]
-                  : this.buildingSideMaterials[0]
-      const grid =
-        archetype === 'house'
-          ? GRID_HOUSE
-          : archetype === 'tower'
-            ? GRID_TOWER
-            : archetype === 'slab' ||
-                archetype === 'setback' ||
-                archetype === 'lshape'
-              ? GRID_DENSE
-              : GRID_WARM
-      const signMaterial =
-        this.buildingSignMaterials[
-          archetype === 'house'
-            ? 0
-            : archetype === 'residential'
-              ? 1
-              : archetype === 'setback'
-                ? 0
-                : 2
-        ]
-      const batch = this.buildDetailedBuildingBatch(
-        buildings,
-        pack[archetype][lod],
-        sideMaterial,
-        signMaterial,
-        grid
-      )
-      this.detailedBuildingBatches.push(batch)
+    // Lot boundaries ride the same pack gate: the procedural fallback
+    // still fills whole lots before the pack arrives, and a hedge inside
+    // it would clip.
+    if (lod === 0) {
+      this.buildSuburbanBoundaryBatches(plan)
     }
+
   }
 
   private buildProceduralNearBatches(near: BuildingRenderPlacement[]) {
@@ -3656,70 +3584,6 @@ export class Cityscape {
       this.roofClutter.push(mesh)
       this.group.add(mesh)
     }
-  }
-
-  private buildDetailedBuildingBatch(
-    plan: BuildingRenderPlacement[],
-    sourceGeometry: THREE.BufferGeometry,
-    sideMaterial: THREE.MeshStandardMaterial,
-    signMaterial: THREE.MeshStandardMaterial,
-    grid: FacadeGrid
-  ) {
-    const geometry = sourceGeometry.clone()
-    const mesh = new THREE.InstancedMesh(
-      geometry,
-      [sideMaterial, this.buildingRoofMaterial, signMaterial],
-      plan.length
-    )
-    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    mesh.frustumCulled = false
-    const uvScales = new Float32Array(plan.length * 2)
-
-    for (let index = 0; index < plan.length; index += 1) {
-      const building = plan[index].building
-      const cos = Math.cos(building.azimuth)
-      const sin = Math.sin(building.azimuth)
-      tangent.set(-sin, 0, cos)
-      inward.set(-cos, 0, -sin)
-      binormal.copy(tangent).cross(inward)
-      basis.makeBasis(tangent, inward, binormal)
-      instanceQuaternion.setFromRotationMatrix(basis)
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(this.radius - building.height * 0.5)
-        .setY(building.axial)
-      instanceScale.set(building.width, building.height, building.depth)
-      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
-      mesh.setColorAt(
-        index,
-        buildingTone(
-          building.tone,
-          building.urban ?? DEFAULT_URBAN,
-          building.oldTown ?? 0,
-          instanceColor
-        )
-      )
-      writeFacadeUvScale(
-        (building.width + building.depth) * 0.5,
-        building.height,
-        grid,
-        uvScales,
-        index * 2
-      )
-    }
-
-    geometry.setAttribute(
-      'aUvScale',
-      new THREE.InstancedBufferAttribute(uvScales, 2)
-    )
-    attachBuildingLodDither(geometry, plan)
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor !== null) {
-      mesh.instanceColor.needsUpdate = true
-    }
-    this.group.add(mesh)
-    return mesh
   }
 
   // A Kenney-kit batch: the kit's palette material carries the colour, so
