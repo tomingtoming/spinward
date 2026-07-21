@@ -177,6 +177,52 @@ describe('fitSuburbanHouse', () => {
     expect(checked).toBeGreaterThan(100)
   })
 
+  test('no road runs behind a home: the rear strip of every parcel is roadless (sampled)', () => {
+    const plan = planCity(IZMA)
+    const TWO_PI = Math.PI * 2
+    const wrapToPi = (angle: number) => {
+      const wrapped = ((angle % TWO_PI) + TWO_PI) % TWO_PI
+      return wrapped > Math.PI ? wrapped - TWO_PI : wrapped
+    }
+    const houses = plan.buildings.filter(
+      (building) => kenneyPickForBuilding(building)?.set === 'suburban'
+    )
+    expect(houses.length).toBeGreaterThan(200)
+
+    for (let index = 0; index < houses.length; index += 3) {
+      const building = houses[index]
+      const fit = fitSuburbanHouse(building)
+      if (fit === null) {
+        continue
+      }
+      const parcel = suburbanParcelRect(building)
+      const isTangentFront = fit.front.axis === 'tangent'
+      const parcelF = isTangentFront ? parcel.tangentExtent : parcel.axialExtent
+      const parcelC = isTangentFront ? parcel.axialExtent : parcel.tangentExtent
+      const centreF = isTangentFront ? parcel.tangentOffset : parcel.axialOffset
+      const centreC = isTangentFront ? parcel.axialOffset : parcel.tangentOffset
+      // A 3 m strip just behind the parcel's rear boundary, slightly
+      // narrowed so tiling neighbours' side lanes do not count as "behind".
+      const stripDepth = 3
+      const stripF = centreF - fit.front.side * (parcelF / 2 + stripDepth / 2)
+      const stripTangent = isTangentFront ? stripF : centreC
+      const stripAxial = isTangentFront ? centreC : stripF
+      const stripTangentExtent = isTangentFront ? stripDepth : parcelC - 3
+      const stripAxialExtent = isTangentFront ? parcelC - 3 : stripDepth
+      const azimuth = building.azimuth + stripTangent / IZMA.radius
+      const axial = building.axial + stripAxial
+
+      for (const road of plan.roads) {
+        const tangentGap =
+          Math.abs(wrapToPi(azimuth - road.azimuth)) * IZMA.radius -
+          (stripTangentExtent + road.tangentWidth) / 2
+        const axialGap =
+          Math.abs(axial - road.axial) - (stripAxialExtent + road.axialLength) / 2
+        expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
+      }
+    }
+  })
+
   test('boundary segments never stand on a road (sampled)', () => {
     const plan = planCity(IZMA)
     const TWO_PI = Math.PI * 2

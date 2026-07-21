@@ -611,8 +611,10 @@ describe('planCity', () => {
   })
 
   test('zones some blocks as parks or farms with trees on land strips', () => {
-    const radius = 18
-    const { patches, trees, buildings } = planCity({ radius, length: 360 })
+    // City scale: at toy sizes the zoning rolls are a coin flip away from
+    // producing zero parks, so the invariant is asserted where it matters.
+    const radius = 3200
+    const { patches, trees, buildings } = planCity({ radius, length: 40000 })
 
     expect(patches.length).toBeGreaterThan(0)
     expect(trees.length).toBeGreaterThan(0)
@@ -630,16 +632,24 @@ describe('planCity', () => {
       expect(isInsidePlaza(tree.azimuth, tree.axial, radius)).toBe(false)
     }
 
-    // Zoned blocks hold no buildings: no building center falls inside a patch.
+    // Zoned blocks hold no buildings: no building center falls inside a
+    // patch. Accumulated into one assertion — with pocket greens the
+    // cross product is tens of millions of pairs, and a per-pair expect()
+    // would dominate the suite's runtime.
+    let insideCount = 0
     for (const building of buildings) {
       for (const patch of patches) {
         const tangentDelta = Math.abs(wrapToPi(building.azimuth - patch.azimuth)) * radius
         const axialDelta = Math.abs(building.axial - patch.axial)
-        const inside =
-          tangentDelta < patch.tangentExtent * 0.5 && axialDelta < patch.axialExtent * 0.5
-        expect(inside).toBe(false)
+        if (
+          tangentDelta < patch.tangentExtent * 0.5 &&
+          axialDelta < patch.axialExtent * 0.5
+        ) {
+          insideCount += 1
+        }
       }
     }
+    expect(insideCount).toBe(0)
   })
 
   test('the spawn plaza block is never zoned as a park or farm', () => {

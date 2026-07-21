@@ -1047,7 +1047,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     oldTown: number
   ) => {
     const span = rowEnd - rowStart
-    const count = Math.floor(span / lot)
+    // Parcel grain follows land use: detached-house country carves the row
+    // into small home parcels, downtown keeps the big commercial plots (and
+    // its merge rolls make them bigger still) — the 大中小 of the land
+    // register instead of one uniform pitch.
+    const residentialRow = urban < 0.4 && oldTown < 0.5
+    const lotPitch = residentialRow ? lot * 0.55 : lot
+    const count = Math.floor(span / lotPitch)
 
     if (count < 1 || depthMax <= 0) {
       return
@@ -1151,6 +1157,56 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         keepProbability * (0.08 + urban * 1.12) + coreInfill * 0.72
       )
       if (roll.keep > localKeepProbability) {
+        // Pocket greens: a share of the skipped residential slots become
+        // parcel-sized parks — lawn and a tree or two — so a thinned row
+        // reads as neighbourhood fabric with greens, not random gaps.
+        // Only in rows that actually build up (keep high enough): empty
+        // farmland stays field, occupied streets get their greens.
+        // Derived entirely from rolls this slot already consumed.
+        if (
+          residentialRow &&
+          localKeepProbability > 0.3 &&
+          roll.jitter < 0.5 &&
+          depthMax >= 10
+        ) {
+          const slotCenter = rowStart + (index + stride * 0.5) * pitch
+          const greenAlong = Math.max(pitch * stride - 1.2, pitch * stride * 0.8)
+          const greenDepth = Math.max(depthMax - 0.6, depthMax * 0.8)
+          const greenDepthCenter = edgeCoordinate + edgeSide * greenDepth * 0.5
+          const greenAzimuth =
+            stripCenter +
+            (facing === 'avenue' ? greenDepthCenter : slotCenter) / radius
+          const greenAxial = facing === 'avenue' ? slotCenter : greenDepthCenter
+
+          if (!isInsideAnySquare(greenAzimuth, greenAxial)) {
+            patches.push({
+              azimuth: greenAzimuth,
+              axial: greenAxial,
+              tangentExtent: facing === 'avenue' ? greenDepth : greenAlong,
+              axialExtent: facing === 'avenue' ? greenAlong : greenDepth,
+              kind: 'park'
+            })
+
+            for (const [alongRoll, depthRoll, sizeRoll] of [
+              [roll.along - 0.5, roll.depth - 0.5, roll.height],
+              [roll.tone - 0.5, roll.kind - 0.5, roll.along]
+            ] as const) {
+              if (trees.length >= MAX_TREES) {
+                break
+              }
+              const treeAlong = slotCenter + alongRoll * greenAlong * 0.7
+              const treeDepth = greenDepthCenter + depthRoll * greenDepth * 0.7
+              trees.push({
+                azimuth:
+                  stripCenter +
+                  (facing === 'avenue' ? treeDepth : treeAlong) / radius,
+                axial: facing === 'avenue' ? treeAlong : treeDepth,
+                height: Math.min(cell, 9) * (0.55 + sizeRoll * 0.5),
+                tone: roll.tone
+              })
+            }
+          }
+        }
         index += stride
         continue
       }
@@ -1164,7 +1220,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       const plotSpan = pitch * stride
       let along =
-        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lot * (0.74 + alongRoll * 0.24)
+        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lotPitch * (0.74 + alongRoll * 0.24)
       let depth = depthMax * (0.55 + depthRoll * 0.45)
       // The end-of-row jitter must not push a building past the row span:
       // beyond it lies the back ALLEY (a real road since the frontage
@@ -1173,7 +1229,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const clampAlongToRow = (centre: number, extent: number) =>
         Math.min(rowEnd - extent * 0.5, Math.max(rowStart + extent * 0.5, centre))
       const alongCenter = clampAlongToRow(
-        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2,
+        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lotPitch * 0.2,
         along
       )
       // Downtown stands tall; the outskirts stay low-rise. A merged plot
@@ -1264,16 +1320,22 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const setbackThreshold = 0.62 - urban * 0.16 + 0.25 * oldTown
       const houseBand = 0.55 - 0.35 * oldTown
 
+      // Small home parcels host homes and walk-ups, never CBD furniture:
+      // the tall archetypes need the big downtown plots (ビル=大区画).
+      if (residentialRow) {
+        height = Math.min(height, 16)
+      }
+
       if (height < heightBase * 0.45 && kindRoll < houseBand) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (kindRoll > towerThreshold && oldTown < 0.5) {
+      } else if (!residentialRow && kindRoll > towerThreshold && oldTown < 0.5) {
         kind = 'tower'
         const slim = Math.min(along, depth) * 0.85
         along = slim
         depth = slim
         height = Math.min(height * 1.25, 78)
-      } else if (kindRoll > setbackThreshold) {
+      } else if (!residentialRow && kindRoll > setbackThreshold) {
         const bandPosition =
           (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
 
@@ -1486,6 +1548,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
                 ? 2
                 : 1
 
+        // Residential blocks parcel differently: shallow home rows placed
+        // BACK-TO-BACK in pairs, so a house's rear faces its neighbour's
+        // garden, never a road — lanes only run between pairs.
+        const residentialBlock = blockUrban < 0.4 && blockOldTown < 0.5
+
         for (let ring = 0; ring < ringBudget; ring += 1) {
           const ringWidth = ringTangent1 - ringTangent0
           const ringLength = ringAxial1 - ringAxial0
@@ -1513,37 +1580,51 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           // Emitted deterministically from the ring rectangle (no RNG), so
           // the building layout is untouched. Tiny habitats whose band is
           // too narrow for a lane keep their legacy alley-free interior.
+          // (Residential blocks emit the loop at the END of each pair
+          // iteration instead, so the innermost pair still gets its lane.)
           const alleyBand = sidewalk * 1.5
-          if (ring > 0 && alleyBand >= 2.5) {
-            const alleyAxialCenter = (ringAxial0 + ringAxial1) * 0.5
-            const alleyAxialSpan = ringLength + 2 * alleyBand
+          const emitAlleyLoop = (t0: number, t1: number, a0: number, a1: number) => {
+            if (alleyBand < 2.5) {
+              return
+            }
             for (const side of [-1, 1] as const) {
               roads.push({
                 azimuth:
-                  stripCenter +
-                  ((side === -1 ? ringTangent0 : ringTangent1) + side * alleyBand * 0.5) /
-                    radius,
-                axial: alleyAxialCenter,
+                  stripCenter + ((side === -1 ? t0 : t1) + side * alleyBand * 0.5) / radius,
+                axial: (a0 + a1) * 0.5,
                 tangentWidth: alleyBand,
-                axialLength: alleyAxialSpan,
+                axialLength: a1 - a0 + 2 * alleyBand,
                 kind: 'alley'
               })
               roads.push({
-                azimuth: stripCenter + ((ringTangent0 + ringTangent1) * 0.5) / radius,
-                axial:
-                  (side === -1 ? ringAxial0 : ringAxial1) + side * alleyBand * 0.5,
-                tangentWidth: ringWidth,
+                azimuth: stripCenter + ((t0 + t1) * 0.5) / radius,
+                axial: (side === -1 ? a0 : a1) + side * alleyBand * 0.5,
+                tangentWidth: t1 - t0,
                 axialLength: alleyBand,
                 kind: 'alley'
               })
             }
           }
+          if (ring > 0 && !residentialBlock) {
+            emitAlleyLoop(ringTangent0, ringTangent1, ringAxial0, ringAxial1)
+          }
 
-          const ringDepth = Math.min(
-            ring === 0 ? cell * 0.9 : cell * 0.35,
-            ringWidth * 0.35,
-            ringLength * 0.35
-          )
+          const ringDepth = residentialBlock
+            ? Math.min(cell * 0.3, ringWidth * 0.18, ringLength * 0.18)
+            : Math.min(
+                ring === 0 ? cell * 0.9 : cell * 0.35,
+                ringWidth * 0.35,
+                ringLength * 0.35
+              )
+          // The back-to-back seam between a pair's two rows.
+          const pairGap = 1.6
+          const pairDepth = residentialBlock ? ringDepth * 2 + pairGap : ringDepth
+          const canPair =
+            residentialBlock &&
+            ringWidth > (pairDepth + alleyBand) * 2 + cell * 0.3 &&
+            ringLength > (pairDepth + alleyBand) * 2 + cell * 0.3
+
+          const rowDepthUsed = canPair ? pairDepth : ringDepth
           placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
           placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
           placeEdgeRow(
@@ -1551,8 +1632,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             'street',
             ringAxial0,
             1,
-            ringTangent0 + ringDepth + sidewalk,
-            ringTangent1 - ringDepth - sidewalk,
+            ringTangent0 + rowDepthUsed + sidewalk,
+            ringTangent1 - rowDepthUsed - sidewalk,
             ringDepth,
             blockUrban,
             blockOldTown
@@ -1562,18 +1643,80 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             'street',
             ringAxial1,
             -1,
-            ringTangent0 + ringDepth + sidewalk,
-            ringTangent1 - ringDepth - sidewalk,
+            ringTangent0 + rowDepthUsed + sidewalk,
+            ringTangent1 - rowDepthUsed - sidewalk,
             ringDepth,
             blockUrban,
             blockOldTown
           )
 
-          const inset = ringDepth + sidewalk * 1.5
+          if (canPair) {
+            // The pair's inner rows: front line one pair-depth inside the
+            // rect, facing INWARD toward the lane emitted below. Their backs
+            // meet the outer rows' backs across the seam — no road behind
+            // any home. Both axes clamp their span to the lane loop's reach,
+            // so no inner home stands past the last stretch of its lane.
+            placeEdgeRow(
+              stripCenter,
+              'avenue',
+              ringTangent0 + pairDepth,
+              -1,
+              ringAxial0 + pairDepth + sidewalk,
+              ringAxial1 - pairDepth - sidewalk,
+              ringDepth,
+              blockUrban,
+              blockOldTown
+            )
+            placeEdgeRow(
+              stripCenter,
+              'avenue',
+              ringTangent1 - pairDepth,
+              1,
+              ringAxial0 + pairDepth + sidewalk,
+              ringAxial1 - pairDepth - sidewalk,
+              ringDepth,
+              blockUrban,
+              blockOldTown
+            )
+            placeEdgeRow(
+              stripCenter,
+              'street',
+              ringAxial0 + pairDepth,
+              -1,
+              ringTangent0 + pairDepth + sidewalk,
+              ringTangent1 - pairDepth - sidewalk,
+              ringDepth,
+              blockUrban,
+              blockOldTown
+            )
+            placeEdgeRow(
+              stripCenter,
+              'street',
+              ringAxial1 - pairDepth,
+              1,
+              ringTangent0 + pairDepth + sidewalk,
+              ringTangent1 - pairDepth - sidewalk,
+              ringDepth,
+              blockUrban,
+              blockOldTown
+            )
+          }
+
+          const inset = rowDepthUsed + sidewalk * 1.5
           ringTangent0 += inset
           ringTangent1 -= inset
           ringAxial0 += inset
           ringAxial1 -= inset
+
+          if (residentialBlock) {
+            if (canPair) {
+              emitAlleyLoop(ringTangent0, ringTangent1, ringAxial0, ringAxial1)
+            } else {
+              // Too narrow to pair: the single rows placed above back onto
+              // the courtyard core, and the march ends here.
+              break
+            }
+          }
         }
 
         // Courtyard garden in whatever core is left.
