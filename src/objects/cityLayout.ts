@@ -30,6 +30,18 @@ export type CityBuilding = {
   // (doors, porches) aim at the street with this; optional so synthetic
   // footprints (tower, tests) stay valid.
   front?: { axis: 'tangent' | 'axial'; side: 1 | -1 }
+  // The full parcel this building owns, as centre offsets from the building
+  // centre plus extents (surface metres): the slot pitch along the row and
+  // the row's allotted depth. Slot-aligned (jitter-free), so neighbouring
+  // parcels tile the row edge-to-edge instead of shrinking to each
+  // building's box. Derived like `front`, no RNG consumed; the suburban
+  // pipeline sizes gardens and lot boundaries from it.
+  parcel?: {
+    tangentOffset: number
+    axialOffset: number
+    tangentExtent: number
+    axialExtent: number
+  }
 }
 
 // 'alley': the back lanes between building rings inside a block. They exist
@@ -964,7 +976,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     kind: BuildingKind,
     urban: number,
     oldTown: number,
-    front?: CityBuilding['front']
+    front?: CityBuilding['front'],
+    parcel?: CityBuilding['parcel']
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -1015,7 +1028,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       kind,
       urban,
       oldTown,
-      front
+      front,
+      parcel
     })
   }
 
@@ -1046,6 +1060,33 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     const front: CityBuilding['front'] = {
       axis: facing === 'avenue' ? 'tangent' : 'axial',
       side: edgeSide === 1 ? -1 : 1
+    }
+    // Parcel geometry: the slot rectangle (pitch-aligned, jitter-free) minus
+    // a small shoulder so neighbouring boundaries do not fuse. The row's
+    // buildings all share the front line at `edgeCoordinate`, so parcels
+    // tile the row edge-to-edge no matter how each building box rolled.
+    const parcelDepth = Math.max(depthMax - 0.6, depthMax * 0.8)
+    const parcelDepthCenter = edgeCoordinate + edgeSide * parcelDepth * 0.5
+    const parcelFor = (
+      slotCenter: number,
+      slotSpan: number,
+      tangentCenter: number,
+      axialCenter: number
+    ): CityBuilding['parcel'] => {
+      const along = Math.max(slotSpan - 1.2, slotSpan * 0.8)
+      return facing === 'avenue'
+        ? {
+            tangentOffset: parcelDepthCenter - tangentCenter,
+            axialOffset: slotCenter - axialCenter,
+            tangentExtent: parcelDepth,
+            axialExtent: along
+          }
+        : {
+            tangentOffset: slotCenter - tangentCenter,
+            axialOffset: parcelDepthCenter - axialCenter,
+            tangentExtent: along,
+            axialExtent: parcelDepth
+          }
     }
 
     // Pre-roll every pitch up front, in the same fixed 7-roll pattern as
@@ -1162,11 +1203,14 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         }
         const frontCenter = edgeCoordinate + edgeSide * infillDepth * 0.5
 
+        const slotCenter = rowStart + (index + 0.5) * pitch
+
         for (const side of [-1, 1] as const) {
           const centre = clampAlongToRow(alongCenter + side * pitch * 0.24, infillAlong)
           // A derived second tone so the pair does not read as twins.
           const tone =
             side === -1 ? toneRoll : toneRoll * 0.63 + 0.31 - Math.floor(toneRoll * 0.63 + 0.31)
+          const halfSlotCenter = slotCenter + side * pitch * 0.25
 
           if (facing === 'avenue') {
             placeBuilding(
@@ -1180,7 +1224,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               infillKind,
               urban,
               oldTown,
-              front
+              front,
+              parcelFor(halfSlotCenter, pitch * 0.5, frontCenter, centre)
             )
           } else {
             placeBuilding(
@@ -1194,7 +1239,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               infillKind,
               urban,
               oldTown,
-              front
+              front,
+              parcelFor(halfSlotCenter, pitch * 0.5, centre, frontCenter)
             )
           }
         }
@@ -1248,6 +1294,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
 
+      const slotCenter = rowStart + (index + stride * 0.5) * pitch
+
       if (facing === 'avenue') {
         placeBuilding(
           stripCenter,
@@ -1260,7 +1308,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           kind,
           urban,
           oldTown,
-          front
+          front,
+          parcelFor(slotCenter, pitch * stride, frontCenter, alongCenter)
         )
       } else {
         placeBuilding(
@@ -1274,7 +1323,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           kind,
           urban,
           oldTown,
-          front
+          front,
+          parcelFor(slotCenter, pitch * stride, alongCenter, frontCenter)
         )
       }
 

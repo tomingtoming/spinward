@@ -4,7 +4,8 @@ import {
   KENNEY_SUBURBAN_HEIGHT_M,
   fitSuburbanHouse,
   kenneyPickForBuilding,
-  suburbanLotBoundary
+  suburbanLotBoundary,
+  suburbanParcelRect
 } from './buildingAssets'
 import { planCity, type CityBuilding } from './cityLayout'
 
@@ -45,35 +46,66 @@ describe('fitSuburbanHouse', () => {
       if (fit.height >= KENNEY_SUBURBAN_HEIGHT_M[fit.variant] * 0.92 - 1e-6) {
         fullStature += 1
       } else {
-        expect(Math.min(building.width, building.depth)).toBeLessThan(12)
+        const parcel = suburbanParcelRect(building)
+        expect(Math.min(parcel.tangentExtent, parcel.axialExtent)).toBeLessThan(14)
       }
     }
     expect(fullStature / houses.length).toBeGreaterThan(0.9)
   })
 
-  test('the house stays inside its lot with a street-front lawn of ≤3 m', () => {
+  test('the house sits at the back of its parcel, front garden to the street', () => {
     for (const building of suburbanHouses()) {
       const fit = fitSuburbanHouse(building)
       if (fit === null) {
         continue
       }
+      const parcel = suburbanParcelRect(building)
 
-      expect(Math.abs(fit.tangentOffset) + fit.tangentExtent / 2).toBeLessThanOrEqual(
-        building.width / 2 + 1e-6
-      )
-      expect(Math.abs(fit.axialOffset) + fit.axialExtent / 2).toBeLessThanOrEqual(
-        building.depth / 2 + 1e-6
-      )
+      // Inside the parcel on both axes.
+      expect(
+        Math.abs(fit.tangentOffset - parcel.tangentOffset) + fit.tangentExtent / 2
+      ).toBeLessThanOrEqual(parcel.tangentExtent / 2 + 1e-6)
+      expect(
+        Math.abs(fit.axialOffset - parcel.axialOffset) + fit.axialExtent / 2
+      ).toBeLessThanOrEqual(parcel.axialExtent / 2 + 1e-6)
 
-      const frontLot = fit.front.axis === 'tangent' ? building.width : building.depth
-      const frontExtent =
-        fit.front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent
-      const frontOffset =
-        fit.front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset
-      const setback =
-        frontLot / 2 - (frontOffset * fit.front.side + frontExtent / 2)
-      expect(setback).toBeGreaterThanOrEqual(-1e-6)
-      expect(setback).toBeLessThanOrEqual(3 + 1e-6)
+      // Rear wall a fixed 2 m off the back boundary.
+      const isTangentFront = fit.front.axis === 'tangent'
+      const parcelF = isTangentFront ? parcel.tangentExtent : parcel.axialExtent
+      const parcelCentreF =
+        (isTangentFront ? parcel.tangentOffset : parcel.axialOffset) *
+        fit.front.side
+      const houseF =
+        (isTangentFront ? fit.tangentOffset : fit.axialOffset) * fit.front.side
+      const houseFExtent = isTangentFront ? fit.tangentExtent : fit.axialExtent
+      const rearGap = houseF - houseFExtent / 2 - (parcelCentreF - parcelF / 2)
+      expect(rearGap).toBeCloseTo(2, 5)
+    }
+  })
+
+  test('parcels tile the row: no two suburban parcels overlap', () => {
+    const houses = suburbanHouses()
+    const rects = houses.map((building) => {
+      const parcel = suburbanParcelRect(building)
+      return {
+        azimuth: building.azimuth + parcel.tangentOffset / IZMA.radius,
+        axial: building.axial + parcel.axialOffset,
+        tangentExtent: parcel.tangentExtent,
+        axialExtent: parcel.axialExtent
+      }
+    })
+
+    for (let a = 0; a < rects.length; a += 1) {
+      for (let b = a + 1; b < rects.length; b += 1) {
+        const tangentDelta =
+          Math.abs(rects[a].azimuth - rects[b].azimuth) * IZMA.radius
+        const axialDelta = Math.abs(rects[a].axial - rects[b].axial)
+        const tangentGap =
+          tangentDelta - (rects[a].tangentExtent + rects[b].tangentExtent) / 2
+        const axialGap =
+          axialDelta - (rects[a].axialExtent + rects[b].axialExtent) / 2
+        expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
+      }
     }
   })
 
@@ -97,14 +129,17 @@ describe('fitSuburbanHouse', () => {
         fit.axialOffset + fit.axialExtent / 2
       ]
 
+      const parcel = suburbanParcelRect(building)
       for (const segment of boundary.segments) {
-        // Inside the lot.
+        // Inside the parcel.
         expect(
-          Math.abs(segment.tangentOffset) + segment.tangentExtent / 2
-        ).toBeLessThanOrEqual(building.width / 2 + 1e-6)
+          Math.abs(segment.tangentOffset - parcel.tangentOffset) +
+            segment.tangentExtent / 2
+        ).toBeLessThanOrEqual(parcel.tangentExtent / 2 + 1e-6)
         expect(
-          Math.abs(segment.axialOffset) + segment.axialExtent / 2
-        ).toBeLessThanOrEqual(building.depth / 2 + 1e-6)
+          Math.abs(segment.axialOffset - parcel.axialOffset) +
+            segment.axialExtent / 2
+        ).toBeLessThanOrEqual(parcel.axialExtent / 2 + 1e-6)
 
         // Clear of the fitted house box.
         const overlapsTangent =
@@ -116,24 +151,63 @@ describe('fitSuburbanHouse', () => {
         expect(overlapsTangent && overlapsAxial).toBe(false)
       }
 
-      // The street edge keeps a walkable gate on the lot's cross centre.
+      // The street edge keeps a walkable gate lined up with the house.
       const isTangentFront = fit.front.axis === 'tangent'
-      const frontEdge =
-        (isTangentFront ? building.width : building.depth) / 2 - 0.36
+      const parcelFrontEdge =
+        ((isTangentFront ? parcel.tangentOffset : parcel.axialOffset) *
+          fit.front.side +
+          (isTangentFront ? parcel.tangentExtent : parcel.axialExtent) / 2) -
+        0.36
+      const houseCross = isTangentFront ? fit.axialOffset : fit.tangentOffset
       for (const segment of boundary.segments) {
         const onFrontEdge = isTangentFront
-          ? segment.tangentOffset * fit.front.side > frontEdge - 0.5
-          : segment.axialOffset * fit.front.side > frontEdge - 0.5
+          ? segment.tangentOffset * fit.front.side > parcelFrontEdge - 0.5
+          : segment.axialOffset * fit.front.side > parcelFrontEdge - 0.5
         if (!onFrontEdge) {
           continue
         }
         const crossOffset = isTangentFront ? segment.axialOffset : segment.tangentOffset
         const crossExtent = isTangentFront ? segment.axialExtent : segment.tangentExtent
-        expect(Math.abs(crossOffset) - crossExtent / 2).toBeGreaterThanOrEqual(1 - 1e-6)
+        expect(Math.abs(crossOffset - houseCross) - crossExtent / 2).toBeGreaterThanOrEqual(
+          1 - 1e-6
+        )
         checked += 1
       }
     }
     expect(checked).toBeGreaterThan(100)
+  })
+
+  test('boundary segments never stand on a road (sampled)', () => {
+    const plan = planCity(IZMA)
+    const TWO_PI = Math.PI * 2
+    const wrapToPi = (angle: number) => {
+      const wrapped = ((angle % TWO_PI) + TWO_PI) % TWO_PI
+      return wrapped > Math.PI ? wrapped - TWO_PI : wrapped
+    }
+    const houses = plan.buildings.filter(
+      (building) => kenneyPickForBuilding(building)?.set === 'suburban'
+    )
+
+    for (let index = 0; index < houses.length; index += 3) {
+      const building = houses[index]
+      const fit = fitSuburbanHouse(building)
+      if (fit === null) {
+        continue
+      }
+      for (const segment of suburbanLotBoundary(building, fit).segments) {
+        const azimuth = building.azimuth + segment.tangentOffset / IZMA.radius
+        const axial = building.axial + segment.axialOffset
+        for (const road of plan.roads) {
+          const tangentGap =
+            Math.abs(wrapToPi(azimuth - road.azimuth)) * IZMA.radius -
+            (segment.tangentExtent + road.tangentWidth) / 2
+          const axialGap =
+            Math.abs(axial - road.axial) -
+            (segment.axialExtent + road.axialLength) / 2
+          expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
+        }
+      }
+    }
   })
 
   test('a plan entry without front data keeps the legacy −axial aim', () => {

@@ -429,8 +429,22 @@ export const KENNEY_SUBURBAN_HEIGHT_M: readonly number[] = [
   6.0, 7.5, 8.0, 7.5, 6.5, 7.5
 ]
 
-// The front lawn between the street-facing wall and the sidewalk (m).
-const SUBURBAN_SETBACK_M = 3
+// Houses sit at the BACK of their parcel — rear wall this far off the back
+// boundary — leaving the garden as a front yard toward the street.
+const SUBURBAN_REAR_SETBACK_M = 2
+
+// The parcel a suburban pipeline stage works in: the plan-recorded slot
+// rectangle when present, else the building box (synthetic footprints,
+// pre-parcel plans). Offsets are from the building centre.
+export const suburbanParcelRect = (
+  building: CityBuilding
+): NonNullable<CityBuilding['parcel']> =>
+  building.parcel ?? {
+    tangentOffset: 0,
+    axialOffset: 0,
+    tangentExtent: building.width,
+    axialExtent: building.depth
+  }
 
 // Deterministic per-building hash reused by every facade choice: stable
 // across focus rebuilds, no plan RNG consumed.
@@ -501,8 +515,15 @@ export const fitSuburbanHouse = (
   // Pre-`front` plans (and any synthetic footprint) keep the legacy aim:
   // the door wall used to face −axial for every house.
   const front = building.front ?? ({ axis: 'axial', side: -1 } as const)
-  const frontLot = front.axis === 'tangent' ? building.width : building.depth
-  const crossLot = front.axis === 'tangent' ? building.depth : building.width
+  // Work in parcel space: (f, c) with +f streetward along the front axis.
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
 
   // A second hash with its own constants so stature does not correlate with
   // the palette pick.
@@ -517,12 +538,21 @@ export const fitSuburbanHouse = (
   const scale = Math.min(
     (KENNEY_SUBURBAN_HEIGHT_M[pick.variant] * jitter) / modelY,
     // The facade spans the cross axis (model x), the door axis is model z.
-    crossLot / modelX,
-    frontLot / modelZ
+    // The metre floors only engage on toy-scale habitats.
+    Math.max(1, parcelC - 1) / modelX,
+    Math.max(1, parcelF - SUBURBAN_REAR_SETBACK_M - 0.7) / modelZ
   )
 
-  const setback = Math.min(SUBURBAN_SETBACK_M, frontLot - modelZ * scale)
-  const frontShift = front.side * ((frontLot - modelZ * scale) * 0.5 - setback)
+  // Rear placement: back wall a fixed setback off the back boundary, the
+  // garden opening toward the street as a front yard.
+  const houseF =
+    parcelCentreF - parcelF / 2 + SUBURBAN_REAR_SETBACK_M + (modelZ * scale) / 2
+  // Keep the building box's cross jitter, clamped inside the parcel.
+  const crossRoom = Math.max(0, parcelC / 2 - (modelX * scale) / 2 - 0.5)
+  const houseC = Math.min(
+    parcelCentreC + crossRoom,
+    Math.max(parcelCentreC - crossRoom, 0)
+  )
 
   return {
     variant: pick.variant,
@@ -530,8 +560,8 @@ export const fitSuburbanHouse = (
     tangentExtent: (front.axis === 'tangent' ? modelZ : modelX) * scale,
     axialExtent: (front.axis === 'tangent' ? modelX : modelZ) * scale,
     height: modelY * scale,
-    tangentOffset: front.axis === 'tangent' ? frontShift : 0,
-    axialOffset: front.axis === 'axial' ? frontShift : 0,
+    tangentOffset: front.axis === 'tangent' ? houseF * front.side : houseC,
+    axialOffset: front.axis === 'axial' ? houseF * front.side : houseC,
     front
   }
 }
@@ -579,30 +609,41 @@ export const suburbanLotBoundary = (
   const thickness = style === 'hedge' ? HEDGE_THICKNESS_M : FENCE_THICKNESS_M
   const height = style === 'hedge' ? 0.95 + 0.4 * ((hash * 7.3) % 1) : 0.85
 
-  // Work in (f, c) lot space: +f points streetward along the front axis,
-  // c spans the cross axis. Mapped back to (tangent, axial) at the end.
+  // Work in (f, c) parcel space: +f points streetward along the front axis,
+  // c spans the cross axis, origin at the PARCEL centre. Mapped back to
+  // building-centre-relative (tangent, axial) at the end.
   const front = fit.front
-  const frontLot = front.axis === 'tangent' ? building.width : building.depth
-  const crossLot = front.axis === 'tangent' ? building.depth : building.width
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
   const houseF = front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent
   const houseC = front.axis === 'tangent' ? fit.axialExtent : fit.tangentExtent
   const houseCentreF =
-    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side
+    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side -
+    parcelCentreF
+  const houseCentreC =
+    (front.axis === 'tangent' ? fit.axialOffset : fit.tangentOffset) -
+    parcelCentreC
 
-  const fEdge = frontLot / 2 - BOUNDARY_INSET_M
-  const cEdge = crossLot / 2 - BOUNDARY_INSET_M
+  const fEdge = parcelF / 2 - BOUNDARY_INSET_M
+  const cEdge = parcelC / 2 - BOUNDARY_INSET_M
 
   type FcSegment = { f: number; c: number; fExtent: number; cExtent: number }
   const segments: FcSegment[] = []
 
-  // Street edge: two runs flanking the gate, which sits on the lot's cross
-  // centre — the same line the house (cross-centred) puts its facade on.
-  // On parcels so shallow that the clamped setback pushed the facade onto
-  // the boundary line, the street runs are dropped with it.
+  // Street edge: two runs flanking the gate, which lines up with the house's
+  // cross centre so gate, path and door share one axis. On parcels so
+  // shallow that the house reaches the boundary line, the street runs are
+  // dropped with it.
   if (houseCentreF + houseF / 2 <= fEdge - thickness / 2 - 0.2) {
     for (const [from, to] of [
-      [-cEdge, -GATE_WIDTH_M / 2],
-      [GATE_WIDTH_M / 2, cEdge]
+      [-cEdge, houseCentreC - GATE_WIDTH_M / 2],
+      [houseCentreC + GATE_WIDTH_M / 2, cEdge]
     ]) {
       if (to - from >= 1) {
         segments.push({
@@ -620,8 +661,11 @@ export const suburbanLotBoundary = (
     segments.push({ f: -fEdge, c: 0, fExtent: thickness, cExtent: cEdge * 2 })
   }
 
-  // Side edges, unless the house fills the lot's cross extent.
-  if (houseC / 2 <= cEdge - thickness / 2 - 0.2) {
+  // Side edges, unless the house fills the parcel's cross extent.
+  if (
+    Math.max(houseCentreC + houseC / 2, -(houseCentreC - houseC / 2)) <=
+    cEdge - thickness / 2 - 0.2
+  ) {
     for (const side of [-1, 1]) {
       segments.push({
         f: 0,
@@ -635,21 +679,23 @@ export const suburbanLotBoundary = (
   return {
     style,
     height,
-    segments: segments.map((segment) =>
-      front.axis === 'tangent'
+    segments: segments.map((segment) => {
+      const fWorld = (parcelCentreF + segment.f) * front.side
+      const cWorld = parcelCentreC + segment.c
+      return front.axis === 'tangent'
         ? {
-            tangentOffset: segment.f * front.side,
-            axialOffset: segment.c,
+            tangentOffset: fWorld,
+            axialOffset: cWorld,
             tangentExtent: segment.fExtent,
             axialExtent: segment.cExtent
           }
         : {
-            tangentOffset: segment.c,
-            axialOffset: segment.f * front.side,
+            tangentOffset: cWorld,
+            axialOffset: fWorld,
             tangentExtent: segment.cExtent,
             axialExtent: segment.fExtent
           }
-    )
+    })
   }
 }
 
