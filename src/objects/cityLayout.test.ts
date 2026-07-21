@@ -354,6 +354,40 @@ describe('planCity', () => {
     }
   })
 
+  test('every building records its street-front direction, and a road lies there', () => {
+    const radius = 3200
+    const length = 40000
+    const { roads, buildings } = planCity({ radius, length })
+    const sidewalk = getSidewalkWidth(radius, length)
+
+    for (let index = 0; index < buildings.length; index += 13) {
+      const building = buildings[index]
+      expect(building.front).toBeDefined()
+      const front = building.front as NonNullable<CityBuilding['front']>
+      expect(['tangent', 'axial']).toContain(front.axis)
+      expect([1, -1]).toContain(front.side)
+
+      // Among the roads this building actually fronts (within sidewalk
+      // reach), at least one sits on the recorded front side.
+      let found = false
+      for (const road of roads) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+        if (Math.max(tangentGap, axialGap, 0) > sidewalk + 0.5) {
+          continue
+        }
+        const toRoad =
+          front.axis === 'tangent'
+            ? wrapToPi(road.azimuth - building.azimuth) * radius
+            : road.axial - building.axial
+        if (toRoad * front.side > 0) {
+          found = true
+          break
+        }
+      }
+      expect(found).toBe(true)
+    }
+  })
+
   test('no building overlaps an alley at city scale', () => {
     const radius = 3200
     const { roads, buildings } = planCity({ radius, length: 40000 })

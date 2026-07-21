@@ -23,6 +23,13 @@ export type CityBuilding = {
   // 0..1 old-town field at this lot (port-end first-generation district).
   // Drives the warm facade shift; optional like `urban`.
   oldTown?: number
+  // Direction from the lot centre toward the road this building fronts:
+  // 'tangent' = the street-facing wall looks along ±circumferential (an
+  // avenue), 'axial' = it looks along ±axial (a street). Derived from the
+  // edge-row geometry, no RNG consumed. Kit models with a real facade
+  // (doors, porches) aim at the street with this; optional so synthetic
+  // footprints (tower, tests) stay valid.
+  front?: { axis: 'tangent' | 'axial'; side: 1 | -1 }
 }
 
 // 'alley': the back lanes between building rings inside a block. They exist
@@ -956,7 +963,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     tone: number,
     kind: BuildingKind,
     urban: number,
-    oldTown: number
+    oldTown: number,
+    front?: CityBuilding['front']
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -1006,7 +1014,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       tone,
       kind,
       urban,
-      oldTown
+      oldTown,
+      front
     })
   }
 
@@ -1031,6 +1040,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     }
 
     const pitch = span / count
+    // The row's road lies on the far side of `edgeCoordinate` from the
+    // building centres (centre = edge + edgeSide·depth/2), so centre→street
+    // is −edgeSide along the facing axis.
+    const front: CityBuilding['front'] = {
+      axis: facing === 'avenue' ? 'tangent' : 'axial',
+      side: edgeSide === 1 ? -1 : 1
+    }
 
     // Pre-roll every pitch up front, in the same fixed 7-roll pattern as
     // always — the parcel-grain walk below takes variable strides, and rolling
@@ -1163,7 +1179,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               tone,
               infillKind,
               urban,
-              oldTown
+              oldTown,
+              front
             )
           } else {
             placeBuilding(
@@ -1176,7 +1193,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               tone,
               infillKind,
               urban,
-              oldTown
+              oldTown,
+              front
             )
           }
         }
@@ -1241,7 +1259,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           toneRoll,
           kind,
           urban,
-          oldTown
+          oldTown,
+          front
         )
       } else {
         placeBuilding(
@@ -1254,7 +1273,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           toneRoll,
           kind,
           urban,
-          oldTown
+          oldTown,
+          front
         )
       }
 

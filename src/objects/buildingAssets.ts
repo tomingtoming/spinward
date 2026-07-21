@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import type { CityBuilding } from './cityLayout'
 
 export type DetailedBuildingArchetype =
   | 'house'
@@ -399,6 +400,140 @@ export const disposeKenneyBuildingGeometryPack = (
   pack.commercialMaterial.dispose()
   pack.suburbanMaterial.map?.dispose()
   pack.suburbanMaterial.dispose()
+}
+
+// ── Suburban house real-size fit ────────────────────────────────────────
+// The suburban kit is placed at REAL size — a detached house is 6–8 m tall
+// no matter how big its parcel is — instead of scaled to the procedural lot
+// box. Lot-fitting made the miniature tail visible: the box heights the plan
+// rolls (3–10 m) became the houses' scale, and unlike the facade-UV pipeline
+// (whose windows stay metre-true under any stretch) a kit model shrinks its
+// doors with it. The fit is pure math over baked model bounds so the plan
+// consumers (collision, tests) agree with the render without loading GLBs.
+
+// Native bounding sizes of the suburban GLBs, measured from the assets in
+// KENNEY_SUBURBAN_VARIANTS order. normalizeGeometryUniform divides by the
+// longest side, so runtime geometry reproduces these ratios exactly.
+const KENNEY_SUBURBAN_RAW_SIZES: ReadonlyArray<readonly [number, number, number]> = [
+  [1.3, 0.83, 1.03], // a — dormered single-storey
+  [1.29, 1.03, 1.03], // c — two-storey, stepped wing
+  [1.43, 1.14, 1.41], // f — large two-storey
+  [0.92, 1.15, 1.02], // k — narrow mono-pitch two-storey
+  [1.24, 0.92, 0.89], // q — flat-roof two-storey with carport
+  [1.43, 1.14, 1.09] // u — two-storey with garage
+]
+
+// Real-world stature each variant depicts (m). Storeys priced at ~3.2 m
+// plus roof; the dormered bungalow sits under the full two-storey band.
+export const KENNEY_SUBURBAN_HEIGHT_M: readonly number[] = [
+  6.0, 7.5, 8.0, 7.5, 6.5, 7.5
+]
+
+// The front lawn between the street-facing wall and the sidewalk (m).
+const SUBURBAN_SETBACK_M = 3
+
+// Deterministic per-building hash reused by every facade choice: stable
+// across focus rebuilds, no plan RNG consumed.
+export const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
+  const hash = Math.abs(
+    Math.sin(building.azimuth * 53.13 + building.axial * 0.271 + building.tone * 17.3)
+  )
+  return Math.floor(hash * buckets) % buckets
+}
+
+// District architecture: which Kenney kit (if any) dresses this building in
+// the near disk. The old town wears Commercial storefronts regardless of its
+// procedural kind; the sparse countryside's detached houses come from
+// Suburban. Everything else keeps the authored Japanese kit. Deterministic
+// from fields the building already carries — no plan RNG consumed.
+export const kenneyPickForBuilding = (
+  building: CityBuilding
+): { set: KenneyBuildingSet; variant: number } | null => {
+  if ((building.oldTown ?? 0) >= 0.5) {
+    return {
+      set: 'commercial',
+      variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
+    }
+  }
+  if (building.kind === 'house' && (building.urban ?? 1) < 0.4) {
+    return {
+      set: 'suburban',
+      variant: facadePaletteIndex(building, KENNEY_SUBURBAN_VARIANTS.length)
+    }
+  }
+  return null
+}
+
+export type SuburbanHouseFit = {
+  variant: number
+  // Uniform scale applied to the normalized (longest-side-1) geometry.
+  scale: number
+  // Fitted world extents (m) on the cylinder axes.
+  tangentExtent: number
+  axialExtent: number
+  height: number
+  // Centre shift from the lot centre (m) that seats the house at its
+  // street-front setback; the rest of the lot is garden.
+  tangentOffset: number
+  axialOffset: number
+  front: NonNullable<CityBuilding['front']>
+}
+
+// Real-size placement for a suburban house: aim the facade (+Z of the
+// normalized model) at the fronting street, seat it a lawn's setback behind
+// the lot's street edge, and hold its real stature (±8% deterministic
+// jitter) unless the parcel is genuinely too small. Returns null for
+// buildings the suburban kit does not dress.
+export const fitSuburbanHouse = (
+  building: CityBuilding
+): SuburbanHouseFit | null => {
+  const pick = kenneyPickForBuilding(building)
+  if (pick === null || pick.set !== 'suburban') {
+    return null
+  }
+
+  const raw = KENNEY_SUBURBAN_RAW_SIZES[pick.variant]
+  const maxSide = Math.max(raw[0], raw[1], raw[2])
+  const modelX = raw[0] / maxSide
+  const modelY = raw[1] / maxSide
+  const modelZ = raw[2] / maxSide
+
+  // Pre-`front` plans (and any synthetic footprint) keep the legacy aim:
+  // the door wall used to face −axial for every house.
+  const front = building.front ?? ({ axis: 'axial', side: -1 } as const)
+  const frontLot = front.axis === 'tangent' ? building.width : building.depth
+  const crossLot = front.axis === 'tangent' ? building.depth : building.width
+
+  // A second hash with its own constants so stature does not correlate with
+  // the palette pick.
+  const jitter =
+    0.92 +
+    0.16 *
+      Math.abs(
+        Math.sin(
+          building.azimuth * 97.7 + building.axial * 0.173 + building.tone * 29.1
+        )
+      )
+  const scale = Math.min(
+    (KENNEY_SUBURBAN_HEIGHT_M[pick.variant] * jitter) / modelY,
+    // The facade spans the cross axis (model x), the door axis is model z.
+    crossLot / modelX,
+    frontLot / modelZ
+  )
+
+  const setback = Math.min(SUBURBAN_SETBACK_M, frontLot - modelZ * scale)
+  const frontShift = front.side * ((frontLot - modelZ * scale) * 0.5 - setback)
+
+  return {
+    variant: pick.variant,
+    scale,
+    tangentExtent: (front.axis === 'tangent' ? modelZ : modelX) * scale,
+    axialExtent: (front.axis === 'tangent' ? modelX : modelZ) * scale,
+    height: modelY * scale,
+    tangentOffset: front.axis === 'tangent' ? frontShift : 0,
+    axialOffset: front.axis === 'axial' ? frontShift : 0,
+    front
+  }
 }
 
 export const disposeDetailedBuildingGeometryPack = (

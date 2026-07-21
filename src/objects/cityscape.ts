@@ -37,8 +37,9 @@ import { createWindowGlassTexture } from './cylinderSurface'
 import {
   disposeDetailedBuildingGeometryPack,
   disposeKenneyBuildingGeometryPack,
-  KENNEY_COMMERCIAL_VARIANTS,
-  KENNEY_SUBURBAN_VARIANTS,
+  facadePaletteIndex,
+  fitSuburbanHouse,
+  kenneyPickForBuilding,
   loadDetailedBuildingGeometryPack,
   loadKenneyBuildingGeometryPack,
   type DetailedBuildingArchetype,
@@ -1211,38 +1212,6 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   }
 ]
 
-// Deterministic palette pick from fields the building already carries — no
-// plan RNG consumed, stable across focus rebuilds.
-const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
-  const hash = Math.abs(
-    Math.sin(building.azimuth * 53.13 + building.axial * 0.271 + building.tone * 17.3)
-  )
-  return Math.floor(hash * buckets) % buckets
-}
-
-// District architecture: which Kenney kit (if any) dresses this building in
-// the near disk. The old town wears Commercial storefronts regardless of its
-// procedural kind; the sparse countryside's detached houses come from
-// Suburban. Everything else keeps the authored Japanese kit. Deterministic
-// from fields the building already carries — no plan RNG consumed.
-const kenneyPickForBuilding = (
-  building: CityBuilding
-): { set: KenneyBuildingSet; variant: number } | null => {
-  if ((building.oldTown ?? 0) >= 0.5) {
-    return {
-      set: 'commercial',
-      variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
-    }
-  }
-  if (building.kind === 'house' && (building.urban ?? 1) < 0.4) {
-    return {
-      set: 'suburban',
-      variant: facadePaletteIndex(building, KENNEY_SUBURBAN_VARIANTS.length)
-    }
-  }
-  return null
-}
-
 const detailedArchetypeForBuilding = (
   building: CityBuilding
 ): DetailedBuildingArchetype => {
@@ -2157,7 +2126,25 @@ export class Cityscape {
       maxBuildings: this.maxBuildings,
       topology: this.topology
     })
-    this.collisionBuildings = [...plan.buildings]
+    // Physics tracks what the player sees: suburban houses collide at their
+    // fitted real-size box (walkable garden instead of an invisible wall
+    // across the lot). The fit is baked math, so it also covers the moment
+    // before the GLB pack arrives; the fallback box briefly overhangs the
+    // collider in the far countryside, which nothing at spawn can reach.
+    this.collisionBuildings = plan.buildings.map((building) => {
+      const houseFit = fitSuburbanHouse(building)
+      if (houseFit === null) {
+        return building
+      }
+      return {
+        ...building,
+        azimuth: building.azimuth + houseFit.tangentOffset / radius,
+        axial: building.axial + houseFit.axialOffset,
+        width: houseFit.tangentExtent,
+        depth: houseFit.axialExtent,
+        height: houseFit.height
+      }
+    })
 
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
@@ -3733,6 +3720,37 @@ export class Cityscape {
 
     for (let index = 0; index < plan.length; index += 1) {
       const building = plan[index].building
+      const houseFit = fit === 'uniform' ? fitSuburbanHouse(building) : null
+
+      if (houseFit !== null) {
+        // Real-size placement: the house holds its stature, sits a lawn's
+        // setback behind the lot's street edge, and aims its facade (+Z of
+        // the normalized model) at the fronting road. Offsets move along the
+        // curved surface (azimuth shift), not the chord, so the base stays
+        // seated at the ground radius.
+        const azimuth = building.azimuth + houseFit.tangentOffset / this.radius
+        const cos = Math.cos(azimuth)
+        const sin = Math.sin(azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        if (houseFit.front.axis === 'axial') {
+          binormal.set(0, houseFit.front.side, 0)
+        } else {
+          binormal.copy(tangent).multiplyScalar(houseFit.front.side)
+        }
+        tangent.copy(inward).cross(binormal)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius)
+          .setY(building.axial + houseFit.axialOffset)
+        instanceScale.setScalar(houseFit.scale)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+        continue
+      }
+
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
       tangent.set(-sin, 0, cos)
