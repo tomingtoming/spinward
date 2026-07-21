@@ -51,10 +51,10 @@ export const getQualityProfile = (): QualityProfile => {
       // first facade centres sit tens of metres beyond the road and sidewalk.
       // The current phone path still has headroom: spend it on visible street
       // walls, while the aggressive far cull and 1.75 DPR cap stay unchanged.
-      detailedLod0Distance: 120,
-      detailedLod1Distance: 260,
-      maxDetailedLod0: 120,
-      maxDetailedLod1: 480,
+      detailedLod0Distance: 150,
+      detailedLod1Distance: 340,
+      maxDetailedLod0: 180,
+      maxDetailedLod1: 700,
       roadTileDistance: 130,
       bloom: false,
       rainStreaks: 2600
@@ -67,10 +67,10 @@ export const getQualityProfile = (): QualityProfile => {
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
       maxTraffic: 280,
-      detailedLod0Distance: 100,
-      detailedLod1Distance: 350,
-      maxDetailedLod0: 180,
-      maxDetailedLod1: 700,
+      detailedLod0Distance: 140,
+      detailedLod1Distance: 480,
+      maxDetailedLod0: 280,
+      maxDetailedLod1: 1150,
       roadTileDistance: 150,
       bloom: false,
       rainStreaks: 4200
@@ -82,10 +82,10 @@ export const getQualityProfile = (): QualityProfile => {
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
     maxTraffic: 420,
-    detailedLod0Distance: 180,
-    detailedLod1Distance: 600,
-    maxDetailedLod0: 420,
-    maxDetailedLod1: 1600,
+    detailedLod0Distance: 280,
+    detailedLod1Distance: 900,
+    maxDetailedLod0: 800,
+    maxDetailedLod1: 2800,
     roadTileDistance: 240,
     bloom: true,
     rainStreaks: 7000
