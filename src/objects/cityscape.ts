@@ -41,6 +41,7 @@ import {
   fitSuburbanHouse,
   installKenneyWindowGlow,
   kenneyPickForBuilding,
+  suburbanGardenPlan,
   loadDetailedBuildingGeometryPack,
   loadKenneyBuildingGeometryPack,
   suburbanLotBoundary,
@@ -1350,6 +1351,11 @@ export class Cityscape {
     metalness: 0.05
   })
 
+  // Kit garden props (fence modules, path slabs, trees) share the suburban
+  // colormap but NOT the building shader patches, so they get a plain
+  // sibling material built when the pack arrives.
+  private suburbanPropMaterial: THREE.MeshStandardMaterial | null = null
+
   private readonly buildingSignMaterials = this.signTextureSets.map(
     (set) =>
       new THREE.MeshStandardMaterial({
@@ -1779,6 +1785,11 @@ export class Cityscape {
       this.installBuildingLodDither(pack.commercialMaterial)
       this.installBuildingLodDither(pack.industrialMaterial)
       this.installBuildingLodDither(pack.suburbanMaterial)
+      this.suburbanPropMaterial = new THREE.MeshStandardMaterial({
+        map: pack.suburbanMaterial.map,
+        roughness: 0.9,
+        metalness: 0
+      })
       this.kenneyBuildingGeometries = pack
       if (this.cityNearBuildings.length > 0) {
         this.rebuildNearBuildingBatches()
@@ -2421,6 +2432,7 @@ export class Cityscape {
     ]) {
       material.dispose()
     }
+    this.suburbanPropMaterial?.dispose()
     this.buildingRoofMaterial.dispose()
 
     for (const set of [
@@ -3689,6 +3701,7 @@ export class Cityscape {
   // the cylinder basis — no per-instance UV grid, no dither attribute; the
   // boundary arrives and leaves with the LOD0 batch it belongs to.
   private buildSuburbanBoundaryBatches(plan: BuildingRenderPlacement[]) {
+    const kenneyPack = this.kenneyBuildingGeometries
     const styled: Record<
       SuburbanLotBoundary['style'],
       Array<{
@@ -3697,6 +3710,17 @@ export class Cityscape {
         height: number
       }>
     > = { hedge: [], fence: [] }
+    type WorldRect = {
+      building: CityBuilding
+      tangentOffset: number
+      axialOffset: number
+      tangentExtent: number
+      axialExtent: number
+      height: number
+    }
+    const paths: WorldRect[] = []
+    const treesSmall: WorldRect[] = []
+    const treesLarge: WorldRect[] = []
 
     for (const placement of plan) {
       const building = placement.building
@@ -3712,42 +3736,179 @@ export class Cityscape {
           height: boundary.height
         })
       }
+      const garden = suburbanGardenPlan(building, houseFit)
+      if (garden.path !== null) {
+        paths.push({ building, ...garden.path, height: 1 })
+      }
+      for (const tree of garden.trees) {
+        const list = tree.height < 3.4 ? treesSmall : treesLarge
+        list.push({
+          building,
+          tangentOffset: tree.tangentOffset,
+          axialOffset: tree.axialOffset,
+          tangentExtent: tree.height,
+          axialExtent: tree.height,
+          height: tree.height
+        })
+      }
     }
 
-    for (const style of ['hedge', 'fence'] as const) {
-      const entries = styled[style]
-      if (entries.length === 0) {
-        continue
+    const composeAt = (
+      building: CityBuilding,
+      tangentOffset: number,
+      axialOffset: number,
+      lift: number,
+      swapAxes: boolean
+    ) => {
+      const azimuth = building.azimuth + tangentOffset / this.radius
+      const cos = Math.cos(azimuth)
+      const sin = Math.sin(azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      if (swapAxes) {
+        // Local X runs along the cylinder axis instead of the ring.
+        binormal.copy(tangent)
+        tangent.copy(inward).cross(binormal)
+      } else {
+        binormal.copy(tangent).cross(inward)
       }
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - lift)
+        .setY(building.axial + axialOffset)
+    }
+
+    // Hedges stay sculpted boxes — a clipped hedge IS a green box.
+    const hedges = styled.hedge
+    if (hedges.length > 0) {
       const geometry = new THREE.BoxGeometry(1, 1, 1)
       geometry.translate(0, 0.5, 0)
-      const mesh = new THREE.InstancedMesh(
-        geometry,
-        style === 'hedge' ? this.hedgeMaterial : this.fenceMaterial,
-        entries.length
-      )
+      const mesh = new THREE.InstancedMesh(geometry, this.hedgeMaterial, hedges.length)
       mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
       mesh.frustumCulled = false
-
-      for (let index = 0; index < entries.length; index += 1) {
-        const { building, segment, height } = entries[index]
-        const azimuth = building.azimuth + segment.tangentOffset / this.radius
-        const cos = Math.cos(azimuth)
-        const sin = Math.sin(azimuth)
-        tangent.set(-sin, 0, cos)
-        inward.set(-cos, 0, -sin)
-        binormal.copy(tangent).cross(inward)
-        basis.makeBasis(tangent, inward, binormal)
-        instanceQuaternion.setFromRotationMatrix(basis)
-        instancePosition
-          .set(cos, 0, sin)
-          .multiplyScalar(this.radius)
-          .setY(building.axial + segment.axialOffset)
+      for (let index = 0; index < hedges.length; index += 1) {
+        const { building, segment, height } = hedges[index]
+        composeAt(building, segment.tangentOffset, segment.axialOffset, 0, false)
         instanceScale.set(segment.tangentExtent, height, segment.axialExtent)
         instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
         mesh.setMatrixAt(index, instanceMatrix)
       }
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
 
+    // Picket fences are the real kit module, tiled along each run. Falls
+    // back to the painted box until the pack (and its prop material) is in.
+    const fences = styled.fence
+    if (fences.length > 0) {
+      if (kenneyPack !== null && this.suburbanPropMaterial !== null) {
+        type Module = { building: CityBuilding; t: number; a: number; w: number; run: 'tangent' | 'axial' }
+        const modules: Module[] = []
+        for (const { building, segment } of fences) {
+          const runAxis =
+            segment.tangentExtent >= segment.axialExtent ? 'tangent' : 'axial'
+          const run =
+            runAxis === 'tangent' ? segment.tangentExtent : segment.axialExtent
+          const count = Math.max(1, Math.round(run / 1.9))
+          const moduleWidth = run / count
+          for (let k = 0; k < count; k += 1) {
+            const along = -run / 2 + (k + 0.5) * moduleWidth
+            modules.push({
+              building,
+              t: segment.tangentOffset + (runAxis === 'tangent' ? along : 0),
+              a: segment.axialOffset + (runAxis === 'axial' ? along : 0),
+              w: moduleWidth,
+              run: runAxis
+            })
+          }
+        }
+        const mesh = new THREE.InstancedMesh(
+          kenneyPack.props.fence.clone(),
+          this.suburbanPropMaterial,
+          modules.length
+        )
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+        mesh.frustumCulled = false
+        for (let index = 0; index < modules.length; index += 1) {
+          const module = modules[index]
+          composeAt(module.building, module.t, module.a, 0, module.run === 'axial')
+          // Fence module: unit width, 0.5625 native height, 0.1667 depth.
+          instanceScale.set(module.w, 1.9, 0.9)
+          instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+          mesh.setMatrixAt(index, instanceMatrix)
+        }
+        mesh.instanceMatrix.needsUpdate = true
+        this.group.add(mesh)
+        this.detailedBuildingBatches.push(mesh)
+      } else {
+        const geometry = new THREE.BoxGeometry(1, 1, 1)
+        geometry.translate(0, 0.5, 0)
+        const mesh = new THREE.InstancedMesh(geometry, this.fenceMaterial, fences.length)
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+        mesh.frustumCulled = false
+        for (let index = 0; index < fences.length; index += 1) {
+          const { building, segment, height } = fences[index]
+          composeAt(building, segment.tangentOffset, segment.axialOffset, 0, false)
+          instanceScale.set(segment.tangentExtent, height, segment.axialExtent)
+          instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+          mesh.setMatrixAt(index, instanceMatrix)
+        }
+        mesh.instanceMatrix.needsUpdate = true
+        this.group.add(mesh)
+        this.detailedBuildingBatches.push(mesh)
+      }
+    }
+
+    if (kenneyPack === null || this.suburbanPropMaterial === null) {
+      return
+    }
+
+    // Door paths: one stretched slab each, floated a hair over the lawn.
+    if (paths.length > 0) {
+      const mesh = new THREE.InstancedMesh(
+        kenneyPack.props.path.clone(),
+        this.suburbanPropMaterial,
+        paths.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+      for (let index = 0; index < paths.length; index += 1) {
+        const path = paths[index]
+        composeAt(path.building, path.tangentOffset, path.axialOffset, 0.06, false)
+        instanceScale.set(path.tangentExtent, 3, path.axialExtent)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
+
+    // Lawn trees, split small/large like the kit intends.
+    for (const [list, geometry] of [
+      [treesSmall, kenneyPack.props.treeSmall],
+      [treesLarge, kenneyPack.props.treeLarge]
+    ] as const) {
+      if (list.length === 0) {
+        continue
+      }
+      const mesh = new THREE.InstancedMesh(
+        geometry.clone(),
+        this.suburbanPropMaterial,
+        list.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+      for (let index = 0; index < list.length; index += 1) {
+        const tree = list[index]
+        composeAt(tree.building, tree.tangentOffset, tree.axialOffset, 0, false)
+        instanceScale.setScalar(tree.height)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
       mesh.instanceMatrix.needsUpdate = true
       this.group.add(mesh)
       this.detailedBuildingBatches.push(mesh)

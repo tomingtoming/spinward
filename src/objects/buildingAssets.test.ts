@@ -4,6 +4,7 @@ import {
   KENNEY_SUBURBAN_HEIGHT_M,
   fitSuburbanHouse,
   kenneyPickForBuilding,
+  suburbanGardenPlan,
   suburbanLotBoundary,
   suburbanParcelRect
 } from './buildingAssets'
@@ -260,6 +261,57 @@ describe('fitSuburbanHouse', () => {
       }
     }
     expect(overlaps).toBe(0)
+  })
+
+  test('garden furniture stays inside the parcel and clear of the house', () => {
+    let paths = 0
+    let trees = 0
+    for (const building of suburbanHouses()) {
+      const fit = fitSuburbanHouse(building)
+      if (fit === null) {
+        continue
+      }
+      const parcel = suburbanParcelRect(building)
+      const garden = suburbanGardenPlan(building, fit)
+      expect(suburbanGardenPlan(building, fit)).toEqual(garden)
+
+      const insideParcel = (
+        tangentOffset: number,
+        axialOffset: number,
+        tangentHalf: number,
+        axialHalf: number
+      ) => {
+        expect(
+          Math.abs(tangentOffset - parcel.tangentOffset) + tangentHalf
+        ).toBeLessThanOrEqual(parcel.tangentExtent / 2 + 1e-6)
+        expect(
+          Math.abs(axialOffset - parcel.axialOffset) + axialHalf
+        ).toBeLessThanOrEqual(parcel.axialExtent / 2 + 1e-6)
+      }
+
+      if (garden.path !== null) {
+        paths += 1
+        insideParcel(
+          garden.path.tangentOffset,
+          garden.path.axialOffset,
+          garden.path.tangentExtent / 2,
+          garden.path.axialExtent / 2
+        )
+      }
+      for (const tree of garden.trees) {
+        trees += 1
+        insideParcel(tree.tangentOffset, tree.axialOffset, 0.6, 0.6)
+        // Trunks never grow through the house box.
+        const insideHouseTangent =
+          Math.abs(tree.tangentOffset - fit.tangentOffset) <
+          fit.tangentExtent / 2
+        const insideHouseAxial =
+          Math.abs(tree.axialOffset - fit.axialOffset) < fit.axialExtent / 2
+        expect(insideHouseTangent && insideHouseAxial).toBe(false)
+      }
+    }
+    expect(paths).toBeGreaterThan(500)
+    expect(trees).toBeGreaterThan(300)
   })
 
   test('a plan entry without front data keeps the legacy −axial aim', () => {

@@ -331,6 +331,15 @@ export type KenneyBuildingGeometryPack = {
   commercialMaterial: THREE.MeshStandardMaterial
   industrialMaterial: THREE.MeshStandardMaterial
   suburbanMaterial: THREE.MeshStandardMaterial
+  // Garden furniture from the Suburban kit: a picket-fence module (unit
+  // width, base at 0), a unit path tile (thin slab), and two trees (unit
+  // height). All share the suburban colormap.
+  props: {
+    fence: THREE.BufferGeometry
+    path: THREE.BufferGeometry
+    treeSmall: THREE.BufferGeometry
+    treeLarge: THREE.BufferGeometry
+  }
 }
 
 // The Kenney kits ship no emissive of their own, but the night skyline of
@@ -547,6 +556,51 @@ export const loadKenneyBuildingGeometryPack =
       )
     )
 
+    // Garden props: normalized so the instancer scales in metres — fence
+    // module to unit WIDTH, path tile to unit footprint, trees to unit
+    // HEIGHT. Their kit materials are duplicates of the suburban palette
+    // and are dropped.
+    const loadProp = async (
+      file: string,
+      mode: 'width' | 'footprint' | 'height'
+    ) => {
+      const gltf = await loader.loadAsync(`${KENNEY_BUILDING_BASE}/suburban/${file}`)
+      const material = captureKitMaterial(gltf.scene)
+      if (material !== null) {
+        material.map?.dispose()
+        material.dispose()
+      }
+      const geometry = collectGeometry(gltf.scene)
+      geometry.computeBoundingBox()
+      const bounds = geometry.boundingBox as THREE.Box3
+      const size = bounds.getSize(new THREE.Vector3())
+      const center = bounds.getCenter(new THREE.Vector3())
+      geometry.translate(-center.x, -bounds.min.y, -center.z)
+      if (mode === 'width') {
+        const s = 1 / Math.max(size.x, 1e-6)
+        geometry.scale(s, s, s)
+      } else if (mode === 'footprint') {
+        geometry.scale(
+          1 / Math.max(size.x, 1e-6),
+          1,
+          1 / Math.max(size.z, 1e-6)
+        )
+      } else {
+        const s = 1 / Math.max(size.y, 1e-6)
+        geometry.scale(s, s, s)
+      }
+      geometry.computeBoundingBox()
+      geometry.computeBoundingSphere()
+      return geometry
+    }
+
+    const [fenceProp, pathProp, treeSmallProp, treeLargeProp] = await Promise.all([
+      loadProp('fence.glb', 'width'),
+      loadProp('path-long.glb', 'footprint'),
+      loadProp('tree-small.glb', 'height'),
+      loadProp('tree-large.glb', 'height')
+    ])
+
     // The skyscrapers ship in the Commercial kit and share its colormap, so
     // their materials are dropped in favour of the captured commercial one.
     const skyscraper = await Promise.all(
@@ -576,7 +630,13 @@ export const loadKenneyBuildingGeometryPack =
       suburban,
       commercialMaterial,
       industrialMaterial,
-      suburbanMaterial
+      suburbanMaterial,
+      props: {
+        fence: fenceProp,
+        path: pathProp,
+        treeSmall: treeSmallProp,
+        treeLarge: treeLargeProp
+      }
     }
   }
 
@@ -606,6 +666,9 @@ export const disposeKenneyBuildingGeometryPack = (
   pack.suburbanMaterial.dispose()
   pack.industrialMaterial.map?.dispose()
   pack.industrialMaterial.dispose()
+  for (const geometry of Object.values(pack.props)) {
+    geometry.dispose()
+  }
 }
 
 // ── Suburban house real-size fit ────────────────────────────────────────
@@ -800,6 +863,98 @@ export const fitSuburbanHouse = (
     axialOffset: front.axis === 'axial' ? houseF * front.side : houseC,
     front
   }
+}
+
+// ── Suburban garden furniture ───────────────────────────────────────────
+// A walk from the gate to the front door, and a tree or two on the lawn.
+// Pure math over the parcel/fit pair, deterministic per lot, shared by the
+// render batches and the tests.
+
+export type SuburbanGardenPlan = {
+  // Path slab from the house's front face to the parcel's street edge,
+  // centred on the door axis (offsets from the building centre, metres).
+  path: {
+    tangentOffset: number
+    axialOffset: number
+    tangentExtent: number
+    axialExtent: number
+  } | null
+  trees: Array<{ tangentOffset: number; axialOffset: number; height: number }>
+}
+
+export const suburbanGardenPlan = (
+  building: CityBuilding,
+  fit: SuburbanHouseFit
+): SuburbanGardenPlan => {
+  const front = fit.front
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
+  const houseFrontF =
+    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side +
+    (front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent) / 2
+  const houseC = front.axis === 'tangent' ? fit.axialOffset : fit.tangentOffset
+  const houseCrossHalf =
+    (front.axis === 'tangent' ? fit.axialExtent : fit.tangentExtent) / 2
+
+  const toWorld = (f: number, c: number) =>
+    front.axis === 'tangent'
+      ? { tangentOffset: f * front.side, axialOffset: c }
+      : { tangentOffset: c, axialOffset: f * front.side }
+
+  const yardStart = houseFrontF
+  const yardEnd = parcelCentreF + parcelF / 2
+  const yardLength = yardEnd - yardStart
+
+  let path: SuburbanGardenPlan['path'] = null
+  if (yardLength > 1.5) {
+    const centre = toWorld((yardStart + yardEnd) / 2, houseC)
+    path = {
+      ...centre,
+      tangentExtent: front.axis === 'tangent' ? yardLength : 1.3,
+      axialExtent: front.axis === 'tangent' ? 1.3 : yardLength
+    }
+  }
+
+  // Lawn trees: 0–2, on the yard flanks clear of the door path and the
+  // boundary line. A fourth hash stream keeps them independent of palette,
+  // stature and boundary style.
+  const hash = Math.abs(
+    Math.sin(
+      building.azimuth * 61.7 + building.axial * 0.257 + building.tone * 31.9
+    )
+  )
+  const trees: SuburbanGardenPlan['trees'] = []
+  const count = hash < 0.3 ? 0 : hash < 0.75 ? 1 : 2
+  for (let index = 0; index < count; index += 1) {
+    const side = index === 0 ? (hash * 13.7) % 1 < 0.5 ? -1 : 1 : ((hash * 13.7) % 1 < 0.5 ? 1 : -1)
+    const cMin = houseC + side * (houseCrossHalf + 1.6)
+    const cMax = parcelCentreC + side * (parcelC / 2 - 1.4)
+    // The flank is too narrow for a canopy on this side.
+    if (side * (cMax - cMin) < 0) {
+      continue
+    }
+    const cJitter = (hash * (17.3 + index * 7.1)) % 1
+    const fJitter = (hash * (23.9 + index * 5.3)) % 1
+    const c = cMin + (cMax - cMin) * (0.25 + 0.5 * cJitter)
+    const fMin = yardStart + 1.2
+    const fMax = yardEnd - 1.6
+    if (fMax - fMin < 1) {
+      continue
+    }
+    const f = fMin + (fMax - fMin) * (0.2 + 0.6 * fJitter)
+    trees.push({
+      ...toWorld(f, c),
+      height: 2.6 + 1.6 * ((hash * (29.3 + index * 11.7)) % 1)
+    })
+  }
+
+  return { path, trees }
 }
 
 // ── Suburban lot boundaries ─────────────────────────────────────────────
