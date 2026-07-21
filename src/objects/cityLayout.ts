@@ -42,6 +42,10 @@ export type CityBuilding = {
     tangentExtent: number
     axialExtent: number
   }
+  // Port-end logistics band: the block row hugging the port cap wears the
+  // industrial kit (warehouses, not homes or offices). Zone flag derived
+  // from block position, no RNG consumed.
+  industrial?: boolean
 }
 
 // 'alley': the back lanes between building rings inside a block. They exist
@@ -977,7 +981,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     urban: number,
     oldTown: number,
     front?: CityBuilding['front'],
-    parcel?: CityBuilding['parcel']
+    parcel?: CityBuilding['parcel'],
+    industrial?: boolean
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -1029,7 +1034,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       urban,
       oldTown,
       front,
-      parcel
+      parcel,
+      industrial: industrial === true ? true : undefined
     })
   }
 
@@ -1044,14 +1050,15 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     rowEnd: number,
     depthMax: number,
     urban: number,
-    oldTown: number
+    oldTown: number,
+    industrial = false
   ) => {
     const span = rowEnd - rowStart
     // Parcel grain follows land use: detached-house country carves the row
     // into small home parcels, downtown keeps the big commercial plots (and
     // its merge rolls make them bigger still) — the 大中小 of the land
     // register instead of one uniform pitch.
-    const residentialRow = urban < 0.4 && oldTown < 0.5
+    const residentialRow = !industrial && urban < 0.4 && oldTown < 0.5
     const lotPitch = residentialRow ? lot * 0.55 : lot
     const count = Math.floor(span / lotPitch)
 
@@ -1284,7 +1291,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               urban,
               oldTown,
               front,
-              parcelFor(halfSlotCenter, pitch * 0.5, frontCenter, centre)
+              parcelFor(halfSlotCenter, pitch * 0.5, frontCenter, centre),
+              industrial
             )
           } else {
             placeBuilding(
@@ -1299,7 +1307,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               urban,
               oldTown,
               front,
-              parcelFor(halfSlotCenter, pitch * 0.5, centre, frontCenter)
+              parcelFor(halfSlotCenter, pitch * 0.5, centre, frontCenter),
+              industrial
             )
           }
         }
@@ -1328,17 +1337,21 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       if (residentialRow) {
         height = Math.min(height, 16)
       }
+      // The logistics band stays low sheds: no homes, no CBD furniture.
+      if (industrial) {
+        height = Math.min(height, 16)
+      }
 
-      if (height < heightBase * 0.45 && kindRoll < houseBand) {
+      if (!industrial && height < heightBase * 0.45 && kindRoll < houseBand) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (!residentialRow && kindRoll > towerThreshold && oldTown < 0.5) {
+      } else if (!residentialRow && !industrial && kindRoll > towerThreshold && oldTown < 0.5) {
         kind = 'tower'
         const slim = Math.min(along, depth) * 0.85
         along = slim
         depth = slim
         height = Math.min(height * 1.25, 78)
-      } else if (!residentialRow && kindRoll > setbackThreshold) {
+      } else if (!residentialRow && !industrial && kindRoll > setbackThreshold) {
         const bandPosition =
           (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
 
@@ -1374,7 +1387,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           urban,
           oldTown,
           front,
-          parcelFor(slotCenter, pitch * stride, frontCenter, alongCenter)
+          parcelFor(slotCenter, pitch * stride, frontCenter, alongCenter),
+          industrial
         )
       } else {
         placeBuilding(
@@ -1389,7 +1403,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           urban,
           oldTown,
           front,
-          parcelFor(slotCenter, pitch * stride, alongCenter, frontCenter)
+          parcelFor(slotCenter, pitch * stride, alongCenter, frontCenter),
+          industrial
         )
       }
 
@@ -1551,6 +1566,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
                 ? 2
                 : 1
 
+        // The block row hugging the port cap is the logistics band: the
+        // port and the old town grew together, and the freight aprons wear
+        // the industrial kit. Same road grid, warehouse dressing.
+        const industrialBlock = blockCenterAxial < -axialHalf + blockLength * 1.35
+
         // Residential blocks parcel as a LADDER, not rings: back-to-back
         // home rows separated by straight lanes that run the full block and
         // TEE into the perimeter streets at both ends. Ring alleys are
@@ -1558,7 +1578,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         // building rings, irrational as home streets (the U-shaped-lane
         // review) — so home lanes are through-roads by construction, and
         // still no home backs onto any road.
-        const residentialBlock = blockUrban < 0.4 && blockOldTown < 0.5
+        const residentialBlock =
+          !industrialBlock && blockUrban < 0.4 && blockOldTown < 0.5
 
         if (residentialBlock) {
           const laneBand = sidewalk * 1.5
@@ -1689,8 +1710,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringWidth * 0.35,
             ringLength * 0.35
           )
-          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
           placeEdgeRow(
             stripCenter,
             'street',
@@ -1700,7 +1721,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
             blockUrban,
-            blockOldTown
+            blockOldTown,
+            industrialBlock
           )
           placeEdgeRow(
             stripCenter,
@@ -1711,7 +1733,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
             blockUrban,
-            blockOldTown
+            blockOldTown,
+            industrialBlock
           )
 
           const inset = ringDepth + sidewalk * 1.5

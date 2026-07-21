@@ -267,7 +267,7 @@ export const loadDetailedBuildingGeometryPack = async () => {
 // CBD keeps the authored Japanese kit — each district gets its own
 // architectural language.
 
-export type KenneyBuildingSet = 'commercial' | 'skyscraper' | 'suburban'
+export type KenneyBuildingSet = 'commercial' | 'industrial' | 'skyscraper' | 'suburban'
 
 export const KENNEY_COMMERCIAL_VARIANTS = [
   'a',
@@ -289,6 +289,20 @@ export const KENNEY_COMMERCIAL_VARIANTS = [
 // architectural language. Stretch-fit like the mid-rises; no low-detail
 // set ships, so the detailed geometry serves both LODs.
 export const KENNEY_SKYSCRAPER_VARIANTS = ['a', 'b', 'c', 'd', 'e'] as const
+// The port-end logistics band's warehouses and factories (City Kit
+// Industrial, own colormap).
+export const KENNEY_INDUSTRIAL_VARIANTS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j'
+] as const
 export const KENNEY_SUBURBAN_VARIANTS = [
   'a',
   'b',
@@ -311,9 +325,11 @@ const KENNEY_BUILDING_BASE = '/assets/buildings/kenney'
 export type KenneyBuildingGeometryPack = {
   // Per variant: [lod0, lod1] unit-box geometries.
   commercial: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  industrial: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
   skyscraper: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
   suburban: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
   commercialMaterial: THREE.MeshStandardMaterial
+  industrialMaterial: THREE.MeshStandardMaterial
   suburbanMaterial: THREE.MeshStandardMaterial
 }
 
@@ -445,11 +461,12 @@ export const loadKenneyBuildingGeometryPack =
   async (): Promise<KenneyBuildingGeometryPack> => {
     const loader = new GLTFLoader()
     let commercialMaterial: THREE.MeshStandardMaterial | null = null
+    let industrialMaterial: THREE.MeshStandardMaterial | null = null
     let suburbanMaterial: THREE.MeshStandardMaterial | null = null
 
     const loadOne = async (
       url: string,
-      keepMaterial: 'commercial' | 'suburban' | null
+      keepMaterial: 'commercial' | 'industrial' | 'suburban' | null
     ) => {
       const gltf = await loader.loadAsync(url)
       const material = captureKitMaterial(gltf.scene)
@@ -457,6 +474,8 @@ export const loadKenneyBuildingGeometryPack =
       if (material !== null) {
         if (keepMaterial === 'commercial' && commercialMaterial === null) {
           commercialMaterial = material
+        } else if (keepMaterial === 'industrial' && industrialMaterial === null) {
+          industrialMaterial = material
         } else if (keepMaterial === 'suburban' && suburbanMaterial === null) {
           suburbanMaterial = material
         } else {
@@ -516,6 +535,18 @@ export const loadKenneyBuildingGeometryPack =
       )
     )
 
+    const industrial = await Promise.all(
+      KENNEY_INDUSTRIAL_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => {
+          const geometry = await loadOne(
+            `${KENNEY_BUILDING_BASE}/industrial/building-${variant}.glb`,
+            'industrial'
+          )
+          return [geometry, geometry]
+        }
+      )
+    )
+
     // The skyscrapers ship in the Commercial kit and share its colormap, so
     // their materials are dropped in favour of the captured commercial one.
     const skyscraper = await Promise.all(
@@ -530,11 +561,23 @@ export const loadKenneyBuildingGeometryPack =
       )
     )
 
-    if (commercialMaterial === null || suburbanMaterial === null) {
+    if (
+      commercialMaterial === null ||
+      industrialMaterial === null ||
+      suburbanMaterial === null
+    ) {
       throw new Error('Kenney building kits are missing their palette material')
     }
 
-    return { commercial, skyscraper, suburban, commercialMaterial, suburbanMaterial }
+    return {
+      commercial,
+      industrial,
+      skyscraper,
+      suburban,
+      commercialMaterial,
+      industrialMaterial,
+      suburbanMaterial
+    }
   }
 
 export const disposeKenneyBuildingGeometryPack = (
@@ -548,6 +591,9 @@ export const disposeKenneyBuildingGeometryPack = (
     // lod0 and lod1 share the geometry.
     pair[0].dispose()
   }
+  for (const pair of pack.industrial) {
+    pair[0].dispose()
+  }
   for (const pair of pack.suburban) {
     // lod0 and lod1 share the geometry.
     pair[0].dispose()
@@ -558,6 +604,8 @@ export const disposeKenneyBuildingGeometryPack = (
   pack.suburbanMaterial.map?.dispose()
   pack.suburbanMaterial.emissiveMap?.dispose()
   pack.suburbanMaterial.dispose()
+  pack.industrialMaterial.map?.dispose()
+  pack.industrialMaterial.dispose()
 }
 
 // ── Suburban house real-size fit ────────────────────────────────────────
@@ -631,6 +679,12 @@ export const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
 export const kenneyPickForBuilding = (
   building: CityBuilding
 ): { set: KenneyBuildingSet; variant: number } => {
+  if (building.industrial === true) {
+    return {
+      set: 'industrial',
+      variant: facadePaletteIndex(building, KENNEY_INDUSTRIAL_VARIANTS.length)
+    }
+  }
   if ((building.oldTown ?? 0) >= 0.5) {
     return {
       set: 'commercial',

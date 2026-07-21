@@ -1774,8 +1774,10 @@ export class Cityscape {
       // The kit materials join the LOD screen-door system like every other
       // building material, and their windows join the night city.
       installKenneyWindowGlow(pack.commercialMaterial)
+      installKenneyWindowGlow(pack.industrialMaterial)
       installKenneyWindowGlow(pack.suburbanMaterial)
       this.installBuildingLodDither(pack.commercialMaterial)
+      this.installBuildingLodDither(pack.industrialMaterial)
       this.installBuildingLodDither(pack.suburbanMaterial)
       this.kenneyBuildingGeometries = pack
       if (this.cityNearBuildings.length > 0) {
@@ -2264,6 +2266,9 @@ export class Cityscape {
         windowGlow * 0.5
       this.kenneyBuildingGeometries.suburbanMaterial.emissiveIntensity =
         windowGlow * 0.38
+      // Warehouses run night shifts on a dimmer roster.
+      this.kenneyBuildingGeometries.industrialMaterial.emissiveIntensity =
+        windowGlow * 0.24
     }
     // The facade albedo is authored dark (a night base + lit-window cut-outs);
     // lift it hard through the day so sunlit walls read as a daytime city rather
@@ -3071,7 +3076,9 @@ export class Cityscape {
           pair[lod],
           group.set === 'suburban'
             ? kenneyPack.suburbanMaterial
-            : kenneyPack.commercialMaterial,
+            : group.set === 'industrial'
+              ? kenneyPack.industrialMaterial
+              : kenneyPack.commercialMaterial,
           group.set === 'suburban' ? 'uniform' : 'stretch'
         )
       )
