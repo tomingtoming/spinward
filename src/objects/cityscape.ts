@@ -42,11 +42,14 @@ import {
   installKenneyWindowGlow,
   kenneyPickForBuilding,
   suburbanGardenPlan,
+  disposeKenneyCarGeometryPack,
   loadDetailedBuildingGeometryPack,
   loadKenneyBuildingGeometryPack,
+  loadKenneyCarGeometryPack,
   suburbanLotBoundary,
   type DetailedBuildingGeometryPack,
   type KenneyBuildingGeometryPack,
+  type KenneyCarGeometryPack,
   type KenneyBuildingSet,
   type StreetDetailArchetype,
   type SuburbanLotBoundary,
@@ -1658,7 +1661,12 @@ export class Cityscape {
   private heroStreetBatches: THREE.InstancedMesh[] = []
   // Ambient traffic: a persistent capacity-sized batch; focus changes only
   // reassign routes, update() moves the cars every frame.
-  private traffic: THREE.InstancedMesh | null = null
+  // Traffic fleet: one InstancedMesh per car model once the Car Kit pack
+  // arrives; a single procedural box-car mesh before that. Route index maps
+  // to (index % fleet, index / fleet).
+  private trafficMeshes: THREE.InstancedMesh[] = []
+  private trafficKitBacked = false
+  private kenneyCarGeometries: KenneyCarGeometryPack | null = null
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
   private cityPlanRoads: CityRoad[] = []
@@ -1764,6 +1772,7 @@ export class Cityscape {
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
     void this.loadKenneyBuildingAssets()
+    void this.loadKenneyCarAssets()
     if (this.roadTileDistance > 0) {
       void this.loadRoadTileAssets()
     }
@@ -1798,6 +1807,22 @@ export class Cityscape {
       // Same contract as the other packs: authored geometry is cosmetic, the
       // Japanese kit and the procedural city are complete fallbacks.
       console.warn('Kenney building pack unavailable; using authored/procedural', error)
+    }
+  }
+
+  private async loadKenneyCarAssets() {
+    try {
+      const pack = await loadKenneyCarGeometryPack()
+      if (this.disposed) {
+        disposeKenneyCarGeometryPack(pack)
+        return
+      }
+      this.kenneyCarGeometries = pack
+      // Swap the fleet in place: rebuild allocates the per-model meshes and
+      // re-deals the routes.
+      this.rebuildTraffic()
+    } catch (error) {
+      console.warn('Kenney car pack unavailable; using procedural traffic', error)
     }
   }
 
@@ -2026,9 +2051,9 @@ export class Cityscape {
   }
 
   private updateTraffic(deltaSeconds: number) {
-    const mesh = this.traffic
+    const fleet = this.trafficMeshes
 
-    if (mesh === null || this.trafficRoutes.length === 0) {
+    if (fleet.length === 0 || this.trafficRoutes.length === 0) {
       return
     }
 
@@ -2076,10 +2101,15 @@ export class Cityscape {
       instancePosition.set(cos, 0, sin).multiplyScalar(route.surfaceRadius).setY(axial)
       instanceScale.setScalar(route.scale)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
+      fleet[index % fleet.length].setMatrixAt(
+        Math.floor(index / fleet.length),
+        instanceMatrix
+      )
     }
 
-    mesh.instanceMatrix.needsUpdate = true
+    for (const mesh of fleet) {
+      mesh.instanceMatrix.needsUpdate = true
+    }
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
@@ -2542,10 +2572,14 @@ export class Cityscape {
       this.expresswayGroup = null
     }
 
-    if (this.traffic !== null) {
-      this.traffic.geometry.dispose()
-      this.group.remove(this.traffic)
-      this.traffic = null
+    for (const mesh of this.trafficMeshes) {
+      mesh.geometry.dispose()
+      this.group.remove(mesh)
+    }
+    this.trafficMeshes = []
+    if (this.kenneyCarGeometries !== null) {
+      disposeKenneyCarGeometryPack(this.kenneyCarGeometries)
+      this.kenneyCarGeometries = null
     }
 
     this.disposeBuildingBatches()
@@ -3182,19 +3216,46 @@ export class Cityscape {
   }
 
   private ensureTrafficMesh() {
-    if (this.traffic !== null || this.maxTraffic <= 0) {
+    if (this.maxTraffic <= 0) {
+      return
+    }
+    const pack = this.kenneyCarGeometries
+    const wantKit = pack !== null
+    if (this.trafficMeshes.length > 0 && this.trafficKitBacked === wantKit) {
       return
     }
 
-    const mesh = new THREE.InstancedMesh(
-      buildTrafficCarGeometry(),
-      [this.trafficBodyMaterial, this.headlightMaterial, this.taillightMaterial],
-      this.maxTraffic
-    )
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    mesh.frustumCulled = false
-    this.traffic = mesh
-    this.group.add(mesh)
+    for (const mesh of this.trafficMeshes) {
+      mesh.geometry.dispose()
+      this.group.remove(mesh)
+    }
+    this.trafficMeshes = []
+
+    if (pack !== null) {
+      const capacity = Math.ceil(this.maxTraffic / pack.cars.length)
+      for (const car of pack.cars) {
+        const mesh = new THREE.InstancedMesh(
+          car.clone(),
+          [pack.material, this.headlightMaterial, this.taillightMaterial],
+          capacity
+        )
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+        mesh.frustumCulled = false
+        this.trafficMeshes.push(mesh)
+        this.group.add(mesh)
+      }
+    } else {
+      const mesh = new THREE.InstancedMesh(
+        buildTrafficCarGeometry(),
+        [this.trafficBodyMaterial, this.headlightMaterial, this.taillightMaterial],
+        this.maxTraffic
+      )
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      mesh.frustumCulled = false
+      this.trafficMeshes.push(mesh)
+      this.group.add(mesh)
+    }
+    this.trafficKitBacked = wantKit
   }
 
   // Deal the car fleet onto the arterial roads around the focus arc and the
@@ -3205,16 +3266,16 @@ export class Cityscape {
     this.trafficRoutes = []
 
     if (this.maxTraffic <= 0 || this.radius <= 0 || this.cityPlanRoads.length === 0) {
-      if (this.traffic !== null) {
-        this.traffic.count = 0
+      for (const mesh of this.trafficMeshes) {
+        mesh.count = 0
       }
       return
     }
 
     this.ensureTrafficMesh()
-    const mesh = this.traffic
+    const fleet = this.trafficMeshes
 
-    if (mesh === null) {
+    if (fleet.length === 0) {
       return
     }
 
@@ -3287,7 +3348,9 @@ export class Cityscape {
     }
 
     if (candidates.length === 0 || totalSpan <= 0) {
-      mesh.count = 0
+      for (const mesh of fleet) {
+        mesh.count = 0
+      }
       return
     }
 
@@ -3325,7 +3388,12 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        mesh.setColorAt(count, instanceColor)
+        if (!this.trafficKitBacked) {
+          fleet[count % fleet.length].setColorAt(
+            Math.floor(count / fleet.length),
+            instanceColor
+          )
+        }
         count += 1
       }
     }
@@ -3369,15 +3437,23 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        mesh.setColorAt(count, instanceColor)
+        if (!this.trafficKitBacked) {
+          fleet[count % fleet.length].setColorAt(
+            Math.floor(count / fleet.length),
+            instanceColor
+          )
+        }
         count += 1
       }
     }
 
-    mesh.count = count
-
-    if (mesh.instanceColor !== null) {
-      mesh.instanceColor.needsUpdate = true
+    for (let variant = 0; variant < fleet.length; variant += 1) {
+      const mesh = fleet[variant]
+      mesh.count =
+        count === 0 ? 0 : Math.max(0, Math.floor((count - 1 - variant) / fleet.length) + 1)
+      if (mesh.instanceColor !== null) {
+        mesh.instanceColor.needsUpdate = true
+      }
     }
 
     // Place everyone immediately so a focus change never shows a frame of

@@ -1113,3 +1113,104 @@ export const disposeDetailedBuildingGeometryPack = (
     geometry.dispose()
   }
 }
+
+// ── Kenney Car Kit ──────────────────────────────────────────────────────
+// Real-size street vehicles for the traffic fleet. Each model is seated at
+// the origin, scaled to its real length, and gains head/tail light bars in
+// material groups 1/2 so the night traffic streaks survive the swap from
+// the procedural box car.
+
+export const KENNEY_CAR_VARIANTS = [
+  { file: 'sedan', length: 4.4 },
+  { file: 'suv', length: 4.6 },
+  { file: 'hatchback-sports', length: 4.0 },
+  { file: 'delivery', length: 5.2 },
+  { file: 'taxi', length: 4.4 },
+  { file: 'truck', length: 5.4 }
+] as const
+
+export type KenneyCarGeometryPack = {
+  cars: THREE.BufferGeometry[]
+  material: THREE.MeshStandardMaterial
+}
+
+export const loadKenneyCarGeometryPack =
+  async (): Promise<KenneyCarGeometryPack> => {
+    const loader = new GLTFLoader()
+    let material: THREE.MeshStandardMaterial | null = null
+
+    const cars = await Promise.all(
+      KENNEY_CAR_VARIANTS.map(async ({ file, length }) => {
+        const gltf = await loader.loadAsync(`/assets/vehicles/kenney/${file}.glb`)
+        const captured = captureKitMaterial(gltf.scene)
+        if (captured !== null) {
+          if (material === null) {
+            material = captured
+          } else {
+            captured.map?.dispose()
+            captured.dispose()
+          }
+        }
+        const body = collectGeometry(gltf.scene)
+        // The kit ships extra vertex attributes (tangents, colours) the
+        // light-bar boxes lack; merge requires identical attribute sets.
+        for (const name of Object.keys(body.attributes)) {
+          if (name !== 'position' && name !== 'normal' && name !== 'uv') {
+            body.deleteAttribute(name)
+          }
+        }
+        body.computeBoundingBox()
+        const bounds = body.boundingBox as THREE.Box3
+        const size = bounds.getSize(new THREE.Vector3())
+        const center = bounds.getCenter(new THREE.Vector3())
+        body.translate(-center.x, -bounds.min.y, -center.z)
+        const scale = length / Math.max(size.z, 1e-6)
+        body.scale(scale, scale, scale)
+        body.computeBoundingBox()
+        const scaled = body.boundingBox as THREE.Box3
+        const width = scaled.max.x - scaled.min.x
+
+        const head = new THREE.BoxGeometry(width * 0.62, 0.16, 0.08)
+        head.translate(0, 0.55, scaled.max.z - 0.03)
+        const tail = new THREE.BoxGeometry(width * 0.62, 0.14, 0.08)
+        tail.translate(0, 0.58, scaled.min.z + 0.03)
+        const pieces = [body, head, tail]
+        const counts = pieces.map(
+          (piece) => piece.index?.count ?? piece.getAttribute('position').count
+        )
+        for (const piece of pieces) {
+          piece.clearGroups()
+        }
+        const merged = mergeGeometries(pieces, false)
+        for (const piece of pieces) {
+          piece.dispose()
+        }
+        if (merged === null) {
+          throw new Error(`Car kit model ${file} failed to merge`)
+        }
+        merged.clearGroups()
+        let start = 0
+        for (let index = 0; index < counts.length; index += 1) {
+          merged.addGroup(start, counts[index], index)
+          start += counts[index]
+        }
+        merged.computeBoundingBox()
+        merged.computeBoundingSphere()
+        return merged
+      })
+    )
+
+    if (material === null) {
+      throw new Error('Kenney car kit is missing its palette material')
+    }
+
+    return { cars, material }
+  }
+
+export const disposeKenneyCarGeometryPack = (pack: KenneyCarGeometryPack) => {
+  for (const geometry of pack.cars) {
+    geometry.dispose()
+  }
+  pack.material.map?.dispose()
+  pack.material.dispose()
+}
