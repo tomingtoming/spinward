@@ -775,25 +775,58 @@ const bakeRoadUvs = (
   }
 }
 
-const buildingTone = (
-  tone: number,
-  urban: number,
-  oldTown: number,
-  target: THREE.Color
+// The near disk speaks Kenney, so the mid procedural boxes and the far
+// skyline take their per-instance colour from the SAME kit pick — the
+// palette no longer jumps at the LOD boundaries. Values are the kits'
+// representative wall colours, with a mild luminance jitter from the
+// building's tone roll so rows stay varied.
+const KENNEY_COMMERCIAL_WALL_TONES = [
+  0xefece6, 0xe6d9c4, 0x979db8, 0xc8745e, 0xb6bac2, 0x767b8c
+]
+const KENNEY_SUBURBAN_WALL_TONES = [0xf2f2f0, 0xe9e4d8]
+const KENNEY_SKYSCRAPER_WALL_TONES = [0x4c5160, 0x3f4756, 0x5a6070]
+const KENNEY_INDUSTRIAL_WALL_TONE = 0xd4d6d9
+
+const buildingTone = (building: CityBuilding, target: THREE.Color) => {
+  const pick = kenneyPickForBuilding(building)
+  if (pick.set === 'suburban') {
+    target.setHex(KENNEY_SUBURBAN_WALL_TONES[pick.variant % 2])
+  } else if (pick.set === 'skyscraper') {
+    target.setHex(KENNEY_SKYSCRAPER_WALL_TONES[pick.variant % 3])
+  } else if (pick.set === 'industrial') {
+    target.setHex(KENNEY_INDUSTRIAL_WALL_TONE)
+  } else {
+    target.setHex(
+      KENNEY_COMMERCIAL_WALL_TONES[pick.variant % KENNEY_COMMERCIAL_WALL_TONES.length]
+    )
+  }
+  return target.multiplyScalar(0.9 + building.tone * 0.2)
+}
+
+// Roof colours per kit set for the box LODs: the suburb reads green from
+// the air at every distance, downtown stays dark decked.
+const KENNEY_ROOF_TONES = {
+  suburban: new THREE.Color(0x55b17c),
+  commercial: new THREE.Color(0x3f434c),
+  skyscraper: new THREE.Color(0x30343e),
+  industrial: new THREE.Color(0x7c828c)
+} as const
+
+const attachRoofColorAttribute = (
+  geometry: THREE.BufferGeometry,
+  plan: BuildingRenderPlacement[]
 ) => {
-  // Districts read through the palette: downtown skews glassy blue (higher
-  // saturation, fewer warm facades), the countryside keeps plastered warmth.
-  // `urban` comes from the same zoning field that drives height/archetype mix,
-  // so the colour gradient lines up with the skyline gradient for free. The
-  // old town overrides the density cue: it is as dense as downtown but wears
-  // the warm plaster/brick of the first construction era, so the axial
-  // timeline reads in colour as well as in massing.
-  const warmCut = 0.85 - (1 - urban) * 0.25 - 0.5 * oldTown
-  const isWarm = tone > warmCut
-  const hue = isWarm ? 0.07 : 0.58
-  const saturation = isWarm ? 0.2 + 0.05 * oldTown : 0.12 + urban * 0.12
-  const lightness = 0.38 + tone * 0.34 - 0.05 * oldTown
-  return target.setHSL(hue, saturation, lightness)
+  const colors = new Float32Array(plan.length * 3)
+  for (let index = 0; index < plan.length; index += 1) {
+    const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(plan[index].building).set]
+    colors[index * 3] = roof.r
+    colors[index * 3 + 1] = roof.g
+    colors[index * 3 + 2] = roof.b
+  }
+  geometry.setAttribute(
+    'aRoofColor',
+    new THREE.InstancedBufferAttribute(colors, 3)
+  )
 }
 
 // Suburban default for plan entries without zoning data (synthetic footprints).
@@ -935,13 +968,15 @@ const createFacadeTextureSet = (
   // Bases sit a stop or two brighter than a pure night skin so the daytime color
   // lift (setDaylight) reaches a believable concrete/glass grey instead of near
   // black; night stays dark because the hemisphere light is low after dusk.
+  // Neutral grey bases: the hue comes from the per-instance Kenney wall
+  // tone, so the texture must not fight it with a cast of its own.
   const base =
-    palette?.base ?? (isTower ? '#2b3340' : variant === 'warm' ? '#5b6470' : '#414b58')
+    palette?.base ?? (isTower ? '#33353b' : variant === 'warm' ? '#616164' : '#4a4b4f')
   const rib =
-    palette?.rib ?? (isTower ? '#161d27' : variant === 'warm' ? '#6f6770' : '#2a323d')
+    palette?.rib ?? (isTower ? '#1e2024' : variant === 'warm' ? '#6a6a6e' : '#303236')
   const seam =
     palette?.seam ??
-    (isTower ? 'rgba(177, 198, 216, 0.08)' : 'rgba(255, 218, 183, 0.08)')
+    (isTower ? 'rgba(200, 205, 215, 0.08)' : 'rgba(225, 225, 230, 0.08)')
 
   albedo.fillStyle = base
   albedo.fillRect(0, 0, size, size)
@@ -949,9 +984,9 @@ const createFacadeTextureSet = (
   emissive.fillRect(0, 0, size, size)
 
   const warmWash = albedo.createLinearGradient(0, 0, size, size)
-  warmWash.addColorStop(0, isTower ? 'rgba(255, 150, 96, 0.08)' : 'rgba(255, 160, 108, 0.18)')
-  warmWash.addColorStop(0.55, 'rgba(42, 48, 60, 0.04)')
-  warmWash.addColorStop(1, 'rgba(0, 12, 26, 0.24)')
+  warmWash.addColorStop(0, isTower ? 'rgba(230, 230, 235, 0.05)' : 'rgba(235, 235, 240, 0.08)')
+  warmWash.addColorStop(0.55, 'rgba(45, 45, 50, 0.04)')
+  warmWash.addColorStop(1, 'rgba(10, 10, 14, 0.22)')
   albedo.fillStyle = warmWash
   albedo.fillRect(0, 0, size, size)
 
@@ -1192,15 +1227,15 @@ const disposeTextureSet = (textures: TextureSet) => {
 const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
   undefined, // the original slate
   {
-    base: '#878e94',
-    rib: '#5c636b',
-    seam: 'rgba(40, 48, 58, 0.12)',
-    coolGlass: 'rgba(96, 116, 136, 0.4)'
+    base: '#8b8d92',
+    rib: '#5f6165',
+    seam: 'rgba(45, 46, 50, 0.12)',
+    coolGlass: 'rgba(105, 112, 125, 0.4)'
   }, // pale tile
   {
-    base: '#4d423c',
-    rib: '#2f2823',
-    seam: 'rgba(255, 200, 150, 0.1)',
+    base: '#4b4a49',
+    rib: '#2e2d2c',
+    seam: 'rgba(228, 224, 218, 0.1)',
     litChance: 0.22
   } // warm masonry
 ]
@@ -1211,10 +1246,10 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   undefined,
   undefined,
   {
-    base: '#343b42',
-    rib: '#20262c',
-    seam: 'rgba(208, 190, 170, 0.06)',
-    coolGlass: 'rgba(103, 122, 137, 0.38)',
+    base: '#36383e',
+    rib: '#24262b',
+    seam: 'rgba(210, 210, 216, 0.06)',
+    coolGlass: 'rgba(110, 118, 130, 0.38)',
     litChance: 0.2
   }
 ]
@@ -1358,6 +1393,15 @@ export class Cityscape {
   // colormap but NOT the building shader patches, so they get a plain
   // sibling material built when the pack arrives.
   private suburbanPropMaterial: THREE.MeshStandardMaterial | null = null
+
+  // Roofs of the box LODs (mid procedural + far skyline): white base tinted
+  // per instance by the aRoofColor attribute, so a suburb reads green from
+  // the air at every distance while downtown stays dark decked.
+  private readonly kenneyRoofMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0.08
+  })
 
   private readonly buildingSignMaterials = this.signTextureSets.map(
     (set) =>
@@ -1763,11 +1807,13 @@ export class Cityscape {
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
       this.buildingRoofMaterial,
+      this.kenneyRoofMaterial,
       ...this.buildingSignMaterials,
       this.roofClutterMaterial
     ]) {
       this.installBuildingLodDither(material)
     }
+    this.installRoofColor(this.kenneyRoofMaterial)
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
@@ -2013,6 +2059,23 @@ export class Cityscape {
             '  if (vLodDither.y < -0.5 && lodNoise < vLodDither.x) discard;'
         )
     }
+  }
+
+  // Roof faces read their tint from aRoofColor INSTEAD of the wall's
+  // instanceColor: the same instance carries a wall colour for its sides
+  // and a roof colour for its deck.
+  private installRoofColor(material: THREE.MeshStandardMaterial) {
+    const previousCompile = material.onBeforeCompile
+    material.onBeforeCompile = (shader, renderer) => {
+      previousCompile(shader, renderer)
+      shader.vertexShader =
+        'attribute vec3 aRoofColor;\n' +
+        shader.vertexShader.replace(
+          '#include <color_vertex>',
+          '#include <color_vertex>\n#ifdef USE_INSTANCING_COLOR\n  vColor.rgb = aRoofColor;\n#endif'
+        )
+    }
+    material.needsUpdate = true
   }
 
   // Per-instance strobing for the aviation beacons: a short bright flash on each
@@ -2326,6 +2389,7 @@ export class Cityscape {
       material.color.setScalar(facadeLift)
     }
     this.buildingRoofMaterial.color.setScalar(0.55 + daylight * 1.35)
+    this.kenneyRoofMaterial.color.setScalar(0.5 + daylight * 0.75)
     for (const material of this.buildingSignMaterials) {
       material.color.setScalar(0.78 + daylight * 0.55)
       material.emissiveIntensity = night * night * 0.75
@@ -2464,6 +2528,7 @@ export class Cityscape {
     }
     this.suburbanPropMaterial?.dispose()
     this.buildingRoofMaterial.dispose()
+    this.kenneyRoofMaterial.dispose()
 
     for (const set of [
       ...this.smallFacadeTextureSets,
@@ -3478,7 +3543,7 @@ export class Cityscape {
     const geometry = new THREE.BoxGeometry(1, 1, 1)
     const side = this.farBuildingSideMaterial
     // BoxGeometry group order: +x, -x, +y, -y, +z, -z; local +y is the roof.
-    const materials = [side, side, this.buildingRoofMaterial, this.buildingRoofMaterial, side, side]
+    const materials = [side, side, this.kenneyRoofMaterial, this.kenneyRoofMaterial, side, side]
     const mesh = new THREE.InstancedMesh(geometry, materials, capacity)
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     mesh.frustumCulled = false
@@ -3489,6 +3554,10 @@ export class Cityscape {
     geometry.setAttribute(
       'aLodDither',
       new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
+    )
+    geometry.setAttribute(
+      'aRoofColor',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3)
     )
     this.farBuildings = mesh
     this.group.add(mesh)
@@ -3503,6 +3572,8 @@ export class Cityscape {
     }
 
     const uvScales = (mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute)
+      .array as Float32Array
+    const roofColors = (mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute)
       .array as Float32Array
     let count = 0
 
@@ -3541,8 +3612,12 @@ export class Cityscape {
       mesh.setMatrixAt(count, instanceMatrix)
       mesh.setColorAt(
         count,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
+      const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(building).set]
+      roofColors[count * 3] = roof.r
+      roofColors[count * 3 + 1] = roof.g
+      roofColors[count * 3 + 2] = roof.b
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
         building.height,
@@ -3556,6 +3631,7 @@ export class Cityscape {
     mesh.count = count
     mesh.instanceMatrix.needsUpdate = true
     ;(mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute).needsUpdate = true
+    ;(mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute).needsUpdate = true
 
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
@@ -4026,7 +4102,7 @@ export class Cityscape {
     const wallHeightFactor = kind === 'house' ? 0.68 : 1
     const mesh = new THREE.InstancedMesh(
       geometry,
-      [sideMaterial, this.buildingRoofMaterial],
+      [sideMaterial, this.kenneyRoofMaterial],
       plan.length
     )
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
@@ -4051,7 +4127,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -4063,6 +4139,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachRoofColorAttribute(geometry, plan)
     attachBuildingLodDither(geometry, plan)
     mesh.instanceMatrix.needsUpdate = true
 
@@ -4089,8 +4166,8 @@ export class Cityscape {
     const materials = [
       sideMaterial,
       sideMaterial,
-      this.buildingRoofMaterial,
-      this.buildingRoofMaterial,
+      this.kenneyRoofMaterial,
+      this.kenneyRoofMaterial,
       sideMaterial,
       sideMaterial
     ]
@@ -4120,7 +4197,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -4132,6 +4209,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachRoofColorAttribute(geometry, plan)
     attachBuildingLodDither(geometry, plan)
 
     mesh.instanceMatrix.needsUpdate = true
