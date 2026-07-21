@@ -3,7 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   KENNEY_SUBURBAN_HEIGHT_M,
   fitSuburbanHouse,
-  kenneyPickForBuilding
+  kenneyPickForBuilding,
+  suburbanLotBoundary
 } from './buildingAssets'
 import { planCity, type CityBuilding } from './cityLayout'
 
@@ -74,6 +75,65 @@ describe('fitSuburbanHouse', () => {
       expect(setback).toBeGreaterThanOrEqual(-1e-6)
       expect(setback).toBeLessThanOrEqual(3 + 1e-6)
     }
+  })
+
+  test('lot boundaries stay inside the lot, clear the house, and leave a gate', () => {
+    let checked = 0
+    for (const building of suburbanHouses()) {
+      const fit = fitSuburbanHouse(building)
+      if (fit === null) {
+        continue
+      }
+      const boundary = suburbanLotBoundary(building, fit)
+      expect(suburbanLotBoundary(building, fit)).toEqual(boundary)
+      expect(boundary.segments.length).toBeGreaterThanOrEqual(2)
+
+      const houseTangent = [
+        fit.tangentOffset - fit.tangentExtent / 2,
+        fit.tangentOffset + fit.tangentExtent / 2
+      ]
+      const houseAxial = [
+        fit.axialOffset - fit.axialExtent / 2,
+        fit.axialOffset + fit.axialExtent / 2
+      ]
+
+      for (const segment of boundary.segments) {
+        // Inside the lot.
+        expect(
+          Math.abs(segment.tangentOffset) + segment.tangentExtent / 2
+        ).toBeLessThanOrEqual(building.width / 2 + 1e-6)
+        expect(
+          Math.abs(segment.axialOffset) + segment.axialExtent / 2
+        ).toBeLessThanOrEqual(building.depth / 2 + 1e-6)
+
+        // Clear of the fitted house box.
+        const overlapsTangent =
+          segment.tangentOffset - segment.tangentExtent / 2 < houseTangent[1] - 1e-6 &&
+          segment.tangentOffset + segment.tangentExtent / 2 > houseTangent[0] + 1e-6
+        const overlapsAxial =
+          segment.axialOffset - segment.axialExtent / 2 < houseAxial[1] - 1e-6 &&
+          segment.axialOffset + segment.axialExtent / 2 > houseAxial[0] + 1e-6
+        expect(overlapsTangent && overlapsAxial).toBe(false)
+      }
+
+      // The street edge keeps a walkable gate on the lot's cross centre.
+      const isTangentFront = fit.front.axis === 'tangent'
+      const frontEdge =
+        (isTangentFront ? building.width : building.depth) / 2 - 0.36
+      for (const segment of boundary.segments) {
+        const onFrontEdge = isTangentFront
+          ? segment.tangentOffset * fit.front.side > frontEdge - 0.5
+          : segment.axialOffset * fit.front.side > frontEdge - 0.5
+        if (!onFrontEdge) {
+          continue
+        }
+        const crossOffset = isTangentFront ? segment.axialOffset : segment.tangentOffset
+        const crossExtent = isTangentFront ? segment.axialExtent : segment.tangentExtent
+        expect(Math.abs(crossOffset) - crossExtent / 2).toBeGreaterThanOrEqual(1 - 1e-6)
+        checked += 1
+      }
+    }
+    expect(checked).toBeGreaterThan(100)
   })
 
   test('a plan entry without front data keeps the legacy −axial aim', () => {

@@ -42,11 +42,14 @@ import {
   kenneyPickForBuilding,
   loadDetailedBuildingGeometryPack,
   loadKenneyBuildingGeometryPack,
+  suburbanLotBoundary,
   type DetailedBuildingArchetype,
   type DetailedBuildingGeometryPack,
   type KenneyBuildingGeometryPack,
   type KenneyBuildingSet,
-  type StreetDetailArchetype
+  type StreetDetailArchetype,
+  type SuburbanLotBoundary,
+  type SuburbanLotBoundarySegment
 } from './buildingAssets'
 import {
   disposeRoadTileGeometryPack,
@@ -1353,6 +1356,20 @@ export class Cityscape {
     emissiveIntensity: 0.22
   })
 
+  // Suburban lot boundaries in the Kenney flat-colour family: clipped
+  // garden hedge and off-white picket fence.
+  private readonly hedgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4c7a3f,
+    roughness: 0.95,
+    metalness: 0
+  })
+
+  private readonly fenceMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe9e6dc,
+    roughness: 0.8,
+    metalness: 0.05
+  })
+
   private readonly buildingSignMaterials = this.signTextureSets.map(
     (set) =>
       new THREE.MeshStandardMaterial({
@@ -2403,7 +2420,9 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      ...this.buildingSignMaterials
+      ...this.buildingSignMaterials,
+      this.hedgeMaterial,
+      this.fenceMaterial
     ]) {
       material.dispose()
     }
@@ -3071,6 +3090,12 @@ export class Cityscape {
             group.set === 'commercial' ? 'stretch' : 'uniform'
           )
         )
+      }
+
+      // Lot boundaries ride the same pack gate: while the Japanese-kit
+      // fallback still fills whole lots, a hedge inside it would clip.
+      if (lod === 0) {
+        this.buildSuburbanBoundaryBatches(plan)
       }
     }
 
@@ -3786,6 +3811,76 @@ export class Cityscape {
     mesh.instanceMatrix.needsUpdate = true
     this.group.add(mesh)
     return mesh
+  }
+
+  // One InstancedMesh per boundary style: every suburban parcel in the near
+  // disk gets its hedge/fence run. Flat-colour unit boxes (base at y=0) on
+  // the cylinder basis — no per-instance UV grid, no dither attribute; the
+  // boundary arrives and leaves with the LOD0 batch it belongs to.
+  private buildSuburbanBoundaryBatches(plan: BuildingRenderPlacement[]) {
+    const styled: Record<
+      SuburbanLotBoundary['style'],
+      Array<{
+        building: CityBuilding
+        segment: SuburbanLotBoundarySegment
+        height: number
+      }>
+    > = { hedge: [], fence: [] }
+
+    for (const placement of plan) {
+      const building = placement.building
+      const houseFit = fitSuburbanHouse(building)
+      if (houseFit === null) {
+        continue
+      }
+      const boundary = suburbanLotBoundary(building, houseFit)
+      for (const segment of boundary.segments) {
+        styled[boundary.style].push({
+          building,
+          segment,
+          height: boundary.height
+        })
+      }
+    }
+
+    for (const style of ['hedge', 'fence'] as const) {
+      const entries = styled[style]
+      if (entries.length === 0) {
+        continue
+      }
+      const geometry = new THREE.BoxGeometry(1, 1, 1)
+      geometry.translate(0, 0.5, 0)
+      const mesh = new THREE.InstancedMesh(
+        geometry,
+        style === 'hedge' ? this.hedgeMaterial : this.fenceMaterial,
+        entries.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+
+      for (let index = 0; index < entries.length; index += 1) {
+        const { building, segment, height } = entries[index]
+        const azimuth = building.azimuth + segment.tangentOffset / this.radius
+        const cos = Math.cos(azimuth)
+        const sin = Math.sin(azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius)
+          .setY(building.axial + segment.axialOffset)
+        instanceScale.set(segment.tangentExtent, height, segment.axialExtent)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
   }
 
   private buildArchetypeBatch(

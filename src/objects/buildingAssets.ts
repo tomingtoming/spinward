@@ -536,6 +536,123 @@ export const fitSuburbanHouse = (
   }
 }
 
+// ── Suburban lot boundaries ─────────────────────────────────────────────
+// A hedge or picket fence around each detached-house parcel, with a gate
+// gap on the street side. The boundary is what turns "houses on a shared
+// lawn" into readable parcels — the suburb's grain. Flat-colour boxes, so
+// no new assets; segments are pure math shared by render and tests.
+
+export type SuburbanLotBoundarySegment = {
+  // Centre offset from the LOT centre and extents, in surface metres.
+  tangentOffset: number
+  axialOffset: number
+  tangentExtent: number
+  axialExtent: number
+}
+
+export type SuburbanLotBoundary = {
+  style: 'hedge' | 'fence'
+  height: number
+  segments: SuburbanLotBoundarySegment[]
+}
+
+const BOUNDARY_INSET_M = 0.35
+const GATE_WIDTH_M = 2.6
+const HEDGE_THICKNESS_M = 0.5
+const FENCE_THICKNESS_M = 0.15
+
+export const suburbanLotBoundary = (
+  building: CityBuilding,
+  fit: SuburbanHouseFit
+): SuburbanLotBoundary => {
+  // A third hash constant set so the boundary style decorrelates from both
+  // the palette and the stature picks.
+  const hash = Math.abs(
+    Math.sin(
+      building.azimuth * 41.3 + building.axial * 0.311 + building.tone * 23.7
+    )
+  )
+  // |sin| clusters toward 1 (arcsine density), so the even-split point is
+  // ~0.71; 0.83 keeps hedges the suburb's default (~2 in 3) with picket
+  // fences as the accent.
+  const style: SuburbanLotBoundary['style'] = hash < 0.83 ? 'hedge' : 'fence'
+  const thickness = style === 'hedge' ? HEDGE_THICKNESS_M : FENCE_THICKNESS_M
+  const height = style === 'hedge' ? 0.95 + 0.4 * ((hash * 7.3) % 1) : 0.85
+
+  // Work in (f, c) lot space: +f points streetward along the front axis,
+  // c spans the cross axis. Mapped back to (tangent, axial) at the end.
+  const front = fit.front
+  const frontLot = front.axis === 'tangent' ? building.width : building.depth
+  const crossLot = front.axis === 'tangent' ? building.depth : building.width
+  const houseF = front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent
+  const houseC = front.axis === 'tangent' ? fit.axialExtent : fit.tangentExtent
+  const houseCentreF =
+    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side
+
+  const fEdge = frontLot / 2 - BOUNDARY_INSET_M
+  const cEdge = crossLot / 2 - BOUNDARY_INSET_M
+
+  type FcSegment = { f: number; c: number; fExtent: number; cExtent: number }
+  const segments: FcSegment[] = []
+
+  // Street edge: two runs flanking the gate, which sits on the lot's cross
+  // centre — the same line the house (cross-centred) puts its facade on.
+  // On parcels so shallow that the clamped setback pushed the facade onto
+  // the boundary line, the street runs are dropped with it.
+  if (houseCentreF + houseF / 2 <= fEdge - thickness / 2 - 0.2) {
+    for (const [from, to] of [
+      [-cEdge, -GATE_WIDTH_M / 2],
+      [GATE_WIDTH_M / 2, cEdge]
+    ]) {
+      if (to - from >= 1) {
+        segments.push({
+          f: fEdge,
+          c: (from + to) / 2,
+          fExtent: thickness,
+          cExtent: to - from
+        })
+      }
+    }
+  }
+
+  // Back edge, unless the house butts against it.
+  if (houseCentreF - houseF / 2 > -fEdge + thickness / 2 + 0.2) {
+    segments.push({ f: -fEdge, c: 0, fExtent: thickness, cExtent: cEdge * 2 })
+  }
+
+  // Side edges, unless the house fills the lot's cross extent.
+  if (houseC / 2 <= cEdge - thickness / 2 - 0.2) {
+    for (const side of [-1, 1]) {
+      segments.push({
+        f: 0,
+        c: side * cEdge,
+        fExtent: fEdge * 2,
+        cExtent: thickness
+      })
+    }
+  }
+
+  return {
+    style,
+    height,
+    segments: segments.map((segment) =>
+      front.axis === 'tangent'
+        ? {
+            tangentOffset: segment.f * front.side,
+            axialOffset: segment.c,
+            tangentExtent: segment.fExtent,
+            axialExtent: segment.cExtent
+          }
+        : {
+            tangentOffset: segment.c,
+            axialOffset: segment.f * front.side,
+            tangentExtent: segment.cExtent,
+            axialExtent: segment.fExtent
+          }
+    )
+  }
+}
+
 export const disposeDetailedBuildingGeometryPack = (
   pack: DetailedBuildingGeometryPack
 ) => {
