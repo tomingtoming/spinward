@@ -234,6 +234,9 @@ describe('fitSuburbanHouse', () => {
       (building) => kenneyPickForBuilding(building)?.set === 'suburban'
     )
 
+    // Accumulated into one assertion: the segments×roads cross product is
+    // tens of millions of pairs and per-pair expect() dominates runtime.
+    let overlaps = 0
     for (let index = 0; index < houses.length; index += 3) {
       const building = houses[index]
       const fit = fitSuburbanHouse(building)
@@ -250,10 +253,13 @@ describe('fitSuburbanHouse', () => {
           const axialGap =
             Math.abs(axial - road.axial) -
             (segment.axialExtent + road.axialLength) / 2
-          expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
+          if (Math.max(tangentGap, axialGap) < -1e-6) {
+            overlaps += 1
+          }
         }
       }
     }
+    expect(overlaps).toBe(0)
   })
 
   test('a plan entry without front data keeps the legacy −axial aim', () => {

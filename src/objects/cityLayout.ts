@@ -1071,7 +1071,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // a small shoulder so neighbouring boundaries do not fuse. The row's
     // buildings all share the front line at `edgeCoordinate`, so parcels
     // tile the row edge-to-edge no matter how each building box rolled.
-    const parcelDepth = Math.max(depthMax - 0.6, depthMax * 0.8)
+    // Tight shoulders: rear lot lines meet the back-to-back seam and side
+    // lot lines nearly touch the neighbour's — the boundary hedges/fences
+    // land on the lot lines with no dead lawn between parcels.
+    const parcelDepth = Math.max(depthMax - 0.05, depthMax * 0.9)
     const parcelDepthCenter = edgeCoordinate + edgeSide * parcelDepth * 0.5
     const parcelFor = (
       slotCenter: number,
@@ -1079,7 +1082,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       tangentCenter: number,
       axialCenter: number
     ): CityBuilding['parcel'] => {
-      const along = Math.max(slotSpan - 1.2, slotSpan * 0.8)
+      const along = Math.max(slotSpan - 0.2, slotSpan * 0.9)
       return facing === 'avenue'
         ? {
             tangentOffset: parcelDepthCenter - tangentCenter,
@@ -1170,8 +1173,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           depthMax >= 10
         ) {
           const slotCenter = rowStart + (index + stride * 0.5) * pitch
-          const greenAlong = Math.max(pitch * stride - 1.2, pitch * stride * 0.8)
-          const greenDepth = Math.max(depthMax - 0.6, depthMax * 0.8)
+          const greenAlong = Math.max(pitch * stride - 0.2, pitch * stride * 0.9)
+          const greenDepth = Math.max(depthMax - 0.05, depthMax * 0.9)
           const greenDepthCenter = edgeCoordinate + edgeSide * greenDepth * 0.5
           const greenAzimuth =
             stripCenter +
@@ -1567,16 +1570,23 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           const rowSpan1 = rowsAlongAxial ? axial1 : tangent1
           const rowFacing = rowsAlongAxial ? ('avenue' as const) : ('street' as const)
           const edge0 = rowsAlongAxial ? tangent0 : axial0
-          const rowDepth = Math.min(cell * 0.3, across * 0.2)
-          // The back-to-back seam between a pair's two rows.
-          const pairDepth = rowDepth * 2 + 1.6
+          // The back-to-back seam: rear lot lines nearly coincide, the
+          // American-suburb fence-against-fence line.
+          const pairGap = 0.2
+          const nominalRowDepth = Math.min(cell * 0.3, across * 0.2)
+          // Round (not floor) to the nearest pair count, then absorb ALL the
+          // remainder into the parcel depth (bigger or smaller backyards) —
+          // never into the seams. Every front line stays exactly on its
+          // street or lane and the pair's rows meet at the seam with no
+          // dead lawn between; the cap only guards the round-down extreme.
           const pairs = Math.max(
             1,
-            Math.floor((across + laneBand) / (pairDepth + laneBand))
+            Math.round(
+              (across + laneBand) / (nominalRowDepth * 2 + pairGap + laneBand)
+            )
           )
-          // Leftover space widens the garden seams, keeping every front line
-          // exactly on its street or lane.
           const pairSpacing = (across - (pairs - 1) * laneBand) / pairs
+          const rowDepth = Math.min((pairSpacing - pairGap) / 2, 38)
 
           for (let pair = 0; pair < pairs; pair += 1) {
             const base = edge0 + pair * (pairSpacing + laneBand)

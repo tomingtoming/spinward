@@ -547,8 +547,9 @@ export const fitSuburbanHouse = (
   // garden opening toward the street as a front yard.
   const houseF =
     parcelCentreF - parcelF / 2 + SUBURBAN_REAR_SETBACK_M + (modelZ * scale) / 2
-  // Keep the building box's cross jitter, clamped inside the parcel.
-  const crossRoom = Math.max(0, parcelC / 2 - (modelX * scale) / 2 - 0.5)
+  // Keep the building box's cross jitter, clamped inside the parcel with
+  // clearance for the on-lot-line side boundary.
+  const crossRoom = Math.max(0, parcelC / 2 - (modelX * scale) / 2 - 0.6)
   const houseC = Math.min(
     parcelCentreC + crossRoom,
     Math.max(parcelCentreC - crossRoom, 0)
@@ -630,8 +631,13 @@ export const suburbanLotBoundary = (
     (front.axis === 'tangent' ? fit.axialOffset : fit.tangentOffset) -
     parcelCentreC
 
+  // The street side keeps its sidewalk clearance; rear and side runs sit
+  // half a thickness in, so their outer FACES land exactly on the lot lines
+  // and neighbouring parcels' boundaries meet with no lawn strip between —
+  // the American-suburb fence-against-fence look.
   const fEdge = parcelF / 2 - BOUNDARY_INSET_M
-  const cEdge = parcelC / 2 - BOUNDARY_INSET_M
+  const fEdgeBack = parcelF / 2 - thickness / 2
+  const cEdge = parcelC / 2 - thickness / 2
 
   type FcSegment = { f: number; c: number; fExtent: number; cExtent: number }
   const segments: FcSegment[] = []
@@ -657,20 +663,26 @@ export const suburbanLotBoundary = (
   }
 
   // Back edge, unless the house butts against it.
-  if (houseCentreF - houseF / 2 > -fEdge + thickness / 2 + 0.2) {
-    segments.push({ f: -fEdge, c: 0, fExtent: thickness, cExtent: cEdge * 2 })
+  if (houseCentreF - houseF / 2 > -fEdgeBack + thickness / 2 + 0.2) {
+    segments.push({
+      f: -fEdgeBack,
+      c: 0,
+      fExtent: thickness,
+      cExtent: cEdge * 2 + thickness
+    })
   }
 
-  // Side edges, unless the house fills the parcel's cross extent.
+  // Side edges, unless the house fills the parcel's cross extent. They run
+  // from the street hedge line to the rear lot line.
   if (
     Math.max(houseCentreC + houseC / 2, -(houseCentreC - houseC / 2)) <=
     cEdge - thickness / 2 - 0.2
   ) {
     for (const side of [-1, 1]) {
       segments.push({
-        f: 0,
+        f: (fEdge - fEdgeBack) / 2,
         c: side * cEdge,
-        fExtent: fEdge * 2,
+        fExtent: fEdge + fEdgeBack,
         cExtent: thickness
       })
     }
