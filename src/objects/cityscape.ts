@@ -85,6 +85,7 @@ type CityscapeOptions = {
   detailedLod1Distance?: number
   maxDetailedLod0?: number
   maxDetailedLod1?: number
+  lod1FullKitGeometry?: boolean
   // Kenney road-tile overlay range around the player; 0 disables the layer.
   roadTileDistance?: number
 }
@@ -1759,6 +1760,7 @@ export class Cityscape {
   private readonly detailedLod1Distance: number
   private readonly maxDetailedLod0: number
   private readonly maxDetailedLod1: number
+  private readonly lod1FullKitGeometry: boolean
 
   constructor(
     dimensions: CityscapeDimensions,
@@ -1772,6 +1774,7 @@ export class Cityscape {
       this.detailedLod0Distance,
       options?.detailedLod1Distance ?? 350
     )
+    this.lod1FullKitGeometry = options?.lod1FullKitGeometry ?? true
     this.maxDetailedLod0 = options?.maxDetailedLod0 ?? 180
     this.maxDetailedLod1 = options?.maxDetailedLod1 ?? 700
     this.roadTileDistance = options?.roadTileDistance ?? 0
@@ -2870,11 +2873,22 @@ export class Cityscape {
           building.azimuth,
           building.axial
         )
-        const candidate = {
-          building,
-          distance,
-          blend: getDetailedBuildingLodBlend(distance, thresholds)
+        let blend = getDetailedBuildingLodBlend(distance, thresholds)
+        if (
+          !this.lod1FullKitGeometry &&
+          blend.lod1 > 0 &&
+          kenneyPickForBuilding(building).set !== 'commercial'
+        ) {
+          // No authored low-detail for this set: beyond LOD0 the harmonized
+          // box takes over directly instead of hauling full kit geometry
+          // across the whole LOD1 band.
+          blend = {
+            lod0: blend.lod0,
+            lod1: 0,
+            procedural: Math.min(1, blend.lod1 + blend.procedural)
+          }
         }
+        const candidate = { building, distance, blend }
         candidates.push(candidate)
 
         if (candidate.blend.lod0 > 0) {
@@ -2918,6 +2932,18 @@ export class Cityscape {
           lod1.push({
             building,
             ditherThreshold: blend.lod1,
+            ditherMode: 1
+          })
+        } else if (useLod0 && blend.procedural > 0) {
+          // Box-LOD1 sets fade straight from LOD0 to the harmonized box.
+          lod0.push({
+            building,
+            ditherThreshold: blend.procedural,
+            ditherMode: -1
+          })
+          procedural.push({
+            building,
+            ditherThreshold: blend.procedural,
             ditherMode: 1
           })
         } else if (useLod0) {

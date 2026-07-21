@@ -230,6 +230,7 @@ export const bootstrapApp = async () => {
       detailedLod1Distance: quality.detailedLod1Distance,
       maxDetailedLod0: quality.maxDetailedLod0,
       maxDetailedLod1: quality.maxDetailedLod1,
+      lod1FullKitGeometry: quality.lod1FullKitGeometry,
       roadTileDistance: quality.roadTileDistance
     }
   )

@@ -19,6 +19,11 @@ export type QualityProfile = {
   detailedLod1Distance: number
   maxDetailedLod0: number
   maxDetailedLod1: number
+  // Whether sets WITHOUT an authored low-detail model (suburban, skyscraper,
+  // industrial) may keep their full kit geometry in the LOD1 band. Off on
+  // mobile GPUs: full geometry at LOD1 range is what melted Quest to 20 fps —
+  // there the harmonized boxes take over directly beyond LOD0.
+  lod1FullKitGeometry: boolean
   // Kenney road-tile overlay (curbs/sidewalks/junction pieces) range around
   // the player. A few hundred instances in ≤5 draw calls; the painted roads
   // remain the far LOD.
@@ -46,7 +51,7 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: 1.75,
       maxBuildings: 16000,
       farMinAngularSize: 0.01,
-      maxTraffic: 160,
+      maxTraffic: 120,
       // The Izma spawn is an arterial crossroads: even after core infill, the
       // first facade centres sit tens of metres beyond the road and sidewalk.
       // The current phone path still has headroom: spend it on visible street
@@ -55,6 +60,7 @@ export const getQualityProfile = (): QualityProfile => {
       detailedLod1Distance: 340,
       maxDetailedLod0: 180,
       maxDetailedLod1: 700,
+      lod1FullKitGeometry: false,
       roadTileDistance: 130,
       bloom: false,
       rainStreaks: 2600
@@ -66,11 +72,12 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
-      maxTraffic: 280,
-      detailedLod0Distance: 140,
-      detailedLod1Distance: 480,
-      maxDetailedLod0: 280,
-      maxDetailedLod1: 1150,
+      maxTraffic: 160,
+      detailedLod0Distance: 120,
+      detailedLod1Distance: 420,
+      maxDetailedLod0: 220,
+      maxDetailedLod1: 900,
+      lod1FullKitGeometry: false,
       roadTileDistance: 150,
       bloom: false,
       rainStreaks: 4200
@@ -86,6 +93,7 @@ export const getQualityProfile = (): QualityProfile => {
     detailedLod1Distance: 900,
     maxDetailedLod0: 800,
     maxDetailedLod1: 2800,
+    lod1FullKitGeometry: true,
     roadTileDistance: 240,
     bloom: true,
     rainStreaks: 7000
