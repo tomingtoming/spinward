@@ -12,6 +12,7 @@ import {
   getCylinderHullRepeat,
   getCylinderSurfaceRepeat
 } from './cylinderSurface'
+import { getRoadTileLiftMeters } from './roadTiles'
 
 type CylinderDimensions = {
   radius: number
@@ -666,8 +667,11 @@ export class CylinderHabitat {
     }
 
     // Subtle pavement inlay at the spawn instead of the old blue billboard.
+    // Rides above the near-player road-tile overlay (deck at ~R-0.32, see
+    // roadTiles.getRoadTileLiftMeters) so the spawn crossroads tile cannot
+    // bury the respawn ring.
     this.startMarker = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 40), this.markerMaterial)
-    this.startMarker.position.set(radius - 0.08, 0, 0)
+    this.startMarker.position.set(radius - getRoadTileLiftMeters(radius) - 0.16, 0, 0)
     this.startMarker.quaternion.setFromUnitVectors(
       new THREE.Vector3(0, 0, 1),
       new THREE.Vector3(-1, 0, 0)

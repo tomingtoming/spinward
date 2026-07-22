@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import type { CityBuilding } from './cityLayout'
 
 export type DetailedBuildingArchetype =
   | 'house'
@@ -163,6 +164,34 @@ const normalizeGeometry = (source: THREE.Object3D) => {
   return geometry
 }
 
+// Uniform variant for models whose small-scale details (fences, doors,
+// dormers) cannot survive anisotropic stretching: keep the native aspect,
+// scale so the longest side is 1, and seat the base at y=0. The instancer
+// then scales UNIFORMLY to fit the lot and the leftover lot becomes garden.
+const normalizeGeometryUniform = (source: THREE.Object3D) => {
+  const geometry = collectGeometry(source)
+  geometry.computeBoundingBox()
+
+  const bounds = geometry.boundingBox
+  if (bounds === null) {
+    throw new Error(`Detailed building ${source.name} has no bounds`)
+  }
+
+  const size = bounds.getSize(new THREE.Vector3())
+  const center = bounds.getCenter(new THREE.Vector3())
+  const maxSide = Math.max(size.x, size.y, size.z)
+  if (maxSide <= 0) {
+    geometry.dispose()
+    throw new Error(`Detailed building ${source.name} has degenerate bounds`)
+  }
+
+  geometry.translate(-center.x, -bounds.min.y, -center.z)
+  geometry.scale(1 / maxSide, 1 / maxSide, 1 / maxSide)
+  geometry.computeBoundingBox()
+  geometry.computeBoundingSphere()
+  return geometry
+}
+
 const prepareStreetGeometry = (source: THREE.Object3D) => {
   const geometry = collectGeometry(source)
   geometry.computeBoundingBox()
@@ -229,6 +258,849 @@ export const loadDetailedBuildingGeometryPack = async () => {
   return pack
 }
 
+// ── Kenney kit buildings ────────────────────────────────────────────────
+// District-specific architecture from the CC0 Kenney kits (kenney.nl): the
+// port-end old town wears City Kit Commercial's brick-and-awning storefronts,
+// the countryside's detached houses come from City Kit Suburban. The kits are
+// flat-colour palette models, so the same normalize-to-unit-box + stretch-to-
+// footprint instancing as the authored pack costs no texture distortion. The
+// CBD keeps the authored Japanese kit — each district gets its own
+// architectural language.
+
+export type KenneyBuildingSet = 'commercial' | 'industrial' | 'skyscraper' | 'suburban'
+
+export const KENNEY_COMMERCIAL_VARIANTS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j',
+  'k',
+  'l',
+  'm',
+  'n'
+] as const
+// The five tall office prisms from the same Commercial kit: the CBD's
+// architectural language. Stretch-fit like the mid-rises; no low-detail
+// set ships, so the detailed geometry serves both LODs.
+export const KENNEY_SKYSCRAPER_VARIANTS = ['a', 'b', 'c', 'd', 'e'] as const
+// The port-end logistics band's warehouses and factories (City Kit
+// Industrial, own colormap).
+export const KENNEY_INDUSTRIAL_VARIANTS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j'
+] as const
+export const KENNEY_SUBURBAN_VARIANTS = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'k',
+  'l',
+  'o',
+  'q',
+  's',
+  'u'
+] as const
+
+const KENNEY_BUILDING_BASE = '/assets/buildings/kenney'
+
+export type KenneyBuildingGeometryPack = {
+  // Per variant: [lod0, lod1] unit-box geometries.
+  commercial: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  industrial: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  skyscraper: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  suburban: Array<[THREE.BufferGeometry, THREE.BufferGeometry]>
+  commercialMaterial: THREE.MeshStandardMaterial
+  industrialMaterial: THREE.MeshStandardMaterial
+  suburbanMaterial: THREE.MeshStandardMaterial
+  // Garden furniture from the Suburban kit: a picket-fence module (unit
+  // width, base at 0), a unit path tile (thin slab), and two trees (unit
+  // height). All share the suburban colormap.
+  props: {
+    fence: THREE.BufferGeometry
+    path: THREE.BufferGeometry
+    treeSmall: THREE.BufferGeometry
+    treeLarge: THREE.BufferGeometry
+  }
+}
+
+// The Kenney kits ship no emissive of their own, but the night skyline of
+// lit windows is a signature of the city. The colormap cannot tell glass
+// from wall (blue variants paint both from one gradient band), so windows
+// are found GEOMETRICALLY: vertical faces recessed behind their local wall
+// plane are glass. The verdict is painted into an aWindowGlow vertex
+// attribute; the shader multiplies the material's warm emissive by it, and
+// the frame loop drives emissiveIntensity with the day cycle like every
+// other facade.
+export const paintWindowGlowAttribute = (geometry: THREE.BufferGeometry) => {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const triangleCount = (index !== null ? index.count : position.count) / 3
+  const vertexAt = (tri: number, corner: number) => {
+    const raw = tri * 3 + corner
+    return index !== null ? index.getX(raw) : raw
+  }
+
+  type Face = { offset: number; area: number; tri: number }
+  const buckets = new Map<string, Face[]>()
+  const p0 = new THREE.Vector3()
+  const p1 = new THREE.Vector3()
+  const p2 = new THREE.Vector3()
+  const e1 = new THREE.Vector3()
+  const e2 = new THREE.Vector3()
+  const n = new THREE.Vector3()
+
+  for (let tri = 0; tri < triangleCount; tri += 1) {
+    p0.fromBufferAttribute(position, vertexAt(tri, 0))
+    p1.fromBufferAttribute(position, vertexAt(tri, 1))
+    p2.fromBufferAttribute(position, vertexAt(tri, 2))
+    n.copy(e1.subVectors(p1, p0)).cross(e2.subVectors(p2, p0))
+    const area = n.length() / 2
+    if (area < 1e-12) {
+      continue
+    }
+    n.divideScalar(area * 2)
+    if (Math.abs(n.y) > 0.3) {
+      continue
+    }
+    const axis = Math.abs(n.x) > Math.abs(n.z) ? 'x' : 'z'
+    const along = axis === 'x' ? n.x : n.z
+    if (Math.abs(along) < 0.9) {
+      continue
+    }
+    const sign = along > 0 ? 1 : -1
+    const centroidY = (p0.y + p1.y + p2.y) / 3
+    const offset =
+      sign * ((axis === 'x' ? p0.x + p1.x + p2.x : p0.z + p1.z + p2.z) / 3)
+    // Stepped masses have walls at several depths: bucket per height band
+    // so each floor step finds its own wall plane.
+    const key = `${axis}${sign}:${Math.round(centroidY * 10)}`
+    const faces = buckets.get(key) ?? []
+    faces.push({ offset, area, tri })
+    buckets.set(key, faces)
+  }
+
+  const glow = new Float32Array(position.count)
+  for (const faces of buckets.values()) {
+    // The wall plane is the area-weighted dominant offset bin, so trims that
+    // PROTRUDE past the wall do not drag the reference outward.
+    const bins = new Map<number, number>()
+    for (const face of faces) {
+      const bin = Math.round(face.offset / 0.004)
+      bins.set(bin, (bins.get(bin) ?? 0) + face.area)
+    }
+    let wallBin = 0
+    let wallArea = -1
+    for (const [bin, area] of bins) {
+      if (area > wallArea) {
+        wallArea = area
+        wallBin = bin
+      }
+    }
+    const wallOffset = wallBin * 0.004
+    for (const face of faces) {
+      if (wallOffset - face.offset > 0.003) {
+        glow[vertexAt(face.tri, 0)] = 1
+        glow[vertexAt(face.tri, 1)] = 1
+        glow[vertexAt(face.tri, 2)] = 1
+      }
+    }
+  }
+  geometry.setAttribute('aWindowGlow', new THREE.BufferAttribute(glow, 1))
+}
+
+// Shader hook for the kit materials: emissive (warm, day-cycle-driven)
+// applies only where aWindowGlow says glass.
+export const installKenneyWindowGlow = (material: THREE.MeshStandardMaterial) => {
+  material.emissive = new THREE.Color(0xffe9c4)
+  material.emissiveIntensity = 0
+  const previousCompile = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    previousCompile(shader, renderer)
+    shader.vertexShader =
+      'attribute float aWindowGlow;\nvarying float vWindowGlow;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n  vWindowGlow = aWindowGlow;'
+      )
+    shader.fragmentShader =
+      'varying float vWindowGlow;\n' +
+      shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vWindowGlow;'
+      )
+  }
+  material.needsUpdate = true
+}
+
+const captureKitMaterial = (scene: THREE.Object3D) => {
+  let material: THREE.MeshStandardMaterial | null = null
+  scene.traverse((object) => {
+    if (material === null && object instanceof THREE.Mesh) {
+      const first = Array.isArray(object.material)
+        ? object.material[0]
+        : object.material
+      if (first instanceof THREE.MeshStandardMaterial) {
+        material = first
+      }
+    }
+  })
+  return material as THREE.MeshStandardMaterial | null
+}
+
+export const loadKenneyBuildingGeometryPack =
+  async (): Promise<KenneyBuildingGeometryPack> => {
+    const loader = new GLTFLoader()
+    let commercialMaterial: THREE.MeshStandardMaterial | null = null
+    let industrialMaterial: THREE.MeshStandardMaterial | null = null
+    let suburbanMaterial: THREE.MeshStandardMaterial | null = null
+
+    const loadOne = async (
+      url: string,
+      keepMaterial: 'commercial' | 'industrial' | 'suburban' | null
+    ) => {
+      const gltf = await loader.loadAsync(url)
+      const material = captureKitMaterial(gltf.scene)
+
+      if (material !== null) {
+        if (keepMaterial === 'commercial' && commercialMaterial === null) {
+          commercialMaterial = material
+        } else if (keepMaterial === 'industrial' && industrialMaterial === null) {
+          industrialMaterial = material
+        } else if (keepMaterial === 'suburban' && suburbanMaterial === null) {
+          suburbanMaterial = material
+        } else {
+          material.map?.dispose()
+          material.dispose()
+        }
+      }
+
+      const geometry = normalizeGeometry(gltf.scene)
+      paintWindowGlowAttribute(geometry)
+      return geometry
+    }
+
+    // All the kit files load CONCURRENTLY: awaited one by one on a live page the
+    // fetch+parse+texture-decode of each round trip serializes against the
+    // render loop and the pack takes minutes to arrive — the city would sit
+    // on its fallbacks long after boot.
+    const commercial = await Promise.all(
+      KENNEY_COMMERCIAL_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => [
+          await loadOne(
+            `${KENNEY_BUILDING_BASE}/commercial/building-${variant}.glb`,
+            'commercial'
+          ),
+          await loadOne(
+            `${KENNEY_BUILDING_BASE}/commercial/low-detail-building-${variant}.glb`,
+            null
+          )
+        ]
+      )
+    )
+
+    // Suburban ships no low-detail set; the houses are ~1.2k tris and only
+    // dot the sparse countryside, so the detailed geometry serves both LODs.
+    // They keep their native aspect (uniform normalize): a detached house
+    // stretched to a 35 m farm lot turns its fences and door into abstract
+    // slabs, so the instancer fits it uniformly and leaves the lot as garden.
+    const suburban = await Promise.all(
+      KENNEY_SUBURBAN_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => {
+          const gltf = await loader.loadAsync(
+            `${KENNEY_BUILDING_BASE}/suburban/building-type-${variant}.glb`
+          )
+          const material = captureKitMaterial(gltf.scene)
+          if (material !== null) {
+            if (suburbanMaterial === null) {
+              suburbanMaterial = material
+            } else {
+              material.map?.dispose()
+              material.dispose()
+            }
+          }
+          const geometry = normalizeGeometryUniform(gltf.scene)
+          paintWindowGlowAttribute(geometry)
+          return [geometry, geometry]
+        }
+      )
+    )
+
+    const industrial = await Promise.all(
+      KENNEY_INDUSTRIAL_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => {
+          const geometry = await loadOne(
+            `${KENNEY_BUILDING_BASE}/industrial/building-${variant}.glb`,
+            'industrial'
+          )
+          return [geometry, geometry]
+        }
+      )
+    )
+
+    // Garden props: normalized so the instancer scales in metres — fence
+    // module to unit WIDTH, path tile to unit footprint, trees to unit
+    // HEIGHT. Their kit materials are duplicates of the suburban palette
+    // and are dropped.
+    const loadProp = async (
+      file: string,
+      mode: 'width' | 'footprint' | 'height'
+    ) => {
+      const gltf = await loader.loadAsync(`${KENNEY_BUILDING_BASE}/suburban/${file}`)
+      const material = captureKitMaterial(gltf.scene)
+      if (material !== null) {
+        material.map?.dispose()
+        material.dispose()
+      }
+      const geometry = collectGeometry(gltf.scene)
+      geometry.computeBoundingBox()
+      const bounds = geometry.boundingBox as THREE.Box3
+      const size = bounds.getSize(new THREE.Vector3())
+      const center = bounds.getCenter(new THREE.Vector3())
+      geometry.translate(-center.x, -bounds.min.y, -center.z)
+      if (mode === 'width') {
+        const s = 1 / Math.max(size.x, 1e-6)
+        geometry.scale(s, s, s)
+      } else if (mode === 'footprint') {
+        geometry.scale(
+          1 / Math.max(size.x, 1e-6),
+          1,
+          1 / Math.max(size.z, 1e-6)
+        )
+      } else {
+        const s = 1 / Math.max(size.y, 1e-6)
+        geometry.scale(s, s, s)
+      }
+      geometry.computeBoundingBox()
+      geometry.computeBoundingSphere()
+      return geometry
+    }
+
+    const [fenceProp, pathProp, treeSmallProp, treeLargeProp] = await Promise.all([
+      loadProp('fence.glb', 'width'),
+      loadProp('path-long.glb', 'footprint'),
+      loadProp('tree-small.glb', 'height'),
+      loadProp('tree-large.glb', 'height')
+    ])
+
+    // The skyscrapers ship in the Commercial kit and share its colormap, so
+    // their materials are dropped in favour of the captured commercial one.
+    const skyscraper = await Promise.all(
+      KENNEY_SKYSCRAPER_VARIANTS.map(
+        async (variant): Promise<[THREE.BufferGeometry, THREE.BufferGeometry]> => {
+          const geometry = await loadOne(
+            `${KENNEY_BUILDING_BASE}/commercial/building-skyscraper-${variant}.glb`,
+            null
+          )
+          return [geometry, geometry]
+        }
+      )
+    )
+
+    if (
+      commercialMaterial === null ||
+      industrialMaterial === null ||
+      suburbanMaterial === null
+    ) {
+      throw new Error('Kenney building kits are missing their palette material')
+    }
+
+    return {
+      commercial,
+      industrial,
+      skyscraper,
+      suburban,
+      commercialMaterial,
+      industrialMaterial,
+      suburbanMaterial,
+      props: {
+        fence: fenceProp,
+        path: pathProp,
+        treeSmall: treeSmallProp,
+        treeLarge: treeLargeProp
+      }
+    }
+  }
+
+export const disposeKenneyBuildingGeometryPack = (
+  pack: KenneyBuildingGeometryPack
+) => {
+  for (const pair of pack.commercial) {
+    pair[0].dispose()
+    pair[1].dispose()
+  }
+  for (const pair of pack.skyscraper) {
+    // lod0 and lod1 share the geometry.
+    pair[0].dispose()
+  }
+  for (const pair of pack.industrial) {
+    pair[0].dispose()
+  }
+  for (const pair of pack.suburban) {
+    // lod0 and lod1 share the geometry.
+    pair[0].dispose()
+  }
+  pack.commercialMaterial.map?.dispose()
+  pack.commercialMaterial.emissiveMap?.dispose()
+  pack.commercialMaterial.dispose()
+  pack.suburbanMaterial.map?.dispose()
+  pack.suburbanMaterial.emissiveMap?.dispose()
+  pack.suburbanMaterial.dispose()
+  pack.industrialMaterial.map?.dispose()
+  pack.industrialMaterial.dispose()
+  for (const geometry of Object.values(pack.props)) {
+    geometry.dispose()
+  }
+}
+
+// ── Suburban house real-size fit ────────────────────────────────────────
+// The suburban kit is placed at REAL size — a detached house is 6–8 m tall
+// no matter how big its parcel is — instead of scaled to the procedural lot
+// box. Lot-fitting made the miniature tail visible: the box heights the plan
+// rolls (3–10 m) became the houses' scale, and unlike the facade-UV pipeline
+// (whose windows stay metre-true under any stretch) a kit model shrinks its
+// doors with it. The fit is pure math over baked model bounds so the plan
+// consumers (collision, tests) agree with the render without loading GLBs.
+
+// Native bounding sizes of the suburban GLBs, measured from the assets in
+// KENNEY_SUBURBAN_VARIANTS order. normalizeGeometryUniform divides by the
+// longest side, so runtime geometry reproduces these ratios exactly.
+const KENNEY_SUBURBAN_RAW_SIZES: ReadonlyArray<readonly [number, number, number]> = [
+  [1.3, 0.83, 1.03], // a — dormered single-storey
+  [1.83, 1.14, 1.14], // b — wide two-storey
+  [1.29, 1.03, 1.03], // c — two-storey, stepped wing
+  [1.76, 1.24, 1.03], // d — long two-storey
+  [1.3, 1.14, 1.03], // e — two-storey
+  [1.43, 1.14, 1.41], // f — large two-storey
+  [1.45, 0.77, 1.18], // g — single-storey ranch
+  [1.3, 0.74, 0.92], // h — small single-storey
+  [0.92, 1.15, 1.02], // k — narrow mono-pitch two-storey
+  [1.03, 1.05, 1.02], // l — compact two-storey
+  [1.27, 1.14, 1.03], // o — two-storey
+  [1.24, 0.92, 0.89], // q — flat-roof two-storey with carport
+  [1.41, 1.14, 1.09], // s — two-storey
+  [1.43, 1.14, 1.09] // u — two-storey with garage
+]
+
+// Real-world stature each variant depicts (m). Storeys priced at ~3.2 m
+// plus roof; the dormered bungalow sits under the full two-storey band.
+export const KENNEY_SUBURBAN_HEIGHT_M: readonly number[] = [
+  6.0, 7.5, 7.5, 7.8, 7.5, 8.0, 4.8, 4.6, 7.5, 7.2, 7.5, 6.5, 7.5, 7.5
+]
+
+// Houses sit at the BACK of their parcel — rear wall this far off the back
+// boundary — leaving the garden as a front yard toward the street.
+const SUBURBAN_REAR_SETBACK_M = 2
+
+// The parcel a suburban pipeline stage works in: the plan-recorded slot
+// rectangle when present, else the building box (synthetic footprints,
+// pre-parcel plans). Offsets are from the building centre.
+export const suburbanParcelRect = (
+  building: CityBuilding
+): NonNullable<CityBuilding['parcel']> =>
+  building.parcel ?? {
+    tangentOffset: 0,
+    axialOffset: 0,
+    tangentExtent: building.width,
+    axialExtent: building.depth
+  }
+
+// Deterministic per-building hash reused by every facade choice: stable
+// across focus rebuilds, no plan RNG consumed.
+export const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
+  const hash = Math.abs(
+    Math.sin(building.azimuth * 53.13 + building.axial * 0.271 + building.tone * 17.3)
+  )
+  return Math.floor(hash * buckets) % buckets
+}
+
+// District architecture: which Kenney kit dresses this building in the near
+// disk. The whole skyline speaks Kenney now — the authored Japanese kit is
+// retired for buildings: the old town wears Commercial storefronts, the
+// countryside's detached houses come from Suburban, the CBD's tall
+// furniture (tower/setback/slab) wears the Commercial kit's skyscraper
+// prisms, and every remaining mass is a Commercial mid-rise. Deterministic
+// from fields the building already carries — no plan RNG consumed.
+export const kenneyPickForBuilding = (
+  building: CityBuilding
+): { set: KenneyBuildingSet; variant: number } => {
+  if (building.industrial === true) {
+    return {
+      set: 'industrial',
+      variant: facadePaletteIndex(building, KENNEY_INDUSTRIAL_VARIANTS.length)
+    }
+  }
+  if ((building.oldTown ?? 0) >= 0.5) {
+    return {
+      set: 'commercial',
+      variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
+    }
+  }
+  if (building.kind === 'house' && (building.urban ?? 1) < 0.4) {
+    return {
+      set: 'suburban',
+      variant: facadePaletteIndex(building, KENNEY_SUBURBAN_VARIANTS.length)
+    }
+  }
+  if (
+    building.kind === 'tower' ||
+    building.kind === 'setback' ||
+    building.kind === 'slab'
+  ) {
+    return {
+      set: 'skyscraper',
+      variant: facadePaletteIndex(building, KENNEY_SKYSCRAPER_VARIANTS.length)
+    }
+  }
+  return {
+    set: 'commercial',
+    variant: facadePaletteIndex(building, KENNEY_COMMERCIAL_VARIANTS.length)
+  }
+}
+
+export type SuburbanHouseFit = {
+  variant: number
+  // Uniform scale applied to the normalized (longest-side-1) geometry.
+  scale: number
+  // Fitted world extents (m) on the cylinder axes.
+  tangentExtent: number
+  axialExtent: number
+  height: number
+  // Centre shift from the lot centre (m) that seats the house at its
+  // street-front setback; the rest of the lot is garden.
+  tangentOffset: number
+  axialOffset: number
+  front: NonNullable<CityBuilding['front']>
+}
+
+// Real-size placement for a suburban house: aim the facade (+Z of the
+// normalized model) at the fronting street, seat it a lawn's setback behind
+// the lot's street edge, and hold its real stature (±8% deterministic
+// jitter) unless the parcel is genuinely too small. Returns null for
+// buildings the suburban kit does not dress.
+export const fitSuburbanHouse = (
+  building: CityBuilding
+): SuburbanHouseFit | null => {
+  const pick = kenneyPickForBuilding(building)
+  if (pick === null || pick.set !== 'suburban') {
+    return null
+  }
+
+  const raw = KENNEY_SUBURBAN_RAW_SIZES[pick.variant]
+  const maxSide = Math.max(raw[0], raw[1], raw[2])
+  const modelX = raw[0] / maxSide
+  const modelY = raw[1] / maxSide
+  const modelZ = raw[2] / maxSide
+
+  // Pre-`front` plans (and any synthetic footprint) keep the legacy aim:
+  // the door wall used to face −axial for every house.
+  const front = building.front ?? ({ axis: 'axial', side: -1 } as const)
+  // Work in parcel space: (f, c) with +f streetward along the front axis.
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
+
+  // A second hash with its own constants so stature does not correlate with
+  // the palette pick.
+  const jitter =
+    0.92 +
+    0.16 *
+      Math.abs(
+        Math.sin(
+          building.azimuth * 97.7 + building.axial * 0.173 + building.tone * 29.1
+        )
+      )
+  const scale = Math.min(
+    (KENNEY_SUBURBAN_HEIGHT_M[pick.variant] * jitter) / modelY,
+    // The facade spans the cross axis (model x), the door axis is model z.
+    // The metre floors only engage on toy-scale habitats.
+    Math.max(1, parcelC - 1) / modelX,
+    Math.max(1, parcelF - SUBURBAN_REAR_SETBACK_M - 0.7) / modelZ
+  )
+
+  // Rear placement: back wall a fixed setback off the back boundary, the
+  // garden opening toward the street as a front yard.
+  const houseF =
+    parcelCentreF - parcelF / 2 + SUBURBAN_REAR_SETBACK_M + (modelZ * scale) / 2
+  // Keep the building box's cross jitter, clamped inside the parcel with
+  // clearance for the on-lot-line side boundary.
+  const crossRoom = Math.max(0, parcelC / 2 - (modelX * scale) / 2 - 0.6)
+  const houseC = Math.min(
+    parcelCentreC + crossRoom,
+    Math.max(parcelCentreC - crossRoom, 0)
+  )
+
+  return {
+    variant: pick.variant,
+    scale,
+    tangentExtent: (front.axis === 'tangent' ? modelZ : modelX) * scale,
+    axialExtent: (front.axis === 'tangent' ? modelX : modelZ) * scale,
+    height: modelY * scale,
+    tangentOffset: front.axis === 'tangent' ? houseF * front.side : houseC,
+    axialOffset: front.axis === 'axial' ? houseF * front.side : houseC,
+    front
+  }
+}
+
+// ── Suburban garden furniture ───────────────────────────────────────────
+// A walk from the gate to the front door, and a tree or two on the lawn.
+// Pure math over the parcel/fit pair, deterministic per lot, shared by the
+// render batches and the tests.
+
+export type SuburbanGardenPlan = {
+  // Path slab from the house's front face to the parcel's street edge,
+  // centred on the door axis (offsets from the building centre, metres).
+  path: {
+    tangentOffset: number
+    axialOffset: number
+    tangentExtent: number
+    axialExtent: number
+  } | null
+  trees: Array<{ tangentOffset: number; axialOffset: number; height: number }>
+}
+
+export const suburbanGardenPlan = (
+  building: CityBuilding,
+  fit: SuburbanHouseFit
+): SuburbanGardenPlan => {
+  const front = fit.front
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
+  const houseFrontF =
+    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side +
+    (front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent) / 2
+  const houseC = front.axis === 'tangent' ? fit.axialOffset : fit.tangentOffset
+  const houseCrossHalf =
+    (front.axis === 'tangent' ? fit.axialExtent : fit.tangentExtent) / 2
+
+  const toWorld = (f: number, c: number) =>
+    front.axis === 'tangent'
+      ? { tangentOffset: f * front.side, axialOffset: c }
+      : { tangentOffset: c, axialOffset: f * front.side }
+
+  const yardStart = houseFrontF
+  const yardEnd = parcelCentreF + parcelF / 2
+  const yardLength = yardEnd - yardStart
+
+  let path: SuburbanGardenPlan['path'] = null
+  if (yardLength > 1.5) {
+    const centre = toWorld((yardStart + yardEnd) / 2, houseC)
+    path = {
+      ...centre,
+      tangentExtent: front.axis === 'tangent' ? yardLength : 1.3,
+      axialExtent: front.axis === 'tangent' ? 1.3 : yardLength
+    }
+  }
+
+  // Lawn trees: 0–2, on the yard flanks clear of the door path and the
+  // boundary line. A fourth hash stream keeps them independent of palette,
+  // stature and boundary style.
+  const hash = Math.abs(
+    Math.sin(
+      building.azimuth * 61.7 + building.axial * 0.257 + building.tone * 31.9
+    )
+  )
+  const trees: SuburbanGardenPlan['trees'] = []
+  const count = hash < 0.3 ? 0 : hash < 0.75 ? 1 : 2
+  for (let index = 0; index < count; index += 1) {
+    const side = index === 0 ? (hash * 13.7) % 1 < 0.5 ? -1 : 1 : ((hash * 13.7) % 1 < 0.5 ? 1 : -1)
+    const cMin = houseC + side * (houseCrossHalf + 1.6)
+    const cMax = parcelCentreC + side * (parcelC / 2 - 1.4)
+    // The flank is too narrow for a canopy on this side.
+    if (side * (cMax - cMin) < 0) {
+      continue
+    }
+    const cJitter = (hash * (17.3 + index * 7.1)) % 1
+    const fJitter = (hash * (23.9 + index * 5.3)) % 1
+    const c = cMin + (cMax - cMin) * (0.25 + 0.5 * cJitter)
+    const fMin = yardStart + 1.2
+    const fMax = yardEnd - 1.6
+    if (fMax - fMin < 1) {
+      continue
+    }
+    const f = fMin + (fMax - fMin) * (0.2 + 0.6 * fJitter)
+    trees.push({
+      ...toWorld(f, c),
+      height: 2.6 + 1.6 * ((hash * (29.3 + index * 11.7)) % 1)
+    })
+  }
+
+  return { path, trees }
+}
+
+// ── Suburban lot boundaries ─────────────────────────────────────────────
+// A hedge or picket fence around each detached-house parcel, with a gate
+// gap on the street side. The boundary is what turns "houses on a shared
+// lawn" into readable parcels — the suburb's grain. Flat-colour boxes, so
+// no new assets; segments are pure math shared by render and tests.
+
+export type SuburbanLotBoundarySegment = {
+  // Centre offset from the LOT centre and extents, in surface metres.
+  tangentOffset: number
+  axialOffset: number
+  tangentExtent: number
+  axialExtent: number
+}
+
+export type SuburbanLotBoundary = {
+  style: 'hedge' | 'fence'
+  height: number
+  segments: SuburbanLotBoundarySegment[]
+}
+
+const BOUNDARY_INSET_M = 0.35
+const GATE_WIDTH_M = 2.6
+const HEDGE_THICKNESS_M = 0.5
+const FENCE_THICKNESS_M = 0.15
+
+export const suburbanLotBoundary = (
+  building: CityBuilding,
+  fit: SuburbanHouseFit
+): SuburbanLotBoundary => {
+  // A third hash constant set so the boundary style decorrelates from both
+  // the palette and the stature picks.
+  const hash = Math.abs(
+    Math.sin(
+      building.azimuth * 41.3 + building.axial * 0.311 + building.tone * 23.7
+    )
+  )
+  // |sin| clusters toward 1 (arcsine density), so the even-split point is
+  // ~0.71; 0.83 keeps hedges the suburb's default (~2 in 3) with picket
+  // fences as the accent.
+  const style: SuburbanLotBoundary['style'] = hash < 0.83 ? 'hedge' : 'fence'
+  const thickness = style === 'hedge' ? HEDGE_THICKNESS_M : FENCE_THICKNESS_M
+  const height = style === 'hedge' ? 0.95 + 0.4 * ((hash * 7.3) % 1) : 0.85
+
+  // Work in (f, c) parcel space: +f points streetward along the front axis,
+  // c spans the cross axis, origin at the PARCEL centre. Mapped back to
+  // building-centre-relative (tangent, axial) at the end.
+  const front = fit.front
+  const parcel = suburbanParcelRect(building)
+  const parcelF = front.axis === 'tangent' ? parcel.tangentExtent : parcel.axialExtent
+  const parcelC = front.axis === 'tangent' ? parcel.axialExtent : parcel.tangentExtent
+  const parcelCentreF =
+    (front.axis === 'tangent' ? parcel.tangentOffset : parcel.axialOffset) *
+    front.side
+  const parcelCentreC =
+    front.axis === 'tangent' ? parcel.axialOffset : parcel.tangentOffset
+  const houseF = front.axis === 'tangent' ? fit.tangentExtent : fit.axialExtent
+  const houseC = front.axis === 'tangent' ? fit.axialExtent : fit.tangentExtent
+  const houseCentreF =
+    (front.axis === 'tangent' ? fit.tangentOffset : fit.axialOffset) * front.side -
+    parcelCentreF
+  const houseCentreC =
+    (front.axis === 'tangent' ? fit.axialOffset : fit.tangentOffset) -
+    parcelCentreC
+
+  // The street side keeps its sidewalk clearance; rear and side runs sit
+  // half a thickness in, so their outer FACES land exactly on the lot lines
+  // and neighbouring parcels' boundaries meet with no lawn strip between —
+  // the American-suburb fence-against-fence look.
+  const fEdge = parcelF / 2 - BOUNDARY_INSET_M
+  const fEdgeBack = parcelF / 2 - thickness / 2
+  const cEdge = parcelC / 2 - thickness / 2
+
+  type FcSegment = { f: number; c: number; fExtent: number; cExtent: number }
+  const segments: FcSegment[] = []
+
+  // Street edge: two runs flanking the gate, which lines up with the house's
+  // cross centre so gate, path and door share one axis. On parcels so
+  // shallow that the house reaches the boundary line, the street runs are
+  // dropped with it.
+  if (houseCentreF + houseF / 2 <= fEdge - thickness / 2 - 0.2) {
+    for (const [from, to] of [
+      [-cEdge, houseCentreC - GATE_WIDTH_M / 2],
+      [houseCentreC + GATE_WIDTH_M / 2, cEdge]
+    ]) {
+      if (to - from >= 1) {
+        segments.push({
+          f: fEdge,
+          c: (from + to) / 2,
+          fExtent: thickness,
+          cExtent: to - from
+        })
+      }
+    }
+  }
+
+  // Back edge, unless the house butts against it.
+  if (houseCentreF - houseF / 2 > -fEdgeBack + thickness / 2 + 0.2) {
+    segments.push({
+      f: -fEdgeBack,
+      c: 0,
+      fExtent: thickness,
+      cExtent: cEdge * 2 + thickness
+    })
+  }
+
+  // Side edges, unless the house fills the parcel's cross extent. They run
+  // from the street hedge line to the rear lot line.
+  if (
+    Math.max(houseCentreC + houseC / 2, -(houseCentreC - houseC / 2)) <=
+    cEdge - thickness / 2 - 0.2
+  ) {
+    for (const side of [-1, 1]) {
+      segments.push({
+        f: (fEdge - fEdgeBack) / 2,
+        c: side * cEdge,
+        fExtent: fEdge + fEdgeBack,
+        cExtent: thickness
+      })
+    }
+  }
+
+  return {
+    style,
+    height,
+    segments: segments.map((segment) => {
+      const fWorld = (parcelCentreF + segment.f) * front.side
+      const cWorld = parcelCentreC + segment.c
+      return front.axis === 'tangent'
+        ? {
+            tangentOffset: fWorld,
+            axialOffset: cWorld,
+            tangentExtent: segment.fExtent,
+            axialExtent: segment.cExtent
+          }
+        : {
+            tangentOffset: cWorld,
+            axialOffset: fWorld,
+            tangentExtent: segment.cExtent,
+            axialExtent: segment.fExtent
+          }
+    })
+  }
+}
+
 export const disposeDetailedBuildingGeometryPack = (
   pack: DetailedBuildingGeometryPack
 ) => {
@@ -240,4 +1112,105 @@ export const disposeDetailedBuildingGeometryPack = (
   for (const geometry of Object.values(pack.street)) {
     geometry.dispose()
   }
+}
+
+// ── Kenney Car Kit ──────────────────────────────────────────────────────
+// Real-size street vehicles for the traffic fleet. Each model is seated at
+// the origin, scaled to its real length, and gains head/tail light bars in
+// material groups 1/2 so the night traffic streaks survive the swap from
+// the procedural box car.
+
+export const KENNEY_CAR_VARIANTS = [
+  { file: 'sedan', length: 4.4 },
+  { file: 'suv', length: 4.6 },
+  { file: 'hatchback-sports', length: 4.0 },
+  { file: 'delivery', length: 5.2 },
+  { file: 'taxi', length: 4.4 },
+  { file: 'truck', length: 5.4 }
+] as const
+
+export type KenneyCarGeometryPack = {
+  cars: THREE.BufferGeometry[]
+  material: THREE.MeshStandardMaterial
+}
+
+export const loadKenneyCarGeometryPack =
+  async (): Promise<KenneyCarGeometryPack> => {
+    const loader = new GLTFLoader()
+    let material: THREE.MeshStandardMaterial | null = null
+
+    const cars = await Promise.all(
+      KENNEY_CAR_VARIANTS.map(async ({ file, length }) => {
+        const gltf = await loader.loadAsync(`/assets/vehicles/kenney/${file}.glb`)
+        const captured = captureKitMaterial(gltf.scene)
+        if (captured !== null) {
+          if (material === null) {
+            material = captured
+          } else {
+            captured.map?.dispose()
+            captured.dispose()
+          }
+        }
+        const body = collectGeometry(gltf.scene)
+        // The kit ships extra vertex attributes (tangents, colours) the
+        // light-bar boxes lack; merge requires identical attribute sets.
+        for (const name of Object.keys(body.attributes)) {
+          if (name !== 'position' && name !== 'normal' && name !== 'uv') {
+            body.deleteAttribute(name)
+          }
+        }
+        body.computeBoundingBox()
+        const bounds = body.boundingBox as THREE.Box3
+        const size = bounds.getSize(new THREE.Vector3())
+        const center = bounds.getCenter(new THREE.Vector3())
+        body.translate(-center.x, -bounds.min.y, -center.z)
+        const scale = length / Math.max(size.z, 1e-6)
+        body.scale(scale, scale, scale)
+        body.computeBoundingBox()
+        const scaled = body.boundingBox as THREE.Box3
+        const width = scaled.max.x - scaled.min.x
+
+        const head = new THREE.BoxGeometry(width * 0.62, 0.16, 0.08)
+        head.translate(0, 0.55, scaled.max.z - 0.03)
+        const tail = new THREE.BoxGeometry(width * 0.62, 0.14, 0.08)
+        tail.translate(0, 0.58, scaled.min.z + 0.03)
+        const pieces = [body, head, tail]
+        const counts = pieces.map(
+          (piece) => piece.index?.count ?? piece.getAttribute('position').count
+        )
+        for (const piece of pieces) {
+          piece.clearGroups()
+        }
+        const merged = mergeGeometries(pieces, false)
+        for (const piece of pieces) {
+          piece.dispose()
+        }
+        if (merged === null) {
+          throw new Error(`Car kit model ${file} failed to merge`)
+        }
+        merged.clearGroups()
+        let start = 0
+        for (let index = 0; index < counts.length; index += 1) {
+          merged.addGroup(start, counts[index], index)
+          start += counts[index]
+        }
+        merged.computeBoundingBox()
+        merged.computeBoundingSphere()
+        return merged
+      })
+    )
+
+    if (material === null) {
+      throw new Error('Kenney car kit is missing its palette material')
+    }
+
+    return { cars, material }
+  }
+
+export const disposeKenneyCarGeometryPack = (pack: KenneyCarGeometryPack) => {
+  for (const geometry of pack.cars) {
+    geometry.dispose()
+  }
+  pack.material.map?.dispose()
+  pack.material.dispose()
 }

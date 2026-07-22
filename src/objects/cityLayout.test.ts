@@ -17,6 +17,7 @@ import {
   getOverlookTowerClearance,
   getPlazaAxialHalfLength,
   getPlazaTangentHalfWidth,
+  getSidewalkWidth,
   getWindowArcs,
   getWindowStripArcs,
   isAzimuthOnLandArc,
@@ -294,7 +295,7 @@ describe('planCity', () => {
     }
   })
 
-  test('road hierarchy: arterials wide but realistic, locals narrow', () => {
+  test('road hierarchy: arterials wide but realistic, locals narrow, alleys lanes', () => {
     for (const [radius, length] of [[18, 120], [3200, 40000], [30000, 2000]] as const) {
       const { roads } = planCity({ radius, length })
       const kinds = new Set(roads.map((road) => road.kind))
@@ -306,10 +307,98 @@ describe('planCity', () => {
         if (road.kind === 'arterial') {
           expect(width).toBeGreaterThanOrEqual(6)
           expect(width).toBeLessThanOrEqual(24)
-        } else {
+        } else if (road.kind === 'local') {
           expect(width).toBeGreaterThanOrEqual(4)
           expect(width).toBeLessThanOrEqual(8)
+        } else {
+          expect(width).toBeGreaterThanOrEqual(2.5)
+          expect(width).toBeLessThanOrEqual(getSidewalkWidth(radius, length) * 1.5 + 1e-6)
         }
+      }
+    }
+  })
+
+  test('dense block interiors carry back alleys between the building rings', () => {
+    const { roads } = planCity({ radius: 3200, length: 40000 })
+    const alleys = roads.filter((road) => road.kind === 'alley')
+
+    expect(alleys.length).toBeGreaterThan(1000)
+
+    for (const alley of alleys) {
+      expect(isAzimuthOnLandStrip(alley.azimuth)).toBe(true)
+    }
+  })
+
+  test('no building stands without street frontage (the alley guarantee)', () => {
+    const radius = 3200
+    const length = 40000
+    const { roads, buildings } = planCity({ radius, length })
+    const sidewalk = getSidewalkWidth(radius, length)
+
+    // Sampled: the full cross product is 80M pairs. The worst allowed
+    // frontage is the sidewalk between a perimeter row and its block road;
+    // inner rows sit flush on their alley.
+    for (let index = 0; index < buildings.length; index += 13) {
+      const building = buildings[index]
+      let nearest = Infinity
+
+      for (const road of roads) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+        nearest = Math.min(nearest, Math.max(tangentGap, axialGap, 0))
+        if (nearest === 0) {
+          break
+        }
+      }
+
+      expect(nearest).toBeLessThanOrEqual(sidewalk + 0.5)
+    }
+  })
+
+  test('every building records its street-front direction, and a road lies there', () => {
+    const radius = 3200
+    const length = 40000
+    const { roads, buildings } = planCity({ radius, length })
+    const sidewalk = getSidewalkWidth(radius, length)
+
+    for (let index = 0; index < buildings.length; index += 13) {
+      const building = buildings[index]
+      expect(building.front).toBeDefined()
+      const front = building.front as NonNullable<CityBuilding['front']>
+      expect(['tangent', 'axial']).toContain(front.axis)
+      expect([1, -1]).toContain(front.side)
+
+      // Among the roads this building actually fronts (within sidewalk
+      // reach), at least one sits on the recorded front side.
+      let found = false
+      for (const road of roads) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, road, radius)
+        if (Math.max(tangentGap, axialGap, 0) > sidewalk + 0.5) {
+          continue
+        }
+        const toRoad =
+          front.axis === 'tangent'
+            ? wrapToPi(road.azimuth - building.azimuth) * radius
+            : road.axial - building.axial
+        if (toRoad * front.side > 0) {
+          found = true
+          break
+        }
+      }
+      expect(found).toBe(true)
+    }
+  })
+
+  test('no building overlaps an alley at city scale', () => {
+    const radius = 3200
+    const { roads, buildings } = planCity({ radius, length: 40000 })
+    const alleys = roads.filter((road) => road.kind === 'alley')
+
+    for (let index = 0; index < buildings.length; index += 9) {
+      const building = buildings[index]
+
+      for (const alley of alleys) {
+        const { tangentGap, axialGap } = buildingRoadGaps(building, alley, radius)
+        expect(Math.max(tangentGap, axialGap)).toBeGreaterThanOrEqual(-1e-6)
       }
     }
   })
@@ -522,8 +611,10 @@ describe('planCity', () => {
   })
 
   test('zones some blocks as parks or farms with trees on land strips', () => {
-    const radius = 18
-    const { patches, trees, buildings } = planCity({ radius, length: 360 })
+    // City scale: at toy sizes the zoning rolls are a coin flip away from
+    // producing zero parks, so the invariant is asserted where it matters.
+    const radius = 3200
+    const { patches, trees, buildings } = planCity({ radius, length: 40000 })
 
     expect(patches.length).toBeGreaterThan(0)
     expect(trees.length).toBeGreaterThan(0)
@@ -541,16 +632,24 @@ describe('planCity', () => {
       expect(isInsidePlaza(tree.azimuth, tree.axial, radius)).toBe(false)
     }
 
-    // Zoned blocks hold no buildings: no building center falls inside a patch.
+    // Zoned blocks hold no buildings: no building center falls inside a
+    // patch. Accumulated into one assertion — with pocket greens the
+    // cross product is tens of millions of pairs, and a per-pair expect()
+    // would dominate the suite's runtime.
+    let insideCount = 0
     for (const building of buildings) {
       for (const patch of patches) {
         const tangentDelta = Math.abs(wrapToPi(building.azimuth - patch.azimuth)) * radius
         const axialDelta = Math.abs(building.axial - patch.axial)
-        const inside =
-          tangentDelta < patch.tangentExtent * 0.5 && axialDelta < patch.axialExtent * 0.5
-        expect(inside).toBe(false)
+        if (
+          tangentDelta < patch.tangentExtent * 0.5 &&
+          axialDelta < patch.axialExtent * 0.5
+        ) {
+          insideCount += 1
+        }
       }
     }
+    expect(insideCount).toBe(0)
   })
 
   test('the spawn plaza block is never zoned as a park or farm', () => {

@@ -23,9 +23,39 @@ export type CityBuilding = {
   // 0..1 old-town field at this lot (port-end first-generation district).
   // Drives the warm facade shift; optional like `urban`.
   oldTown?: number
+  // Direction from the lot centre toward the road this building fronts:
+  // 'tangent' = the street-facing wall looks along ±circumferential (an
+  // avenue), 'axial' = it looks along ±axial (a street). Derived from the
+  // edge-row geometry, no RNG consumed. Kit models with a real facade
+  // (doors, porches) aim at the street with this; optional so synthetic
+  // footprints (tower, tests) stay valid.
+  front?: { axis: 'tangent' | 'axial'; side: 1 | -1 }
+  // The full parcel this building owns, as centre offsets from the building
+  // centre plus extents (surface metres): the slot pitch along the row and
+  // the row's allotted depth. Slot-aligned (jitter-free), so neighbouring
+  // parcels tile the row edge-to-edge instead of shrinking to each
+  // building's box. Derived like `front`, no RNG consumed; the suburban
+  // pipeline sizes gardens and lot boundaries from it.
+  parcel?: {
+    tangentOffset: number
+    axialOffset: number
+    tangentExtent: number
+    axialExtent: number
+  }
+  // Port-end logistics band: the block row hugging the port cap wears the
+  // industrial kit (warehouses, not homes or offices). Zone flag derived
+  // from block position, no RNG consumed.
+  industrial?: boolean
 }
 
-export type RoadKind = 'arterial' | 'local'
+// 'alley': the back lanes between building rings inside a block. They exist
+// so that NO building stands without street frontage — the inner rings front
+// these lanes. Alleys are real roads in the plan (the near-player road-tile
+// overlay paves them) but the painted far-LOD pipeline, lamps, traffic and
+// bridges all filter on 'arterial'/'local' and deliberately skip them: from
+// a distance a back lane reads as a dark gap, and the night glow grid stays
+// the arterial/local signature.
+export type RoadKind = 'arterial' | 'local' | 'alley'
 
 export type CityRoad = {
   azimuth: number
@@ -893,11 +923,17 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     let estLength = innerLengthEstimate
 
     for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
-      if (estWidth < cell * 0.6 || estLength < cell * 0.6) {
+      const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
+
+      if (estWidth < minSpan || estLength < minSpan) {
         break
       }
 
-      const ringDepth = Math.min(cell * 0.9, estWidth * 0.35, estLength * 0.35)
+      const ringDepth = Math.min(
+        ring === 0 ? cell * 0.9 : cell * 0.35,
+        estWidth * 0.35,
+        estLength * 0.35
+      )
       lotsPerBlockEstimate +=
         2 * Math.max(0, Math.floor(estLength / lot)) +
         2 * Math.max(0, Math.floor((estWidth - 2 * (ringDepth + sidewalk)) / lot))
@@ -943,7 +979,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     tone: number,
     kind: BuildingKind,
     urban: number,
-    oldTown: number
+    oldTown: number,
+    front?: CityBuilding['front'],
+    parcel?: CityBuilding['parcel'],
+    industrial?: boolean
   ) => {
     if (buildings.length >= maxBuildings) {
       return
@@ -993,7 +1032,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       tone,
       kind,
       urban,
-      oldTown
+      oldTown,
+      front,
+      parcel,
+      industrial: industrial === true ? true : undefined
     })
   }
 
@@ -1008,16 +1050,60 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     rowEnd: number,
     depthMax: number,
     urban: number,
-    oldTown: number
+    oldTown: number,
+    industrial = false
   ) => {
     const span = rowEnd - rowStart
-    const count = Math.floor(span / lot)
+    // Parcel grain follows land use: detached-house country carves the row
+    // into small home parcels, downtown keeps the big commercial plots (and
+    // its merge rolls make them bigger still) — the 大中小 of the land
+    // register instead of one uniform pitch.
+    const residentialRow = !industrial && urban < 0.4 && oldTown < 0.5
+    const lotPitch = residentialRow ? lot * 0.55 : lot
+    const count = Math.floor(span / lotPitch)
 
     if (count < 1 || depthMax <= 0) {
       return
     }
 
     const pitch = span / count
+    // The row's road lies on the far side of `edgeCoordinate` from the
+    // building centres (centre = edge + edgeSide·depth/2), so centre→street
+    // is −edgeSide along the facing axis.
+    const front: CityBuilding['front'] = {
+      axis: facing === 'avenue' ? 'tangent' : 'axial',
+      side: edgeSide === 1 ? -1 : 1
+    }
+    // Parcel geometry: the slot rectangle (pitch-aligned, jitter-free) minus
+    // a small shoulder so neighbouring boundaries do not fuse. The row's
+    // buildings all share the front line at `edgeCoordinate`, so parcels
+    // tile the row edge-to-edge no matter how each building box rolled.
+    // Tight shoulders: rear lot lines meet the back-to-back seam and side
+    // lot lines nearly touch the neighbour's — the boundary hedges/fences
+    // land on the lot lines with no dead lawn between parcels.
+    const parcelDepth = Math.max(depthMax - 0.05, depthMax * 0.9)
+    const parcelDepthCenter = edgeCoordinate + edgeSide * parcelDepth * 0.5
+    const parcelFor = (
+      slotCenter: number,
+      slotSpan: number,
+      tangentCenter: number,
+      axialCenter: number
+    ): CityBuilding['parcel'] => {
+      const along = Math.max(slotSpan - 0.2, slotSpan * 0.9)
+      return facing === 'avenue'
+        ? {
+            tangentOffset: parcelDepthCenter - tangentCenter,
+            axialOffset: slotCenter - axialCenter,
+            tangentExtent: parcelDepth,
+            axialExtent: along
+          }
+        : {
+            tangentOffset: slotCenter - tangentCenter,
+            axialOffset: parcelDepthCenter - axialCenter,
+            tangentExtent: along,
+            axialExtent: parcelDepth
+          }
+    }
 
     // Pre-roll every pitch up front, in the same fixed 7-roll pattern as
     // always — the parcel-grain walk below takes variable strides, and rolling
@@ -1081,6 +1167,56 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         keepProbability * (0.08 + urban * 1.12) + coreInfill * 0.72
       )
       if (roll.keep > localKeepProbability) {
+        // Pocket greens: a share of the skipped residential slots become
+        // parcel-sized parks — lawn and a tree or two — so a thinned row
+        // reads as neighbourhood fabric with greens, not random gaps.
+        // Only in rows that actually build up (keep high enough): empty
+        // farmland stays field, occupied streets get their greens.
+        // Derived entirely from rolls this slot already consumed.
+        if (
+          residentialRow &&
+          localKeepProbability > 0.3 &&
+          roll.jitter < 0.5 &&
+          depthMax >= 10
+        ) {
+          const slotCenter = rowStart + (index + stride * 0.5) * pitch
+          const greenAlong = Math.max(pitch * stride - 0.2, pitch * stride * 0.9)
+          const greenDepth = Math.max(depthMax - 0.05, depthMax * 0.9)
+          const greenDepthCenter = edgeCoordinate + edgeSide * greenDepth * 0.5
+          const greenAzimuth =
+            stripCenter +
+            (facing === 'avenue' ? greenDepthCenter : slotCenter) / radius
+          const greenAxial = facing === 'avenue' ? slotCenter : greenDepthCenter
+
+          if (!isInsideAnySquare(greenAzimuth, greenAxial)) {
+            patches.push({
+              azimuth: greenAzimuth,
+              axial: greenAxial,
+              tangentExtent: facing === 'avenue' ? greenDepth : greenAlong,
+              axialExtent: facing === 'avenue' ? greenAlong : greenDepth,
+              kind: 'park'
+            })
+
+            for (const [alongRoll, depthRoll, sizeRoll] of [
+              [roll.along - 0.5, roll.depth - 0.5, roll.height],
+              [roll.tone - 0.5, roll.kind - 0.5, roll.along]
+            ] as const) {
+              if (trees.length >= MAX_TREES) {
+                break
+              }
+              const treeAlong = slotCenter + alongRoll * greenAlong * 0.7
+              const treeDepth = greenDepthCenter + depthRoll * greenDepth * 0.7
+              trees.push({
+                azimuth:
+                  stripCenter +
+                  (facing === 'avenue' ? treeDepth : treeAlong) / radius,
+                axial: facing === 'avenue' ? treeAlong : treeDepth,
+                height: Math.min(cell, 9) * (0.55 + sizeRoll * 0.5),
+                tone: roll.tone
+              })
+            }
+          }
+        }
         index += stride
         continue
       }
@@ -1094,10 +1230,18 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       const plotSpan = pitch * stride
       let along =
-        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lot * (0.74 + alongRoll * 0.24)
+        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lotPitch * (0.74 + alongRoll * 0.24)
       let depth = depthMax * (0.55 + depthRoll * 0.45)
-      const alongCenter =
-        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lot * 0.2
+      // The end-of-row jitter must not push a building past the row span:
+      // beyond it lies the back ALLEY (a real road since the frontage
+      // guarantee), and a lot that drifts into the lane both blocks it and
+      // breaks the no-building-on-road invariant.
+      const clampAlongToRow = (centre: number, extent: number) =>
+        Math.min(rowEnd - extent * 0.5, Math.max(rowStart + extent * 0.5, centre))
+      const alongCenter = clampAlongToRow(
+        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lotPitch * 0.2,
+        along
+      )
       // Downtown stands tall; the outskirts stay low-rise. A merged plot
       // hosts a proportionally bigger building. The old town is dense but
       // LOW — first-generation construction, accreted rather than replaced —
@@ -1125,11 +1269,14 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         }
         const frontCenter = edgeCoordinate + edgeSide * infillDepth * 0.5
 
+        const slotCenter = rowStart + (index + 0.5) * pitch
+
         for (const side of [-1, 1] as const) {
-          const centre = alongCenter + side * pitch * 0.24
+          const centre = clampAlongToRow(alongCenter + side * pitch * 0.24, infillAlong)
           // A derived second tone so the pair does not read as twins.
           const tone =
             side === -1 ? toneRoll : toneRoll * 0.63 + 0.31 - Math.floor(toneRoll * 0.63 + 0.31)
+          const halfSlotCenter = slotCenter + side * pitch * 0.25
 
           if (facing === 'avenue') {
             placeBuilding(
@@ -1142,7 +1289,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               tone,
               infillKind,
               urban,
-              oldTown
+              oldTown,
+              front,
+              parcelFor(halfSlotCenter, pitch * 0.5, frontCenter, centre),
+              industrial
             )
           } else {
             placeBuilding(
@@ -1155,7 +1305,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               tone,
               infillKind,
               urban,
-              oldTown
+              oldTown,
+              front,
+              parcelFor(halfSlotCenter, pitch * 0.5, centre, frontCenter),
+              industrial
             )
           }
         }
@@ -1179,16 +1332,26 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const setbackThreshold = 0.62 - urban * 0.16 + 0.25 * oldTown
       const houseBand = 0.55 - 0.35 * oldTown
 
-      if (height < heightBase * 0.45 && kindRoll < houseBand) {
+      // Small home parcels host homes and walk-ups, never CBD furniture:
+      // the tall archetypes need the big downtown plots (ビル=大区画).
+      if (residentialRow) {
+        height = Math.min(height, 16)
+      }
+      // The logistics band stays low sheds: no homes, no CBD furniture.
+      if (industrial) {
+        height = Math.min(height, 16)
+      }
+
+      if (!industrial && height < heightBase * 0.45 && kindRoll < houseBand) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (kindRoll > towerThreshold && oldTown < 0.5) {
+      } else if (!residentialRow && !industrial && kindRoll > towerThreshold && oldTown < 0.5) {
         kind = 'tower'
         const slim = Math.min(along, depth) * 0.85
         along = slim
         depth = slim
         height = Math.min(height * 1.25, 78)
-      } else if (kindRoll > setbackThreshold) {
+      } else if (!residentialRow && !industrial && kindRoll > setbackThreshold) {
         const bandPosition =
           (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
 
@@ -1209,6 +1372,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
 
+      const slotCenter = rowStart + (index + stride * 0.5) * pitch
+
       if (facing === 'avenue') {
         placeBuilding(
           stripCenter,
@@ -1220,7 +1385,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           toneRoll,
           kind,
           urban,
-          oldTown
+          oldTown,
+          front,
+          parcelFor(slotCenter, pitch * stride, frontCenter, alongCenter),
+          industrial
         )
       } else {
         placeBuilding(
@@ -1233,7 +1401,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           toneRoll,
           kind,
           urban,
-          oldTown
+          oldTown,
+          front,
+          parcelFor(slotCenter, pitch * stride, alongCenter, frontCenter),
+          industrial
         )
       }
 
@@ -1395,17 +1566,152 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
                 ? 2
                 : 1
 
+        // The block row hugging the port cap is the logistics band: the
+        // port and the old town grew together, and the freight aprons wear
+        // the industrial kit. Same road grid, warehouse dressing.
+        const industrialBlock = blockCenterAxial < -axialHalf + blockLength * 1.35
+
+        // Residential blocks parcel as a LADDER, not rings: back-to-back
+        // home rows separated by straight lanes that run the full block and
+        // TEE into the perimeter streets at both ends. Ring alleys are
+        // closed loops — tolerable as service courts between dense urban
+        // building rings, irrational as home streets (the U-shaped-lane
+        // review) — so home lanes are through-roads by construction, and
+        // still no home backs onto any road.
+        const residentialBlock =
+          !industrialBlock && blockUrban < 0.4 && blockOldTown < 0.5
+
+        if (residentialBlock) {
+          const laneBand = sidewalk * 1.5
+          // Rows run along the longer inner dimension; the ladder subdivides
+          // the shorter one.
+          const rowsAlongAxial = innerLength >= innerWidth
+          const across = rowsAlongAxial ? innerWidth : innerLength
+          const rowSpan0 = rowsAlongAxial ? axial0 : tangent0
+          const rowSpan1 = rowsAlongAxial ? axial1 : tangent1
+          const rowFacing = rowsAlongAxial ? ('avenue' as const) : ('street' as const)
+          const edge0 = rowsAlongAxial ? tangent0 : axial0
+          // The back-to-back seam: rear lot lines nearly coincide, the
+          // American-suburb fence-against-fence line.
+          const pairGap = 0.2
+          const nominalRowDepth = Math.min(cell * 0.3, across * 0.2)
+          // Round (not floor) to the nearest pair count, then absorb ALL the
+          // remainder into the parcel depth (bigger or smaller backyards) —
+          // never into the seams. Every front line stays exactly on its
+          // street or lane and the pair's rows meet at the seam with no
+          // dead lawn between; the cap only guards the round-down extreme.
+          const pairs = Math.max(
+            1,
+            Math.round(
+              (across + laneBand) / (nominalRowDepth * 2 + pairGap + laneBand)
+            )
+          )
+          const pairSpacing = (across - (pairs - 1) * laneBand) / pairs
+          const rowDepth = Math.min((pairSpacing - pairGap) / 2, 38)
+
+          for (let pair = 0; pair < pairs; pair += 1) {
+            const base = edge0 + pair * (pairSpacing + laneBand)
+            placeEdgeRow(stripCenter, rowFacing, base, 1, rowSpan0, rowSpan1, rowDepth, blockUrban, blockOldTown)
+            placeEdgeRow(
+              stripCenter,
+              rowFacing,
+              base + pairSpacing,
+              -1,
+              rowSpan0,
+              rowSpan1,
+              rowDepth,
+              blockUrban,
+              blockOldTown
+            )
+
+            if (pair < pairs - 1 && laneBand >= 2.5) {
+              const laneCenter = base + pairSpacing + laneBand * 0.5
+              roads.push(
+                rowsAlongAxial
+                  ? {
+                      azimuth: stripCenter + laneCenter / radius,
+                      axial: (axial0 + axial1) * 0.5,
+                      tangentWidth: laneBand,
+                      // Long enough to overlap the perimeter street rects:
+                      // a real junction at both ends, never a dead end.
+                      axialLength: innerLength + 2 * (sidewalk + localWidth),
+                      kind: 'alley'
+                    }
+                  : {
+                      azimuth: stripCenter + ((tangent0 + tangent1) * 0.5) / radius,
+                      axial: laneCenter,
+                      tangentWidth: innerWidth + 2 * (sidewalk + localWidth),
+                      axialLength: laneBand,
+                      kind: 'alley'
+                    }
+              )
+            }
+          }
+
+          continue
+        }
+
         for (let ring = 0; ring < ringBudget; ring += 1) {
           const ringWidth = ringTangent1 - ringTangent0
           const ringLength = ringAxial1 - ringAxial0
 
-          if (ringWidth < cell * 0.6 || ringLength < cell * 0.6) {
+          // The perimeter ring hosts the deep frontage slabs; INNER rings are
+          // shallow infill rows. At city scale the old uniform depth (cell*0.9
+          // ~72 m) plus its inset consumed the whole block, so ring 1 never
+          // ran and dense block interiors were left as bare strips of ground
+          // touching the perimeter's backs — buildings on a roadless void.
+          // Shallow inner rows (and their alley, below) fill the interior
+          // until the backs nearly meet at the block spine.
+          const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
+
+          if (ringWidth < minSpan || ringLength < minSpan) {
             break
           }
 
-          const ringDepth = Math.min(cell * 0.9, ringWidth * 0.35, ringLength * 0.35)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown)
+          // Every ring after the first fronts a real back lane, not bare
+          // ground: the inset between the outer ring's building backs and
+          // this ring's fronts is exactly sidewalk*1.5 wide, and that band
+          // becomes an 'alley' road loop. This is the no-building-without-
+          // frontage guarantee — the reason inner rings are allowed to exist.
+          // The two axial legs extend across the corners; the tangential legs
+          // butt against them, so the loop covers the corner squares once.
+          // Emitted deterministically from the ring rectangle (no RNG), so
+          // the building layout is untouched. Tiny habitats whose band is
+          // too narrow for a lane keep their legacy alley-free interior.
+          const alleyBand = sidewalk * 1.5
+          const emitAlleyLoop = (t0: number, t1: number, a0: number, a1: number) => {
+            if (alleyBand < 2.5) {
+              return
+            }
+            for (const side of [-1, 1] as const) {
+              roads.push({
+                azimuth:
+                  stripCenter + ((side === -1 ? t0 : t1) + side * alleyBand * 0.5) / radius,
+                axial: (a0 + a1) * 0.5,
+                tangentWidth: alleyBand,
+                axialLength: a1 - a0 + 2 * alleyBand,
+                kind: 'alley'
+              })
+              roads.push({
+                azimuth: stripCenter + ((t0 + t1) * 0.5) / radius,
+                axial: (side === -1 ? a0 : a1) + side * alleyBand * 0.5,
+                tangentWidth: t1 - t0,
+                axialLength: alleyBand,
+                kind: 'alley'
+              })
+            }
+          }
+          if (ring > 0) {
+            emitAlleyLoop(ringTangent0, ringTangent1, ringAxial0, ringAxial1)
+          }
+
+          const ringDepth = Math.min(
+            ring === 0 ? cell * 0.9 : cell * 0.35,
+            ringWidth * 0.35,
+            ringLength * 0.35
+          )
+          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
+          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
           placeEdgeRow(
             stripCenter,
             'street',
@@ -1415,7 +1721,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
             blockUrban,
-            blockOldTown
+            blockOldTown,
+            industrialBlock
           )
           placeEdgeRow(
             stripCenter,
@@ -1426,7 +1733,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             ringTangent1 - ringDepth - sidewalk,
             ringDepth,
             blockUrban,
-            blockOldTown
+            blockOldTown,
+            industrialBlock
           )
 
           const inset = ringDepth + sidewalk * 1.5

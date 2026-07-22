@@ -40,6 +40,16 @@ export type QualityProfile = {
   detailedLod1Distance: number
   maxDetailedLod0: number
   maxDetailedLod1: number
+  // Whether sets WITHOUT an authored low-detail model (suburban, skyscraper,
+  // industrial) may keep their full kit geometry in the LOD1 band. Off on
+  // mobile GPUs: full geometry at LOD1 range is what melted Quest to 20 fps —
+  // there the harmonized boxes take over directly beyond LOD0.
+  lod1FullKitGeometry: boolean
+  // Kenney road-tile overlay (curbs/sidewalks/junction pieces) range around
+  // the player. 0 everywhere since the Kenney strip (toming, 2026-07-22):
+  // painted roads carry every distance until the procedural facade skin
+  // brings its own street furniture. The machinery stays for that follow-up.
+  roadTileDistance: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -76,15 +86,17 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: 1.75,
       maxBuildings: 16000,
       farMinAngularSize: 0.01,
-      maxTraffic: 160,
+      maxTraffic: 120,
       // The Izma spawn is an arterial crossroads: even after core infill, the
       // first facade centres sit tens of metres beyond the road and sidewalk.
       // The current phone path still has headroom: spend it on visible street
       // walls, while the aggressive far cull and 1.75 DPR cap stay unchanged.
-      detailedLod0Distance: 120,
-      detailedLod1Distance: 260,
-      maxDetailedLod0: 120,
-      maxDetailedLod1: 480,
+      detailedLod0Distance: 150,
+      detailedLod1Distance: 340,
+      maxDetailedLod0: 180,
+      maxDetailedLod1: 700,
+      lod1FullKitGeometry: false,
+      roadTileDistance: 0,
       bloom: false,
       rainStreaks: 2600,
       // 16km blessed on-device (toming, 2026-07-22, staging A/B vs 39km/26km/8km).
@@ -97,11 +109,13 @@ export const getQualityProfile = (): QualityProfile => {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
-      maxTraffic: 280,
-      detailedLod0Distance: 100,
-      detailedLod1Distance: 350,
-      maxDetailedLod0: 180,
-      maxDetailedLod1: 700,
+      maxTraffic: 160,
+      detailedLod0Distance: 120,
+      detailedLod1Distance: 420,
+      maxDetailedLod0: 220,
+      maxDetailedLod1: 900,
+      lod1FullKitGeometry: false,
+      roadTileDistance: 0,
       bloom: false,
       rainStreaks: 4200,
       fogVisibilityMeters: 16_000
@@ -113,10 +127,12 @@ export const getQualityProfile = (): QualityProfile => {
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
     maxTraffic: 420,
-    detailedLod0Distance: 180,
-    detailedLod1Distance: 600,
-    maxDetailedLod0: 420,
-    maxDetailedLod1: 1600,
+    detailedLod0Distance: 280,
+    detailedLod1Distance: 900,
+    maxDetailedLod0: 800,
+    maxDetailedLod1: 2800,
+    lod1FullKitGeometry: true,
+    roadTileDistance: 0,
     bloom: true,
     rainStreaks: 7000,
     fogVisibilityMeters: 39_120

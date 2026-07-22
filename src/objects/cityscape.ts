@@ -36,11 +36,32 @@ import { mergeBufferGeometries } from './cylinder'
 import { createWindowGlassTexture } from './cylinderSurface'
 import {
   disposeDetailedBuildingGeometryPack,
+  disposeKenneyBuildingGeometryPack,
+  facadePaletteIndex,
+  fitSuburbanHouse,
+  kenneyPickForBuilding,
+  suburbanGardenPlan,
+  disposeKenneyCarGeometryPack,
   loadDetailedBuildingGeometryPack,
-  type DetailedBuildingArchetype,
+  loadKenneyCarGeometryPack,
+  suburbanLotBoundary,
   type DetailedBuildingGeometryPack,
-  type StreetDetailArchetype
+  type KenneyBuildingGeometryPack,
+  type KenneyCarGeometryPack,
+  type KenneyBuildingSet,
+  type StreetDetailArchetype,
+  type SuburbanLotBoundary,
+  type SuburbanLotBoundarySegment
 } from './buildingAssets'
+import {
+  disposeRoadTileGeometryPack,
+  getRoadTileLiftMeters,
+  loadRoadTileGeometryPack,
+  planRoadTilePlacements,
+  ROAD_TILE_HEIGHT_SCALE,
+  type RoadTileGeometryPack,
+  type RoadTileKind
+} from './roadTiles'
 import {
   getBuildingChordDistance,
   getBuildingSurfaceDistance,
@@ -62,6 +83,9 @@ type CityscapeOptions = {
   detailedLod1Distance?: number
   maxDetailedLod0?: number
   maxDetailedLod1?: number
+  lod1FullKitGeometry?: boolean
+  // Kenney road-tile overlay range around the player; 0 disables the layer.
+  roadTileDistance?: number
 }
 
 // mode +1 keeps pixels below threshold (incoming LOD), -1 keeps pixels above
@@ -424,6 +448,8 @@ const inward = new THREE.Vector3()
 const binormal = new THREE.Vector3()
 const basis = new THREE.Matrix4()
 const instanceMatrix = new THREE.Matrix4()
+const roadTileYawQuaternion = new THREE.Quaternion()
+const localYAxis = new THREE.Vector3(0, 1, 0)
 const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
@@ -659,7 +685,48 @@ const createFarmTexture = () => {
 // sides), V repeats along the road in ROAD_TEXTURE_WORLD_METERS units.
 export const ROAD_TEXTURE_WORLD_METERS = 12
 
-const createRoadTexture = (kind: 'arterial' | 'local') => {
+// The painted roads are the far LOD of the Kenney tile overlay, so the day
+// albedo speaks the tile colormap's language: the same asphalt grey, the same
+// muted blue-grey lane paint, the same orange centre line. Markings that used
+// to be near-white on near-black read as a fluorescent grid from a distance —
+// exactly the seam the overlay was supposed to hide.
+const drawRoadSurface = (
+  context: CanvasRenderingContext2D,
+  size: number,
+  kind: 'arterial' | 'local',
+  style: 'albedo' | 'glow'
+) => {
+  // The glow variant keeps the legacy near-black base and bright markings:
+  // it feeds the emissiveMap, so the night city keeps its teal-grid signature
+  // even though the daytime albedo is now muted.
+  context.fillStyle =
+    style === 'glow' ? '#000000' : kind === 'arterial' ? '#36383f' : '#3d4046'
+  context.fillRect(0, 0, size, size)
+
+  // Edge lines on both sides (symmetric, so the BackSide mirror is free).
+  context.fillStyle =
+    style === 'glow' ? 'rgba(218, 224, 230, 0.5)' : 'rgba(142, 149, 179, 0.55)'
+  context.fillRect(8, 0, 5, size)
+  context.fillRect(size - 13, 0, 5, size)
+
+  if (kind === 'arterial') {
+    // Solid warm center line plus dashed lane separators (4 lanes).
+    context.fillStyle =
+      style === 'glow' ? 'rgba(226, 196, 116, 0.85)' : 'rgba(255, 126, 68, 0.8)'
+    context.fillRect(size / 2 - 3, 0, 6, size)
+    context.fillStyle =
+      style === 'glow' ? 'rgba(220, 226, 232, 0.7)' : 'rgba(160, 168, 201, 0.6)'
+    context.fillRect(62, 16, 4, 120)
+    context.fillRect(size - 66, 16, 4, 120)
+  } else {
+    // Faint short center dash for residential streets.
+    context.fillStyle =
+      style === 'glow' ? 'rgba(210, 216, 222, 0.22)' : 'rgba(160, 168, 201, 0.25)'
+    context.fillRect(size / 2 - 2, 40, 4, 88)
+  }
+}
+
+const createRoadTexture = (kind: 'arterial' | 'local', style: 'albedo' | 'glow' = 'albedo') => {
   const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -670,26 +737,7 @@ const createRoadTexture = (kind: 'arterial' | 'local') => {
     throw new Error('2D canvas context is required for the road texture')
   }
 
-  context.fillStyle = kind === 'arterial' ? '#15191f' : '#20262d'
-  context.fillRect(0, 0, size, size)
-
-  // Edge lines on both sides (symmetric, so the BackSide mirror is free).
-  context.fillStyle = 'rgba(218, 224, 230, 0.5)'
-  context.fillRect(8, 0, 5, size)
-  context.fillRect(size - 13, 0, 5, size)
-
-  if (kind === 'arterial') {
-    // Solid warm center line plus dashed lane separators (4 lanes).
-    context.fillStyle = 'rgba(226, 196, 116, 0.85)'
-    context.fillRect(size / 2 - 3, 0, 6, size)
-    context.fillStyle = 'rgba(220, 226, 232, 0.7)'
-    context.fillRect(62, 16, 4, 120)
-    context.fillRect(size - 66, 16, 4, 120)
-  } else {
-    // Faint short center dash for residential streets.
-    context.fillStyle = 'rgba(210, 216, 222, 0.22)'
-    context.fillRect(size / 2 - 2, 40, 4, 88)
-  }
+  drawRoadSurface(context, size, kind, style)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -726,25 +774,58 @@ const bakeRoadUvs = (
   }
 }
 
-const buildingTone = (
-  tone: number,
-  urban: number,
-  oldTown: number,
-  target: THREE.Color
+// The near disk speaks Kenney, so the mid procedural boxes and the far
+// skyline take their per-instance colour from the SAME kit pick — the
+// palette no longer jumps at the LOD boundaries. Values are the kits'
+// representative wall colours, with a mild luminance jitter from the
+// building's tone roll so rows stay varied.
+const KENNEY_COMMERCIAL_WALL_TONES = [
+  0xefece6, 0xe6d9c4, 0x979db8, 0xc8745e, 0xb6bac2, 0x767b8c
+]
+const KENNEY_SUBURBAN_WALL_TONES = [0xf2f2f0, 0xe9e4d8]
+const KENNEY_SKYSCRAPER_WALL_TONES = [0x4c5160, 0x3f4756, 0x5a6070]
+const KENNEY_INDUSTRIAL_WALL_TONE = 0xd4d6d9
+
+const buildingTone = (building: CityBuilding, target: THREE.Color) => {
+  const pick = kenneyPickForBuilding(building)
+  if (pick.set === 'suburban') {
+    target.setHex(KENNEY_SUBURBAN_WALL_TONES[pick.variant % 2])
+  } else if (pick.set === 'skyscraper') {
+    target.setHex(KENNEY_SKYSCRAPER_WALL_TONES[pick.variant % 3])
+  } else if (pick.set === 'industrial') {
+    target.setHex(KENNEY_INDUSTRIAL_WALL_TONE)
+  } else {
+    target.setHex(
+      KENNEY_COMMERCIAL_WALL_TONES[pick.variant % KENNEY_COMMERCIAL_WALL_TONES.length]
+    )
+  }
+  return target.multiplyScalar(0.9 + building.tone * 0.2)
+}
+
+// Roof colours per kit set for the box LODs: the suburb reads green from
+// the air at every distance, downtown stays dark decked.
+const KENNEY_ROOF_TONES = {
+  suburban: new THREE.Color(0x55b17c),
+  commercial: new THREE.Color(0x3f434c),
+  skyscraper: new THREE.Color(0x30343e),
+  industrial: new THREE.Color(0x7c828c)
+} as const
+
+const attachRoofColorAttribute = (
+  geometry: THREE.BufferGeometry,
+  plan: BuildingRenderPlacement[]
 ) => {
-  // Districts read through the palette: downtown skews glassy blue (higher
-  // saturation, fewer warm facades), the countryside keeps plastered warmth.
-  // `urban` comes from the same zoning field that drives height/archetype mix,
-  // so the colour gradient lines up with the skyline gradient for free. The
-  // old town overrides the density cue: it is as dense as downtown but wears
-  // the warm plaster/brick of the first construction era, so the axial
-  // timeline reads in colour as well as in massing.
-  const warmCut = 0.85 - (1 - urban) * 0.25 - 0.5 * oldTown
-  const isWarm = tone > warmCut
-  const hue = isWarm ? 0.07 : 0.58
-  const saturation = isWarm ? 0.2 + 0.05 * oldTown : 0.12 + urban * 0.12
-  const lightness = 0.38 + tone * 0.34 - 0.05 * oldTown
-  return target.setHSL(hue, saturation, lightness)
+  const colors = new Float32Array(plan.length * 3)
+  for (let index = 0; index < plan.length; index += 1) {
+    const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(plan[index].building).set]
+    colors[index * 3] = roof.r
+    colors[index * 3 + 1] = roof.g
+    colors[index * 3 + 2] = roof.b
+  }
+  geometry.setAttribute(
+    'aRoofColor',
+    new THREE.InstancedBufferAttribute(colors, 3)
+  )
 }
 
 // Suburban default for plan entries without zoning data (synthetic footprints).
@@ -886,13 +967,15 @@ const createFacadeTextureSet = (
   // Bases sit a stop or two brighter than a pure night skin so the daytime color
   // lift (setDaylight) reaches a believable concrete/glass grey instead of near
   // black; night stays dark because the hemisphere light is low after dusk.
+  // Neutral grey bases: the hue comes from the per-instance Kenney wall
+  // tone, so the texture must not fight it with a cast of its own.
   const base =
-    palette?.base ?? (isTower ? '#2b3340' : variant === 'warm' ? '#5b6470' : '#414b58')
+    palette?.base ?? (isTower ? '#33353b' : variant === 'warm' ? '#616164' : '#4a4b4f')
   const rib =
-    palette?.rib ?? (isTower ? '#161d27' : variant === 'warm' ? '#6f6770' : '#2a323d')
+    palette?.rib ?? (isTower ? '#1e2024' : variant === 'warm' ? '#6a6a6e' : '#303236')
   const seam =
     palette?.seam ??
-    (isTower ? 'rgba(177, 198, 216, 0.08)' : 'rgba(255, 218, 183, 0.08)')
+    (isTower ? 'rgba(200, 205, 215, 0.08)' : 'rgba(225, 225, 230, 0.08)')
 
   albedo.fillStyle = base
   albedo.fillRect(0, 0, size, size)
@@ -900,9 +983,9 @@ const createFacadeTextureSet = (
   emissive.fillRect(0, 0, size, size)
 
   const warmWash = albedo.createLinearGradient(0, 0, size, size)
-  warmWash.addColorStop(0, isTower ? 'rgba(255, 150, 96, 0.08)' : 'rgba(255, 160, 108, 0.18)')
-  warmWash.addColorStop(0.55, 'rgba(42, 48, 60, 0.04)')
-  warmWash.addColorStop(1, 'rgba(0, 12, 26, 0.24)')
+  warmWash.addColorStop(0, isTower ? 'rgba(230, 230, 235, 0.05)' : 'rgba(235, 235, 240, 0.08)')
+  warmWash.addColorStop(0.55, 'rgba(45, 45, 50, 0.04)')
+  warmWash.addColorStop(1, 'rgba(10, 10, 14, 0.22)')
   albedo.fillStyle = warmWash
   albedo.fillRect(0, 0, size, size)
 
@@ -1143,15 +1226,15 @@ const disposeTextureSet = (textures: TextureSet) => {
 const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
   undefined, // the original slate
   {
-    base: '#878e94',
-    rib: '#5c636b',
-    seam: 'rgba(40, 48, 58, 0.12)',
-    coolGlass: 'rgba(96, 116, 136, 0.4)'
+    base: '#8b8d92',
+    rib: '#5f6165',
+    seam: 'rgba(45, 46, 50, 0.12)',
+    coolGlass: 'rgba(105, 112, 125, 0.4)'
   }, // pale tile
   {
-    base: '#4d423c',
-    rib: '#2f2823',
-    seam: 'rgba(255, 200, 150, 0.1)',
+    base: '#4b4a49',
+    rib: '#2e2d2c',
+    seam: 'rgba(228, 224, 218, 0.1)',
     litChance: 0.22
   } // warm masonry
 ]
@@ -1162,43 +1245,14 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   undefined,
   undefined,
   {
-    base: '#343b42',
-    rib: '#20262c',
-    seam: 'rgba(208, 190, 170, 0.06)',
-    coolGlass: 'rgba(103, 122, 137, 0.38)',
+    base: '#36383e',
+    rib: '#24262b',
+    seam: 'rgba(210, 210, 216, 0.06)',
+    coolGlass: 'rgba(110, 118, 130, 0.38)',
     litChance: 0.2
   }
 ]
 
-// Deterministic palette pick from fields the building already carries — no
-// plan RNG consumed, stable across focus rebuilds.
-const facadePaletteIndex = (building: CityBuilding, buckets: number) => {
-  const hash = Math.abs(
-    Math.sin(building.azimuth * 53.13 + building.axial * 0.271 + building.tone * 17.3)
-  )
-  return Math.floor(hash * buckets) % buckets
-}
-
-const detailedArchetypeForBuilding = (
-  building: CityBuilding
-): DetailedBuildingArchetype => {
-  if (building.kind === 'house') {
-    return 'house'
-  }
-  if (building.kind === 'tower') {
-    return 'tower'
-  }
-  if (building.kind === 'setback') {
-    return 'setback'
-  }
-  if (building.kind === 'slab') {
-    return 'slab'
-  }
-  if (building.kind === 'lshape') {
-    return 'lshape'
-  }
-  return 'residential'
-}
 
 export class Cityscape {
   readonly group = new THREE.Group()
@@ -1320,6 +1374,34 @@ export class Cityscape {
     emissiveIntensity: 0.22
   })
 
+  // Suburban lot boundaries in the Kenney flat-colour family: clipped
+  // garden hedge and off-white picket fence.
+  private readonly hedgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4c7a3f,
+    roughness: 0.95,
+    metalness: 0
+  })
+
+  private readonly fenceMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe9e6dc,
+    roughness: 0.8,
+    metalness: 0.05
+  })
+
+  // Kit garden props (fence modules, path slabs, trees) share the suburban
+  // colormap but NOT the building shader patches, so they get a plain
+  // sibling material built when the pack arrives.
+  private suburbanPropMaterial: THREE.MeshStandardMaterial | null = null
+
+  // Roofs of the box LODs (mid procedural + far skyline): white base tinted
+  // per instance by the aRoofColor attribute, so a suburb reads green from
+  // the air at every distance while downtown stays dark decked.
+  private readonly kenneyRoofMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0.08
+  })
+
   private readonly buildingSignMaterials = this.signTextureSets.map(
     (set) =>
       new THREE.MeshStandardMaterial({
@@ -1404,6 +1486,8 @@ export class Cityscape {
   // (setDaylight). The texture is shared between albedo and emissive map.
   private readonly arterialRoadTexture = createRoadTexture('arterial')
   private readonly localRoadTexture = createRoadTexture('local')
+  private readonly arterialRoadGlowTexture = createRoadTexture('arterial', 'glow')
+  private readonly localRoadGlowTexture = createRoadTexture('local', 'glow')
 
   // No polygonOffset on any land-layer material: the logarithmic depth buffer
   // writes gl_FragDepth, which discards the rasterizer's polygon offset
@@ -1412,9 +1496,21 @@ export class Cityscape {
   private readonly localRoadMaterial = new THREE.MeshStandardMaterial({
     map: this.localRoadTexture,
     emissive: ROAD_GLOW.clone(),
-    emissiveMap: this.localRoadTexture,
+    emissiveMap: this.localRoadGlowTexture,
     emissiveIntensity: 0,
     roughness: 0.9,
+    metalness: 0,
+    side: THREE.BackSide
+  })
+
+  // Back lanes: bare concrete, deliberately WITHOUT the night glow — the
+  // teal grid stays the arterial/local signature while the alleys read as
+  // the unlit service capillaries between the rings. Painted at full range
+  // so block interiors show their lanes from any altitude (the near tile
+  // overlay only reaches a couple hundred meters).
+  private readonly alleyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x43464e,
+    roughness: 0.95,
     metalness: 0,
     side: THREE.BackSide
   })
@@ -1422,7 +1518,7 @@ export class Cityscape {
   private readonly roadMaterial = new THREE.MeshStandardMaterial({
     map: this.arterialRoadTexture,
     emissive: ROAD_GLOW.clone(),
-    emissiveMap: this.arterialRoadTexture,
+    emissiveMap: this.arterialRoadGlowTexture,
     emissiveIntensity: 0,
     roughness: 0.9,
     metalness: 0,
@@ -1595,6 +1691,10 @@ export class Cityscape {
   private archetypeBatches: THREE.InstancedMesh[] = []
   private detailedBuildingBatches: THREE.InstancedMesh[] = []
   private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
+  private kenneyBuildingGeometries: KenneyBuildingGeometryPack | null = null
+  private roadTilePack: RoadTileGeometryPack | null = null
+  private roadTileMeshes: THREE.InstancedMesh[] = []
+  private readonly roadTileDistance: number
   private disposed = false
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
   // building batches (same focus-driven rebuild + dispose cycle).
@@ -1604,7 +1704,12 @@ export class Cityscape {
   private heroStreetBatches: THREE.InstancedMesh[] = []
   // Ambient traffic: a persistent capacity-sized batch; focus changes only
   // reassign routes, update() moves the cars every frame.
-  private traffic: THREE.InstancedMesh | null = null
+  // Traffic fleet: one InstancedMesh per car model once the Car Kit pack
+  // arrives; a single procedural box-car mesh before that. Route index maps
+  // to (index % fleet, index / fleet).
+  private trafficMeshes: THREE.InstancedMesh[] = []
+  private trafficKitBacked = false
+  private kenneyCarGeometries: KenneyCarGeometryPack | null = null
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
   private cityPlanRoads: CityRoad[] = []
@@ -1623,6 +1728,7 @@ export class Cityscape {
   private endSun: THREE.DirectionalLight | null = null
   private roads: THREE.Mesh | null = null
   private localRoads: THREE.Mesh | null = null
+  private alleyRoads: THREE.Mesh | null = null
   private patchMeshes: THREE.Mesh[] = []
   private trees: THREE.InstancedMesh | null = null
   private lamps: THREE.InstancedMesh | null = null
@@ -1652,6 +1758,7 @@ export class Cityscape {
   private readonly detailedLod1Distance: number
   private readonly maxDetailedLod0: number
   private readonly maxDetailedLod1: number
+  private readonly lod1FullKitGeometry: boolean
 
   constructor(
     dimensions: CityscapeDimensions,
@@ -1665,14 +1772,17 @@ export class Cityscape {
       this.detailedLod0Distance,
       options?.detailedLod1Distance ?? 350
     )
+    this.lod1FullKitGeometry = options?.lod1FullKitGeometry ?? true
     this.maxDetailedLod0 = options?.maxDetailedLod0 ?? 180
     this.maxDetailedLod1 = options?.maxDetailedLod1 ?? 700
+    this.roadTileDistance = options?.roadTileDistance ?? 0
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
     for (const material of [
       this.roadMaterial,
       this.localRoadMaterial,
+      this.alleyMaterial,
       this.bridgeMaterial,
       this.bridgeEdgeMaterial
     ]) {
@@ -1698,14 +1808,175 @@ export class Cityscape {
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
       this.buildingRoofMaterial,
+      this.kenneyRoofMaterial,
       ...this.buildingSignMaterials,
       this.roofClutterMaterial
     ]) {
       this.installBuildingLodDither(material)
     }
+    this.installRoofColor(this.kenneyRoofMaterial)
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
+    // Kenney BUILDING shells are stripped (toming, 2026-07-22): the kit's
+    // stylized look never gelled with the colony's realism target, so the
+    // harmonized boxes carry every distance until the procedural facade skin
+    // (docs/far-field-lod.md) lands. The pack loader is kept dormant — the
+    // "pack unavailable" fallback contract below is now the design, and the
+    // kenneyPick-derived palette still colors the boxes (pure data, no GLB).
+    // Cars and road tiles stay: they were never the aesthetic complaint.
+    void this.loadKenneyCarAssets()
+    if (this.roadTileDistance > 0) {
+      void this.loadRoadTileAssets()
+    }
+  }
+
+  private async loadKenneyCarAssets() {
+    try {
+      const pack = await loadKenneyCarGeometryPack()
+      if (this.disposed) {
+        disposeKenneyCarGeometryPack(pack)
+        return
+      }
+      this.kenneyCarGeometries = pack
+      // Swap the fleet in place: rebuild allocates the per-model meshes and
+      // re-deals the routes.
+      this.rebuildTraffic()
+    } catch (error) {
+      console.warn('Kenney car pack unavailable; using procedural traffic', error)
+    }
+  }
+
+  private async loadRoadTileAssets() {
+    try {
+      const pack = await loadRoadTileGeometryPack()
+      if (this.disposed) {
+        disposeRoadTileGeometryPack(pack)
+        return
+      }
+
+      this.roadTilePack = pack
+      this.rebuildRoadTiles()
+    } catch (error) {
+      // Same contract as the building pack: the painted roads are a complete
+      // fallback, so a missing cosmetic GLB never blocks boot.
+      console.warn('Road tile pack unavailable; keeping painted roads', error)
+    }
+  }
+
+  private clearRoadTiles() {
+    for (const mesh of this.roadTileMeshes) {
+      this.group.remove(mesh)
+      mesh.dispose()
+    }
+    this.roadTileMeshes = []
+  }
+
+  // Re-instance the near-player road overlay. Cheap enough to run on every
+  // detail-focus step: a full rebuild is a few hundred matrix composes.
+  private rebuildRoadTiles() {
+    this.clearRoadTiles()
+
+    if (
+      this.roadTilePack === null ||
+      this.roadTileDistance <= 0 ||
+      this.cityPlanRoads.length === 0 ||
+      this.radius <= 0
+    ) {
+      return
+    }
+
+    // Arterial cross-streets continue over the windows as bridges (see
+    // buildWindowBridges), so for the overlay each arterial street row is ONE
+    // full ring: the tiles run onto the bridge decks and the strip-edge
+    // junctions become crossroads instead of dead-end Ts. The pseudo-ring is
+    // sized to the bridge deck (deckWidth * ROAD_DECK_FRACTION), slightly
+    // narrower than the street tiles were, so nothing overhangs the glass.
+    // One ring per axial row — the three per-strip street rects would
+    // otherwise triple-tile the same ring.
+    let plannerRoads = this.cityPlanRoads
+    if (getWindowArcs(this.topology).length > 0) {
+      const deckWidth = THREE.MathUtils.clamp(
+        getArterialRoadWidth(this.radius, this.length) * 1.15,
+        4,
+        28
+      )
+      const seenRingAxials: number[] = []
+      plannerRoads = []
+      for (const road of this.cityPlanRoads) {
+        const isArterialStreet =
+          road.kind === 'arterial' && road.tangentWidth > road.axialLength
+        if (!isArterialStreet) {
+          plannerRoads.push(road)
+          continue
+        }
+        if (seenRingAxials.some((axial) => Math.abs(axial - road.axial) < 0.5)) {
+          continue
+        }
+        seenRingAxials.push(road.axial)
+        plannerRoads.push({
+          ...road,
+          tangentWidth: Math.PI * 2 * this.radius,
+          axialLength: deckWidth * 0.8
+        })
+      }
+    }
+
+    const placements = planRoadTilePlacements({
+      roads: plannerRoads,
+      radius: this.radius,
+      focusAzimuth: this.cityFocusAzimuth,
+      focusAxial: this.cityFocusAxial,
+      rangeMeters: this.roadTileDistance
+    })
+
+    const byKind = new Map<RoadTileKind, typeof placements>()
+    for (const placement of placements) {
+      const list = byKind.get(placement.kind) ?? []
+      list.push(placement)
+      byKind.set(placement.kind, list)
+    }
+
+    for (const [kind, list] of byKind) {
+      const mesh = new THREE.InstancedMesh(
+        this.roadTilePack.geometries[kind],
+        this.roadTilePack.material,
+        list.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+
+      for (let index = 0; index < list.length; index += 1) {
+        const placement = list[index]
+        const cos = Math.cos(placement.azimuth)
+        const sin = Math.sin(placement.azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        binormal.copy(tangent).cross(inward)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        roadTileYawQuaternion.setFromAxisAngle(
+          localYAxis,
+          placement.quarterTurns * (Math.PI / 2)
+        )
+        instanceQuaternion.multiply(roadTileYawQuaternion)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - getRoadTileLiftMeters(this.radius))
+          .setY(placement.axial)
+        instanceScale.set(
+          placement.alongMeters,
+          ROAD_TILE_HEIGHT_SCALE,
+          placement.crossMeters
+        )
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+      this.roadTileMeshes.push(mesh)
+      this.group.add(mesh)
+    }
   }
 
   private async loadDetailedBuildingAssets() {
@@ -1765,6 +2036,23 @@ export class Cityscape {
     }
   }
 
+  // Roof faces read their tint from aRoofColor INSTEAD of the wall's
+  // instanceColor: the same instance carries a wall colour for its sides
+  // and a roof colour for its deck.
+  private installRoofColor(material: THREE.MeshStandardMaterial) {
+    const previousCompile = material.onBeforeCompile
+    material.onBeforeCompile = (shader, renderer) => {
+      previousCompile(shader, renderer)
+      shader.vertexShader =
+        'attribute vec3 aRoofColor;\n' +
+        shader.vertexShader.replace(
+          '#include <color_vertex>',
+          '#include <color_vertex>\n#ifdef USE_INSTANCING_COLOR\n  vColor.rgb = aRoofColor;\n#endif'
+        )
+    }
+    material.needsUpdate = true
+  }
+
   // Per-instance strobing for the aviation beacons: a short bright flash on each
   // beacon's own phase, over a dim steady-red floor. Pushed into HDR so it reads
   // day and night and blooms on desktop.
@@ -1801,9 +2089,9 @@ export class Cityscape {
   }
 
   private updateTraffic(deltaSeconds: number) {
-    const mesh = this.traffic
+    const fleet = this.trafficMeshes
 
-    if (mesh === null || this.trafficRoutes.length === 0) {
+    if (fleet.length === 0 || this.trafficRoutes.length === 0) {
       return
     }
 
@@ -1851,10 +2139,15 @@ export class Cityscape {
       instancePosition.set(cos, 0, sin).multiplyScalar(route.surfaceRadius).setY(axial)
       instanceScale.setScalar(route.scale)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
+      fleet[index % fleet.length].setMatrixAt(
+        Math.floor(index / fleet.length),
+        instanceMatrix
+      )
     }
 
-    mesh.instanceMatrix.needsUpdate = true
+    for (const mesh of fleet) {
+      mesh.instanceMatrix.needsUpdate = true
+    }
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
@@ -1913,7 +2206,25 @@ export class Cityscape {
       maxBuildings: this.maxBuildings,
       topology: this.topology
     })
-    this.collisionBuildings = [...plan.buildings]
+    // Physics tracks what the player sees: suburban houses collide at their
+    // fitted real-size box (walkable garden instead of an invisible wall
+    // across the lot). The fit is baked math, so it also covers the moment
+    // before the GLB pack arrives; the fallback box briefly overhangs the
+    // collider in the far countryside, which nothing at spawn can reach.
+    this.collisionBuildings = plan.buildings.map((building) => {
+      const houseFit = fitSuburbanHouse(building)
+      if (houseFit === null) {
+        return building
+      }
+      return {
+        ...building,
+        azimuth: building.azimuth + houseFit.tangentOffset / radius,
+        axial: building.axial + houseFit.axialOffset,
+        width: houseFit.tangentExtent,
+        depth: houseFit.axialExtent,
+        height: houseFit.height
+      }
+    })
 
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
@@ -1926,6 +2237,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.buildBuildings(plan.buildings)
+    this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
     this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
@@ -2026,6 +2338,17 @@ export class Cityscape {
     }
     this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
     this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
+    // The Kenney kits glow through their glass-masked emissive maps, so the
+    // whole skyline keeps the night-window signature.
+    if (this.kenneyBuildingGeometries !== null) {
+      this.kenneyBuildingGeometries.commercialMaterial.emissiveIntensity =
+        windowGlow * 0.5
+      this.kenneyBuildingGeometries.suburbanMaterial.emissiveIntensity =
+        windowGlow * 0.38
+      // Warehouses run night shifts on a dimmer roster.
+      this.kenneyBuildingGeometries.industrialMaterial.emissiveIntensity =
+        windowGlow * 0.24
+    }
     // The facade albedo is authored dark (a night base + lit-window cut-outs);
     // lift it hard through the day so sunlit walls read as a daytime city rather
     // than the dim night skin. Roofs lift too, and dim below 1 at night so only
@@ -2041,6 +2364,7 @@ export class Cityscape {
       material.color.setScalar(facadeLift)
     }
     this.buildingRoofMaterial.color.setScalar(0.55 + daylight * 1.35)
+    this.kenneyRoofMaterial.color.setScalar(0.5 + daylight * 0.75)
     for (const material of this.buildingSignMaterials) {
       material.color.setScalar(0.78 + daylight * 0.55)
       material.emissiveIntensity = night * night * 0.75
@@ -2157,17 +2481,29 @@ export class Cityscape {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
       this.detailedBuildingGeometries = null
     }
+    if (this.kenneyBuildingGeometries !== null) {
+      disposeKenneyBuildingGeometryPack(this.kenneyBuildingGeometries)
+      this.kenneyBuildingGeometries = null
+    }
+    if (this.roadTilePack !== null) {
+      disposeRoadTileGeometryPack(this.roadTilePack)
+      this.roadTilePack = null
+    }
     for (const material of [
       ...this.buildingSideMaterials,
       this.houseBuildingSideMaterial,
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      ...this.buildingSignMaterials
+      ...this.buildingSignMaterials,
+      this.hedgeMaterial,
+      this.fenceMaterial
     ]) {
       material.dispose()
     }
+    this.suburbanPropMaterial?.dispose()
     this.buildingRoofMaterial.dispose()
+    this.kenneyRoofMaterial.dispose()
 
     for (const set of [
       ...this.smallFacadeTextureSets,
@@ -2191,6 +2527,9 @@ export class Cityscape {
     this.roadMaterial.dispose()
     this.localRoadMaterial.map?.dispose()
     this.localRoadMaterial.dispose()
+    this.alleyMaterial.dispose()
+    this.arterialRoadGlowTexture.dispose()
+    this.localRoadGlowTexture.dispose()
     this.bridgeMaterial.map?.dispose()
     this.bridgeMaterial.dispose()
     this.bridgeEdgeMaterial.dispose()
@@ -2256,6 +2595,7 @@ export class Cityscape {
   }
 
   private clear() {
+    this.clearRoadTiles()
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
@@ -2272,10 +2612,14 @@ export class Cityscape {
       this.expresswayGroup = null
     }
 
-    if (this.traffic !== null) {
-      this.traffic.geometry.dispose()
-      this.group.remove(this.traffic)
-      this.traffic = null
+    for (const mesh of this.trafficMeshes) {
+      mesh.geometry.dispose()
+      this.group.remove(mesh)
+    }
+    this.trafficMeshes = []
+    if (this.kenneyCarGeometries !== null) {
+      disposeKenneyCarGeometryPack(this.kenneyCarGeometries)
+      this.kenneyCarGeometries = null
     }
 
     this.disposeBuildingBatches()
@@ -2297,7 +2641,8 @@ export class Cityscape {
       this.spineRings,
       this.bridges,
       this.bridgeEdges,
-      this.localRoads
+      this.localRoads,
+      this.alleyRoads
     ]) {
       if (single !== null) {
         single.geometry.dispose()
@@ -2315,6 +2660,7 @@ export class Cityscape {
     this.bridges = null
     this.bridgeEdges = null
     this.localRoads = null
+    this.alleyRoads = null
 
     if (this.towerGroup !== null) {
       for (const child of this.towerGroup.children) {
@@ -2430,6 +2776,10 @@ export class Cityscape {
       this.rebuildNearBuildingBatches()
       this.rebuildTraffic()
     }
+
+    if (detailChanged || batchChanged) {
+      this.rebuildRoadTiles()
+    }
   }
 
   private rebuildBuildingBatches() {
@@ -2462,9 +2812,10 @@ export class Cityscape {
     this.disposeNearBuildingBatches()
 
     let procedural = this.cityNearBuildings.map(stableBuildingPlacement)
-    const pack = this.detailedBuildingGeometries
 
-    if (pack !== null) {
+    // The LOD selection keys on the Kenney pack: it dresses every building,
+    // and until it arrives the procedural city carries the whole near disk.
+    if (this.kenneyBuildingGeometries !== null) {
       type Candidate = {
         building: CityBuilding
         distance: number
@@ -2494,11 +2845,22 @@ export class Cityscape {
           building.azimuth,
           building.axial
         )
-        const candidate = {
-          building,
-          distance,
-          blend: getDetailedBuildingLodBlend(distance, thresholds)
+        let blend = getDetailedBuildingLodBlend(distance, thresholds)
+        if (
+          !this.lod1FullKitGeometry &&
+          blend.lod1 > 0 &&
+          kenneyPickForBuilding(building).set !== 'commercial'
+        ) {
+          // No authored low-detail for this set: beyond LOD0 the harmonized
+          // box takes over directly instead of hauling full kit geometry
+          // across the whole LOD1 band.
+          blend = {
+            lod0: blend.lod0,
+            lod1: 0,
+            procedural: Math.min(1, blend.lod1 + blend.procedural)
+          }
         }
+        const candidate = { building, distance, blend }
         candidates.push(candidate)
 
         if (candidate.blend.lod0 > 0) {
@@ -2542,6 +2904,18 @@ export class Cityscape {
           lod1.push({
             building,
             ditherThreshold: blend.lod1,
+            ditherMode: 1
+          })
+        } else if (useLod0 && blend.procedural > 0) {
+          // Box-LOD1 sets fade straight from LOD0 to the harmonized box.
+          lod0.push({
+            building,
+            ditherThreshold: blend.procedural,
+            ditherMode: -1
+          })
+          procedural.push({
+            building,
+            ditherThreshold: blend.procedural,
             ditherMode: 1
           })
         } else if (useLod0) {
@@ -2781,68 +3155,51 @@ export class Cityscape {
     plan: BuildingRenderPlacement[],
     lod: 0 | 1
   ) {
-    const pack = this.detailedBuildingGeometries
-    if (pack === null) {
+    // The whole skyline is Kenney: every near building batches per
+    // (set, variant). The Japanese kit is retired for buildings — its GLB
+    // stays loaded only for the street furniture.
+    const kenneyPack = this.kenneyBuildingGeometries
+    if (kenneyPack === null) {
       return
     }
 
-    for (const archetype of [
-      'house',
-      'residential',
-      'setback',
-      'slab',
-      'lshape',
-      'tower'
-    ] as const satisfies readonly DetailedBuildingArchetype[]) {
-      const buildings = plan.filter(
-        (placement) =>
-          detailedArchetypeForBuilding(placement.building) === archetype
-      )
-      if (buildings.length === 0) {
-        continue
-      }
+    const kenneyGroups = new Map<string, {
+      set: KenneyBuildingSet
+      variant: number
+      list: BuildingRenderPlacement[]
+    }>()
 
-      const sideMaterial =
-        archetype === 'house'
-          ? this.houseBuildingSideMaterial
-          : archetype === 'tower'
-            ? this.towerBuildingSideMaterials[2]
-            : archetype === 'lshape'
-              ? this.largeBuildingSideMaterials[2]
-              : archetype === 'slab'
-                ? this.largeBuildingSideMaterials[1]
-                : archetype === 'setback'
-                  ? this.largeBuildingSideMaterials[0]
-                  : this.buildingSideMaterials[0]
-      const grid =
-        archetype === 'house'
-          ? GRID_HOUSE
-          : archetype === 'tower'
-            ? GRID_TOWER
-            : archetype === 'slab' ||
-                archetype === 'setback' ||
-                archetype === 'lshape'
-              ? GRID_DENSE
-              : GRID_WARM
-      const signMaterial =
-        this.buildingSignMaterials[
-          archetype === 'house'
-            ? 0
-            : archetype === 'residential'
-              ? 1
-              : archetype === 'setback'
-                ? 0
-                : 2
-        ]
-      const batch = this.buildDetailedBuildingBatch(
-        buildings,
-        pack[archetype][lod],
-        sideMaterial,
-        signMaterial,
-        grid
-      )
-      this.detailedBuildingBatches.push(batch)
+    for (const placement of plan) {
+      const pick = kenneyPickForBuilding(placement.building)
+      const key = `${pick.set}:${pick.variant}`
+      const group = kenneyGroups.get(key) ?? { ...pick, list: [] }
+      group.list.push(placement)
+      kenneyGroups.set(key, group)
     }
+
+    for (const group of kenneyGroups.values()) {
+      const pair = kenneyPack[group.set][group.variant]
+      this.detailedBuildingBatches.push(
+        this.buildKenneyBuildingBatch(
+          group.list,
+          pair[lod],
+          group.set === 'suburban'
+            ? kenneyPack.suburbanMaterial
+            : group.set === 'industrial'
+              ? kenneyPack.industrialMaterial
+              : kenneyPack.commercialMaterial,
+          group.set === 'suburban' ? 'uniform' : 'stretch'
+        )
+      )
+    }
+
+    // Lot boundaries ride the same pack gate: the procedural fallback
+    // still fills whole lots before the pack arrives, and a hedge inside
+    // it would clip.
+    if (lod === 0) {
+      this.buildSuburbanBoundaryBatches(plan)
+    }
+
   }
 
   private buildProceduralNearBatches(near: BuildingRenderPlacement[]) {
@@ -2922,19 +3279,46 @@ export class Cityscape {
   }
 
   private ensureTrafficMesh() {
-    if (this.traffic !== null || this.maxTraffic <= 0) {
+    if (this.maxTraffic <= 0) {
+      return
+    }
+    const pack = this.kenneyCarGeometries
+    const wantKit = pack !== null
+    if (this.trafficMeshes.length > 0 && this.trafficKitBacked === wantKit) {
       return
     }
 
-    const mesh = new THREE.InstancedMesh(
-      buildTrafficCarGeometry(),
-      [this.trafficBodyMaterial, this.headlightMaterial, this.taillightMaterial],
-      this.maxTraffic
-    )
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    mesh.frustumCulled = false
-    this.traffic = mesh
-    this.group.add(mesh)
+    for (const mesh of this.trafficMeshes) {
+      mesh.geometry.dispose()
+      this.group.remove(mesh)
+    }
+    this.trafficMeshes = []
+
+    if (pack !== null) {
+      const capacity = Math.ceil(this.maxTraffic / pack.cars.length)
+      for (const car of pack.cars) {
+        const mesh = new THREE.InstancedMesh(
+          car.clone(),
+          [pack.material, this.headlightMaterial, this.taillightMaterial],
+          capacity
+        )
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+        mesh.frustumCulled = false
+        this.trafficMeshes.push(mesh)
+        this.group.add(mesh)
+      }
+    } else {
+      const mesh = new THREE.InstancedMesh(
+        buildTrafficCarGeometry(),
+        [this.trafficBodyMaterial, this.headlightMaterial, this.taillightMaterial],
+        this.maxTraffic
+      )
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      mesh.frustumCulled = false
+      this.trafficMeshes.push(mesh)
+      this.group.add(mesh)
+    }
+    this.trafficKitBacked = wantKit
   }
 
   // Deal the car fleet onto the arterial roads around the focus arc and the
@@ -2945,16 +3329,16 @@ export class Cityscape {
     this.trafficRoutes = []
 
     if (this.maxTraffic <= 0 || this.radius <= 0 || this.cityPlanRoads.length === 0) {
-      if (this.traffic !== null) {
-        this.traffic.count = 0
+      for (const mesh of this.trafficMeshes) {
+        mesh.count = 0
       }
       return
     }
 
     this.ensureTrafficMesh()
-    const mesh = this.traffic
+    const fleet = this.trafficMeshes
 
-    if (mesh === null) {
+    if (fleet.length === 0) {
       return
     }
 
@@ -3027,7 +3411,9 @@ export class Cityscape {
     }
 
     if (candidates.length === 0 || totalSpan <= 0) {
-      mesh.count = 0
+      for (const mesh of fleet) {
+        mesh.count = 0
+      }
       return
     }
 
@@ -3065,7 +3451,12 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        mesh.setColorAt(count, instanceColor)
+        if (!this.trafficKitBacked) {
+          fleet[count % fleet.length].setColorAt(
+            Math.floor(count / fleet.length),
+            instanceColor
+          )
+        }
         count += 1
       }
     }
@@ -3109,15 +3500,23 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        mesh.setColorAt(count, instanceColor)
+        if (!this.trafficKitBacked) {
+          fleet[count % fleet.length].setColorAt(
+            Math.floor(count / fleet.length),
+            instanceColor
+          )
+        }
         count += 1
       }
     }
 
-    mesh.count = count
-
-    if (mesh.instanceColor !== null) {
-      mesh.instanceColor.needsUpdate = true
+    for (let variant = 0; variant < fleet.length; variant += 1) {
+      const mesh = fleet[variant]
+      mesh.count =
+        count === 0 ? 0 : Math.max(0, Math.floor((count - 1 - variant) / fleet.length) + 1)
+      if (mesh.instanceColor !== null) {
+        mesh.instanceColor.needsUpdate = true
+      }
     }
 
     // Place everyone immediately so a focus change never shows a frame of
@@ -3142,7 +3541,7 @@ export class Cityscape {
     const geometry = new THREE.BoxGeometry(1, 1, 1)
     const side = this.farBuildingSideMaterial
     // BoxGeometry group order: +x, -x, +y, -y, +z, -z; local +y is the roof.
-    const materials = [side, side, this.buildingRoofMaterial, this.buildingRoofMaterial, side, side]
+    const materials = [side, side, this.kenneyRoofMaterial, this.kenneyRoofMaterial, side, side]
     const mesh = new THREE.InstancedMesh(geometry, materials, capacity)
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     mesh.frustumCulled = false
@@ -3153,6 +3552,10 @@ export class Cityscape {
     geometry.setAttribute(
       'aLodDither',
       new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2)
+    )
+    geometry.setAttribute(
+      'aRoofColor',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3)
     )
     this.farBuildings = mesh
     this.group.add(mesh)
@@ -3167,6 +3570,8 @@ export class Cityscape {
     }
 
     const uvScales = (mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute)
+      .array as Float32Array
+    const roofColors = (mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute)
       .array as Float32Array
     let count = 0
 
@@ -3205,8 +3610,12 @@ export class Cityscape {
       mesh.setMatrixAt(count, instanceMatrix)
       mesh.setColorAt(
         count,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
+      const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(building).set]
+      roofColors[count * 3] = roof.r
+      roofColors[count * 3 + 1] = roof.g
+      roofColors[count * 3 + 2] = roof.b
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
         building.height,
@@ -3220,6 +3629,7 @@ export class Cityscape {
     mesh.count = count
     mesh.instanceMatrix.needsUpdate = true
     ;(mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute).needsUpdate = true
+    ;(mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute).needsUpdate = true
 
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
@@ -3241,7 +3651,9 @@ export class Cityscape {
             building.kind === 'setback' ||
             building.kind === 'slab') &&
           building.height >= 10 &&
-          Math.min(building.width, building.depth) >= 6
+          Math.min(building.width, building.depth) >= 6 &&
+          // Kenney-dressed buildings bring their own styled roofs.
+          kenneyPickForBuilding(building) === null
       )
       .sort((a, b) => b.building.height - a.building.height)
       .slice(0, 2000)
@@ -3343,25 +3755,60 @@ export class Cityscape {
     }
   }
 
-  private buildDetailedBuildingBatch(
+  // A Kenney-kit batch: the kit's palette material carries the colour, so
+  // there is no per-instance tone and no facade UV grid — just the footprint
+  // transform and the LOD dither attribute. Commercial models are window-grid
+  // prisms and stretch to the lot like the authored pack ('stretch', unit-box
+  // geometry); suburban houses keep their aspect and fit the lot uniformly
+  // ('uniform', base-at-0 geometry) with the leftover lot as garden.
+  private buildKenneyBuildingBatch(
     plan: BuildingRenderPlacement[],
     sourceGeometry: THREE.BufferGeometry,
-    sideMaterial: THREE.MeshStandardMaterial,
-    signMaterial: THREE.MeshStandardMaterial,
-    grid: FacadeGrid
+    material: THREE.MeshStandardMaterial,
+    fit: 'stretch' | 'uniform'
   ) {
     const geometry = sourceGeometry.clone()
-    const mesh = new THREE.InstancedMesh(
-      geometry,
-      [sideMaterial, this.buildingRoofMaterial, signMaterial],
-      plan.length
-    )
+    const mesh = new THREE.InstancedMesh(geometry, material, plan.length)
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     mesh.frustumCulled = false
-    const uvScales = new Float32Array(plan.length * 2)
+    const modelSize =
+      fit === 'uniform'
+        ? (geometry.boundingBox ?? new THREE.Box3()).getSize(new THREE.Vector3())
+        : null
 
     for (let index = 0; index < plan.length; index += 1) {
       const building = plan[index].building
+      const houseFit = fit === 'uniform' ? fitSuburbanHouse(building) : null
+
+      if (houseFit !== null) {
+        // Real-size placement: the house holds its stature, sits a lawn's
+        // setback behind the lot's street edge, and aims its facade (+Z of
+        // the normalized model) at the fronting road. Offsets move along the
+        // curved surface (azimuth shift), not the chord, so the base stays
+        // seated at the ground radius.
+        const azimuth = building.azimuth + houseFit.tangentOffset / this.radius
+        const cos = Math.cos(azimuth)
+        const sin = Math.sin(azimuth)
+        tangent.set(-sin, 0, cos)
+        inward.set(-cos, 0, -sin)
+        if (houseFit.front.axis === 'axial') {
+          binormal.set(0, houseFit.front.side, 0)
+        } else {
+          binormal.copy(tangent).multiplyScalar(houseFit.front.side)
+        }
+        tangent.copy(inward).cross(binormal)
+        basis.makeBasis(tangent, inward, binormal)
+        instanceQuaternion.setFromRotationMatrix(basis)
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius)
+          .setY(building.axial + houseFit.axialOffset)
+        instanceScale.setScalar(houseFit.scale)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+        continue
+      }
+
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
       tangent.set(-sin, 0, cos)
@@ -3369,42 +3816,253 @@ export class Cityscape {
       binormal.copy(tangent).cross(inward)
       basis.makeBasis(tangent, inward, binormal)
       instanceQuaternion.setFromRotationMatrix(basis)
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(this.radius - building.height * 0.5)
-        .setY(building.axial)
-      instanceScale.set(building.width, building.height, building.depth)
+
+      if (fit === 'uniform' && modelSize !== null) {
+        const scale = Math.min(
+          building.width / Math.max(modelSize.x, 1e-6),
+          building.height / Math.max(modelSize.y, 1e-6),
+          building.depth / Math.max(modelSize.z, 1e-6)
+        )
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius)
+          .setY(building.axial)
+        instanceScale.setScalar(scale)
+      } else {
+        instancePosition
+          .set(cos, 0, sin)
+          .multiplyScalar(this.radius - building.height * 0.5)
+          .setY(building.axial)
+        instanceScale.set(building.width, building.height, building.depth)
+      }
+
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       mesh.setMatrixAt(index, instanceMatrix)
-      mesh.setColorAt(
-        index,
-        buildingTone(
-          building.tone,
-          building.urban ?? DEFAULT_URBAN,
-          building.oldTown ?? 0,
-          instanceColor
-        )
-      )
-      writeFacadeUvScale(
-        (building.width + building.depth) * 0.5,
-        building.height,
-        grid,
-        uvScales,
-        index * 2
-      )
     }
 
-    geometry.setAttribute(
-      'aUvScale',
-      new THREE.InstancedBufferAttribute(uvScales, 2)
-    )
     attachBuildingLodDither(geometry, plan)
     mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor !== null) {
-      mesh.instanceColor.needsUpdate = true
-    }
     this.group.add(mesh)
     return mesh
+  }
+
+  // One InstancedMesh per boundary style: every suburban parcel in the near
+  // disk gets its hedge/fence run. Flat-colour unit boxes (base at y=0) on
+  // the cylinder basis — no per-instance UV grid, no dither attribute; the
+  // boundary arrives and leaves with the LOD0 batch it belongs to.
+  private buildSuburbanBoundaryBatches(plan: BuildingRenderPlacement[]) {
+    const kenneyPack = this.kenneyBuildingGeometries
+    const styled: Record<
+      SuburbanLotBoundary['style'],
+      Array<{
+        building: CityBuilding
+        segment: SuburbanLotBoundarySegment
+        height: number
+      }>
+    > = { hedge: [], fence: [] }
+    type WorldRect = {
+      building: CityBuilding
+      tangentOffset: number
+      axialOffset: number
+      tangentExtent: number
+      axialExtent: number
+      height: number
+    }
+    const paths: WorldRect[] = []
+    const treesSmall: WorldRect[] = []
+    const treesLarge: WorldRect[] = []
+
+    for (const placement of plan) {
+      const building = placement.building
+      const houseFit = fitSuburbanHouse(building)
+      if (houseFit === null) {
+        continue
+      }
+      const boundary = suburbanLotBoundary(building, houseFit)
+      for (const segment of boundary.segments) {
+        styled[boundary.style].push({
+          building,
+          segment,
+          height: boundary.height
+        })
+      }
+      const garden = suburbanGardenPlan(building, houseFit)
+      if (garden.path !== null) {
+        paths.push({ building, ...garden.path, height: 1 })
+      }
+      for (const tree of garden.trees) {
+        const list = tree.height < 3.4 ? treesSmall : treesLarge
+        list.push({
+          building,
+          tangentOffset: tree.tangentOffset,
+          axialOffset: tree.axialOffset,
+          tangentExtent: tree.height,
+          axialExtent: tree.height,
+          height: tree.height
+        })
+      }
+    }
+
+    const composeAt = (
+      building: CityBuilding,
+      tangentOffset: number,
+      axialOffset: number,
+      lift: number,
+      swapAxes: boolean
+    ) => {
+      const azimuth = building.azimuth + tangentOffset / this.radius
+      const cos = Math.cos(azimuth)
+      const sin = Math.sin(azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      if (swapAxes) {
+        // Local X runs along the cylinder axis instead of the ring.
+        binormal.copy(tangent)
+        tangent.copy(inward).cross(binormal)
+      } else {
+        binormal.copy(tangent).cross(inward)
+      }
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - lift)
+        .setY(building.axial + axialOffset)
+    }
+
+    // Hedges stay sculpted boxes — a clipped hedge IS a green box.
+    const hedges = styled.hedge
+    if (hedges.length > 0) {
+      const geometry = new THREE.BoxGeometry(1, 1, 1)
+      geometry.translate(0, 0.5, 0)
+      const mesh = new THREE.InstancedMesh(geometry, this.hedgeMaterial, hedges.length)
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+      for (let index = 0; index < hedges.length; index += 1) {
+        const { building, segment, height } = hedges[index]
+        composeAt(building, segment.tangentOffset, segment.axialOffset, 0, false)
+        instanceScale.set(segment.tangentExtent, height, segment.axialExtent)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
+
+    // Picket fences are the real kit module, tiled along each run. Falls
+    // back to the painted box until the pack (and its prop material) is in.
+    const fences = styled.fence
+    if (fences.length > 0) {
+      if (kenneyPack !== null && this.suburbanPropMaterial !== null) {
+        type Module = { building: CityBuilding; t: number; a: number; w: number; run: 'tangent' | 'axial' }
+        const modules: Module[] = []
+        for (const { building, segment } of fences) {
+          const runAxis =
+            segment.tangentExtent >= segment.axialExtent ? 'tangent' : 'axial'
+          const run =
+            runAxis === 'tangent' ? segment.tangentExtent : segment.axialExtent
+          const count = Math.max(1, Math.round(run / 1.9))
+          const moduleWidth = run / count
+          for (let k = 0; k < count; k += 1) {
+            const along = -run / 2 + (k + 0.5) * moduleWidth
+            modules.push({
+              building,
+              t: segment.tangentOffset + (runAxis === 'tangent' ? along : 0),
+              a: segment.axialOffset + (runAxis === 'axial' ? along : 0),
+              w: moduleWidth,
+              run: runAxis
+            })
+          }
+        }
+        const mesh = new THREE.InstancedMesh(
+          kenneyPack.props.fence.clone(),
+          this.suburbanPropMaterial,
+          modules.length
+        )
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+        mesh.frustumCulled = false
+        for (let index = 0; index < modules.length; index += 1) {
+          const module = modules[index]
+          composeAt(module.building, module.t, module.a, 0, module.run === 'axial')
+          // Fence module: unit width, 0.5625 native height, 0.1667 depth.
+          instanceScale.set(module.w, 1.9, 0.9)
+          instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+          mesh.setMatrixAt(index, instanceMatrix)
+        }
+        mesh.instanceMatrix.needsUpdate = true
+        this.group.add(mesh)
+        this.detailedBuildingBatches.push(mesh)
+      } else {
+        const geometry = new THREE.BoxGeometry(1, 1, 1)
+        geometry.translate(0, 0.5, 0)
+        const mesh = new THREE.InstancedMesh(geometry, this.fenceMaterial, fences.length)
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+        mesh.frustumCulled = false
+        for (let index = 0; index < fences.length; index += 1) {
+          const { building, segment, height } = fences[index]
+          composeAt(building, segment.tangentOffset, segment.axialOffset, 0, false)
+          instanceScale.set(segment.tangentExtent, height, segment.axialExtent)
+          instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+          mesh.setMatrixAt(index, instanceMatrix)
+        }
+        mesh.instanceMatrix.needsUpdate = true
+        this.group.add(mesh)
+        this.detailedBuildingBatches.push(mesh)
+      }
+    }
+
+    if (kenneyPack === null || this.suburbanPropMaterial === null) {
+      return
+    }
+
+    // Door paths: one stretched slab each, floated a hair over the lawn.
+    if (paths.length > 0) {
+      const mesh = new THREE.InstancedMesh(
+        kenneyPack.props.path.clone(),
+        this.suburbanPropMaterial,
+        paths.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+      for (let index = 0; index < paths.length; index += 1) {
+        const path = paths[index]
+        composeAt(path.building, path.tangentOffset, path.axialOffset, 0.06, false)
+        instanceScale.set(path.tangentExtent, 3, path.axialExtent)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
+
+    // Lawn trees, split small/large like the kit intends.
+    for (const [list, geometry] of [
+      [treesSmall, kenneyPack.props.treeSmall],
+      [treesLarge, kenneyPack.props.treeLarge]
+    ] as const) {
+      if (list.length === 0) {
+        continue
+      }
+      const mesh = new THREE.InstancedMesh(
+        geometry.clone(),
+        this.suburbanPropMaterial,
+        list.length
+      )
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+      mesh.frustumCulled = false
+      for (let index = 0; index < list.length; index += 1) {
+        const tree = list[index]
+        composeAt(tree.building, tree.tangentOffset, tree.axialOffset, 0, false)
+        instanceScale.setScalar(tree.height)
+        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+        mesh.setMatrixAt(index, instanceMatrix)
+      }
+      mesh.instanceMatrix.needsUpdate = true
+      this.group.add(mesh)
+      this.detailedBuildingBatches.push(mesh)
+    }
   }
 
   private buildArchetypeBatch(
@@ -3442,7 +4100,7 @@ export class Cityscape {
     const wallHeightFactor = kind === 'house' ? 0.68 : 1
     const mesh = new THREE.InstancedMesh(
       geometry,
-      [sideMaterial, this.buildingRoofMaterial],
+      [sideMaterial, this.kenneyRoofMaterial],
       plan.length
     )
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
@@ -3467,7 +4125,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -3479,6 +4137,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachRoofColorAttribute(geometry, plan)
     attachBuildingLodDither(geometry, plan)
     mesh.instanceMatrix.needsUpdate = true
 
@@ -3505,8 +4164,8 @@ export class Cityscape {
     const materials = [
       sideMaterial,
       sideMaterial,
-      this.buildingRoofMaterial,
-      this.buildingRoofMaterial,
+      this.kenneyRoofMaterial,
+      this.kenneyRoofMaterial,
       sideMaterial,
       sideMaterial
     ]
@@ -3536,7 +4195,7 @@ export class Cityscape {
       mesh.setMatrixAt(index, instanceMatrix)
       mesh.setColorAt(
         index,
-        buildingTone(building.tone, building.urban ?? DEFAULT_URBAN, building.oldTown ?? 0, instanceColor)
+        buildingTone(building, instanceColor)
       )
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
@@ -3548,6 +4207,7 @@ export class Cityscape {
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachRoofColorAttribute(geometry, plan)
     attachBuildingLodDither(geometry, plan)
 
     mesh.instanceMatrix.needsUpdate = true
@@ -3566,7 +4226,7 @@ export class Cityscape {
     // clearance is absolute meters: proportional offsets float at head
     // height on multi-kilometer habitats. Arterials and residential
     // streets get separate meshes so their surfaces read differently.
-    for (const kind of ['arterial', 'local'] as const) {
+    for (const kind of ['arterial', 'local', 'alley'] as const) {
       const geometries: THREE.BufferGeometry[] = []
 
       for (const road of roads) {
@@ -3586,7 +4246,13 @@ export class Cityscape {
         // depth step is ~R·1.7e-6 m, so a fixed 3 cm gap thins to ~6 steps on
         // Izma and LOSES on Elysium — scale it with the habitat instead.
         const junctionGap = Math.max(0.03, radius * 1.5e-5)
-        const roadRadius = radius - 0.2 - (isAvenue ? junctionGap : 0)
+        // Alleys ride between the fields (R-0.1) and the streets (R-0.2):
+        // they never cross another road, so they only need to clear the
+        // ground layers under them.
+        const roadRadius =
+          kind === 'alley'
+            ? radius - 0.15
+            : radius - 0.2 - (isAvenue ? junctionGap : 0)
         const arcRadians = road.tangentWidth / radius
         const segments = getArcSegments(arcRadians, radius)
         const geometry = new THREE.CylinderGeometry(
@@ -3620,14 +4286,20 @@ export class Cityscape {
 
       const mesh = new THREE.Mesh(
         merged,
-        kind === 'arterial' ? this.roadMaterial : this.localRoadMaterial
+        kind === 'arterial'
+          ? this.roadMaterial
+          : kind === 'local'
+            ? this.localRoadMaterial
+            : this.alleyMaterial
       )
       mesh.renderOrder = 1
 
       if (kind === 'arterial') {
         this.roads = mesh
-      } else {
+      } else if (kind === 'local') {
         this.localRoads = mesh
+      } else {
+        this.alleyRoads = mesh
       }
 
       this.group.add(mesh)
