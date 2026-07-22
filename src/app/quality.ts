@@ -56,11 +56,9 @@ export type QualityProfile = {
   bloom: boolean
   // Rain streak count (one LineSegments draw call; each drop is 2 vertices).
   rainStreaks: number
-  // Meteorological visibility (docs/far-field-lod.md slice ①). Desktop keeps
-  // the historical clear look (= the old AIR_FOG_DENSITY 1e-4) pending an
-  // on-desktop look pass; phone/Quest run denser air — physically honest for
-  // a humid closed atmosphere, and the haze doubles as the mask for their
-  // earlier LOD handoffs. Tune on-device via `?fog=<metres>`.
+  // Meteorological visibility (docs/far-field-lod.md slice ①). 16km on every
+  // tier — physically honest for a humid closed atmosphere, and the haze
+  // doubles as the mask for the LOD handoffs. Tune on-device via `?fog=<metres>`.
   fogVisibilityMeters: number
 }
 
@@ -135,6 +133,9 @@ export const getQualityProfile = (): QualityProfile => {
     roadTileDistance: 0,
     bloom: true,
     rainStreaks: 7000,
-    fogVisibilityMeters: 39_120
+    // 16km blessed on the desktop monitor too (toming, 2026-07-22, production
+    // `?fog=16000` A/B vs the historical 39km) — every tier now breathes the
+    // same humid air.
+    fogVisibilityMeters: 16_000
   }
 }
