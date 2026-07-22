@@ -26,6 +26,7 @@ import {
   type CityBuilding,
   type CityCollisionIndex,
   type CityExpressway,
+  type CityPlan,
   type CityLandmark,
   type CityPatch,
   type CityRoad,
@@ -517,10 +518,10 @@ const SPINE_DAY = new THREE.Color(0xffeec4)
 const SPINE_NIGHT = new THREE.Color(0x8a7f63)
 // Night city signature: luminous road veins, red rooftop beacons, and windows
 // that cool from warm dusk amber toward white/cyan at deep night.
-const ROAD_GLOW = new THREE.Color(0xbff7ff)
+export const ROAD_GLOW = new THREE.Color(0xbff7ff)
 const BEACON_COLOR = new THREE.Color(0xff2e2a)
-const WINDOW_WARM = new THREE.Color(0xffe2b8)
-const WINDOW_COOL = new THREE.Color(0xdfeaff)
+export const WINDOW_WARM = new THREE.Color(0xffe2b8)
+export const WINDOW_COOL = new THREE.Color(0xdfeaff)
 
 // Peak directional sun intensity, reached when a mirror is fully open (or, for
 // end-lit colonies, at noon). Matches the previous per-window light so the
@@ -786,7 +787,7 @@ const KENNEY_SUBURBAN_WALL_TONES = [0xf2f2f0, 0xe9e4d8]
 const KENNEY_SKYSCRAPER_WALL_TONES = [0x4c5160, 0x3f4756, 0x5a6070]
 const KENNEY_INDUSTRIAL_WALL_TONE = 0xd4d6d9
 
-const buildingTone = (building: CityBuilding, target: THREE.Color) => {
+export const buildingTone = (building: CityBuilding, target: THREE.Color) => {
   const pick = kenneyPickForBuilding(building)
   if (pick.set === 'suburban') {
     target.setHex(KENNEY_SUBURBAN_WALL_TONES[pick.variant % 2])
@@ -804,7 +805,7 @@ const buildingTone = (building: CityBuilding, target: THREE.Color) => {
 
 // Roof colours per kit set for the box LODs: the suburb reads green from
 // the air at every distance, downtown stays dark decked.
-const KENNEY_ROOF_TONES = {
+export const KENNEY_ROOF_TONES = {
   suburban: new THREE.Color(0x55b17c),
   commercial: new THREE.Color(0x3f434c),
   skyscraper: new THREE.Color(0x30343e),
@@ -1021,7 +1022,7 @@ const drawCarvedWindow = (
 
 // 60% of windows lit at night — toming's call on the facade study swatches
 // (2026-07-22): the colony reads inhabited, not asleep.
-const FACADE_LIT_CHANCE = 0.6
+export const FACADE_LIT_CHANCE = 0.6
 
 const createFacadeTextureSet = (
   columns: number,
@@ -1913,6 +1914,9 @@ export class Cityscape {
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
   private cityPlanRoads: CityRoad[] = []
+  // The full plan of the current build, for read-only consumers outside the
+  // cityscape (the far-field city shell bake). Null until the first build.
+  private cityPlan: CityPlan | null = null
   private cityExpressway: CityExpressway | null = null
   private expresswayGroup: THREE.Group | null = null
   private collisionBuildings: CityBuilding[] = []
@@ -2438,6 +2442,7 @@ export class Cityscape {
 
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
+    this.cityPlan = plan
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2496,6 +2501,11 @@ export class Cityscape {
   // O(1) spatial lookups for the per-frame collision queries.
   getCollisionIndex(): CityCollisionIndex {
     return this.collisionIndex
+  }
+
+  // The current build's full plan (read-only), for the city shell bake.
+  getCityPlan(): CityPlan | null {
+    return this.cityPlan
   }
 
   // Day/night dressing: the mirrors dim to night-side blue, facades and
@@ -2809,6 +2819,7 @@ export class Cityscape {
     this.cityPlanBuildings = []
     this.cityNearBuildings = []
     this.cityPlanRoads = []
+    this.cityPlan = null
     this.trafficRoutes = []
     this.cityExpressway = null
 

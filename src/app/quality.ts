@@ -60,6 +60,10 @@ export type QualityProfile = {
   // tier — physically honest for a humid closed atmosphere, and the haze
   // doubles as the mask for the LOD handoffs. Tune on-device via `?fog=<metres>`.
   fogVisibilityMeters: number
+  // Emissive canvas width for the far-field city shell bake (slice ②); the
+  // albedo layer runs at half. Phones halve it: at 1.75 DPR the far side
+  // cannot resolve the difference, and it saves ~24 MB of texture memory.
+  cityShellBakeWidth: number
 }
 
 export const getQualityProfile = (): QualityProfile => {
@@ -98,7 +102,8 @@ export const getQualityProfile = (): QualityProfile => {
       bloom: false,
       rainStreaks: 2600,
       // 16km blessed on-device (toming, 2026-07-22, staging A/B vs 39km/26km/8km).
-      fogVisibilityMeters: 16_000
+      fogVisibilityMeters: 16_000,
+      cityShellBakeWidth: 2048
     }
   }
 
@@ -116,7 +121,8 @@ export const getQualityProfile = (): QualityProfile => {
       roadTileDistance: 0,
       bloom: false,
       rainStreaks: 4200,
-      fogVisibilityMeters: 16_000
+      fogVisibilityMeters: 16_000,
+      cityShellBakeWidth: 4096
     }
   }
 
@@ -136,6 +142,7 @@ export const getQualityProfile = (): QualityProfile => {
     // 16km blessed on the desktop monitor too (toming, 2026-07-22, production
     // `?fog=16000` A/B vs the historical 39km) — every tier now breathes the
     // same humid air.
-    fogVisibilityMeters: 16_000
+    fogVisibilityMeters: 16_000,
+    cityShellBakeWidth: 4096
   }
 }

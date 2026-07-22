@@ -83,6 +83,7 @@ import {
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
+import { createCityShellTextureSet } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
@@ -995,6 +996,21 @@ export const bootstrapApp = async () => {
     // fog.density is owned by the frame loop (it folds the live rain level in
     // every frame); nothing to set here.
     rain.setBounds(habitatConfig.radius)
+    // Far-field city shell bake (docs/far-field-lod.md slice ②): rebaked from
+    // the fresh CityPlan on every habitat change. Small drums and the open
+    // ring skip it (createCityShellTextureSet also gates on radius) — the
+    // placeholders make the shell layer a no-op then.
+    const cityPlan = cityscape.getCityPlan()
+    habitat.setCityShellTextures(
+      cityPlan !== null && habitatConfig.type !== 'ring'
+        ? createCityShellTextureSet(
+            cityPlan,
+            habitatConfig.radius,
+            getHabitatSpanMeters(),
+            quality.cityShellBakeWidth
+          )
+        : null
+    )
   }
 
   syncHabitat()
@@ -2307,6 +2323,7 @@ export const bootstrapApp = async () => {
     renderer.toneMappingExposure = skyGrade.exposure
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
+    habitat.setCityShellDaylight(daylight)
     cityscape.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 
