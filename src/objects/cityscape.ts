@@ -855,6 +855,10 @@ const GRID_WARM: FacadeGrid = { columns: 7, rows: 10 }
 const GRID_DENSE: FacadeGrid = { columns: 14, rows: 20 }
 const GRID_TOWER: FacadeGrid = { columns: 6, rows: 18 }
 const GRID_FAR: FacadeGrid = { columns: 26, rows: 38 }
+// Street-level shop strip: one row of bays wrapped around an urban block's
+// base (facade study 2026-07-22, direction C).
+const GRID_SHOPS: FacadeGrid = { columns: 8, rows: 1 }
+const SHOP_BAND_METERS = 4.6
 // Target real-world size of one facade bay (window column) and floor (window
 // row). Per-instance UV repeat = building extent / (grid cells × these), so a
 // short, wide block tiles more windows across instead of stretching a few.
@@ -894,10 +898,10 @@ const createSeededRandom = (initialSeed: number) => {
   }
 }
 
-const createCanvas = (size: number) => {
+const createCanvas = (size: number, height = size) => {
   const canvas = document.createElement('canvas')
   canvas.width = size
-  canvas.height = size
+  canvas.height = height
   const context = canvas.getContext('2d')
 
   if (context === null) {
@@ -949,6 +953,76 @@ type FacadePalette = {
   coolGlass?: string
 }
 
+// One carved window: recess ring (wall thickness), glass, top/left inner
+// shadow (fake AO — light from above, wall in front), sky-reflection
+// gradient, per-window blind height, sill with drop shadow, rain streaks.
+// Lit windows glow in the blind-cut shape, so night facades carry the
+// irregular silhouette of lives instead of clean rectangles. (Facade study
+// 2026-07-22, direction A: toming「AとC」)
+const drawCarvedWindow = (
+  albedo: CanvasRenderingContext2D,
+  emissive: CanvasRenderingContext2D,
+  random: () => number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  litChance: number,
+  glass: string
+) => {
+  const lit = random() < litChance
+  albedo.fillStyle = 'rgba(8, 10, 14, 0.55)'
+  albedo.fillRect(x - width * 0.06, y - height * 0.06, width * 1.12, height * 1.12)
+  albedo.fillStyle = lit ? 'rgba(228, 212, 186, 0.42)' : glass
+  albedo.fillRect(x, y, width, height)
+  albedo.fillStyle = 'rgba(0, 0, 0, 0.42)'
+  albedo.fillRect(x, y, width, height * 0.16)
+  albedo.fillRect(x, y, width * 0.1, height)
+  const sky = albedo.createLinearGradient(0, y, 0, y + height)
+  sky.addColorStop(0, 'rgba(190, 215, 235, 0.2)')
+  sky.addColorStop(1, 'rgba(190, 215, 235, 0.02)')
+  albedo.fillStyle = sky
+  albedo.fillRect(x + width * 0.1, y + height * 0.16, width * 0.9, height * 0.84)
+  let blind = 0
+  if (random() < 0.45) {
+    blind = height * (0.2 + random() * 0.5)
+    albedo.fillStyle = 'rgba(214, 210, 200, 0.34)'
+    albedo.fillRect(x, y, width, blind)
+  }
+  albedo.fillStyle = 'rgba(255, 255, 255, 0.13)'
+  albedo.fillRect(x - width * 0.08, y + height, width * 1.16, Math.max(1, height * 0.06))
+  albedo.fillStyle = 'rgba(0, 0, 0, 0.3)'
+  albedo.fillRect(
+    x - width * 0.08,
+    y + height + Math.max(1, height * 0.06),
+    width * 1.16,
+    Math.max(1, height * 0.05)
+  )
+  if (random() < 0.5) {
+    const streak = height * (0.5 + random() * 0.9)
+    albedo.fillStyle = 'rgba(10, 12, 14, 0.16)'
+    albedo.fillRect(x - width * 0.06, y + height * 1.12, Math.max(1, width * 0.05), streak)
+    albedo.fillRect(x + width * 0.98, y + height * 1.12, Math.max(1, width * 0.05), streak)
+  }
+  if (lit) {
+    const color =
+      random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
+    drawEmissiveRect(
+      emissive,
+      x,
+      y + blind,
+      width,
+      height - blind,
+      color,
+      0.4 + random() * 0.38
+    )
+  }
+}
+
+// 60% of windows lit at night — toming's call on the facade study swatches
+// (2026-07-22): the colony reads inhabited, not asleep.
+const FACADE_LIT_CHANCE = 0.6
+
 const createFacadeTextureSet = (
   columns: number,
   rows: number,
@@ -956,7 +1030,10 @@ const createFacadeTextureSet = (
   seed: number,
   palette?: FacadePalette
 ): TextureSet => {
-  const size = variant === 'far' ? 512 : 256
+  // 512 across the board (was 256 near / 512 far): at 256 a window is ~13px
+  // of texture and the carve below would just smear. This is the resolution
+  // half of direction A.
+  const size = 512
   const { canvas: albedoCanvas, context: albedo } = createCanvas(size)
   const { canvas: emissiveCanvas, context: emissive } = createCanvas(size)
   const random = createSeededRandom(seed)
@@ -988,6 +1065,31 @@ const createFacadeTextureSet = (
   warmWash.addColorStop(1, 'rgba(10, 10, 14, 0.22)')
   albedo.fillStyle = warmWash
   albedo.fillRect(0, 0, size, size)
+
+  // Per-panel value mottle (concrete pour joints) and a ceiling-side AO band
+  // per floor: large-scale variation that survives mipmapping, where the old
+  // speckle pass turned to static.
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const mottle = 0.015 + random() * 0.03
+      albedo.fillStyle =
+        random() < 0.5
+          ? `rgba(255, 255, 255, ${mottle.toFixed(3)})`
+          : `rgba(0, 0, 0, ${mottle.toFixed(3)})`
+      albedo.fillRect(column * cellWidth, row * cellHeight, cellWidth, cellHeight)
+    }
+    const floorShade = albedo.createLinearGradient(
+      0,
+      row * cellHeight,
+      0,
+      (row + 1) * cellHeight
+    )
+    floorShade.addColorStop(0, 'rgba(0, 0, 0, 0.16)')
+    floorShade.addColorStop(0.25, 'rgba(0, 0, 0, 0)')
+    floorShade.addColorStop(1, 'rgba(0, 0, 0, 0.06)')
+    albedo.fillStyle = floorShade
+    albedo.fillRect(0, row * cellHeight, size, cellHeight)
+  }
 
   for (let column = 0; column < columns; column += 1) {
     const x = column * cellWidth
@@ -1027,32 +1129,44 @@ const createFacadeTextureSet = (
       const windowHeight = cellHeight * (isDense ? 0.5 : 0.44)
       const offsetX = cellWidth * (isTower ? 0.34 : 0.23) + (random() - 0.5) * cellWidth * 0.08
       const offsetY = cellHeight * 0.26 + (random() - 0.5) * cellHeight * 0.08
-      const litChance =
-        palette?.litChance ??
-        (variant === 'far' ? 0.3 : variant === 'dense' ? 0.22 : isTower ? 0.24 : 0.18)
+      const litChance = palette?.litChance ?? FACADE_LIT_CHANCE
       const stripChance = isTower ? 0.04 : 0.01
-      const lit = random() < litChance
-      const color = random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
 
-      // Unlit panes read as cool sky-reflecting glass, not black holes: in
-      // daylight (lifted albedo) they look glazed; at night the low light sinks
-      // them dark while the lit/emissive panes carry the glow.
-      albedo.fillStyle = lit
-        ? 'rgba(232, 216, 190, 0.38)'
-        : palette?.coolGlass ?? 'rgba(105, 127, 151, 0.42)'
-      albedo.fillRect(x + offsetX, y + offsetY, windowWidth, windowHeight)
-      albedo.fillStyle = 'rgba(255, 255, 255, 0.08)'
-      albedo.fillRect(x + offsetX + windowWidth * 0.12, y + offsetY, windowWidth * 0.12, windowHeight)
+      if (variant === 'far') {
+        // Far boxes keep flat panes: the carve is sub-pixel across the
+        // cylinder and would only add mip noise. Unlit panes read as cool
+        // sky-reflecting glass, not black holes.
+        const lit = random() < litChance
+        const color = random() < 0.64 ? '#ffd49a' : random() < 0.86 ? '#e6f2ff' : '#9ff4ff'
+        albedo.fillStyle = lit
+          ? 'rgba(232, 216, 190, 0.38)'
+          : palette?.coolGlass ?? 'rgba(105, 127, 151, 0.42)'
+        albedo.fillRect(x + offsetX, y + offsetY, windowWidth, windowHeight)
+        albedo.fillStyle = 'rgba(255, 255, 255, 0.08)'
+        albedo.fillRect(x + offsetX + windowWidth * 0.12, y + offsetY, windowWidth * 0.12, windowHeight)
 
-      if (lit) {
-        drawEmissiveRect(
+        if (lit) {
+          drawEmissiveRect(
+            emissive,
+            x + offsetX,
+            y + offsetY,
+            windowWidth,
+            windowHeight,
+            color,
+            0.42 + random() * 0.36
+          )
+        }
+      } else {
+        drawCarvedWindow(
+          albedo,
           emissive,
+          random,
           x + offsetX,
           y + offsetY,
           windowWidth,
           windowHeight,
-          color,
-          0.42 + random() * 0.36
+          litChance,
+          palette?.coolGlass ?? 'rgba(105, 127, 151, 0.42)'
         )
       }
 
@@ -1106,6 +1220,80 @@ const createFacadeTextureSet = (
         height,
         random() < 0.62 ? '#ffd8a2' : '#dff4ff',
         0.5
+      )
+    }
+  }
+
+  return {
+    albedo: finishTexture(albedoCanvas),
+    emissive: finishTexture(emissiveCanvas)
+  }
+}
+
+// Street-level shop strip (facade study 2026-07-22, direction C): one bay per
+// GRID_SHOPS column — big glazing off a kick plate, an awning with its drop
+// shadow, a small sign box, sometimes a recessed entrance. Lit shops glow
+// through the glazing and spill onto the sidewalk edge at the strip's bottom.
+// Wrapped around an urban block's base as a thin instanced band.
+const createShopStripTextureSet = (seed: number): TextureSet => {
+  const width = 512
+  const height = 64
+  const { canvas: albedoCanvas, context: albedo } = createCanvas(width, height)
+  const { canvas: emissiveCanvas, context: emissive } = createCanvas(width, height)
+  const random = createSeededRandom(seed)
+  const bayWidth = width / GRID_SHOPS.columns
+
+  albedo.fillStyle = '#54565c'
+  albedo.fillRect(0, 0, width, height)
+  emissive.fillStyle = '#000000'
+  emissive.fillRect(0, 0, width, height)
+
+  for (let bay = 0; bay < GRID_SHOPS.columns; bay += 1) {
+    const x = bay * bayWidth
+    const lit = random() < 0.72
+    const warm = random() < 0.7
+    const glow = warm ? '#ffc98c' : '#d9f2ff'
+
+    // Big glazing rising from the kick plate.
+    albedo.fillStyle = lit ? 'rgba(255, 230, 196, 0.5)' : 'rgba(80, 100, 122, 0.55)'
+    albedo.fillRect(x + bayWidth * 0.08, height * 0.3, bayWidth * 0.84, height * 0.66)
+    // Awning band and the shadow it drops on the glass.
+    albedo.fillStyle = warm ? '#7a4034' : '#2e4a55'
+    albedo.fillRect(x + bayWidth * 0.04, height * 0.18, bayWidth * 0.92, height * 0.14)
+    albedo.fillStyle = 'rgba(0, 0, 0, 0.4)'
+    albedo.fillRect(x + bayWidth * 0.04, height * 0.3, bayWidth * 0.92, height * 0.05)
+    // Sign box above the awning.
+    const signWidth = bayWidth * (0.24 + random() * 0.3)
+    const signX = x + bayWidth * (0.1 + random() * 0.5)
+    albedo.fillStyle = 'rgba(240, 244, 250, 0.2)'
+    albedo.fillRect(signX, height * 0.04, signWidth, height * 0.1)
+
+    if (lit) {
+      drawEmissiveRect(emissive, signX, height * 0.04, signWidth, height * 0.1, glow, 0.85)
+      drawEmissiveRect(
+        emissive,
+        x + bayWidth * 0.08,
+        height * 0.3,
+        bayWidth * 0.84,
+        height * 0.66,
+        glow,
+        0.5
+      )
+      // Sidewalk spill: the strip's bottom edge glows a touch stronger.
+      emissive.globalAlpha = 0.3
+      emissive.fillStyle = glow
+      emissive.fillRect(x, height * 0.9, bayWidth, height * 0.1)
+      emissive.globalAlpha = 1
+    }
+
+    // Recessed entrance cut.
+    if (random() < 0.4) {
+      albedo.fillStyle = 'rgba(12, 14, 18, 0.8)'
+      albedo.fillRect(
+        x + bayWidth * (0.36 + random() * 0.2),
+        height * 0.34,
+        bayWidth * 0.16,
+        height * 0.62
       )
     }
   }
@@ -1234,8 +1422,7 @@ const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
   {
     base: '#4b4a49',
     rib: '#2e2d2c',
-    seam: 'rgba(228, 224, 218, 0.1)',
-    litChance: 0.22
+    seam: 'rgba(228, 224, 218, 0.1)'
   } // warm masonry
 ]
 
@@ -1248,8 +1435,7 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
     base: '#36383e',
     rib: '#24262b',
     seam: 'rgba(210, 210, 216, 0.06)',
-    coolGlass: 'rgba(110, 118, 130, 0.38)',
-    litChance: 0.2
+    coolGlass: 'rgba(110, 118, 130, 0.38)'
   }
 ]
 
@@ -1296,6 +1482,7 @@ export class Cityscape {
     'warm',
     0x19a7c3e5
   )
+  private readonly shopStripTextures = createShopStripTextureSet(0x5a3f9c17)
   private readonly roofTextures = createRoofTextureSet()
   private readonly signTextureSets = [
     createSignTextureSet('環街', '#224956', '#b48a4b'),
@@ -1326,6 +1513,19 @@ export class Cityscape {
     emissive: new THREE.Color(0xffe2b8),
     emissiveIntensity: 0.65,
     emissiveMap: this.houseFacadeTextures.emissive
+  })
+
+  // Shop band wrapped around urban block bases. Emissive stays white: the
+  // strip bakes its own warm/cool shopfront colours, unlike the window
+  // facades whose tint rides the material emissive.
+  private readonly shopBandMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: this.shopStripTextures.albedo,
+    roughness: 0.8,
+    metalness: 0.05,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0,
+    emissiveMap: this.shopStripTextures.emissive
   })
 
   private readonly largeBuildingSideMaterials = this.largeFacadeTextureSets.map(
@@ -1795,7 +1995,8 @@ export class Cityscape {
       this.houseBuildingSideMaterial,
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
-      this.farBuildingSideMaterial
+      this.farBuildingSideMaterial,
+      this.shopBandMaterial
     ]) {
       this.installFacadeUvScale(material)
     }
@@ -1807,6 +2008,7 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
+      this.shopBandMaterial,
       this.buildingRoofMaterial,
       this.kenneyRoofMaterial,
       ...this.buildingSignMaterials,
@@ -2337,6 +2539,9 @@ export class Cityscape {
       material.emissiveIntensity = windowGlow * 1.6
     }
     this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
+    // Shopfronts burn brighter than office windows and switch on a beat
+    // earlier through dusk (sqrt curve): commerce leads the night city.
+    this.shopBandMaterial.emissiveIntensity = Math.sqrt(night) * night * 2.2
     this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
     // The Kenney kits glow through their glass-masked emissive maps, so the
     // whole skyline keeps the night-window signature.
@@ -2359,7 +2564,8 @@ export class Cityscape {
       this.houseBuildingSideMaterial,
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
-      this.farBuildingSideMaterial
+      this.farBuildingSideMaterial,
+      this.shopBandMaterial
     ]) {
       material.color.setScalar(facadeLift)
     }
@@ -2495,6 +2701,7 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
+      this.shopBandMaterial,
       ...this.buildingSignMaterials,
       this.hedgeMaterial,
       this.fenceMaterial
@@ -2514,6 +2721,7 @@ export class Cityscape {
     }
     disposeTextureSet(this.farFacadeTextures)
     disposeTextureSet(this.houseFacadeTextures)
+    disposeTextureSet(this.shopStripTextures)
     disposeTextureSet(this.roofTextures)
     for (const set of this.signTextureSets) {
       disposeTextureSet(set)
@@ -3254,6 +3462,18 @@ export class Cityscape {
       if (batch !== null) {
         this.archetypeBatches.push(batch)
       }
+    }
+
+    // Every urban building tall enough for an upstairs gets a street-level
+    // shop band; houses keep their gardens instead.
+    const shopBand = this.buildShopBandBatch(
+      near.filter(
+        ({ building }) => building.kind !== 'house' && building.height >= 8
+      )
+    )
+
+    if (shopBand !== null) {
+      this.archetypeBatches.push(shopBand)
     }
 
     // Towers split across three restrained skins so the skyline varies without
@@ -4201,6 +4421,79 @@ export class Cityscape {
         (building.width + building.depth) * 0.5,
         building.height,
         grid,
+        uvScales,
+        index * 2
+      )
+    }
+
+    geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
+    attachRoofColorAttribute(geometry, plan)
+    attachBuildingLodDither(geometry, plan)
+
+    mesh.instanceMatrix.needsUpdate = true
+
+    if (mesh.instanceColor !== null) {
+      mesh.instanceColor.needsUpdate = true
+    }
+
+    this.group.add(mesh)
+    return mesh
+  }
+
+  // Direction C of the facade study: a thin instanced box wrapped around each
+  // urban block's base carries the shop strip. It outgrows the walls by 0.3m
+  // so its faces never share a plane with the building (no z-fight), and the
+  // 0.15m overhang caps with the roof material — a canopy lip when seen from
+  // above. The body facade stays fully tileable; no shader UV surgery needed.
+  private buildShopBandBatch(
+    plan: BuildingRenderPlacement[]
+  ): THREE.InstancedMesh | null {
+    if (plan.length === 0) {
+      return null
+    }
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1)
+    const materials = [
+      this.shopBandMaterial,
+      this.shopBandMaterial,
+      this.kenneyRoofMaterial,
+      this.kenneyRoofMaterial,
+      this.shopBandMaterial,
+      this.shopBandMaterial
+    ]
+    const mesh = new THREE.InstancedMesh(geometry, materials, plan.length)
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.frustumCulled = false
+    const uvScales = new Float32Array(plan.length * 2)
+
+    for (let index = 0; index < plan.length; index += 1) {
+      const building = plan[index].building
+      const cos = Math.cos(building.azimuth)
+      const sin = Math.sin(building.azimuth)
+
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - SHOP_BAND_METERS * 0.5)
+        .setY(building.axial)
+      instanceScale.set(
+        building.width + 0.3,
+        SHOP_BAND_METERS,
+        building.depth + 0.3
+      )
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      mesh.setMatrixAt(index, instanceMatrix)
+      // White: the strip bakes its own shopfront colours; the per-building
+      // wall tone must not tint the glazing.
+      mesh.setColorAt(index, instanceColor.setScalar(1))
+      writeFacadeUvScale(
+        (building.width + building.depth) * 0.5,
+        SHOP_BAND_METERS,
+        GRID_SHOPS,
         uvScales,
         index * 2
       )
