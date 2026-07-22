@@ -1,5 +1,26 @@
 import { isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 
+export type QualityTier = 'phone' | 'quest' | 'desktop'
+
+// `?tier=` forces a device class for the on-device perf hunt — e.g. desktop
+// budgets on a phone to push past the vsync cap, or the quest budgets on a
+// phone as an Adreno-family stand-in. Anything unrecognized falls back to
+// detection, so the param is impossible to strand a visitor on.
+export const resolveQualityTier = (
+  urlValue: string | null,
+  detected: { touch: boolean; quest: boolean }
+): QualityTier => {
+  if (urlValue === 'phone' || urlValue === 'quest' || urlValue === 'desktop') {
+    return urlValue
+  }
+
+  if (detected.quest) {
+    return 'quest'
+  }
+
+  return detected.touch ? 'phone' : 'desktop'
+}
+
 // Render-quality budget per device class. Phone GPUs are tile-based and
 // drown in fragment work: cap the backing-store resolution and thin the
 // densest content instead of letting the frame rate collapse.
@@ -28,9 +49,16 @@ export type QualityProfile = {
 }
 
 export const getQualityProfile = (): QualityProfile => {
+  const tier = resolveQualityTier(
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('tier')
+      : null,
+    { touch: isTouchDevice(), quest: isQuestBrowser() }
+  )
+
   // Budgets assume surface-space LOD: only the disk around the active player
   // or car carries authored detail, while the rest are procedural silhouettes.
-  if (isTouchDevice() && !isQuestBrowser()) {
+  if (tier === 'phone') {
     // Phones spend their building budget on the near surface, not spread thin: a
     // uniform maxBuildings cut dilutes the arc you stand in — the only place
     // a small screen reads archetype variety — while most of what it saves
@@ -56,7 +84,7 @@ export const getQualityProfile = (): QualityProfile => {
     }
   }
 
-  if (isQuestBrowser()) {
+  if (tier === 'quest') {
     return {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
