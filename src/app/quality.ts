@@ -25,8 +25,9 @@ export type QualityProfile = {
   // there the harmonized boxes take over directly beyond LOD0.
   lod1FullKitGeometry: boolean
   // Kenney road-tile overlay (curbs/sidewalks/junction pieces) range around
-  // the player. A few hundred instances in ≤5 draw calls; the painted roads
-  // remain the far LOD.
+  // the player. 0 everywhere since the Kenney strip (toming, 2026-07-22):
+  // painted roads carry every distance until the procedural facade skin
+  // brings its own street furniture. The machinery stays for that follow-up.
   roadTileDistance: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
@@ -61,7 +62,7 @@ export const getQualityProfile = (): QualityProfile => {
       maxDetailedLod0: 180,
       maxDetailedLod1: 700,
       lod1FullKitGeometry: false,
-      roadTileDistance: 130,
+      roadTileDistance: 0,
       bloom: false,
       rainStreaks: 2600
     }
@@ -78,7 +79,7 @@ export const getQualityProfile = (): QualityProfile => {
       maxDetailedLod0: 220,
       maxDetailedLod1: 900,
       lod1FullKitGeometry: false,
-      roadTileDistance: 150,
+      roadTileDistance: 0,
       bloom: false,
       rainStreaks: 4200
     }
@@ -94,7 +95,7 @@ export const getQualityProfile = (): QualityProfile => {
     maxDetailedLod0: 800,
     maxDetailedLod1: 2800,
     lod1FullKitGeometry: true,
-    roadTileDistance: 240,
+    roadTileDistance: 0,
     bloom: true,
     rainStreaks: 7000
   }
