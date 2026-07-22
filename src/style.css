@@ -368,6 +368,29 @@ button {
   text-align: right;
 }
 
+/* ── Stats overlay (?stats): the wrist watch's perf line for flat screens.
+   Top-left, clear of the top-right lil-gui (?debug) and the bottom dock.
+   Read-only — never captures the pointer. ── */
+
+.stats-overlay {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  left: max(10px, env(safe-area-inset-left, 0px));
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(6, 18, 28, 0.78);
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  backdrop-filter: blur(10px);
+  color: #d8ebf4;
+  font-family: 'SF Mono', 'Cascadia Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  z-index: 60;
+  pointer-events: none;
+}
+
 /* ── Beat bar: Travel + Spin, now flowing inline in the dock's center ── */
 
 /* display:contents keeps the wrapper out of layout so its buttons sit directly

@@ -1,5 +1,26 @@
 import { isQuestBrowser, isTouchDevice } from '../pc/mobileControls'
 
+export type QualityTier = 'phone' | 'quest' | 'desktop'
+
+// `?tier=` forces a device class for the on-device perf hunt — e.g. desktop
+// budgets on a phone to push past the vsync cap, or the quest budgets on a
+// phone as an Adreno-family stand-in. Anything unrecognized falls back to
+// detection, so the param is impossible to strand a visitor on.
+export const resolveQualityTier = (
+  urlValue: string | null,
+  detected: { touch: boolean; quest: boolean }
+): QualityTier => {
+  if (urlValue === 'phone' || urlValue === 'quest' || urlValue === 'desktop') {
+    return urlValue
+  }
+
+  if (detected.quest) {
+    return 'quest'
+  }
+
+  return detected.touch ? 'phone' : 'desktop'
+}
+
 // Render-quality budget per device class. Phone GPUs are tile-based and
 // drown in fragment work: cap the backing-store resolution and thin the
 // densest content instead of letting the frame rate collapse.
@@ -35,12 +56,25 @@ export type QualityProfile = {
   bloom: boolean
   // Rain streak count (one LineSegments draw call; each drop is 2 vertices).
   rainStreaks: number
+  // Meteorological visibility (docs/far-field-lod.md slice ①). Desktop keeps
+  // the historical clear look (= the old AIR_FOG_DENSITY 1e-4) pending an
+  // on-desktop look pass; phone/Quest run denser air — physically honest for
+  // a humid closed atmosphere, and the haze doubles as the mask for their
+  // earlier LOD handoffs. Tune on-device via `?fog=<metres>`.
+  fogVisibilityMeters: number
 }
 
 export const getQualityProfile = (): QualityProfile => {
+  const tier = resolveQualityTier(
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('tier')
+      : null,
+    { touch: isTouchDevice(), quest: isQuestBrowser() }
+  )
+
   // Budgets assume surface-space LOD: only the disk around the active player
   // or car carries authored detail, while the rest are procedural silhouettes.
-  if (isTouchDevice() && !isQuestBrowser()) {
+  if (tier === 'phone') {
     // Phones spend their building budget on the near surface, not spread thin: a
     // uniform maxBuildings cut dilutes the arc you stand in — the only place
     // a small screen reads archetype variety — while most of what it saves
@@ -64,11 +98,13 @@ export const getQualityProfile = (): QualityProfile => {
       lod1FullKitGeometry: false,
       roadTileDistance: 0,
       bloom: false,
-      rainStreaks: 2600
+      rainStreaks: 2600,
+      // 16km blessed on-device (toming, 2026-07-22, staging A/B vs 39km/26km/8km).
+      fogVisibilityMeters: 16_000
     }
   }
 
-  if (isQuestBrowser()) {
+  if (tier === 'quest') {
     return {
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
@@ -81,7 +117,8 @@ export const getQualityProfile = (): QualityProfile => {
       lod1FullKitGeometry: false,
       roadTileDistance: 0,
       bloom: false,
-      rainStreaks: 4200
+      rainStreaks: 4200,
+      fogVisibilityMeters: 16_000
     }
   }
 
@@ -97,6 +134,7 @@ export const getQualityProfile = (): QualityProfile => {
     lod1FullKitGeometry: true,
     roadTileDistance: 0,
     bloom: true,
-    rainStreaks: 7000
+    rainStreaks: 7000,
+    fogVisibilityMeters: 39_120
   }
 }

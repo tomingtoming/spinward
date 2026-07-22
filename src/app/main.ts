@@ -12,6 +12,7 @@ import {
 } from './observerMode'
 import { GameAudio } from './audio'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
+import { resolveFogVisibility, visibilityToFogDensity } from './airVisibility'
 import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
@@ -119,6 +120,7 @@ import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
+import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -180,12 +182,22 @@ export const bootstrapApp = async () => {
   // arching overhead, the night grid, the curvature), rather than being socked
   // in fog. Haze is a property of the AIR — a fixed extinction per metre — so a
   // giant colony's far wall (km of air) still softens while a small one stays
-  // crisp. Lowered from 2.2e-4 to reveal the far side; the remaining far-rim
-  // shimmer is dissolved by the cityscape distance fade (pushed to ~2.9 radii)
-  // rather than by blanket fog. The confined-air case (a ring's vacuum bore) is
-  // handled in syncHabitat, which scales this by getAirColumnFraction.
-  const AIR_FOG_DENSITY = 1.0e-4
-  const fog = new THREE.FogExp2(0x5f7587, AIR_FOG_DENSITY)
+  // crisp. The knob is a meteorological VISIBILITY per tier (docs/
+  // far-field-lod.md slice ①): desktop keeps the historical clear look, the
+  // mobile tiers run denser air, `?fog=<metres>` overrides for on-device
+  // tuning and the `?debug` panel has a live slider. The confined-air case (a
+  // ring's vacuum bore) is handled below by scaling with getAirColumnFraction.
+  const quality = getQualityProfile()
+  const airFog = {
+    visibilityMeters: resolveFogVisibility(
+      new URLSearchParams(window.location.search).get('fog'),
+      quality.fogVisibilityMeters
+    )
+  }
+  const fog = new THREE.FogExp2(
+    0x5f7587,
+    visibilityToFogDensity(airFog.visibilityMeters)
+  )
   scene.fog = fog
   // The day/night colour grade (fog/background/sun/exposure) is a per-look
   // keyframed profile; Izma keeps a physically honest neutral grade (no warm
@@ -214,7 +226,6 @@ export const bootstrapApp = async () => {
     topology: habitatConfig.topology,
     type: habitatConfig.type
   })
-  const quality = getQualityProfile()
   const cityscape = new Cityscape(
     {
       radius: habitatConfig.radius,
@@ -331,6 +342,12 @@ export const bootstrapApp = async () => {
   // wiped by every internal render() call.
   renderer.info.autoReset = false
   const perfMeter = createPerfMeter()
+
+  // The wrist watch shows these numbers in VR; `?stats` gives flat screens
+  // (phones especially) the same readout for the on-device perf hunt.
+  const statsOverlay = isStatsOverlayRequested(window.location.search)
+    ? createStatsOverlay(document.body)
+    : null
 
   // Bloom makes the night city glow (windows, teal road grid, beacons, the sun).
   // EffectComposer does NOT compose with WebXR's multi-view rendering, so bloom
@@ -1172,6 +1189,7 @@ export const bootstrapApp = async () => {
         config: habitatConfig,
         reattachTuning,
         debugVisuals,
+        airFog,
         onHabitatChange: () => {
           syncHabitat()
         },
@@ -1650,6 +1668,7 @@ export const bootstrapApp = async () => {
     // them for the passes this tick will issue.
     perfMeter.frame(deltaSeconds, renderer.info.render)
     renderer.info.reset()
+    statsOverlay?.update(deltaSeconds, perfMeter.stats(), depthMode)
 
     if (settingsDirty) {
       syncHabitat()
@@ -2266,14 +2285,16 @@ export const bootstrapApp = async () => {
     // above; this drives only the haze/space/sun colour and exposure.
     sampleSkyGrade(dayNightPhase, getSkyLook(habitatConfig.skyLook), skyGrade)
     fog.color.copy(skyGrade.fog)
-    // The single owner of fog.density. Haze is the fixed air extinction
-    // (AIR_FOG_DENSITY) scaled by how much of a cross-interior sightline
-    // actually lies in air — a cylinder is air to the axis (fraction 1), an
-    // open ring like Elysium is mostly vacuum bore, so the far rim stays
-    // visible instead of socking in (representative-sightline approximation).
-    // Rain murk thickens it while the shower is up.
+    // The single owner of fog.density. Haze is the tier's air extinction
+    // (from airFog.visibilityMeters, live-tunable) scaled by how much of a
+    // cross-interior sightline actually lies in air — a cylinder is air to the
+    // axis (fraction 1), an open ring like Elysium is mostly vacuum bore, so
+    // the far rim stays visible instead of socking in (representative-
+    // sightline approximation). Rain murk thickens it while the shower is up.
     fog.density =
-      AIR_FOG_DENSITY * getAirColumnFraction(habitatConfig) * (1 + 2.5 * rainLevel)
+      visibilityToFogDensity(airFog.visibilityMeters) *
+      getAirColumnFraction(habitatConfig) *
+      (1 + 2.5 * rainLevel)
     habitat.setAtmosphere(fog.color, fog.density)
     ;(scene.background as THREE.Color).copy(skyGrade.background)
     sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
