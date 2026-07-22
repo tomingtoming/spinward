@@ -39,12 +39,10 @@ import {
   disposeKenneyBuildingGeometryPack,
   facadePaletteIndex,
   fitSuburbanHouse,
-  installKenneyWindowGlow,
   kenneyPickForBuilding,
   suburbanGardenPlan,
   disposeKenneyCarGeometryPack,
   loadDetailedBuildingGeometryPack,
-  loadKenneyBuildingGeometryPack,
   loadKenneyCarGeometryPack,
   suburbanLotBoundary,
   type DetailedBuildingGeometryPack,
@@ -1820,42 +1818,16 @@ export class Cityscape {
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
     void this.loadDetailedBuildingAssets()
-    void this.loadKenneyBuildingAssets()
+    // Kenney BUILDING shells are stripped (toming, 2026-07-22): the kit's
+    // stylized look never gelled with the colony's realism target, so the
+    // harmonized boxes carry every distance until the procedural facade skin
+    // (docs/far-field-lod.md) lands. The pack loader is kept dormant — the
+    // "pack unavailable" fallback contract below is now the design, and the
+    // kenneyPick-derived palette still colors the boxes (pure data, no GLB).
+    // Cars and road tiles stay: they were never the aesthetic complaint.
     void this.loadKenneyCarAssets()
     if (this.roadTileDistance > 0) {
       void this.loadRoadTileAssets()
-    }
-  }
-
-  private async loadKenneyBuildingAssets() {
-    try {
-      const pack = await loadKenneyBuildingGeometryPack()
-      if (this.disposed) {
-        disposeKenneyBuildingGeometryPack(pack)
-        return
-      }
-
-      // The kit materials join the LOD screen-door system like every other
-      // building material, and their windows join the night city.
-      installKenneyWindowGlow(pack.commercialMaterial)
-      installKenneyWindowGlow(pack.industrialMaterial)
-      installKenneyWindowGlow(pack.suburbanMaterial)
-      this.installBuildingLodDither(pack.commercialMaterial)
-      this.installBuildingLodDither(pack.industrialMaterial)
-      this.installBuildingLodDither(pack.suburbanMaterial)
-      this.suburbanPropMaterial = new THREE.MeshStandardMaterial({
-        map: pack.suburbanMaterial.map,
-        roughness: 0.9,
-        metalness: 0
-      })
-      this.kenneyBuildingGeometries = pack
-      if (this.cityNearBuildings.length > 0) {
-        this.rebuildNearBuildingBatches()
-      }
-    } catch (error) {
-      // Same contract as the other packs: authored geometry is cosmetic, the
-      // Japanese kit and the procedural city are complete fallbacks.
-      console.warn('Kenney building pack unavailable; using authored/procedural', error)
     }
   }
 
