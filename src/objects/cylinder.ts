@@ -6,11 +6,13 @@ import {
 } from '../sim/habitatConfig'
 import { getWindowArcs } from './cityLayout'
 import {
+  createCityShellPlaceholderTextureSet,
   createEndCapBulkheadTextureSet,
   createCylinderSurfaceTexture,
   createExteriorHullTextureSet,
   getCylinderHullRepeat,
-  getCylinderSurfaceRepeat
+  getCylinderSurfaceRepeat,
+  type SurfaceTextureSet
 } from './cylinderSurface'
 import { getRoadTileLiftMeters } from './roadTiles'
 
@@ -150,6 +152,12 @@ const defaultNearArcRadians = THREE.MathUtils.degToRad(140)
 const defaultFocusStepRadians = THREE.MathUtils.degToRad(7.5)
 const nearShellSegments = 192
 const farShellSegments = 40
+
+// Night gain for the baked city-shell emissive. The texel alphas already
+// carry the road/window brightness ratios; this scalar puts the whole field
+// on par with the real far-batch window glow (emissiveIntensity ≈ 2 at deep
+// night) and follows the same night² curve as Cityscape.setDaylight.
+export const CITY_SHELL_GLOW_GAIN = 2.0
 
 export const normalizeCylinderAzimuth = (azimuth: number) =>
   THREE.MathUtils.euclideanModulo(azimuth, fullTurn)
@@ -310,6 +318,20 @@ export class CylinderHabitat {
     side: THREE.BackSide
   })
 
+  // Far-field LOD stage 3 (docs/far-field-lod.md): the baked city layer,
+  // blended onto the shell in-shader beyond a camera-distance fade so it never
+  // paints the ground the player is standing on. The samplers start as 1×1
+  // no-op placeholders, so swapping a real bake in (or out) never recompiles.
+  private readonly cityShellPlaceholders = createCityShellPlaceholderTextureSet()
+  private cityShellTextures: SurfaceTextureSet | null = null
+  private readonly cityShellUniforms = {
+    cityAlbedoMap: { value: this.cityShellPlaceholders.albedo as THREE.Texture },
+    cityEmissiveMap: { value: this.cityShellPlaceholders.emissive as THREE.Texture },
+    uCityGlow: { value: 0 },
+    uCityUvScale: { value: new THREE.Vector2(1, 1) },
+    uCityFade: { value: new THREE.Vector2(1, 2) }
+  }
+
   private nearShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
@@ -332,9 +354,96 @@ export class CylinderHabitat {
   private habitatType: HabitatType = 'cylinder'
 
   constructor(dimensions: CylinderDimensions) {
+    this.installCityShellLayer(this.nearShellMaterial)
+    this.installCityShellLayer(this.farShellMaterial)
     this.group.add(this.shellGroup)
     this.group.add(this.landmarks)
     this.setDimensions(dimensions)
+  }
+
+  // Injects the baked-city layer into a shell material: the geometry UVs are
+  // absolute angular space × the tiling repeat, so dividing by the repeat
+  // (uCityUvScale) recovers one full (θ/2π, z/L) map coordinate for the city
+  // textures while the grass map keeps tiling. Albedo blends by the bake's
+  // alpha, emissive adds; both fade in over camera distance so the near field
+  // stays the real ground.
+  private installCityShellLayer(material: THREE.MeshStandardMaterial) {
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.cityShellUniforms)
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          [
+            '#include <common>',
+            'uniform vec2 uCityUvScale;',
+            'varying vec2 vCityUv;',
+            'varying float vCityDist;'
+          ].join('\n')
+        )
+        .replace(
+          '#include <project_vertex>',
+          [
+            '#include <project_vertex>',
+            'vCityUv = uv * uCityUvScale;',
+            'vCityDist = length(mvPosition.xyz);'
+          ].join('\n')
+        )
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          [
+            '#include <common>',
+            'uniform sampler2D cityAlbedoMap;',
+            'uniform sampler2D cityEmissiveMap;',
+            'uniform float uCityGlow;',
+            'uniform vec2 uCityFade;',
+            'varying vec2 vCityUv;',
+            'varying float vCityDist;'
+          ].join('\n')
+        )
+        .replace(
+          '#include <map_fragment>',
+          [
+            '#include <map_fragment>',
+            '{',
+            '  float cityFade = smoothstep(uCityFade.x, uCityFade.y, vCityDist);',
+            '  vec4 cityTexel = texture2D(cityAlbedoMap, vCityUv);',
+            '  diffuseColor.rgb = mix(diffuseColor.rgb, cityTexel.rgb * diffuse, cityTexel.a * cityFade);',
+            '}'
+          ].join('\n')
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          [
+            '#include <emissivemap_fragment>',
+            '{',
+            '  float cityFade = smoothstep(uCityFade.x, uCityFade.y, vCityDist);',
+            '  totalEmissiveRadiance += texture2D(cityEmissiveMap, vCityUv).rgb * (uCityGlow * cityFade);',
+            '}'
+          ].join('\n')
+        )
+    }
+  }
+
+  // Swaps the baked city layer (null restores the no-op placeholders and
+  // frees the old bake). Called after every city rebuild.
+  setCityShellTextures(set: SurfaceTextureSet | null) {
+    if (this.cityShellTextures !== null) {
+      this.cityShellTextures.albedo.dispose()
+      this.cityShellTextures.emissive.dispose()
+    }
+    this.cityShellTextures = set
+    this.cityShellUniforms.cityAlbedoMap.value =
+      set?.albedo ?? this.cityShellPlaceholders.albedo
+    this.cityShellUniforms.cityEmissiveMap.value =
+      set?.emissive ?? this.cityShellPlaceholders.emissive
+  }
+
+  // Same night² curve as Cityscape.setDaylight, so the baked far city lights
+  // up in step with the real windows and road veins.
+  setCityShellDaylight(daylight: number) {
+    const night = 1 - THREE.MathUtils.clamp(daylight, 0, 1)
+    this.cityShellUniforms.uCityGlow.value = night * night * CITY_SHELL_GLOW_GAIN
   }
 
   setDimensions({ radius, length, topology, type }: CylinderDimensions) {
@@ -569,6 +678,15 @@ export class CylinderHabitat {
 
     const surfaceRepeat = getCylinderSurfaceRepeat(this.radius, this.length)
     const hullRepeat = getCylinderHullRepeat(this.radius, this.length)
+    // Undo the tiling repeat baked into the shell UVs → one absolute
+    // (θ/2π, z/L) map for the city textures. The fade keeps the bake a
+    // far-field layer: fully on by one radius out (the doc's 2–3 km band on
+    // Izma), invisible underfoot where the real streets live.
+    this.cityShellUniforms.uCityUvScale.value.set(
+      1 / surfaceRepeat.circumferential,
+      1 / surfaceRepeat.axial
+    )
+    this.cityShellUniforms.uCityFade.value.set(this.radius * 0.55, this.radius)
     this.nearShellTexture.repeat.set(1, 1)
     this.nearShellTexture.offset.set(0, 0)
     this.nearShellTexture.needsUpdate = true

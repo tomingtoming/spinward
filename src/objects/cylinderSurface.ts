@@ -5,9 +5,24 @@ type CylinderSurfaceRepeat = {
   axial: number
 }
 
-type SurfaceTextureSet = {
+export type SurfaceTextureSet = {
   albedo: THREE.CanvasTexture
   emissive: THREE.CanvasTexture
+}
+
+// 1×1 stand-ins bound to the city-shell sampler uniforms until (unless) a real
+// bake arrives: transparent albedo and black emissive are exact no-ops in the
+// shell shader, so the layer needs no recompile when the city appears.
+export const createCityShellPlaceholderTextureSet = (): SurfaceTextureSet => {
+  const { canvas: albedoCanvas } = createTextureCanvas(1)
+  const { canvas: emissiveCanvas, context: emissive } = createTextureCanvas(1)
+  emissive.fillStyle = '#000000'
+  emissive.fillRect(0, 0, 1, 1)
+
+  return {
+    albedo: new THREE.CanvasTexture(albedoCanvas),
+    emissive: new THREE.CanvasTexture(emissiveCanvas)
+  }
 }
 
 const createSeededRandom = (initialSeed: number) => {
