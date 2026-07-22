@@ -119,6 +119,7 @@ import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
+import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
 import { createHud } from '../ui/hud'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
@@ -329,6 +330,12 @@ export const bootstrapApp = async () => {
   // wiped by every internal render() call.
   renderer.info.autoReset = false
   const perfMeter = createPerfMeter()
+
+  // The wrist watch shows these numbers in VR; `?stats` gives flat screens
+  // (phones especially) the same readout for the on-device perf hunt.
+  const statsOverlay = isStatsOverlayRequested(window.location.search)
+    ? createStatsOverlay(document.body)
+    : null
 
   // Bloom makes the night city glow (windows, teal road grid, beacons, the sun).
   // EffectComposer does NOT compose with WebXR's multi-view rendering, so bloom
@@ -1648,6 +1655,7 @@ export const bootstrapApp = async () => {
     // them for the passes this tick will issue.
     perfMeter.frame(deltaSeconds, renderer.info.render)
     renderer.info.reset()
+    statsOverlay?.update(deltaSeconds, perfMeter.stats(), depthMode)
 
     if (settingsDirty) {
       syncHabitat()
