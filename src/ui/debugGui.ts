@@ -1,5 +1,9 @@
 import GUI from 'lil-gui'
 
+import {
+  MAX_VISIBILITY_METERS,
+  MIN_VISIBILITY_METERS
+} from '../app/airVisibility'
 import type { ObserverMode, TrailMode } from '../app/observerMode'
 import { getHabitatSpan, type HabitatConfig } from '../sim/habitatConfig'
 import type { ReattachTuning } from '../app/playerTraversal'
@@ -17,6 +21,9 @@ type DebugGuiOptions = {
   config: HabitatConfig
   reattachTuning: ReattachTuning
   debugVisuals: DebugVisualState
+  // Live air-haze tuning (docs/far-field-lod.md slice ①). The game loop reads
+  // this every frame, so the slider needs no change callback.
+  airFog: { visibilityMeters: number }
   onHabitatChange: () => void
   onSettingsChange: () => void
   onVisualChange: () => void
@@ -31,6 +38,7 @@ export const createDebugGui = ({
   config,
   reattachTuning,
   debugVisuals,
+  airFog,
   onHabitatChange,
   onSettingsChange,
   onVisualChange
@@ -112,6 +120,18 @@ export const createDebugGui = ({
     .name('surface speed')
     .onChange(onSettingsChange)
   reattachFolder.open()
+
+  const atmosphereFolder = gui.addFolder('Atmosphere')
+  atmosphereFolder
+    .add(
+      airFog,
+      'visibilityMeters',
+      MIN_VISIBILITY_METERS,
+      MAX_VISIBILITY_METERS,
+      500
+    )
+    .name('visibility (m)')
+  atmosphereFolder.open()
 
   const debugFolder = gui.addFolder('Debug View')
   debugFolder
