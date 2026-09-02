@@ -9,12 +9,20 @@
   // live site would not change — that was a past footgun.) wrangler is pinned
   // in devDependencies so `bun run deploy` always resolves the modern CLI
   // from node_modules, never a stray global.
+  // /metric is the usage-funnel sink (src/app/metrics.ts → worker metric()
+  // → Analytics Engine dataset spinward_play). docs/metrics.md is the schema.
   "name": "spinward",
   "compatibility_date": "2026-06-17",
   "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/"]
-  }
+    "run_worker_first": ["/", "/metric"]
+  },
+  "analytics_engine_datasets": [
+    { "binding": "PLAY", "dataset": "spinward_play" }
+  ],
+  // Workers Logs: the [metric] line per batch is the liveness signal for the
+  // pipeline (a dataset that quietly stops looks exactly like nobody visiting).
+  "observability": { "enabled": true }
 }
