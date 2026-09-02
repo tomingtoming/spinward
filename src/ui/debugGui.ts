@@ -23,7 +23,7 @@ type DebugGuiOptions = {
   debugVisuals: DebugVisualState
   // Live air-haze tuning (docs/far-field-lod.md slice ①). The game loop reads
   // this every frame, so the slider needs no change callback.
-  airFog: { visibilityMeters: number }
+  airFog: { visibilityMeters: number; scaleHeightMeters: number }
   onHabitatChange: () => void
   onSettingsChange: () => void
   onVisualChange: () => void
@@ -131,6 +131,10 @@ export const createDebugGui = ({
       500
     )
     .name('visibility (m)')
+  // Boundary-layer scale height; 0 falls back to uniform fog (A/B on device).
+  atmosphereFolder
+    .add(airFog, 'scaleHeightMeters', 0, 3000, 50)
+    .name('boundary layer (m)')
   atmosphereFolder.open()
 
   const debugFolder = gui.addFolder('Debug View')

@@ -15,6 +15,12 @@ import {
   type SurfaceTextureSet
 } from './cylinderSurface'
 import { getRoadTileLiftMeters } from './roadTiles'
+import {
+  GLSL_LAYERED_HAZE,
+  LAYERED_HAZE_SAMPLES,
+  createHazeProfile,
+  type HazeProfileUniform
+} from './layeredHaze'
 
 type CylinderDimensions = {
   radius: number
@@ -286,15 +292,19 @@ export class CylinderHabitat {
   private readonly hazeMaterial = new THREE.ShaderMaterial({
     uniforms: {
       hazeColor: { value: new THREE.Color(0x728ba0) },
-      hazeDensity: { value: 0.0001 }
+      hazeDensity: { value: 0.0001 },
+      // Same boundary-layer profile the scene fog integrates against, shared
+      // by reference (see layeredHaze.ts): a window overhead is glazed by the
+      // thin upper air only, not by a uniform column.
+      hazeProfile: { value: createHazeProfile() }
     },
     vertexShader: /* glsl */ `
       #include <common>
       #include <logdepthbuf_pars_vertex>
-      varying float vViewDistance;
+      varying vec3 vWorldOffset;
       void main() {
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vViewDistance = length(mvPosition.xyz);
+        vWorldOffset = (modelMatrix * vec4(position, 1.0)).xyz - cameraPosition;
         gl_Position = projectionMatrix * mvPosition;
         #include <logdepthbuf_vertex>
       }
@@ -304,10 +314,13 @@ export class CylinderHabitat {
       #include <logdepthbuf_pars_fragment>
       uniform vec3 hazeColor;
       uniform float hazeDensity;
-      varying float vViewDistance;
+      uniform vec4 hazeProfile;
+      varying vec3 vWorldOffset;
+      #define LAYERED_HAZE_SAMPLES ${LAYERED_HAZE_SAMPLES}
+      ${GLSL_LAYERED_HAZE}
       void main() {
         #include <logdepthbuf_fragment>
-        float alpha = 1.0 - exp(-hazeDensity * vViewDistance);
+        float alpha = 1.0 - exp(-layeredHazeOpticalDepth(cameraPosition, vWorldOffset, hazeDensity, hazeProfile));
         gl_FragColor = vec4(hazeColor, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -772,9 +785,12 @@ export class CylinderHabitat {
   }
 
   // Keeps the window haze in sync with the scene fog each frame.
-  setAtmosphere(color: THREE.Color, density: number) {
+  setAtmosphere(color: THREE.Color, density: number, profile?: HazeProfileUniform) {
     ;(this.hazeMaterial.uniforms.hazeColor.value as THREE.Color).copy(color)
     this.hazeMaterial.uniforms.hazeDensity.value = density
+    if (profile !== undefined) {
+      this.hazeMaterial.uniforms.hazeProfile.value = profile
+    }
   }
 
 

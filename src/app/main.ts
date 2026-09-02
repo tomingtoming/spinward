@@ -13,6 +13,12 @@ import {
 import { GameAudio } from './audio'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
 import { resolveFogVisibility, visibilityToFogDensity } from './airVisibility'
+import {
+  createHazeProfile,
+  installLayeredFog,
+  resolveHazeScaleHeight,
+  setHazeProfile
+} from '../objects/layeredHaze'
 import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
@@ -83,7 +89,7 @@ import {
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { CylinderHabitat } from '../objects/cylinder'
-import { createCityShellTextureSet } from '../objects/cityShellBake'
+import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
 import { ForceVectorArrows } from '../objects/forceVectors'
 import { Spaceport } from '../objects/spaceport'
@@ -189,12 +195,21 @@ export const bootstrapApp = async () => {
   // tuning and the `?debug` panel has a live slider. The confined-air case (a
   // ring's vacuum bore) is handled below by scaling with getAirColumnFraction.
   const quality = getQualityProfile()
+  const bootParams = new URLSearchParams(window.location.search)
   const airFog = {
     visibilityMeters: resolveFogVisibility(
-      new URLSearchParams(window.location.search).get('fog'),
+      bootParams.get('fog'),
       quality.fogVisibilityMeters
-    )
+    ),
+    // Boundary-layer scale height in metres; 0 = the old uniform fog.
+    // `?bl=<metres>` for on-device A/B (`?bl=0` → uniform).
+    scaleHeightMeters: resolveHazeScaleHeight(bootParams.get('bl')) ?? 0
   }
+  // Layered Beer–Lambert haze replaces three's Gaussian FogExp2 chunk for
+  // every fogged material (objects/layeredHaze.ts). Installed before the
+  // first render so the programs compile against the swapped chunks.
+  const hazeProfile = createHazeProfile()
+  installLayeredFog(hazeProfile)
   const fog = new THREE.FogExp2(
     0x5f7587,
     visibilityToFogDensity(airFog.visibilityMeters)
@@ -1007,7 +1022,9 @@ export const bootstrapApp = async () => {
             cityPlan,
             habitatConfig.radius,
             getHabitatSpanMeters(),
-            quality.cityShellBakeWidth
+            quality.cityShellBakeWidth,
+            // `?grid=<0..2>` scales the baked road-grid glow for on-device A/B.
+            resolveShellRoadGlowScale(bootParams.get('grid'))
           )
         : null
     )
@@ -2307,11 +2324,18 @@ export const bootstrapApp = async () => {
     // axis (fraction 1), an open ring like Elysium is mostly vacuum bore, so
     // the far rim stays visible instead of socking in (representative-
     // sightline approximation). Rain murk thickens it while the shower is up.
+    // With the boundary-layer profile the shader integrates the air along
+    // each sightline itself (a vacuum bore simply has no air near it), so the
+    // representative-sightline fraction only applies to the uniform fallback.
+    // Rings keep the uniform model: their air is a roofed tube, not a
+    // gravity-settled layer against a floor.
+    const layeredHaze = habitatConfig.type === 'cylinder' && airFog.scaleHeightMeters > 0
+    setHazeProfile(hazeProfile, habitatConfig.radius, layeredHaze ? airFog.scaleHeightMeters : null)
     fog.density =
       visibilityToFogDensity(airFog.visibilityMeters) *
-      getAirColumnFraction(habitatConfig) *
+      (layeredHaze ? 1 : getAirColumnFraction(habitatConfig)) *
       (1 + 2.5 * rainLevel)
-    habitat.setAtmosphere(fog.color, fog.density)
+    habitat.setAtmosphere(fog.color, fog.density, hazeProfile)
     ;(scene.background as THREE.Color).copy(skyGrade.background)
     sun.setGrade(skyGrade.sunCore, skyGrade.sunGlow, skyGrade.sunGlowScale)
     atmosphereGlow.setDimensions({
@@ -2324,6 +2348,7 @@ export const bootstrapApp = async () => {
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
     habitat.setCityShellDaylight(daylight)
+    starfield.setDaylight(daylight)
     cityscape.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 

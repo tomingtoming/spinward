@@ -13,6 +13,7 @@ export const computeStarShellRadius = (radius: number, length: number) =>
   Math.max(250, radius * 4, length * 2.5)
 
 const shellDirection = new THREE.Vector3()
+const STAR_OPACITY_NIGHT = 0.9
 
 export class Starfield {
   readonly group = new THREE.Group()
@@ -24,7 +25,7 @@ export class Starfield {
     size: 2.2,
     sizeAttenuation: false,
     transparent: true,
-    opacity: 0.9,
+    opacity: STAR_OPACITY_NIGHT,
     // Stars sit outside the habitat atmosphere; the interior haze must not
     // wash them out.
     fog: false
@@ -47,6 +48,16 @@ export class Starfield {
 
     this.stars = new THREE.Points(this.buildStarsGeometry(this.radius, 1800), this.starsMaterial)
     this.group.add(this.stars)
+  }
+
+  // Daylight washes the stars out. The window-haze pane only carries the
+  // in-scatter of the air column, and with a boundary-layer atmosphere that
+  // column is thin overhead — thin enough that stars would leak through a
+  // daytime window at full brightness. Real daylight sky luminance hides
+  // them; fade with the same daylight the scene lights use.
+  setDaylight(daylight: number) {
+    const day = THREE.MathUtils.smoothstep(daylight, 0.12, 0.55)
+    this.starsMaterial.opacity = STAR_OPACITY_NIGHT * (1 - day)
   }
 
   setFrameAngle(frameAngle: number) {
