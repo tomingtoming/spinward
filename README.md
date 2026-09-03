@@ -85,7 +85,7 @@ bun run deploy   # = bun run build && wrangler deploy
 
 初回は `wrangler login`(または `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を環境変数に設定)してください。Worker name は `wrangler.jsonc` の `spinward` です。
 
-OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og.jpg`(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。ハッシュ付きアセット(`/assets/*`)には `public/_headers` で immutable キャッシュを効かせています。
+OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinward.toming.app/`)と `public/og-2026-09.jpg`（撮影は `~/spinward-bench/shoot-og.mjs`＋`compose-og.py`・ファイル名の日付はSNS側のOGPキャッシュ回避のため差し替え時に変える）(1200×630 のソーシャルカード)・`public/favicon.png` で構成しています。カード画像は実ゲームのヒーローショットにワードマークを合成したものです。ハッシュ付きアセット(`/assets/*`)には `public/_headers` で immutable キャッシュを効かせています。
 
 ## Quest での注意
 
