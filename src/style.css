@@ -630,6 +630,27 @@ body.is-vr-entry #VRButton {
 
 /* ── Touch devices up to landscape-phone width ── */
 
+/* Narrow screens: give each cluster the full width instead of splitting one
+   row between them. Measured on a 390px phone, the shared row forced the dock
+   to four wrapped lines (one of them a single "Photo" pill); stacking plus the
+   collapsed Travel pill brings it back to two. */
+@media (max-width: 720px) {
+  .dock {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .dock__right {
+    justify-content: flex-start;
+  }
+
+  .beat-bar .beat-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
 @media (pointer: coarse) and (max-width: 1100px) {
   .hud-chip {
     padding: 4px 9px;

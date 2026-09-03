@@ -2,6 +2,13 @@ import { EARTH_GRAVITY } from '../gameplay/vehicle'
 import { PROJECTILES, type ProjectileType } from '../gameplay/projectileTypes'
 import { HABITAT_PRESETS } from '../presets/presets'
 import { getControlScheme, type ControlPlatform, type ControlSection } from '../xr/controlScheme'
+import {
+  closeEverything,
+  createDropdownChip,
+  hideBackdrop,
+  registerClose,
+  showBackdrop
+} from './dropdownLayer'
 
 type HudSnapshot = {
   ballCount: number
@@ -84,90 +91,6 @@ export const createHud = (
   // display:contents — the wrapper exists only so setVisible can hide the group.
   root.className = 'hud'
 
-  // A full-screen, invisible catcher shown behind whichever dropdown/card is
-  // open — tapping *anywhere* outside closes it. Simpler and far more robust
-  // on touch than trying to infer "was that tap outside" from bubbling, which
-  // is what silently failed to close things before.
-  const backdrop = document.createElement('div')
-  backdrop.className = 'dropdown-backdrop'
-  backdrop.hidden = true
-  const closeFns: Array<() => void> = []
-  const closeEverything = () => {
-    backdrop.hidden = true
-    for (const close of closeFns) {
-      close()
-    }
-  }
-  backdrop.addEventListener('pointerdown', (event) => {
-    event.stopPropagation()
-    closeEverything()
-  })
-
-  // Shared by the preset and projectile chips: a tappable pill that opens a
-  // small menu of choices anchored above it. Works identically on touch (tap
-  // to open, tap an item, tap the backdrop to dismiss without choosing).
-  const createDropdownChip = <T extends string>(
-    className: string,
-    items: readonly { id: T; label: string }[],
-    onSelect: (id: T) => void
-  ) => {
-    const chip = document.createElement('button')
-    chip.className = className
-
-    const menu = document.createElement('div')
-    menu.className = 'preset-menu'
-    menu.hidden = true
-
-    const close = () => {
-      menu.hidden = true
-      chip.classList.remove('is-active')
-    }
-    closeFns.push(close)
-
-    const menuItems = items.map(({ id, label }) => {
-      const item = document.createElement('button')
-      item.className = 'preset-menu__item'
-      item.textContent = label
-      item.addEventListener('pointerdown', (event) => event.stopPropagation())
-      item.addEventListener('click', (event) => {
-        event.preventDefault()
-        closeEverything()
-        onSelect(id)
-      })
-      menu.append(item)
-      return { id, element: item }
-    })
-
-    // Everything happens on pointerdown, never on click. While the menu is
-    // open the backdrop covers this chip, so the closing pointerdown lands on
-    // the backdrop — but the click that completes that same tap then hits the
-    // chip (the backdrop is gone by pointerup) and would instantly reopen the
-    // menu. With no click handler at all, that race cannot happen.
-    chip.addEventListener('pointerdown', (event) => {
-      event.stopPropagation()
-      event.preventDefault()
-
-      if (!menu.hidden) {
-        // Unreachable while the backdrop is up (it covers the chip); kept as a
-        // safety net so a stacking regression degrades to a working toggle.
-        closeEverything()
-        return
-      }
-
-      closeEverything()
-      // Anchored to the chip's live position rather than a fixed offset — the
-      // left cluster's width varies with which chips are visible.
-      const rect = chip.getBoundingClientRect()
-      menu.style.left = `${rect.left}px`
-      menu.style.bottom = `${window.innerHeight - rect.top + 8}px`
-      menu.hidden = false
-      chip.classList.add('is-active')
-      backdrop.hidden = false
-    })
-
-    return { chip, menu, menuItems, close }
-  }
-
   // CONTROL shows a compact bindings card for a few seconds then fades —
   // never a click-to-open panel to navigate. Works the same on touch (tap)
   // as on PC (hover or click); the app also flashes it once via peekControls
@@ -226,7 +149,7 @@ export const createHud = (
     controlsCard.classList.remove('is-fading')
     suppressHoverPeekUntil = performance.now() + 500
   }
-  closeFns.push(hideControlsCardNow)
+  const unregisterControlsClose = registerClose(hideControlsCardNow)
 
   const peekControlsCard = () => {
     if (controlsFadeTimeout !== null) {
@@ -251,7 +174,7 @@ export const createHud = (
         // A tap-opened card raised the backdrop; when the card times out on
         // its own, take the backdrop down with it. No menu can be open here —
         // opening one closes the card and clears these timers.
-        backdrop.hidden = true
+        hideBackdrop()
       }, CONTROLS_CARD_FADE_MS)
     }, CONTROLS_CARD_VISIBLE_MS)
   }
@@ -266,12 +189,12 @@ export const createHud = (
 
     if (!controlsCard.hidden) {
       hideControlsCardNow()
-      backdrop.hidden = true
+      hideBackdrop()
       return
     }
 
     peekControlsCard()
-    backdrop.hidden = false
+    showBackdrop()
   })
   // Hover keeps the lightweight peek — no backdrop, so mousing over CONTROL
   // never steals the next click from the game.
@@ -322,18 +245,19 @@ export const createHud = (
     projectileDropdown.chip,
     reattachChip
   )
-  // Fixed-positioned above the bar (anchored dynamically to their chips), so
-  // they live on body, not in the display:contents wrapper.
-  document.body.append(backdrop, controlsCard, presetDropdown.menu, projectileDropdown.menu)
+  // Anchored above the bar and fixed-positioned, so the card lives on body,
+  // not in the display:contents wrapper (the dropdown menus do the same, from
+  // dropdownLayer).
+  document.body.append(controlsCard)
   mount.append(root)
 
   return {
     destroy: () => {
       root.remove()
-      backdrop.remove()
       controlsCard.remove()
-      presetDropdown.menu.remove()
-      projectileDropdown.menu.remove()
+      unregisterControlsClose()
+      presetDropdown.destroy()
+      projectileDropdown.destroy()
     },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
