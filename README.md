@@ -5,6 +5,16 @@
 回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。
 A WebXR experiment in rotating habitats.
 
+## In English
+
+**[spinward.toming.app](https://spinward.toming.app/)** — walk the inside of a spinning O'Neill cylinder in your browser. No install: Meta Quest browser (WebXR), desktop, or phone.
+
+The city looks ordinary until you look up and see the far side of town hanging overhead. Then you throw a ball and it curves (Coriolis). You jump and the floor slides sideways to meet you. You ride up to the axis and your weight goes away. Everything is computed in the inertial frame with [Rapier](https://rapier.rs/) and drawn in the rotating one with [three.js](https://threejs.org/); nothing fakes the physics.
+
+A three-minute tour: throw → jump → **2** Overlook (weaker gravity near the axis) → **3** Axis (zero-g) → **4** Exterior (watch the whole colony turn). Change the spin rate and feel `g = ω²R`. Turn on rain and watch every drop lag the spin. Share any view with its URL — the link unfurls with that view's own description.
+
+Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). The rest of this README is in Japanese.
+
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
 
 `vite + typescript + three.js + rapier` で構成し、Meta Quest のブラウザ・PC ブラウザ・スマホの 3 環境で動きます。Rapier の慣性系シミュレーションと回転座標系の表示変換を分離したまま、「投げると曲がる(コリオリ)」「ジャンプすると床が迎えに来る」「軸に近づくと重力が抜ける」「回転速度を変えると世界が軽くなる」を体験できます。
