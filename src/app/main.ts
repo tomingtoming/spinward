@@ -100,7 +100,7 @@ import {
   isInsidePlaza,
   isInsideArrivalSquare
 } from '../objects/cityLayout'
-import { Cityscape } from '../objects/cityscape'
+import { Cityscape, setFacadeTextureSize } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
 import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
@@ -260,6 +260,9 @@ export const bootstrapApp = async () => {
     topology: habitatConfig.topology,
     type: habitatConfig.type
   })
+  // Desktop can afford 1024 px facade skins (frames, mullions, balcony rails
+  // at street distance); phones and Quest keep 512.
+  setFacadeTextureSize(quality.tier === 'desktop' ? 1024 : 512)
   const cityscape = new Cityscape(
     {
       radius: habitatConfig.radius,

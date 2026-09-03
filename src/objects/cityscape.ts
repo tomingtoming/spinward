@@ -984,6 +984,19 @@ const drawCarvedWindow = (
   sky.addColorStop(1, 'rgba(190, 215, 235, 0.02)')
   albedo.fillStyle = sky
   albedo.fillRect(x + width * 0.1, y + height * 0.16, width * 0.9, height * 0.84)
+  // Frame and mullions (2026-09-03, 緻密さ④): a pale frame around the
+  // opening and a cross of glazing bars — the difference between "a hole
+  // in the wall" and "a window" at five metres.
+  const bar = Math.max(1, width * 0.045)
+  albedo.fillStyle = 'rgba(226, 229, 234, 0.55)'
+  albedo.fillRect(x - bar, y - bar, width + bar * 2, bar)
+  albedo.fillRect(x - bar, y - bar, bar, height + bar * 2)
+  albedo.fillRect(x + width, y - bar, bar, height + bar * 2)
+  albedo.fillStyle = 'rgba(200, 204, 210, 0.5)'
+  albedo.fillRect(x + width * 0.5 - bar * 0.5, y, bar, height)
+  if (random() < 0.7) {
+    albedo.fillRect(x, y + height * 0.36, width, bar)
+  }
   let blind = 0
   if (random() < 0.45) {
     blind = height * (0.2 + random() * 0.5)
@@ -1024,6 +1037,15 @@ const drawCarvedWindow = (
 // (2026-07-22): the colony reads inhabited, not asleep.
 export const FACADE_LIT_CHANCE = 0.6
 
+// Facade texture resolution. 512 everywhere since the 2026-07-22 carve; the
+// desktop tier raises it to 1024 (2026-09-03, 緻密さ④) so the frames,
+// mullions and balcony rails below survive at street distance. Set before
+// the Cityscape is constructed — the sets are built in its field initialisers.
+let facadeTextureSize = 512
+export const setFacadeTextureSize = (size: number) => {
+  facadeTextureSize = Math.max(256, Math.min(2048, size))
+}
+
 const createFacadeTextureSet = (
   columns: number,
   rows: number,
@@ -1034,7 +1056,7 @@ const createFacadeTextureSet = (
   // 512 across the board (was 256 near / 512 far): at 256 a window is ~13px
   // of texture and the carve below would just smear. This is the resolution
   // half of direction A.
-  const size = 512
+  const size = facadeTextureSize
   const { canvas: albedoCanvas, context: albedo } = createCanvas(size)
   const { canvas: emissiveCanvas, context: emissive } = createCanvas(size)
   const random = createSeededRandom(seed)
@@ -1198,6 +1220,32 @@ const createFacadeTextureSet = (
           0.75
         )
       }
+    }
+  }
+
+  // Balconies (2026-09-03, 緻密さ④): on the residential (warm) skin about
+  // half the floors carry a balcony band — a slab line under the windows
+  // with a rail of thin posts — so the walk-up blocks stop reading as
+  // punched boxes. Drawn after the windows so the rail sits in front.
+  if (variant === 'warm') {
+    for (let row = 0; row < rows; row += 1) {
+      if (random() >= 0.5) continue
+      const y = row * cellHeight
+      const railTop = y + cellHeight * 0.74
+      const railHeight = cellHeight * 0.16
+      const slab = Math.max(1, cellHeight * 0.05)
+      albedo.fillStyle = 'rgba(0, 0, 0, 0.18)'
+      albedo.fillRect(0, railTop, size, railHeight + slab)
+      albedo.fillStyle = 'rgba(214, 216, 220, 0.42)'
+      albedo.fillRect(0, railTop, size, Math.max(1, slab * 0.6))
+      const post = Math.max(1, cellWidth * 0.03)
+      const pitch = Math.max(post * 3, cellWidth / 7)
+      albedo.fillStyle = 'rgba(40, 44, 50, 0.7)'
+      for (let px = pitch * 0.5; px < size; px += pitch) {
+        albedo.fillRect(px, railTop, post, railHeight)
+      }
+      albedo.fillStyle = 'rgba(214, 216, 220, 0.55)'
+      albedo.fillRect(0, railTop + railHeight, size, slab)
     }
   }
 
