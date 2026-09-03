@@ -2513,6 +2513,11 @@ export class Cityscape {
     return this.cityPlan
   }
 
+  // The Car Kit pack once loaded (null until then); parkedCars.ts shares it.
+  getKenneyCarPack(): KenneyCarGeometryPack | null {
+    return this.kenneyCarGeometries
+  }
+
   // Day/night dressing: the mirrors dim to night-side blue, facades and
   // street lamps take over as the light sources.
   // The window-strip mirrors are the colony's "sky": tint them with the current

@@ -95,10 +95,12 @@ import {
   getCityGroundHeight,
   getExpresswayElevation,
   getPlazaTangentHalfWidth,
-  resolveCitySurfaceCollision
+  resolveCitySurfaceCollision,
+  getSidewalkWidth
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
+import { ParkedCars } from '../objects/parkedCars'
 import { CylinderHabitat } from '../objects/cylinder'
 import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
@@ -619,6 +621,11 @@ export const bootstrapApp = async () => {
   const intersectionFurniture = new IntersectionFurniture()
   intersectionFurniture.group.visible = bootParams.get('furniture') !== '0'
   nearLayer.add(intersectionFurniture.group)
+  // Kerb-side parked cars in front of the parcels near the player
+  // (objects/parkedCars.ts). `?parking=0` hides them for A/B.
+  const parkedCars = new ParkedCars()
+  parkedCars.group.visible = bootParams.get('parking') !== '0'
+  nearLayer.add(parkedCars.group)
   const drive = new DriveRuntime()
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
@@ -1097,6 +1104,12 @@ export const bootstrapApp = async () => {
     intersectionFurniture.setPlan(
       cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.intersections : [],
       habitatConfig.radius
+    )
+    parkedCars.setPlan(
+      cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.buildings : [],
+      cityPlan?.roads ?? [],
+      habitatConfig.radius,
+      getSidewalkWidth(habitatConfig.radius, getHabitatSpanMeters())
     )
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
@@ -2022,6 +2035,11 @@ export const bootstrapApp = async () => {
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
       deltaSeconds
     )
+    parkedCars.setPack(cityscape.getKenneyCarPack())
+    parkedCars.update(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+    )
 
     // Stream the building colliders to whatever we're controlling — the car
     // while driving, otherwise the walker — before stepping.
@@ -2453,6 +2471,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
+      parking: parkedCars.debugStats(),
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,
@@ -2549,6 +2568,7 @@ export const bootstrapApp = async () => {
     drive.dispose()
     car.dispose()
     intersectionFurniture.dispose()
+    parkedCars.dispose()
     rain.dispose()
     cityscape.dispose()
     spaceport.dispose()
