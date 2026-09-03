@@ -104,6 +104,7 @@ import { Cityscape, setFacadeTextureSize } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
 import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
+import { StreetLamps } from '../objects/streetLamps'
 import { CylinderHabitat } from '../objects/cylinder'
 import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
@@ -640,6 +641,12 @@ export const bootstrapApp = async () => {
   const sidewalks = new Sidewalks()
   sidewalks.group.visible = bootParams.get('sidewalks') !== '0'
   nearLayer.add(sidewalks.group)
+  // Near-field street lamps on every grid road (objects/streetLamps.ts):
+  // posts, arms, heads and night light pools around the player. The far city
+  // keeps cityscape's sparse glow dots. `?lamps=0` hides the near set.
+  const streetLamps = new StreetLamps()
+  streetLamps.group.visible = bootParams.get('lamps') !== '0'
+  nearLayer.add(streetLamps.group)
   const drive = new DriveRuntime()
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
@@ -1131,6 +1138,12 @@ export const bootstrapApp = async () => {
       const isOpenSquare = (azimuth: number, axial: number) =>
         isInsidePlaza(azimuth, axial, habitatConfig.radius) ||
         (arrival !== null && isInsideArrivalSquare(azimuth, axial, habitatConfig.radius, arrival.axial))
+      streetLamps.setPlan(
+        cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.roads : [],
+        cityPlan?.intersections ?? [],
+        habitatConfig.radius,
+        span
+      )
       sidewalks.setPlan(
         cityPlan !== null && habitatConfig.type !== 'ring'
           ? planSidewalkSegments(
@@ -1299,8 +1312,9 @@ export const bootstrapApp = async () => {
     }
   }
 
-  const shareBar = createShareBar(dock.right, {
-    onShareLink: async () => {
+  // Named so the keyboard (L / P — usable while the pointer is locked and the
+  // dock cannot be clicked) can trigger the same actions as the buttons.
+  const shareLinkAction = async () => {
       const url = buildShareUrl()
 
       // Touch gets the system share sheet (X/LINE/etc. one tap away);
@@ -1320,8 +1334,8 @@ export const bootstrapApp = async () => {
       } catch {
         return 'failed'
       }
-    },
-    onPhoto: () =>
+  }
+  const photoAction = () =>
       capturePhoto(
         renderer.domElement,
         () => {
@@ -1338,6 +1352,9 @@ export const bootstrapApp = async () => {
           filename: `spinward-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png`
         }
       )
+  const shareBar = createShareBar(dock.right, {
+    onShareLink: shareLinkAction,
+    onPhoto: photoAction
   })
 
   // The lil-gui tuning panel is a developer tool, off by default so the demo
@@ -1667,7 +1684,32 @@ export const bootstrapApp = async () => {
       return
     }
 
+    // Keyboard twins of the dock buttons (2026-09-03): with the pointer
+    // locked for mouse look the dock cannot be clicked, so Spin, Rain, Photo
+    // and Link get keys. Spin repeats while held.
+    if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
+      handleWatchAction('rpm-coarse-decrement')
+      return
+    }
+    if (event.code === 'Equal' || event.code === 'NumpadAdd') {
+      handleWatchAction('rpm-coarse-increment')
+      return
+    }
+
     if (event.repeat) {
+      return
+    }
+
+    if (event.code === 'KeyR') {
+      setRaining(!weather.raining)
+      return
+    }
+    if (event.code === 'KeyP') {
+      photoAction()
+      return
+    }
+    if (event.code === 'KeyL') {
+      void shareLinkAction()
       return
     }
 
@@ -2076,6 +2118,10 @@ export const bootstrapApp = async () => {
     )
     parkedCars.setPack(cityscape.getKenneyCarPack())
     parkedCars.update(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+    )
+    streetLamps.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
     )
@@ -2503,6 +2549,7 @@ export const bootstrapApp = async () => {
     habitat.setCityShellDaylight(daylight)
     starfield.setDaylight(daylight)
     intersectionFurniture.setDaylight(daylight)
+    streetLamps.setDaylight(daylight)
     cityscape.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 
@@ -2510,6 +2557,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
+      raining: weather.raining,
       parking: parkedCars.debugStats(),
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
@@ -2609,6 +2657,7 @@ export const bootstrapApp = async () => {
     intersectionFurniture.dispose()
     parkedCars.dispose()
     sidewalks.dispose()
+    streetLamps.dispose()
     rain.dispose()
     cityscape.dispose()
     spaceport.dispose()

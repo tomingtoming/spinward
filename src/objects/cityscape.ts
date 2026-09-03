@@ -454,10 +454,6 @@ const localYAxis = new THREE.Vector3(0, 1, 0)
 const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
-const armQuaternion = new THREE.Quaternion()
-const poolQuaternion = new THREE.Quaternion()
-const lampDotQuaternion = new THREE.Quaternion()
-const unitZ = new THREE.Vector3(0, 0, 1)
 const treeYawScratch = new THREE.Quaternion()
 const unitY = new THREE.Vector3(0, 1, 0)
 const instanceColor = new THREE.Color()
@@ -471,7 +467,6 @@ const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 // kilometer-radius habitats (4 deg at izma sagged road bands ~2m above the
 // ground every 223m). 2cm keeps surface bands flush at every scale.
 // Avenue deck lift over the street level (see buildRoads).
-const junctionGapFor = (radius: number) => Math.max(0.03, radius * 1.5e-5)
 
 export const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) => {
   const maxArc = Math.sqrt((8 * tolerance) / Math.max(radius, 0.001))
@@ -734,28 +729,6 @@ const drawRoadSurface = (
       style === 'glow' ? 'rgba(210, 216, 222, 0.22)' : 'rgba(160, 168, 201, 0.25)'
     context.fillRect(size / 2 - 2, 40, 4, 88)
   }
-}
-
-// Radial falloff for the lamp light pools: bright centre, gone by the rim.
-const createLampPoolTexture = () => {
-  const size = 128
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const context = canvas.getContext('2d')
-  if (context === null) {
-    throw new Error('2D canvas context is required for the lamp pool texture')
-  }
-  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)')
-  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.45)')
-  gradient.addColorStop(0.65, 'rgba(255, 255, 255, 0.12)')
-  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, size, size)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  return texture
 }
 
 const createRoadTexture = (kind: 'arterial' | 'local', style: 'albedo' | 'glow' = 'albedo') => {
@@ -1832,30 +1805,6 @@ export class Cityscape {
     metalness: 0
   })
 
-  private readonly lampPoleMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3b4149,
-    roughness: 0.6,
-    metalness: 0.6
-  })
-
-  // Light pool on the road under each lamp: an additive radial gradient
-  // disc, faded in with the night (2026-09-03, 緻密さ⑥). Real point lights
-  // per lamp would cost every fragment in the scene; the pool is the part
-  // of a street lamp you actually see at night.
-  private readonly lampPoolMaterial = new THREE.MeshBasicMaterial({
-    map: createLampPoolTexture(),
-    // HDR warm (>1): the additive pool must beat the tone-mapped asphalt
-    // and feed the desktop bloom; at 0xffd9a0 it measured only +30/255.
-    color: new THREE.Color(2.3, 1.9, 1.35),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    // The disc's normal points up the wall toward the viewer; the roads'
-    // BackSide convention would cull it.
-    side: THREE.DoubleSide,
-    toneMapped: false
-  })
 
   private readonly lampMaterial = new THREE.MeshBasicMaterial({
     color: 0xffe2b0,
@@ -2047,8 +1996,6 @@ export class Cityscape {
   private trees: THREE.InstancedMesh | null = null
   private treeTrunks: THREE.InstancedMesh | null = null
   private lamps: THREE.InstancedMesh | null = null
-  private lampPoles: THREE.InstancedMesh | null = null
-  private lampPools: THREE.InstancedMesh | null = null
   private utilityPoles: THREE.InstancedMesh | null = null
   private utilityWires: THREE.LineSegments | null = null
   private beacons: THREE.InstancedMesh | null = null
@@ -2727,7 +2674,6 @@ export class Cityscape {
     this.roadMaterial.emissiveIntensity = night * 1.55
     this.localRoadMaterial.emissiveIntensity = night * 0.95
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
-    this.lampPoolMaterial.opacity = night * night
     this.headlightMaterial.color.lerpColors(HEADLIGHT_NIGHT, HEADLIGHT_DAY, daylight)
     this.taillightMaterial.color.lerpColors(TAILLIGHT_NIGHT, TAILLIGHT_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
@@ -2881,9 +2827,6 @@ export class Cityscape {
     this.treeMaterial.dispose()
     this.trunkMaterial.dispose()
     this.lampMaterial.dispose()
-    this.lampPoleMaterial.dispose()
-    this.lampPoolMaterial.map?.dispose()
-    this.lampPoolMaterial.dispose()
     this.beaconMaterial.dispose()
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
@@ -2982,8 +2925,6 @@ export class Cityscape {
       this.trees,
       this.treeTrunks,
       this.lamps,
-      this.lampPoles,
-      this.lampPools,
       this.utilityPoles,
       this.utilityWires,
       this.beacons,
@@ -3003,8 +2944,6 @@ export class Cityscape {
     this.trees = null
     this.treeTrunks = null
     this.lamps = null
-    this.lampPoles = null
-    this.lampPools = null
     this.utilityPoles = null
     this.utilityWires = null
     this.beacons = null
@@ -4977,95 +4916,6 @@ export class Cityscape {
     this.lamps = mesh
     this.group.add(mesh)
 
-    // Lamp posts (2026-09-03, 緻密さ⑥): the warm dot used to float; now it
-    // sits on a pole at the kerb with an arm over the road, and a light pool
-    // spreads on the road below it at night.
-    const poleGeometry = new THREE.CylinderGeometry(0.07, 0.1, 1, 8)
-    poleGeometry.translate(0, 0.5, 0)
-    const poles = new THREE.InstancedMesh(poleGeometry, this.lampPoleMaterial, kept.length * 2)
-    poles.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    poles.frustumCulled = false
-    const poolGeometry = new THREE.CircleGeometry(1, 24)
-    const pools = new THREE.InstancedMesh(poolGeometry, this.lampPoolMaterial, kept.length)
-    pools.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    pools.frustumCulled = false
-    // The transparent pass sorts by object origin, and this one mesh's origin
-    // is the cylinder axis 3 km away, so at renderOrder 0 it was drawn first
-    // and then covered by later transparents over the road (measured
-    // 2026-09-03: invisible at 0, drawn at 99). Late but below the UI (30).
-    pools.renderOrder = 20
-    const armLength = Math.min(4, lampHeight * 0.35)
-    const kerbOffset = getArterialRoadWidth(radius, length) * 0.5 + 0.6
-    const poolRadius = Math.max(4, lampHeight * 0.9)
-
-    for (let index = 0; index < kept.length; index += 1) {
-      const lamp = kept[index]
-      const cos = Math.cos(lamp.azimuth)
-      const sin = Math.sin(lamp.azimuth)
-      tangent.set(-sin, 0, cos)
-      inward.set(-cos, 0, -sin)
-      binormal.copy(tangent).cross(inward)
-      basis.makeBasis(tangent, inward, binormal)
-      instanceQuaternion.setFromRotationMatrix(basis)
-      // Post at the kerb (alternating sides), rising from the road deck.
-      const side = index % 2 === 0 ? 1 : -1
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(radius - 0.2)
-        .setY(lamp.axial)
-        .addScaledVector(tangent, side * kerbOffset)
-      instanceScale.set(1, lampHeight - 0.2, 1)
-      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      poles.setMatrixAt(index * 2, instanceMatrix)
-      // Arm: a thin cylinder laid along −side·tangent from the post top.
-      armQuaternion.copy(instanceQuaternion).multiply(
-        treeYawScratch.setFromAxisAngle(unitZ, side * Math.PI * 0.5)
-      )
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(radius - lampHeight + 0.1)
-        .setY(lamp.axial)
-        .addScaledVector(tangent, side * kerbOffset)
-      instanceScale.set(0.7, armLength, 0.7)
-      instanceMatrix.compose(instancePosition, armQuaternion, instanceScale)
-      poles.setMatrixAt(index * 2 + 1, instanceMatrix)
-      // Move the glowing dot to the arm's end.
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(radius - lampHeight)
-        .setY(lamp.axial)
-        .addScaledVector(tangent, side * (kerbOffset - armLength))
-      instanceScale.setScalar(lampRadius)
-      lampDotQuaternion.identity()
-      instanceMatrix.compose(instancePosition, lampDotQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
-      // Pool on the road under the dot. CircleGeometry lies in XY with +Z
-      // normal, so build a proper right-handed basis (tangent, axial, inward)
-      // directly — tangent × axial = inward — instead of rotating the
-      // (tangent, inward, binormal) frame, which is left-handed and garbles
-      // through setFromRotationMatrix (the lesson of the crosswalk stripes).
-      basis.makeBasis(tangent, unitY, inward)
-      poolQuaternion.setFromRotationMatrix(basis)
-      // Lamps stand on arterial AVENUES, whose deck rides a junction gap
-      // above the R−0.2 street level (buildRoads); a pool at R−0.23 sat
-      // under the deck and never showed. Clear the gap, then 3 cm.
-      instancePosition
-        .set(cos, 0, sin)
-        .multiplyScalar(radius - 0.2 - junctionGapFor(radius) - 0.03)
-        .setY(lamp.axial)
-        .addScaledVector(tangent, side * (kerbOffset - armLength))
-      instanceScale.set(poolRadius, poolRadius, 1)
-      instanceMatrix.compose(instancePosition, poolQuaternion, instanceScale)
-      pools.setMatrixAt(index, instanceMatrix)
-    }
-
-    mesh.instanceMatrix.needsUpdate = true
-    poles.instanceMatrix.needsUpdate = true
-    pools.instanceMatrix.needsUpdate = true
-    this.lampPoles = poles
-    this.lampPools = pools
-    this.group.add(poles)
-    this.group.add(pools)
   }
 
   // A compact Japanese utility network around the spawn crossroads. Full-city
