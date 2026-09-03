@@ -1,6 +1,7 @@
 {
   "name": "spinward",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
   "packageManager": "bun@1.3.10",
   "type": "module",
