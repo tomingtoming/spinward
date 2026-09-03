@@ -12,6 +12,7 @@ export type TourEventId =
   | 'rain'
   | 'enter-freefly'
   | 'enter-grounded'
+  | 'look-lock'
 
 export type TourCard = {
   title: string
@@ -21,7 +22,7 @@ export type TourCard = {
 
 // Waypoint and spin cards re-show on every trigger; one-shot discovery cards
 // (throw, jump) only fire the first time so they do not nag.
-const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump', 'drive', 'rain'])
+const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'jump', 'drive', 'rain', 'look-lock'])
 
 // Placeholders swapped for the real, platform-specific wording by
 // resolveTourCard — cards below stay platform-agnostic templates so PC, touch
@@ -119,6 +120,13 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     title: 'GROUNDED',
     body: ['Back on the deck'],
     durationSeconds: 1.4
+  },
+  // First pointer grab on PC: the one place the new mouse look explains
+  // itself (one-shot). Doubles as a funnel milestone (metrics.ts).
+  'look-lock': {
+    title: 'MOUSE LOOK',
+    body: ['Move the mouse to look around.', 'Esc gives the pointer back - click the view to grab it again.'],
+    durationSeconds: 6
   }
 }
 
