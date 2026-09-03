@@ -42,9 +42,9 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | 弾種切替(Ball / Beam / Firework) | X / 右クリック、または ◈ チップ | —(非VR画面で切替) | ◈ チップのドロップダウン |
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
-| 回転速度 | Spin −/+ ボタン | wrist UI の rpm | Spin −/+ ボタン |
-| 雨 | Rain ボタン、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
-| 共有 | Share: Link(この視点のURLをコピー) / Photo(PNG保存) | — | Share: Link(共有シート) / Photo |
+| 回転速度 | Spin −/+ ボタン、または `-` / `=` キー | wrist UI の rpm | Spin −/+ ボタン |
+| 雨 | Rain ボタン、`R` キー、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
+| 共有 | Share: Link(この視点のURLをコピー・`L` キー) / Photo(PNG保存・`P` キー) | — | Share: Link(共有シート) / Photo |
 | 操作ガイド | CONTROL チップにホバー / クリック | 左手首の watch UI(左 B でリセンター) | CONTROL チップをタップ |
 | 離陸(free-fly) | F | A(ジャンプ) | Jump 長押し |
 

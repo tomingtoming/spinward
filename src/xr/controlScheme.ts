@@ -102,7 +102,10 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'Click', action: 'Throw (hold = charge)' },
       { input: 'X / Right-click', action: 'Cycle projectile' },
       { input: '1–4', action: 'Travel / warp' },
-      { input: 'E', action: 'Drive (near car)' }
+      { input: 'E', action: 'Drive (near car)' },
+      { input: '− / +', action: 'Spin rpm' },
+      { input: 'R', action: 'Rain' },
+      { input: 'P / L', action: 'Photo / copy link' }
     ]
   },
   {
