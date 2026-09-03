@@ -105,6 +105,16 @@ export class DesktopLookControls {
   // (cycle the throwable) from a look-drag (do nothing extra).
   private rightClickDownAt = 0
   private rightClickTravelPx = 0
+  // Opt-in mouse look (2026-09-03): a left click on the view grabs the
+  // pointer, then the mouse alone steers the look; Esc gives the pointer
+  // back. Off for touch and via `?lock=0`; right-drag keeps working either
+  // way. The click that grabs the pointer must NOT throw — main.ts asks
+  // consumeLockClick() before it fires.
+  private pointerLockEnabled = false
+  private locked = false
+  private lockClickPending = false
+  private movedWhileLocked = false
+  private onLockChange: ((locked: boolean) => void) | null = null
 
   constructor(
     private readonly playerRig: THREE.Group,
@@ -120,6 +130,36 @@ export class DesktopLookControls {
     window.addEventListener('pointermove', this.handlePointerMove)
     window.addEventListener('keydown', this.handleKeyDown)
     window.addEventListener('keyup', this.handleKeyUp)
+    document.addEventListener('pointerlockchange', this.handlePointerLockChange)
+  }
+
+  setPointerLockEnabled(enabled: boolean) {
+    this.pointerLockEnabled = enabled
+    if (!enabled && this.locked && document.pointerLockElement === this.element) {
+      document.exitPointerLock()
+    }
+  }
+
+  setPointerLockChangeListener(listener: ((locked: boolean) => void) | null) {
+    this.onLockChange = listener
+  }
+
+  isPointerLocked() {
+    return this.locked
+  }
+
+  // True exactly once for the left click that requested the pointer lock, so
+  // the throw handler can let that click pass without firing.
+  consumeLockClick() {
+    const pending = this.lockClickPending
+    this.lockClickPending = false
+    return pending
+  }
+
+  releasePointerLock() {
+    if (document.pointerLockElement === this.element) {
+      document.exitPointerLock()
+    }
   }
 
   // Deep-linked share views boot facing a specific way. Cancels the intro
@@ -138,6 +178,7 @@ export class DesktopLookControls {
     window.removeEventListener('pointermove', this.handlePointerMove)
     window.removeEventListener('keydown', this.handleKeyDown)
     window.removeEventListener('keyup', this.handleKeyUp)
+    document.removeEventListener('pointerlockchange', this.handlePointerLockChange)
   }
 
   update(
@@ -165,6 +206,7 @@ export class DesktopLookControls {
     if (this.introElapsed !== null) {
       const userTookControl =
         this.dragging ||
+        this.movedWhileLocked ||
         this.pressedKeys.size > 0 ||
         (touchMove !== undefined && (touchMove.forward !== 0 || touchMove.right !== 0))
 
@@ -503,7 +545,36 @@ export class DesktopLookControls {
     event.preventDefault()
   }
 
+  private readonly handlePointerLockChange = () => {
+    const locked = document.pointerLockElement === this.element
+    if (locked === this.locked) {
+      return
+    }
+    this.locked = locked
+    this.movedWhileLocked = false
+    this.onLockChange?.(locked)
+  }
+
   private readonly handlePointerDown = (event: PointerEvent) => {
+    if (
+      event.button === 0 &&
+      this.pointerLockEnabled &&
+      !this.locked &&
+      event.pointerType !== 'touch'
+    ) {
+      // Grab the pointer on the first left click; the throw handler sees
+      // consumeLockClick() and lets this one pass. Browsers may refuse
+      // (no gesture, iframe policy) — then it is just a click.
+      this.lockClickPending = true
+      const request = this.element.requestPointerLock()
+      if (request !== undefined && typeof (request as Promise<void>).catch === 'function') {
+        ;(request as Promise<void>).catch(() => {
+          this.lockClickPending = false
+        })
+      }
+      return
+    }
+
     if (event.button !== 2) {
       return
     }
@@ -536,11 +607,16 @@ export class DesktopLookControls {
   }
 
   private readonly handlePointerMove = (event: PointerEvent) => {
-    if (!this.dragging) {
+    if (!this.dragging && !this.locked) {
       return
     }
 
-    this.rightClickTravelPx += Math.hypot(event.movementX, event.movementY)
+    if (this.dragging) {
+      this.rightClickTravelPx += Math.hypot(event.movementX, event.movementY)
+    }
+    if (this.locked && (event.movementX !== 0 || event.movementY !== 0)) {
+      this.movedWhileLocked = true
+    }
 
     const yawDelta = -event.movementX * LOOK_SENSITIVITY
     const pitchDelta = -event.movementY * LOOK_SENSITIVITY
@@ -553,6 +629,13 @@ export class DesktopLookControls {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
+    // Browsers release the lock on Esc themselves; doing it here too keeps
+    // the behaviour identical under synthetic keys (headless checks) and
+    // lets the HUD's own Esc handling see a consistent state.
+    if (event.code === 'Escape' && this.locked) {
+      this.releasePointerLock()
+      return
+    }
     if (
       event.code !== 'KeyW' &&
       event.code !== 'KeyA' &&

@@ -485,6 +485,9 @@ export const bootstrapApp = async () => {
     // equivalent of X, for players who never look down at the keyboard.
     () => cycleSelectedProjectile()
   )
+  // Opt-in mouse look on PC (click the view to grab the pointer, Esc to
+  // release); never on touch, `?lock=0` turns it off.
+  desktopLookControls.setPointerLockEnabled(!isTouchDevice() && bootParams.get('lock') !== '0')
   // One bottom row holds everything. Created before mobileControls so its
   // button row can measure the dock's actual height and stay clear of it
   // (see MobileControls.dockRoot).
@@ -1734,6 +1737,12 @@ export const bootstrapApp = async () => {
 
     // Touch taps are handled by MobileControls (tap vs drag discrimination).
     if (event.pointerType === 'touch') {
+      return
+    }
+
+    // The click that grabs the pointer for mouse look is not a throw.
+    if (desktopLookControls.consumeLockClick()) {
+      reportTour('look-lock')
       return
     }
 

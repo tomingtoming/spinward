@@ -36,7 +36,8 @@ export const MILESTONES: readonly TourEventId[] = [
   'spin-change',
   'drive',
   'rain',
-  'enter-freefly'
+  'enter-freefly',
+  'look-lock'
 ]
 
 export type Audience = 'public' | 'dev' | 'off'

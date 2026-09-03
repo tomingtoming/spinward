@@ -97,7 +97,7 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
     title: 'ON FOOT',
     bindings: [
       { input: 'WASD', action: 'Walk' },
-      { input: 'Mouse / arrows', action: 'Look' },
+      { input: 'Click view', action: 'Mouse look (Esc frees) · or right-drag / arrows' },
       { input: 'Space', action: 'Jump → fly' },
       { input: 'Click', action: 'Throw (hold = charge)' },
       { input: 'X / Right-click', action: 'Cycle projectile' },
@@ -165,7 +165,7 @@ export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
 ]
 
 export const PC_CONTROL_SUMMARY =
-  'WASD + mouse · click throws (hold to charge) · X cycles ammo · 1–4 travel'
+  'WASD + mouse · click the view to look (Esc frees) · click throws (hold to charge) · X cycles ammo · 1–4 travel'
 export const SP_CONTROL_SUMMARY =
   'Left stick walks · drag to look · tap throws · buttons jump / travel'
 
