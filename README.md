@@ -9,11 +9,11 @@ A WebXR experiment in rotating habitats.
 
 **[spinward.toming.app](https://spinward.toming.app/)** — walk the inside of a spinning O'Neill cylinder in your browser. No install: Meta Quest browser (WebXR), desktop, or phone.
 
-The city looks ordinary until you look up and see the far side of town hanging overhead. Then you throw a ball and it curves (Coriolis). You jump and the floor slides sideways to meet you. You ride up to the axis and your weight goes away. Everything is computed in the inertial frame with [Rapier](https://rapier.rs/) and drawn in the rotating one with [three.js](https://threejs.org/); nothing fakes the physics.
+The city looks ordinary until you look up and see the far side of town hanging overhead. Then you throw a ball and it curves (Coriolis). You jump and the floor slides sideways to meet you. You ride up to the axis and your weight goes away. The physics runs in the inertial frame with [Rapier](https://rapier.rs/); only the rendering happens in the rotating frame with [three.js](https://threejs.org/). The curve, the sideways drift, and the weightlessness are what falls out of that, not scripted effects.
 
 A three-minute tour: throw → jump → **2** Overlook (weaker gravity near the axis) → **3** Axis (zero-g) → **4** Exterior (watch the whole colony turn). Change the spin rate and feel `g = ω²R`. Turn on rain and watch every drop lag the spin. Share any view with its URL — the link unfurls with that view's own description.
 
-Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). The rest of this README is in Japanese.
+Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). Source is under [AGPL-3.0-or-later](#license). The rest of this README is in Japanese.
 
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
 
@@ -259,3 +259,9 @@ a_cf = -(Ω × (Ω × r))
 - `colony-fixed / inertial-fixed` の observer mode
 - 回転系速度差分と擬似力計算の整合を見る verification HUD
 - `bun test` によるシミュレーション核の単体テスト
+
+## License
+
+[GNU AGPL-3.0-or-later](LICENSE) © 2026 tomingtoming.
+
+Third-party assets and libraries keep their own licenses: the road and vehicle models are by [Kenney](https://www.kenney.nl/) (CC0, `License.txt` beside each set), [three.js](https://threejs.org/) is MIT, and [Rapier](https://rapier.rs/) is Apache-2.0.
