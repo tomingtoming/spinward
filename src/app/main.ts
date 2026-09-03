@@ -96,11 +96,14 @@ import {
   getExpresswayElevation,
   getPlazaTangentHalfWidth,
   resolveCitySurfaceCollision,
-  getSidewalkWidth
+  getSidewalkWidth,
+  isInsidePlaza,
+  isInsideArrivalSquare
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
+import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
 import { CylinderHabitat } from '../objects/cylinder'
 import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
@@ -626,6 +629,11 @@ export const bootstrapApp = async () => {
   const parkedCars = new ParkedCars()
   parkedCars.group.visible = bootParams.get('parking') !== '0'
   nearLayer.add(parkedCars.group)
+  // Paved sidewalks with a kerb along every grid road (objects/sidewalks.ts).
+  // `?sidewalks=0` hides them for A/B.
+  const sidewalks = new Sidewalks()
+  sidewalks.group.visible = bootParams.get('sidewalks') !== '0'
+  nearLayer.add(sidewalks.group)
   const drive = new DriveRuntime()
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
@@ -1111,6 +1119,25 @@ export const bootstrapApp = async () => {
       habitatConfig.radius,
       getSidewalkWidth(habitatConfig.radius, getHabitatSpanMeters())
     )
+    {
+      const span = getHabitatSpanMeters()
+      const arrival = getArrivalSquare(habitatConfig.radius, span)
+      const isOpenSquare = (azimuth: number, axial: number) =>
+        isInsidePlaza(azimuth, axial, habitatConfig.radius) ||
+        (arrival !== null && isInsideArrivalSquare(azimuth, axial, habitatConfig.radius, arrival.axial))
+      sidewalks.setPlan(
+        cityPlan !== null && habitatConfig.type !== 'ring'
+          ? planSidewalkSegments(
+              cityPlan.roads,
+              cityPlan.intersections,
+              habitatConfig.radius,
+              getSidewalkWidth(habitatConfig.radius, span),
+              isOpenSquare
+            )
+          : [],
+        habitatConfig.radius
+      )
+    }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
         ? createCityShellTextureSet(
@@ -2569,6 +2596,7 @@ export const bootstrapApp = async () => {
     car.dispose()
     intersectionFurniture.dispose()
     parkedCars.dispose()
+    sidewalks.dispose()
     rain.dispose()
     cityscape.dispose()
     spaceport.dispose()

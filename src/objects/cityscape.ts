@@ -124,7 +124,7 @@ const attachBuildingLodDither = (
 const fullTurn = Math.PI * 2
 
 // Same azimuth -> CylinderGeometry theta conversion used by CylinderHabitat.
-const getThetaStart = (centerAzimuth: number, arcRadians: number) =>
+export const getThetaStart = (centerAzimuth: number, arcRadians: number) =>
   THREE.MathUtils.euclideanModulo(
     Math.PI * 0.5 - centerAzimuth - arcRadians * 0.5,
     fullTurn
@@ -464,7 +464,7 @@ const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 // Arc tessellation by sagitta budget: a fixed angular step chords meters on
 // kilometer-radius habitats (4 deg at izma sagged road bands ~2m above the
 // ground every 223m). 2cm keeps surface bands flush at every scale.
-const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) => {
+export const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) => {
   const maxArc = Math.sqrt((8 * tolerance) / Math.max(radius, 0.001))
   return THREE.MathUtils.clamp(Math.ceil(arcRadians / maxArc), 2, 720)
 }
