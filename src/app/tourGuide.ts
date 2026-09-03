@@ -45,7 +45,8 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     title: 'CORIOLIS CURVE',
     body: [
       'In space the ball flies dead straight.',
-      'The ground rotates underneath it - the curve you see is your own spin.'
+      'The ground rotates underneath it - the curve you see is your own spin.',
+      'The dashed line is where the same throw would land on Earth.'
     ],
     durationSeconds: 10
   },

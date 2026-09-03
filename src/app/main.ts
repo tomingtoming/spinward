@@ -220,6 +220,8 @@ export const bootstrapApp = async () => {
   // first render so the programs compile against the swapped chunks.
   const hazeProfile = createHazeProfile()
   installLayeredFog(hazeProfile)
+  // Flat-Earth ghost line on thrown balls (gameplay/earthGhost.ts); `?ghost=0` off.
+  const earthGhostEnabled = bootParams.get('ghost') !== '0'
   const fog = new THREE.FogExp2(
     0x5f7587,
     visibilityToFogDensity(airFog.visibilityMeters)
@@ -1435,6 +1437,12 @@ export const bootstrapApp = async () => {
       initialAim: spec.boltLength !== undefined ? worldForward.clone() : undefined,
       confineToHabitat: insideHabitat,
       maxTrailPoints: habitatConfig.maxTrailPoints,
+      // The flat-Earth ghost teaches the curve; only the thrown ball gets one
+      // (bolts are instant, fireworks burst). `?ghost=0` hides it for A/B.
+      earthGhost:
+        earthGhostEnabled && spec.launchSpeed === 0 && !spec.explodeOnImpact && insideHabitat
+          ? { floorRadius: habitatConfig.radius }
+          : undefined,
       lifetimeSeconds:
         spec.lifetimeSeconds > 0 ? spec.lifetimeSeconds : habitatConfig.ballLifetimeSeconds,
       frameAngle,
@@ -1529,6 +1537,9 @@ export const bootstrapApp = async () => {
     if (spec.trail !== false) {
       nearLayer.add(ball.trail)
       nearLayer.add(ball.inertialTrail)
+      if (ball.earthGhost !== null) {
+        nearLayer.add(ball.earthGhost)
+      }
     }
     if (spec.grabbable) {
       grabSystem.registerTarget(ball.grabTarget)
