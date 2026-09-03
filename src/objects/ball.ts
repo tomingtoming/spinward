@@ -23,6 +23,7 @@ import type { CityBuildingSource } from './cityLayout'
 import { computeThrowChargeRatio } from '../xr/throwCharge'
 import type { GrabTarget } from '../xr/grabSystem'
 import type { TrailMode } from '../app/observerMode'
+import { computeEarthGhostPath } from '../gameplay/earthGhost'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
 type BallOptions = {
@@ -32,6 +33,10 @@ type BallOptions = {
   radius?: number
   color?: number
   maxTrailPoints: number
+  // Draw the flat-Earth ghost (gameplay/earthGhost.ts) on the first real
+  // release: the parabola this throw would follow without the spin. Needs
+  // the floor radius the ghost lands on. Absent = no ghost (bolts, fireworks).
+  earthGhost?: { floorRadius: number }
   lifetimeSeconds: number
   frameAngle: number
   omega: number
@@ -85,6 +90,8 @@ const CHARGED_EMISSIVE = new THREE.Color(0x164e63)
 const displayColor = new THREE.Color()
 const displayEmissive = new THREE.Color()
 const trailDisplayPoint = new THREE.Vector3()
+const ghostInward = new THREE.Vector3()
+const ghostUp = new THREE.Vector3(0, 0, 1)
 const preCollisionVelocity = new THREE.Vector3()
 // The capsule's long axis; bolts orient this toward their velocity.
 const BOLT_AXIS = new THREE.Vector3(0, 1, 0)
@@ -107,6 +114,11 @@ export class Ball {
   readonly mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
   readonly trail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
   readonly inertialTrail: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
+  // The Earth-intuition ghost, dashed and static in the rotating frame; null
+  // for projectile kinds that don't teach the curve.
+  readonly earthGhost: THREE.Line<THREE.BufferGeometry, THREE.LineDashedMaterial> | null
+  private ghostArmed = false
+  private readonly ghostFloorRadius: number
   readonly grabTarget: GrabTarget
 
   private readonly lifetimeSeconds: number
@@ -264,6 +276,40 @@ export class Ball {
       })
     )
 
+    this.ghostFloorRadius = options.earthGhost?.floorRadius ?? 0
+    this.earthGhost =
+      options.earthGhost !== undefined
+        ? new THREE.Line(
+            new THREE.BufferGeometry(),
+            new THREE.LineDashedMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.85,
+              dashSize: 1.0,
+              gapSize: 0.7,
+              depthWrite: false
+            })
+          )
+        : null
+    if (this.earthGhost !== null) {
+      this.earthGhost.visible = false
+      this.earthGhost.frustumCulled = false
+      // Landing ring: where Earth intuition says the ball comes down. The
+      // ball's real landing sits beside it — that gap is the lesson.
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.26, 0.42, 28),
+        new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.8,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        })
+      )
+      ring.name = 'earth-ghost-landing'
+      this.earthGhost.add(ring)
+    }
+
     this.resetTrail()
     this.updateTrails('rotating')
     this.updateAppearance()
@@ -337,6 +383,50 @@ export class Ball {
       this.inertialVelocity
     )
     setRigidBodyLinvelFromReal(this.rigidBody, this.inertialVelocity, this.units, true)
+    this.armEarthGhost()
+  }
+
+  // Draw the ghost once, on the first release with real speed (a VR grab
+  // parks the ball at rest first; a tap throw releases at ≥ 8 m/s). Static
+  // afterwards: it is the counterfactual for THIS release, not a tracker.
+  private armEarthGhost() {
+    if (this.earthGhost === null || this.ghostArmed || this.rotatingVelocity.lengthSq() < 1) {
+      return
+    }
+    const path = computeEarthGhostPath(
+      this.rotatingPosition,
+      this.rotatingVelocity,
+      this.omega,
+      this.ghostFloorRadius
+    )
+    if (path.length < 2) {
+      return
+    }
+    const positions = new Float32Array(path.length * 3)
+    path.forEach((point, index) => point.toArray(positions, index * 3))
+    this.earthGhost.geometry.dispose()
+    this.earthGhost.geometry = new THREE.BufferGeometry().setAttribute(
+      'position',
+      new THREE.BufferAttribute(positions, 3)
+    )
+    this.earthGhost.computeLineDistances()
+    // Seat the landing ring on the real floor at the ghost's end azimuth
+    // (a long flat-Earth throw ends a little inside the curved wall).
+    const landing = path[path.length - 1].clone()
+    const radial = Math.hypot(landing.x, landing.z)
+    if (radial > 1e-6) {
+      const onFloor = (this.ghostFloorRadius - 0.06) / radial
+      landing.x *= onFloor
+      landing.z *= onFloor
+    }
+    const ring = this.earthGhost.getObjectByName('earth-ghost-landing')
+    if (ring !== undefined) {
+      ring.position.copy(landing)
+      ghostInward.set(-landing.x, 0, -landing.z).normalize()
+      ring.quaternion.setFromUnitVectors(ghostUp, ghostInward)
+    }
+    this.earthGhost.visible = true
+    this.ghostArmed = true
   }
 
   step(config: BallStepConfig) {
@@ -392,6 +482,16 @@ export class Ball {
     this.mesh.parent?.remove(this.mesh)
     this.trail.parent?.remove(this.trail)
     this.inertialTrail.parent?.remove(this.inertialTrail)
+    if (this.earthGhost !== null) {
+      this.earthGhost.parent?.remove(this.earthGhost)
+      this.earthGhost.geometry.dispose()
+      this.earthGhost.material.dispose()
+      const ring = this.earthGhost.getObjectByName('earth-ghost-landing') as
+        | THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+        | undefined
+      ring?.geometry.dispose()
+      ring?.material.dispose()
+    }
     this.mesh.geometry.dispose()
     this.mesh.material.dispose()
     this.trail.geometry.dispose()
