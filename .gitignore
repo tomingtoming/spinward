@@ -3,3 +3,6 @@ dist
 .DS_Store
 .playwright-cli
 .wrangler
+
+# wrangler local state and bundle scratch (was committed by accident before 2026-09-02)
+.wrangler/

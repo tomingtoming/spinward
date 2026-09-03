@@ -19,6 +19,15 @@ import {
   resolveHazeScaleHeight,
   setHazeProfile
 } from '../objects/layeredHaze'
+import {
+  METRICS_ENDPOINT,
+  createRecorder,
+  createShipper,
+  randomId,
+  readAudience,
+  readVisitor,
+  referrerHost
+} from './metrics'
 import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
 import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
@@ -72,7 +81,8 @@ import {
   createTourGuideState,
   notifyTourEvent,
   resolveTourCard,
-  stepTourGuide
+  stepTourGuide,
+  type TourEventId
 } from './tourGuide'
 import { getSurfacePosition, type SurfaceRigState } from './surfaceRig'
 import { Ball } from '../objects/ball'
@@ -311,6 +321,63 @@ export const bootstrapApp = async () => {
   playerRig.quaternion.setFromRotationMatrix(rigBasis)
 
   const tourGuide = createTourGuideState()
+  // Usage funnel (docs/metrics.md): the tour's own milestones, shipped to
+  // /metric → Analytics Engine. Pure recorder + beacon shipper; `?metrics=off`
+  // turns it off for this browser, `?metrics=dev` tags the maintainer's loads.
+  const metricsStore = (() => {
+    try {
+      return window.localStorage
+    } catch {
+      return null
+    }
+  })()
+  const metricsAudience = readAudience(metricsStore, window.location.search)
+  const metrics =
+    metricsAudience === 'off'
+      ? null
+      : (() => {
+          const visitor = readVisitor(metricsStore, Date.now())
+          const shipper = createShipper({
+            endpoint: METRICS_ENDPOINT,
+            vid: visitor.id,
+            sid: randomId().slice(0, 12),
+            aud: metricsAudience,
+            build: typeof __SPINWARD_BUILD__ === 'string' ? __SPINWARD_BUILD__ : 'dev',
+            send: (url, body) => {
+              try {
+                return navigator.sendBeacon(url, body)
+              } catch {
+                return false
+              }
+            },
+            schedule: (flush, delayMs) => {
+              window.setTimeout(flush, delayMs)
+            }
+          })
+          const recorder = createRecorder({
+            now: () => performance.now(),
+            emit: (event) => shipper.emit(event),
+            context: {
+              preset: habitatConfig.currentPresetId,
+              entry: shareState.pose !== null ? 'shared' : 'landing',
+              device: isTouchDevice() ? 'touch' : 'desktop',
+              lang: (navigator.language ?? '').slice(0, 16),
+              tier: quality.tier
+            }
+          })
+          recorder.session(visitor, referrerHost(document.referrer, window.location.hostname))
+          document.addEventListener('visibilitychange', () => recorder.visibility(document.hidden))
+          // pagehide (not unload): fires on tab close, navigation and bfcache
+          // entry alike, and sendBeacon survives it.
+          window.addEventListener('pagehide', () => recorder.leave('pagehide', perfMeter.stats().fps))
+          return recorder
+        })()
+  // Every tour card goes through here so the funnel and the card agree on
+  // what a milestone is.
+  const reportTour = (event: TourEventId) => {
+    notifyTourEvent(tourGuide, event)
+    metrics?.milestone(event)
+  }
   // Whether the one-time boot flash of the CONTROL card has fired — armed by
   // the game loop the first time no tour card is on screen.
   let controlsBootFlashDone = false
@@ -487,6 +554,8 @@ export const bootstrapApp = async () => {
       .catch(() => {})
   }
   renderer.xr.addEventListener('sessionstart', () => audio.unlock())
+  renderer.xr.addEventListener('sessionstart', () => metrics?.vrStart())
+  renderer.xr.addEventListener('sessionend', () => metrics?.vrEnd('exit', perfMeter.stats().fps))
 
   // The one-shot 'start' intro card fires at boot, before a Quest player has
   // the headset on (and outside XR the dock/tour overlay they were looking at
@@ -500,7 +569,7 @@ export const bootstrapApp = async () => {
 
     vrStartCardReplayed = true
     tourGuide.shown.delete('start')
-    notifyTourEvent(tourGuide, 'start')
+    reportTour('start')
   })
 
   // Ambient fill only — the colony's directional sunlight is owned by the
@@ -914,7 +983,7 @@ export const bootstrapApp = async () => {
     desktopLookControls.resetLook()
     mobileControls?.resetLook()
     vrLocomotion?.faceForward()
-    notifyTourEvent(tourGuide, 'drive')
+    reportTour('drive')
     audio.playClick()
   }
 
@@ -922,7 +991,7 @@ export const bootstrapApp = async () => {
     if (applyWatchAction(settingsStore, action)) {
       audio.playClick()
       if (action.startsWith('rpm-')) {
-        notifyTourEvent(tourGuide, 'spin-change')
+        reportTour('spin-change')
       }
       return true
     }
@@ -953,20 +1022,20 @@ export const bootstrapApp = async () => {
       case 'respawn':
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
-          notifyTourEvent(tourGuide, 'surface')
+          reportTour('surface')
           return respawnPlayerInnerWall()
         }
         if (runtimeAction.mode === 'old-town') {
           return respawnPlayerOldTown()
         }
         if (runtimeAction.mode === 'overlook') {
-          notifyTourEvent(tourGuide, 'overlook')
+          reportTour('overlook')
           return respawnPlayerOverlook()
         }
         if (runtimeAction.mode === 'exterior') {
           return respawnPlayerExterior()
         }
-        notifyTourEvent(tourGuide, 'axis')
+        reportTour('axis')
         return respawnPlayerAxisEnd()
       default:
         return false
@@ -1050,7 +1119,7 @@ export const bootstrapApp = async () => {
   const setRaining = (raining: boolean) => {
     weather.raining = raining
     if (raining) {
-      notifyTourEvent(tourGuide, 'rain')
+      reportTour('rain')
     }
   }
   const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
@@ -1465,7 +1534,7 @@ export const bootstrapApp = async () => {
       grabSystem.registerTarget(ball.grabTarget)
     }
     balls.push(ball)
-    notifyTourEvent(tourGuide, 'throw')
+    reportTour('throw')
 
     return ball
   }
@@ -1866,7 +1935,7 @@ export const bootstrapApp = async () => {
         omega,
         frameAngle
       })
-      notifyTourEvent(tourGuide, 'jump')
+      reportTour('jump')
       audio.playJump()
       vibrate(12)
       justJumped = true
@@ -2020,7 +2089,7 @@ export const bootstrapApp = async () => {
     if (playerTraversal.mode !== modeAtFrameStart) {
       const enteredFreeFly = playerTraversal.mode === 'free-fly'
       if (tourGuide.activeEvent === null) {
-        notifyTourEvent(tourGuide, enteredFreeFly ? 'enter-freefly' : 'enter-grounded')
+        reportTour(enteredFreeFly ? 'enter-freefly' : 'enter-grounded')
       }
       if (!justJumped && !landed) {
         audio.playModeChange()
@@ -2417,7 +2486,7 @@ export const bootstrapApp = async () => {
     }
   })
 
-  notifyTourEvent(tourGuide, 'start')
+  reportTour('start')
   // A shared link spawns where it points; otherwise the first-boot "look up"
   // reveal shows the far side of the colony overhead before the player
   // settles. Desktop/mobile only; XR is head-tracked.

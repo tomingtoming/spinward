@@ -25,6 +25,8 @@ export const resolveQualityTier = (
 // drown in fragment work: cap the backing-store resolution and thin the
 // densest content instead of letting the frame rate collapse.
 export type QualityProfile = {
+  // Device class the rest of the profile was derived from (metrics blob14).
+  tier: QualityTier
   pixelRatioCap: number
   maxBuildings: number | undefined
   // Angular size (radians) below which far-batch buildings are culled. This
@@ -85,6 +87,7 @@ export const getQualityProfile = (): QualityProfile => {
     // aggressive. The hard near-LOD caps, rather than an empty spawn radius,
     // now carry the phone GPU budget.
     return {
+      tier,
       pixelRatioCap: 1.75,
       maxBuildings: 16000,
       farMinAngularSize: 0.01,
@@ -109,6 +112,7 @@ export const getQualityProfile = (): QualityProfile => {
 
   if (tier === 'quest') {
     return {
+      tier,
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
       farMinAngularSize: 0.004,
@@ -127,6 +131,7 @@ export const getQualityProfile = (): QualityProfile => {
   }
 
   return {
+      tier,
     pixelRatioCap: Number.POSITIVE_INFINITY,
     maxBuildings: 48000,
     farMinAngularSize: 0.004,
