@@ -27,7 +27,8 @@ import {
   planCity,
   resolveCitySurfaceCollision,
   type CityBuilding,
-  type CityRoad
+  type CityRoad,
+  decimateToBudget
 } from './cityLayout'
 
 const TWO_PI = Math.PI * 2
@@ -578,8 +579,63 @@ describe('planCity', () => {
       if (building.kind === 'tower') {
         expect(building.width).toBeCloseTo(building.depth, 6)
       }
-      expect(building.height).toBeLessThanOrEqual(78 + 1e-9)
+      // CBD furniture climbs in the civic core (towers 230 / slabs 110 /
+      // setbacks 120); everything else keeps the 78 m 1g contract.
+      const cap =
+        building.kind === 'tower'
+          ? 230
+          : building.kind === 'slab'
+            ? 110
+            : building.kind === 'setback'
+              ? 120
+              : 78
+      expect(building.height).toBeLessThanOrEqual(cap + 1e-9)
     }
+  })
+
+  test('decimateToBudget thins uniformly and keeps towers for last', () => {
+    const mk = (i: number, kind: 'block' | 'tower'): CityBuilding => ({
+      azimuth: 0,
+      axial: i,
+      width: 10,
+      depth: 10,
+      height: 10,
+      tone: 0,
+      kind
+    })
+    const source = Array.from({ length: 100 }, (_, i) => mk(i, i % 10 === 0 ? 'tower' : 'block'))
+    const kept = decimateToBudget(source, 70)
+    expect(kept.length).toBe(70)
+    // all 10 towers survive; the 30 drops fall on boxes
+    expect(kept.filter((b) => b.kind === 'tower').length).toBe(10)
+    // uniform along the placement order: each quarter loses about the same
+    const quarters = [0, 25, 50, 75].map(
+      (start) => kept.filter((b) => b.axial >= start && b.axial < start + 25).length
+    )
+    expect(Math.max(...quarters) - Math.min(...quarters)).toBeLessThanOrEqual(2)
+    expect(decimateToBudget(source, 200)).toBe(source)
+    expect(decimateToBudget(source, 5).length).toBe(5)
+  })
+
+  test('the plan never exceeds its budget and never leaves the far cap block order bare', () => {
+    for (const maxBuildings of [16000, 18000]) {
+      const { buildings } = planCity({ radius: 3200, length: 40000, maxBuildings })
+      expect(buildings.length).toBeLessThanOrEqual(maxBuildings)
+      // Both ends of the timeline are populated: a hard cap in placement
+      // order used to leave the last-planned strip empty on small budgets.
+      const ends = [buildings.filter((b) => b.axial < -15000), buildings.filter((b) => b.axial > 15000)]
+      for (const end of ends) {
+        expect(end.length).toBeGreaterThan(200)
+      }
+    }
+  })
+
+  test('the civic core grows a tower band the countryside never gets', () => {
+    const { buildings } = planCity({ radius: 3200, length: 40000 })
+    const core = buildings.filter((b) => Math.abs(b.axial) < 2500)
+    const fringe = buildings.filter((b) => Math.abs(b.axial) > 8000)
+    expect(core.filter((b) => b.height > 120).length).toBeGreaterThan(100)
+    expect(fringe.every((b) => b.height <= 78 + 1e-9)).toBe(true)
   })
 
   test('buildings stay within the axial extent and have positive dimensions', () => {
@@ -715,9 +771,10 @@ describe('planCity', () => {
       expect(buildings.length).toBeGreaterThan(0)
 
       for (const building of buildings) {
-        // heightBase clamp times tower factors, capped at 78m — still within
-        // a few percent of surface gravity on the giant presets.
-        expect(building.height).toBeLessThanOrEqual(78 + 1e-9)
+        // Absolute caps (78 m everyday, 230 m core towers) keep every roof
+        // within ~7% of surface gravity: g(h)/g0 = 1 − h/R.
+        expect(building.height).toBeLessThanOrEqual(230 + 1e-9)
+        expect(building.height / radius).toBeLessThanOrEqual(0.075)
       }
     }
   })

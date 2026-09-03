@@ -133,7 +133,9 @@ export const getQualityProfile = (): QualityProfile => {
   return {
       tier,
     pixelRatioCap: Number.POSITIVE_INFINITY,
-    maxBuildings: 48000,
+    // 48k → 64k (2026-09-03, 厚み): the denser core plans ~60k candidates
+    // at full keep; the far cull still discards most of them per frame.
+    maxBuildings: 64000,
     farMinAngularSize: 0.004,
     maxTraffic: 420,
     detailedLod0Distance: 280,

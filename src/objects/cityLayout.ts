@@ -171,6 +171,49 @@ const createRandom = (seed: number) => {
   }
 }
 
+// Trim a plan to its building budget by dropping a uniform share of the
+// non-tower buildings along the placement order (which is spatial), so the
+// thinning is spread over the whole city instead of truncating the last
+// blocks planned. Towers go last: they are the far skyline.
+export const decimateToBudget = (
+  buildings: CityBuilding[],
+  maxBuildings: number
+): CityBuilding[] => {
+  if (buildings.length <= maxBuildings) {
+    return buildings
+  }
+  const dropStage = (source: CityBuilding[], eligible: (b: CityBuilding) => boolean) => {
+    const excess = source.length - maxBuildings
+    if (excess <= 0) {
+      return source
+    }
+    const pool = source.reduce((n, b) => n + (eligible(b) ? 1 : 0), 0)
+    if (pool === 0) {
+      return source
+    }
+    // Integer Bresenham walk over the eligible sequence: exactly `excess`
+    // drops (never one short from float accumulation), evenly spaced.
+    const toDrop = Math.min(excess, pool)
+    const kept: CityBuilding[] = []
+    let seen = 0
+    let dropped = 0
+    for (const building of source) {
+      if (eligible(building)) {
+        seen += 1
+        const due = Math.floor((seen * toDrop) / pool)
+        if (due > dropped) {
+          dropped += 1
+          continue
+        }
+      }
+      kept.push(building)
+    }
+    return kept
+  }
+  const afterBoxes = dropStage(buildings, (b) => b.kind !== 'tower')
+  return dropStage(afterBoxes, () => true)
+}
+
 const wrapToPi = (angle: number) => {
   const wrapped = ((angle % TWO_PI) + TWO_PI) % TWO_PI
   return wrapped > Math.PI ? wrapped - TWO_PI : wrapped
@@ -882,7 +925,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // A compact CBD over the plaza. Smoothstep steepens both shoulders: the
     // core stays intensely urban, then falls through suburb into a genuinely
     // sparse fringe instead of leaving the whole strip at medium density.
-    const coreRaw = Math.max(0, 1 - Math.hypot(tNorm * 0.96, aNorm * 0.82))
+    // Tangential falloff 0.96 → 0.78 (2026-09-03, 厚みウェーブ): the dense
+    // core now spans most of the strip width instead of a narrow spine, so
+    // the axial view from 10km sees overlapping rooflines, not a ribbon of
+    // downtown flanked by lawns. Axial falloff unchanged (the timeline).
+    const coreRaw = Math.max(0, 1 - Math.hypot(tNorm * 0.78, aNorm * 0.82))
     const core = coreRaw * coreRaw * (3 - 2 * coreRaw)
     // The old town: a band hugging the port end across most of the strip
     // width, axially tight. Density comes from `urban`; its LOW massing and
@@ -918,6 +965,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const innerWidthEstimate = blockWidth - localWidth - sidewalk * 2
   const innerLengthEstimate = blockLength - localWidth - sidewalk * 2
   let lotsPerBlockEstimate = 0
+  const lotsPerRingEstimate: number[] = []
   {
     let estWidth = innerWidthEstimate
     let estLength = innerLengthEstimate
@@ -934,9 +982,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         estWidth * 0.35,
         estLength * 0.35
       )
-      lotsPerBlockEstimate +=
+      const ringLots =
         2 * Math.max(0, Math.floor(estLength / lot)) +
         2 * Math.max(0, Math.floor((estWidth - 2 * (ringDepth + sidewalk)) / lot))
+      lotsPerBlockEstimate += ringLots
+      lotsPerRingEstimate.push(ringLots)
       const inset = 2 * (ringDepth + sidewalk * 1.5)
       estWidth -= inset
       estLength -= inset
@@ -944,10 +994,61 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   }
   const candidateEstimate =
     lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * landArcs.length
-  const keepProbability = Math.min(
-    MAX_KEEP_PROBABILITY,
-    candidateEstimate > 0 ? maxBuildings / candidateEstimate : 0
-  )
+  const ringBudgetFor = (urban: number) =>
+    urban >= 0.65 ? MAX_BLOCK_RINGS : urban >= 0.35 ? 3 : urban >= 0.16 ? 2 : 1
+  const farmProbabilityFor = (urban: number) => {
+    const rurality = clamp01((0.6 - urban) / 0.6)
+    return Math.min(0.78, 0.02 * (1 - urban) + rurality * rurality * 1.05)
+  }
+  // Budget calibration (2026-09-03): the raw geometric estimate ignores the
+  // zoning field, and the per-row keep is keep·(0.08 + urban·1.12) + core
+  // infill — so a denser core meant the plan overshot the cap and
+  // placeBuilding silently refused everything placed AFTER the cap: whole
+  // late-iterated blocks bare on the phone tier. Walk the same block grid,
+  // weigh each block by its urban keep factor, ring budget and patch share,
+  // and bisect keep so the EXPECTED count meets maxBuildings instead.
+  const expectedPlaced = (keep: number) => {
+    let total = 0
+    for (let i = 0; i < blocksTangentCount; i += 1) {
+      const tangentCenter = -tangentExtent * 0.5 + (i + 0.5) * blockWidth
+      for (let j = 0; j < blocksAxialCount; j += 1) {
+        const axialCenter = -axialHalf + (j + 0.5) * blockLength
+        const { urban, oldTown } = urbanizationAt(tangentCenter, axialCenter)
+        const rings = Math.min(ringBudgetFor(urban), lotsPerRingEstimate.length)
+        let lots = 0
+        for (let ring = 0; ring < rings; ring += 1) {
+          lots += lotsPerRingEstimate[ring]
+        }
+        // Residential ladders carve the row into home parcels (lot·0.55).
+        if (urban < 0.4 && oldTown < 0.5) {
+          lots *= 1.6
+        }
+        const patchShare = PARK_BLOCK_PROBABILITY + farmProbabilityFor(urban)
+        const coreInfill = clamp01((urban - 0.9) / 0.1)
+        const slotKeep = Math.min(1, keep * (0.08 + urban * 1.12) + coreInfill * 0.72)
+        total += lots * (1 - patchShare) * slotKeep
+      }
+    }
+    return total * landArcs.length
+  }
+  let keepProbability = candidateEstimate > 0 ? MAX_KEEP_PROBABILITY : 0
+  // The estimate runs ~10–20% under the real count (ladders, merges, infill
+  // rolls), so aim a little under the cap and let decimateToBudget below
+  // take the uniform remainder rather than the tail of the block order.
+  const budgetTarget = maxBuildings * 0.92
+  if (candidateEstimate > 0 && expectedPlaced(MAX_KEEP_PROBABILITY) > budgetTarget) {
+    let low = 0
+    let high = MAX_KEEP_PROBABILITY
+    for (let iteration = 0; iteration < 24; iteration += 1) {
+      const mid = (low + high) * 0.5
+      if (expectedPlaced(mid) > budgetTarget) {
+        high = mid
+      } else {
+        low = mid
+      }
+    }
+    keepProbability = low
+  }
 
   const roads: CityRoad[] = []
   const buildings: CityBuilding[] = []
@@ -984,7 +1085,10 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     parcel?: CityBuilding['parcel'],
     industrial?: boolean
   ) => {
-    if (buildings.length >= maxBuildings) {
+    // Soft ceiling only: the budget is enforced by decimateToBudget at the
+    // end, uniformly over the whole city. A hard stop here would leave every
+    // block iterated after the cap bare (2026-09-03, seen on the phone tier).
+    if (buildings.length >= maxBuildings * 1.6) {
       return
     }
 
@@ -1060,6 +1164,15 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // register instead of one uniform pitch.
     const residentialRow = !industrial && urban < 0.4 && oldTown < 0.5
     const lotPitch = residentialRow ? lot * 0.55 : lot
+    // Thickness (2026-09-03): in urban rows a budget-skipped slot is not a
+    // lawn but land the neighbour builds over. The skipped pitch is carried
+    // into the next building's plot, so the instance budget thins the GRAIN
+    // of a frontage rather than opening gaps in it — rooflines overlap and
+    // the city reads as fabric from 10km. Residential and industrial rows
+    // keep their gaps (and pocket greens). `fill` also closes side yards.
+    const absorbGaps = !industrial && !residentialRow && urban >= 0.45
+    const fill = absorbGaps ? 1 : 0
+    let carry = 0
     const count = Math.floor(span / lotPitch)
 
     if (count < 1 || depthMax <= 0) {
@@ -1153,6 +1266,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       const splitLot =
         stride === 1 &&
+        carry === 0 &&
         grainRoll > 1 - splitProbability &&
         pitch * 0.36 >= 4
 
@@ -1167,6 +1281,11 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         keepProbability * (0.08 + urban * 1.12) + coreInfill * 0.72
       )
       if (roll.keep > localKeepProbability) {
+        if (absorbGaps) {
+          carry += stride
+          index += stride
+          continue
+        }
         // Pocket greens: a share of the skipped residential slots become
         // parcel-sized parks — lawn and a tree or two — so a thinned row
         // reads as neighbourhood fabric with greens, not random gaps.
@@ -1228,10 +1347,18 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const jitterRoll = roll.jitter
       const kindRoll = roll.kind
 
-      const plotSpan = pitch * stride
+      // Plot = this pitch group plus any gap carried from skipped slots.
+      const span = stride + carry
+      const startIndex = index - carry
+      carry = 0
+      const plotSpan = pitch * span
+      // Urban frontages fill their plots edge to edge (party walls); the
+      // countryside keeps its side yards and shallow-lot variety.
       let along =
-        stride > 1 ? plotSpan * (0.78 + alongRoll * 0.16) : lotPitch * (0.74 + alongRoll * 0.24)
-      let depth = depthMax * (0.55 + depthRoll * 0.45)
+        span > 1
+          ? plotSpan * (0.78 + 0.14 * fill + alongRoll * (0.16 - 0.08 * fill))
+          : lotPitch * (0.74 + 0.16 * fill + alongRoll * (0.24 - 0.14 * fill))
+      let depth = depthMax * (0.55 + 0.25 * fill + depthRoll * (0.45 - 0.25 * fill))
       // The end-of-row jitter must not push a building past the row span:
       // beyond it lies the back ALLEY (a real road since the frontage
       // guarantee), and a lot that drifts into the lane both blocks it and
@@ -1239,7 +1366,9 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const clampAlongToRow = (centre: number, extent: number) =>
         Math.min(rowEnd - extent * 0.5, Math.max(rowStart + extent * 0.5, centre))
       const alongCenter = clampAlongToRow(
-        rowStart + (index + stride * 0.5) * pitch + (jitterRoll - 0.5) * lotPitch * 0.2,
+        rowStart +
+          (startIndex + span * 0.5) * pitch +
+          (jitterRoll - 0.5) * lotPitch * 0.2 * (1 - fill),
         along
       )
       // Downtown stands tall; the outskirts stay low-rise. A merged plot
@@ -1251,7 +1380,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         heightBase *
         (0.25 + heightRoll * heightRoll * 1.1) *
         (0.18 + urban * 0.95) *
-        (1 + (stride - 1) * 0.12) *
+        (1 + (span - 1) * 0.12) *
         (1 - 0.52 * oldTown)
 
       if (splitLot) {
@@ -1331,6 +1460,18 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const towerThreshold = 0.84 - urban * 0.26 + 0.3 * oldTown
       const setbackThreshold = 0.62 - urban * 0.16 + 0.25 * oldTown
       const houseBand = 0.55 - 0.35 * oldTown
+      // The civic core reaches up (2026-09-03, 厚みウェーブ): spin gravity
+      // thins with height — g(h) = g0·(1 − h/R), 0.93 g0 at 230 m on Izma —
+      // so the tallest structures are CHEAPER per floor exactly where land is
+      // dearest, the reverse of Earth. Only CBD furniture (towers, podium
+      // slabs, setbacks) climbs; blocks, houses and the old town keep the
+      // 1g contract of heightBase. From 10km a 200 m tower is 0.02 rad —
+      // it survives every tier's far cull and stands in the haze the way
+      // Musashi-Kosugi does from Shibuya (the A definite).
+      const coreTall = clamp01((urban - 0.78) / 0.22) * (1 - oldTown)
+      const towerCap = 78 + coreTall * 152
+      const slabCap = 70 + coreTall * 40
+      const setbackCap = 76 + coreTall * 44
 
       // Small home parcels host homes and walk-ups, never CBD furniture:
       // the tall archetypes need the big downtown plots (ビル=大区画).
@@ -1350,7 +1491,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         const slim = Math.min(along, depth) * 0.85
         along = slim
         depth = slim
-        height = Math.min(height * 1.25, 78)
+        height = Math.min(height * (1.25 + coreTall * 1.6), towerCap)
       } else if (!residentialRow && !industrial && kindRoll > setbackThreshold) {
         const bandPosition =
           (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
@@ -1359,20 +1500,23 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         // narrower residential bar on top. The countryside keeps setbacks.
         if (bandPosition > 0.6 && urban > 0.45 && oldTown < 0.5) {
           kind = 'slab'
-          height = Math.min(height * 1.15, 70)
+          height = Math.min(height * (1.15 + coreTall * 0.5), slabCap)
         } else {
           kind = 'setback'
-          height = Math.min(height * 1.1, 76)
+          height = Math.min(height * (1.1 + coreTall * 0.6), setbackCap)
         }
       } else if (kindRoll > setbackThreshold * 0.75) {
         kind = 'lshape'
       }
 
-      height = Math.min(height, 78)
+      height = Math.min(
+        height,
+        kind === 'tower' ? towerCap : kind === 'slab' ? slabCap : kind === 'setback' ? setbackCap : 78
+      )
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
 
-      const slotCenter = rowStart + (index + stride * 0.5) * pitch
+      const slotCenter = rowStart + (startIndex + span * 0.5) * pitch
 
       if (facing === 'avenue') {
         placeBuilding(
@@ -1387,7 +1531,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           urban,
           oldTown,
           front,
-          parcelFor(slotCenter, pitch * stride, frontCenter, alongCenter),
+          parcelFor(slotCenter, pitch * span, frontCenter, alongCenter),
           industrial
         )
       } else {
@@ -1403,7 +1547,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           urban,
           oldTown,
           front,
-          parcelFor(slotCenter, pitch * stride, alongCenter, frontCenter),
+          parcelFor(slotCenter, pitch * span, alongCenter, frontCenter),
           industrial
         )
       }
@@ -1481,8 +1625,12 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         )
         // The countryside turns mostly to farm fields; downtown keeps the
         // original sparse green allotment.
-        const rurality = 1 - blockUrban
-        const farmProbability = Math.min(0.78, 0.02 + rurality * rurality * 0.82)
+        // Farms belong to the countryside: a block stops zoning to field once
+        // its district is more than half urban (2026-09-03 — from 10km the
+        // dark fields between apartment blocks read as holes in the city, not
+        // as zoning). The frontier keeps its ~60% field share; parks keep
+        // their small share everywhere.
+        const farmProbability = farmProbabilityFor(blockUrban)
         // The spawn crossroads and the arrival square open onto real frontage
         // on all four corners (the hero-vista contract that coreInfill keeps
         // occupied): their adjacent blocks never zone away to park or farm.
@@ -1557,14 +1705,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         // The CBD fills the whole perimeter block; the fringe keeps only its
         // road-facing row. This makes massing density—not merely facade colour
         // or height—change across the city while preserving the same road grid.
-        const ringBudget =
-          blockUrban >= 0.65
-            ? MAX_BLOCK_RINGS
-            : blockUrban >= 0.35
-              ? 3
-              : blockUrban >= 0.16
-                ? 2
-                : 1
+        const ringBudget = ringBudgetFor(blockUrban)
 
         // The block row hugging the port cap is the logistics band: the
         // port and the old town grew together, and the freight aprons wear
@@ -1769,7 +1910,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
   return {
     roads,
-    buildings,
+    buildings: decimateToBudget(buildings, maxBuildings),
     patches,
     trees,
     tower: getOverlookTower(radius),
