@@ -630,6 +630,28 @@ describe('planCity', () => {
     }
   })
 
+  test('plans an intersection at every avenue × street crossing, none inside the plaza', () => {
+    const plan = planCity({ radius: 3200, length: 40000 })
+    expect(plan.intersections.length).toBeGreaterThan(1000)
+    const kinds = new Set(plan.intersections.map((x) => `${x.avenueKind}/${x.streetKind}`))
+    expect(kinds.has('arterial/arterial')).toBe(true)
+    expect(kinds.has('local/local')).toBe(true)
+    for (const x of plan.intersections) {
+      expect(x.avenueWidth).toBeGreaterThan(0)
+      expect(x.streetWidth).toBeGreaterThan(0)
+      expect(Math.abs(x.axial)).toBeLessThanOrEqual(20000)
+      expect(isInsidePlaza(x.azimuth, x.axial, 3200)).toBe(false)
+    }
+    // Every intersection sits on an avenue centreline AND a street centreline.
+    const avenues = plan.roads.filter((r) => r.axialLength > r.tangentWidth && r.kind !== 'alley')
+    const streets = plan.roads.filter((r) => r.tangentWidth > r.axialLength && r.kind !== 'alley')
+    const sample = plan.intersections.filter((_, i) => i % 97 === 0)
+    for (const x of sample) {
+      expect(avenues.some((r) => Math.abs(r.azimuth - x.azimuth) < 1e-6)).toBe(true)
+      expect(streets.some((r) => Math.abs(r.axial - x.axial) < 1e-6)).toBe(true)
+    }
+  })
+
   test('the civic core grows a tower band the countryside never gets', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
     const core = buildings.filter((b) => Math.abs(b.axial) < 2500)
@@ -656,6 +678,7 @@ describe('planCity', () => {
     const empty = {
       roads: [],
       buildings: [],
+      intersections: [],
       patches: [],
       trees: [],
       tower: null,

@@ -122,9 +122,23 @@ export type CityExpressway = {
   ramps: ExpresswayRamp[]
 }
 
+// A road crossing on the block grid: where an avenue (axial-running, on a
+// tangent boundary) meets a street (tangent-running, on an axial boundary).
+// Street furniture (crosswalks, signals, signs) hangs off these; alleys and
+// the ring alleys inside blocks are not intersections in this sense.
+export type CityIntersection = {
+  azimuth: number
+  axial: number
+  avenueKind: RoadKind
+  streetKind: RoadKind
+  avenueWidth: number
+  streetWidth: number
+}
+
 export type CityPlan = {
   roads: CityRoad[]
   buildings: CityBuilding[]
+  intersections: CityIntersection[]
   patches: CityPatch[]
   trees: CityTree[]
   tower: CityTower | null
@@ -860,6 +874,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     return {
       roads: [],
       buildings: [],
+      intersections: [],
       patches: [],
       trees: [],
       tower: null,
@@ -1052,6 +1067,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
   const roads: CityRoad[] = []
   const buildings: CityBuilding[] = []
+  const intersections: CityIntersection[] = []
   const patches: CityPatch[] = []
   const trees: CityTree[] = []
 
@@ -1587,6 +1603,33 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       })
     }
 
+    // Every avenue × street crossing on the grid (2026-09-03, 交差点の家具).
+    // Deterministic from the grid — no RNG — so the building roll order is
+    // untouched. Crossings inside the plaza / arrival square are skipped:
+    // those are open squares, not signalled junctions.
+    for (let i = 0; i <= blocksTangentCount; i += 1) {
+      if (wrapTangent && i === blocksTangentCount) {
+        continue
+      }
+      const avenueKind = avenueKindAt(i)
+      const azimuth = stripCenter + (-tangentExtent * 0.5 + i * blockWidth) / radius
+      for (let j = 0; j <= blocksAxialCount; j += 1) {
+        const streetKind = streetKindAt(j)
+        const axialPosition = -axialHalf + j * blockLength
+        if (isInsideAnySquare(azimuth, axialPosition)) {
+          continue
+        }
+        intersections.push({
+          azimuth,
+          axial: axialPosition,
+          avenueKind,
+          streetKind,
+          avenueWidth: roadWidthFor(avenueKind),
+          streetWidth: roadWidthFor(streetKind)
+        })
+      }
+    }
+
     for (let i = 0; i < blocksTangentCount; i += 1) {
       for (let j = 0; j < blocksAxialCount; j += 1) {
         const tangent0 =
@@ -1911,6 +1954,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   return {
     roads,
     buildings: decimateToBudget(buildings, maxBuildings),
+    intersections,
     patches,
     trees,
     tower: getOverlookTower(radius),
