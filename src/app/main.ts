@@ -98,6 +98,7 @@ import {
   resolveCitySurfaceCollision
 } from '../objects/cityLayout'
 import { Cityscape } from '../objects/cityscape'
+import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { CylinderHabitat } from '../objects/cylinder'
 import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
@@ -612,6 +613,12 @@ export const bootstrapApp = async () => {
   })
   const car = new Car()
   nearLayer.add(car.group)
+  // Crosswalks, signal poles and name-plate posts at the road crossings near
+  // the player (objects/intersectionFurniture.ts): near-field only, relaid
+  // as the player moves. `?furniture=0` hides it for A/B.
+  const intersectionFurniture = new IntersectionFurniture()
+  intersectionFurniture.group.visible = bootParams.get('furniture') !== '0'
+  nearLayer.add(intersectionFurniture.group)
   const drive = new DriveRuntime()
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
@@ -1087,6 +1094,10 @@ export const bootstrapApp = async () => {
     // ring skip it (createCityShellTextureSet also gates on radius) — the
     // placeholders make the shell layer a no-op then.
     const cityPlan = cityscape.getCityPlan()
+    intersectionFurniture.setPlan(
+      cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.intersections : [],
+      habitatConfig.radius
+    )
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
         ? createCityShellTextureSet(
@@ -2006,6 +2017,11 @@ export const bootstrapApp = async () => {
       drive.driving ? drive.surface.azimuth : playerAzimuth,
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
     )
+    intersectionFurniture.update(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
+      deltaSeconds
+    )
 
     // Stream the building colliders to whatever we're controlling — the car
     // while driving, otherwise the walker — before stepping.
@@ -2429,6 +2445,7 @@ export const bootstrapApp = async () => {
     cityscape.setDaylight(daylight)
     habitat.setCityShellDaylight(daylight)
     starfield.setDaylight(daylight)
+    intersectionFurniture.setDaylight(daylight)
     cityscape.update(deltaSeconds)
     spaceport.update(deltaSeconds)
 
@@ -2531,6 +2548,7 @@ export const bootstrapApp = async () => {
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()
+    intersectionFurniture.dispose()
     rain.dispose()
     cityscape.dispose()
     spaceport.dispose()
