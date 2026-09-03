@@ -18,7 +18,11 @@ export const DEFAULT_INTRO_REVEAL: IntroRevealConfig = {
   riseSeconds: 1.6,
   holdSeconds: 2.2,
   fallSeconds: 1.9,
-  peakPitch: 0.75
+  // 0.88 rad ≈ 50°: with the 70° vertical FOV the reveal frames elevation
+  // 15°–85°, centring the neighbouring land strip (its centre sits 60° up
+  // from a street on the adjacent strip — the "city wraps overhead" the first
+  // card promises). 0.75 (43°) left it in the top third. 2026-09-02.
+  peakPitch: 0.88
 }
 
 export const introRevealDurationSeconds = (

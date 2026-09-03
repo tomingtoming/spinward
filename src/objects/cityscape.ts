@@ -2357,9 +2357,13 @@ export class Cityscape {
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
-  // window, on top of the normal exponential fog. Reuses the fog varyings
-  // (vFogDepth) and the fogColor uniform that three.js already injects, so it
-  // only needs the two fade-window uniforms. No-op if the material is unfogged.
+  // window, on top of the normal exponential fog. The distance is measured in
+  // metres of STREET-LEVEL air — the layered optical depth divided by the
+  // floor density (layeredHaze.ts) — so under the boundary-layer profile a
+  // sightline up through the thin upper air fades no sooner than the haze
+  // itself would, while a horizontal sightline fades exactly as before (the
+  // two coincide under uniform fog). Reuses the fog uniforms/varyings that
+  // the swapped fog chunks inject. No-op if the material is unfogged.
   private installDistanceFade(material: THREE.Material) {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uFadeStart = this.fadeStart
@@ -2368,8 +2372,9 @@ export class Cityscape {
         'uniform float uFadeStart;\nuniform float uFadeEnd;\n' +
         shader.fragmentShader.replace(
           '#include <fog_fragment>',
-          'gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, ' +
-            'smoothstep(uFadeStart, uFadeEnd, vFogDepth));\n#include <fog_fragment>'
+          'float fadeDepth = layeredHazeOpticalDepth(cameraPosition, vFogWorldOffset, fogDensity, fogHabitat) / max(fogDensity, 1e-9);\n' +
+            'gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, ' +
+            'smoothstep(uFadeStart, uFadeEnd, fadeDepth));\n#include <fog_fragment>'
         )
     }
   }

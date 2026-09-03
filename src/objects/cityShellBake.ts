@@ -245,7 +245,31 @@ const shellWindowGain = (building: CityBuilding) => {
   }
 }
 
-const bakeEmissive = (bake: BakeContext, plan: CityPlan) => {
+// Texel alpha of the baked road glow at scale 1, relative to the lit-window
+// blobs (shellWindowGain ≤ 1). These are the pre-2026-09-02 values; the
+// default `roadGlowScale` below halves them. 定点 B60_night / A_night at
+// scale 1: the overhead island read as a Tron lattice and the mid-distance
+// arterials bloomed to white — the grid outshone the city it was meant to
+// carry. `?grid=<scale>` restores any value on device (`?grid=1` = old look).
+export const SHELL_ROAD_CORE_ALPHA = { arterial: 0.7, local: 0.26, expressway: 0.95 } as const
+export const SHELL_ROAD_HALO_ALPHA = { arterial: 0.14, local: 0.05, expressway: 0.25 } as const
+export const DEFAULT_SHELL_ROAD_GLOW_SCALE = 0.5
+
+export const resolveShellRoadGlowScale = (
+  urlValue: string | null,
+  defaultScale: number = DEFAULT_SHELL_ROAD_GLOW_SCALE
+): number => {
+  if (urlValue === null || urlValue.trim() === '') {
+    return defaultScale
+  }
+  const parsed = Number(urlValue)
+  if (!Number.isFinite(parsed)) {
+    return defaultScale
+  }
+  return Math.min(2, Math.max(0, parsed))
+}
+
+const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) => {
   const { ctx } = bake
   const random = createSeededRandom(0x9e11ba25)
   ctx.fillStyle = '#000000'
@@ -264,7 +288,9 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan) => {
       continue
     }
     ctx.fillStyle = roadGlow
-    ctx.globalAlpha = road.kind === 'arterial' ? 0.14 : 0.05
+    ctx.globalAlpha =
+      (road.kind === 'arterial' ? SHELL_ROAD_HALO_ALPHA.arterial : SHELL_ROAD_HALO_ALPHA.local) *
+      roadGlowScale
     bakeRect(
       bake,
       road.azimuth,
@@ -273,7 +299,9 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan) => {
       road.axialLength + haloMargin,
       2
     )
-    ctx.globalAlpha = road.kind === 'arterial' ? 0.7 : 0.26
+    ctx.globalAlpha =
+      (road.kind === 'arterial' ? SHELL_ROAD_CORE_ALPHA.arterial : SHELL_ROAD_CORE_ALPHA.local) *
+      roadGlowScale
     bakeRect(bake, road.azimuth, road.axial, road.tangentWidth, road.axialLength, 1)
   }
 
@@ -281,9 +309,9 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan) => {
     const y =
       axialToShellYFraction(plan.expressway.axial, bake.length) * bake.height
     ctx.fillStyle = roadGlow
-    ctx.globalAlpha = 0.25
+    ctx.globalAlpha = SHELL_ROAD_HALO_ALPHA.expressway * roadGlowScale
     ctx.fillRect(0, y - Math.max(1.5, plan.expressway.deckWidth * bake.metersToPxY) * 1.5, bake.width, Math.max(3, plan.expressway.deckWidth * bake.metersToPxY * 3))
-    ctx.globalAlpha = 0.95
+    ctx.globalAlpha = SHELL_ROAD_CORE_ALPHA.expressway * roadGlowScale
     ctx.fillRect(0, y - Math.max(0.5, plan.expressway.deckWidth * bake.metersToPxY) * 0.5, bake.width, Math.max(1, plan.expressway.deckWidth * bake.metersToPxY))
   }
 
@@ -360,7 +388,8 @@ export const createCityShellTextureSet = (
   plan: CityPlan,
   radius: number,
   length: number,
-  emissiveWidth = 4096
+  emissiveWidth = 4096,
+  roadGlowScale = DEFAULT_SHELL_ROAD_GLOW_SCALE
 ): CityShellTextureSet | null => {
   if (radius < CITY_SHELL_MIN_RADIUS || plan.buildings.length === 0) {
     return null
@@ -370,7 +399,7 @@ export const createCityShellTextureSet = (
   const albedoBake = createBakeContext(emissiveWidth / 2, emissiveWidth / 4, radius, length)
 
   bakeAlbedo(albedoBake, plan)
-  bakeEmissive(emissiveBake, plan)
+  bakeEmissive(emissiveBake, plan, roadGlowScale)
 
   return {
     albedo: finishCityTexture(albedoBake.ctx.canvas),
