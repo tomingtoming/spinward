@@ -264,4 +264,6 @@ a_cf = -(Ω × (Ω × r))
 
 [GNU AGPL-3.0-or-later](LICENSE) © 2026 tomingtoming.
 
+Hobby project. Issues welcome, PRs not accepted: that keeps relicensing simple while there is a single copyright holder.
+
 Third-party assets and libraries keep their own licenses: the road and vehicle models are by [Kenney](https://www.kenney.nl/) (CC0, `License.txt` beside each set), [three.js](https://threejs.org/) is MIT, and [Rapier](https://rapier.rs/) is Apache-2.0.
