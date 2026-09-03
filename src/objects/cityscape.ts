@@ -3825,8 +3825,14 @@ export class Cityscape {
       // is a few pixels of shimmer fuel, not skyline. The threshold scales
       // with each building's own chord distance, so nothing pops at the
       // near-arc boundary (a 1 km neighbour only needs metres to stay) while
-      // the far side keeps just the silhouettes that read.
-      if (maxDimension < chord * this.farMinAngularSize) {
+      // the far side keeps just the silhouettes that read. Towers keep half
+      // the threshold (2026-09-03): a slender tower IS the far skyline — the
+      // one shape that still reads at 2 px in the haze — while the low boxes
+      // around it are what the shell bake carries. On phone/quest this keeps
+      // the 60 m+ towers alive out to ~12 km instead of vanishing at 6 km.
+      const cullAngle =
+        building.kind === 'tower' ? this.farMinAngularSize * 0.5 : this.farMinAngularSize
+      if (maxDimension < chord * cullAngle) {
         continue
       }
 
