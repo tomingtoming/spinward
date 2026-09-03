@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  classifyBootFailure,
   createRecorder,
   createShipper,
   readAudience,
   readVisitor,
   referrerHost,
+  reportBootFailure,
   type MetricsEvent,
   type StorageLike
 } from './metrics'
@@ -186,5 +188,114 @@ describe('createShipper', () => {
     shipper.emit(event('leave'))
     expect(sent.length).toBe(2)
     expect(shipper.sent()).toBe(3)
+  })
+})
+
+describe('classifyBootFailure', () => {
+  const ok = { webgl2: true, wasm: true }
+
+  test('a missing WebGL2 context wins over whatever the error said', () => {
+    expect(classifyBootFailure(new Error('fetch failed'), { webgl2: false, wasm: true })).toBe('webgl')
+  })
+
+  test('missing WebAssembly is reported as wasm', () => {
+    expect(classifyBootFailure(new Error('boom'), { webgl2: true, wasm: false })).toBe('wasm')
+  })
+
+  test('falls back to reading the message when the browser is capable', () => {
+    expect(classifyBootFailure(new Error('Error creating WebGL context'), ok)).toBe('webgl')
+    expect(classifyBootFailure(new Error('WebAssembly.instantiate failed'), ok)).toBe('wasm')
+    expect(classifyBootFailure(new TypeError('Load failed'), ok)).toBe('network')
+    expect(classifyBootFailure('something else entirely', ok)).toBe('unknown')
+    expect(classifyBootFailure(undefined, ok)).toBe('unknown')
+  })
+})
+
+describe('reportBootFailure', () => {
+  const base = {
+    error: new Error('Error creating WebGL context'),
+    search: '',
+    build: 'abc1234',
+    language: 'en-US',
+    touch: false,
+    referrer: 'https://news.ycombinator.com/item?id=1',
+    ownHost: 'spinward.toming.app',
+    probe: { webgl2: true, wasm: true },
+    mkId: () => 'fixedid0fixedid0'
+  }
+
+  test('sends one boot-fail event with the wire envelope', () => {
+    const sent: { url: string; body: string }[] = []
+    const reason = reportBootFailure({
+      ...base,
+      store: makeStore(),
+      send: (url, body) => {
+        sent.push({ url, body })
+        return true
+      }
+    })
+
+    expect(reason).toBe('webgl')
+    expect(sent).toHaveLength(1)
+    expect(sent[0].url).toBe('/metric')
+    const payload = JSON.parse(sent[0].body)
+    expect(payload.v).toBe(1)
+    expect(payload.aud).toBe('public')
+    expect(payload.build).toBe('abc1234')
+    expect(payload.events).toHaveLength(1)
+    expect(payload.events[0]).toMatchObject({
+      e: 'boot-fail',
+      reason: 'webgl',
+      device: 'desktop',
+      lang: 'en-US',
+      ref: 'news.ycombinator.com',
+      visits: 1
+    })
+  })
+
+  test('honours ?metrics=off and sends nothing', () => {
+    const sent: string[] = []
+    const reason = reportBootFailure({
+      ...base,
+      search: '?metrics=off',
+      store: makeStore(),
+      send: (_url, body) => {
+        sent.push(body)
+        return true
+      }
+    })
+
+    expect(reason).toBeNull()
+    expect(sent).toHaveLength(0)
+  })
+
+  test('works with storage denied (private mode): visits 0, still reports', () => {
+    const sent: string[] = []
+    const reason = reportBootFailure({
+      ...base,
+      store: makeStore(true),
+      send: (_url, body) => {
+        sent.push(body)
+        return true
+      }
+    })
+
+    expect(reason).toBe('webgl')
+    expect(JSON.parse(sent[0]).events[0].visits).toBe(0)
+  })
+
+  test('touch devices are tagged as touch', () => {
+    const sent: string[] = []
+    reportBootFailure({
+      ...base,
+      touch: true,
+      store: makeStore(),
+      send: (_url, body) => {
+        sent.push(body)
+        return true
+      }
+    })
+
+    expect(JSON.parse(sent[0]).events[0].device).toBe('touch')
   })
 })
