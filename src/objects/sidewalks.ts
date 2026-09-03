@@ -198,7 +198,15 @@ export class Sidewalks {
     const merged = mergeBufferGeometries(geometries)
     for (const g of geometries) g.dispose()
     if (merged === null) return
+    // The merged band ring wraps the whole habitat and the camera stands
+    // inside it, so frustum culling can only ever hide it wrongly — and did:
+    // a stale per-band bounding sphere made the pavement vanish at some yaws
+    // and viewport aspects (2026-09-03, found by measuring the same crop at
+    // two window sizes). Fresh bounds AND no culling.
+    merged.computeBoundingBox()
+    merged.computeBoundingSphere()
     this.mesh = new THREE.Mesh(merged, this.material)
+    this.mesh.frustumCulled = false
     this.mesh.renderOrder = 1
     this.group.add(this.mesh)
   }
