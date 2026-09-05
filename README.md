@@ -2,10 +2,7 @@
 
 **Held by the spin. Not by gravity.**
 
-回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。
-A WebXR experiment in rotating habitats.
-
-## In English
+[![Night over Izma Colony: the far side of the city hangs overhead](docs/img/hero-night.jpg)](https://spinward.toming.app/)
 
 **[spinward.toming.app](https://spinward.toming.app/)** — walk the inside of a spinning O'Neill cylinder in your browser. No install: Meta Quest browser (WebXR), desktop, or phone.
 
@@ -13,7 +10,30 @@ The city looks ordinary until you look up and see the far side of town hanging o
 
 A three-minute tour: throw → jump → **2** Overlook (weaker gravity near the axis) → **3** Axis (zero-g) → **4** Exterior (watch the whole colony turn). Change the spin rate and feel `g = ω²R`. Turn on rain and watch every drop lag the spin. Share any view with its URL — the link unfurls with that view's own description.
 
-Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is simulated and what is approximated: [docs/whats-real.md](docs/whats-real.md).** Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). Source is under [AGPL-3.0-or-later](#license). The rest of this README is in Japanese.
+Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is simulated and what is approximated: [docs/whats-real.md](docs/whats-real.md).** Controls are in the table below; the full VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). Source is under [AGPL-3.0-or-later](#license). The rest of this README is in Japanese.
+
+### Controls
+
+| | PC | Quest | Phone |
+| --- | --- | --- | --- |
+| Move | WASD | left stick (hold grip to climb) | virtual stick on the left |
+| Look | click the view to grab the mouse (Esc frees it) · right-drag · arrow keys | head + right stick snap turn | drag on the right · Gyro button |
+| Throw | left click (hold to charge) | right trigger (hold to charge) | tap on the right |
+| Jump | Space (hold to keep rising) | A | Jump button (hold to keep rising) |
+| Travel | 1 / 2 / 3 / 4 or the Travel menu | B or the wrist menu | Travel menu |
+| Spin rate | Spin −/+ buttons or `-` / `=` | wrist menu rpm | Spin −/+ buttons |
+| Rain | Rain button or `R` | toggle before entering VR | Rain button |
+| Free-fly | `F` | A | hold Jump |
+| Drive | `E` next to the parked rover | — | Drive button next to the rover |
+| Share | Link `L` · Photo `P` | — | Link · Photo |
+
+![A thrown ball curves to the side; a dashed line shows the same throw on Earth](docs/img/coriolis-ghost.jpg)
+
+*Throw: the ball flies straight in the inertial frame and curves on screen. The dashed line is where the same throw would land on a flat Earth.*
+
+## 日本語
+
+回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。
 
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
 
