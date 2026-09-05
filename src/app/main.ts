@@ -160,6 +160,17 @@ import { LaserPointer } from '../xr/laserPointer'
 import { VRLocomotion } from '../xr/vrLocomotion'
 import { XRInputMap } from '../xr/xrInputMap'
 
+// Aviation beacons never drop below this on-screen radius (CSS px on flat
+// screens, framebuffer px in XR). `?beacon=<px>` overrides for on-device A/B;
+// 0 draws the physical 0.45 m fixture only, which is sub-pixel past ~300 m.
+const BEACON_MIN_SCREEN_RADIUS_PX = 1.0
+const beaconViewportScratch = new THREE.Vector2()
+
+export const resolveBeaconMinScreenRadius = (urlValue: string | null): number => {
+  const parsed = urlValue === null ? Number.NaN : Number(urlValue)
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 8 ? parsed : BEACON_MIN_SCREEN_RADIUS_PX
+}
+
 export const bootstrapApp = async () => {
   const settingsStore = createSettingsStore()
   // The demo opens at Izma scale; Playground stays one preset tap away for
@@ -214,6 +225,9 @@ export const bootstrapApp = async () => {
   // tuning and the `?debug` panel has a live slider. The confined-air case (a
   // ring's vacuum bore) is handled below by scaling with getAirColumnFraction.
   const quality = getQualityProfile()
+  const beaconMinScreenRadiusPx = resolveBeaconMinScreenRadius(
+    new URLSearchParams(window.location.search).get('beacon')
+  )
   // Backing-store ratio: device DPR under the tier cap, or `?dpr=<n>` pinned.
   const pixelRatio = resolvePixelRatio(
     new URLSearchParams(window.location.search).get('dpr'),
@@ -2583,6 +2597,18 @@ export const bootstrapApp = async () => {
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
     cityscape.update(deltaSeconds)
+    // Aviation beacons: keep them at least ~1.3 CSS px in radius however far
+    // they are (the far-side towers are 6 km up). In XR the drawing buffer is
+    // the per-eye framebuffer, so its height is the right denominator there.
+    {
+      const heightPx = renderer.xr.isPresenting
+        ? renderer.getDrawingBufferSize(beaconViewportScratch).y
+        : window.innerHeight
+      cityscape.setBeaconScreenScale(
+        (beaconMinScreenRadiusPx * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5))) /
+          Math.max(1, heightPx)
+      )
+    }
     spaceport.update(deltaSeconds)
 
     // Lightweight state probe for headless debugging.
