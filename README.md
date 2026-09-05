@@ -13,7 +13,7 @@ The city looks ordinary until you look up and see the far side of town hanging o
 
 A three-minute tour: throw → jump → **2** Overlook (weaker gravity near the axis) → **3** Axis (zero-g) → **4** Exterior (watch the whole colony turn). Change the spin rate and feel `g = ω²R`. Turn on rain and watch every drop lag the spin. Share any view with its URL — the link unfurls with that view's own description.
 
-Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). Source is under [AGPL-3.0-or-later](#license). The rest of this README is in Japanese.
+Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is simulated and what is approximated: [docs/whats-real.md](docs/whats-real.md).** Controls for PC / Quest / phone are in the table below; the VR bindings are in [docs/vr-controls.md](docs/vr-controls.md). Source is under [AGPL-3.0-or-later](#license). The rest of this README is in Japanese.
 
 見上げると反対側の街が空にある。歩くと普通の街なのに、投げる・跳ぶ・中心軸へ行くと物理が変になる——回転コロニーの「景観」と「人工重力の違和感」を 3 分で体験することを狙った、SF 好き向けの物理実験型 VR デモです。
 
