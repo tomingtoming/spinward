@@ -528,6 +528,12 @@ const SPINE_NIGHT = new THREE.Color(0x8a7f63)
 // that cool from warm dusk amber toward white/cyan at deep night.
 export const ROAD_GLOW = new THREE.Color(0xbff7ff)
 const BEACON_COLOR = new THREE.Color(0xff2e2a)
+// An obstruction light fixture is about half a metre across. Up close that is
+// what you should see; far away the vertex shader grows the sphere so it never
+// drops below a pixel or so (setBeaconScreenScale), the way a real point light
+// stays visible long after its housing is sub-pixel.
+const BEACON_PHYSICAL_RADIUS = 0.45
+const BEACON_MAX_GROW = 60
 export const WINDOW_WARM = new THREE.Color(0xffe2b8)
 export const WINDOW_COOL = new THREE.Color(0xdfeaff)
 
@@ -1916,13 +1922,18 @@ export class Cityscape {
   // haloes under desktop bloom; the steady-on floor keeps them readable between
   // flashes.
   private readonly beaconTime = { value: 0 }
+  // Radians of view per minimum beacon radius on screen; main.ts sets it from
+  // the camera fov and viewport height each frame (see setBeaconScreenScale).
+  private readonly beaconMinAngular = { value: 0.0025 }
   private readonly beaconMaterial = new THREE.MeshBasicMaterial({
     color: BEACON_COLOR.clone(),
     toneMapped: false,
-    // Beacons must read across the whole bore — the overhead islands are ~2
-    // radii away, deep in the haze. Exempt them from fog so the far rooftops
-    // keep blinking instead of dissolving into the sky colour.
-    fog: false
+    // fog: true only to receive the haze uniforms; installBeaconBlink swaps
+    // the fog chunk for pure extinction (the light dims through the haze but
+    // stays red, instead of dissolving into the sky colour). Before
+    // 2026-09-05 beacons were exempt from fog entirely, which with the
+    // screen-size floor turned the far land strip into a field of red.
+    fog: true
   })
 
   private readonly cableMaterial = new THREE.MeshStandardMaterial({
@@ -2336,11 +2347,23 @@ export class Cityscape {
   private installBeaconBlink(material: THREE.MeshBasicMaterial) {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.beaconTime
+      shader.uniforms.uBeaconMinAngular = this.beaconMinAngular
+      // Screen-size floor: the instance matrix scales the unit sphere to the
+      // physical radius; grow the local vertex so the world radius becomes
+      // max(physical, distance * minAngular), capped so a 400 px window does
+      // not turn the far-side lights into balloons.
       shader.vertexShader =
         'attribute float aBlinkPhase;\nvarying float vBlinkPhase;\n' +
+        'uniform float uBeaconMinAngular;\n' +
         shader.vertexShader.replace(
           '#include <begin_vertex>',
-          '#include <begin_vertex>\n  vBlinkPhase = aBlinkPhase;'
+          '#include <begin_vertex>\n  vBlinkPhase = aBlinkPhase;\n' +
+            '  {\n' +
+            '    vec4 beaconCentre = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);\n' +
+            '    float beaconNeed = length(beaconCentre.xyz) * uBeaconMinAngular;\n' +
+            `    float beaconGrow = clamp(beaconNeed / ${BEACON_PHYSICAL_RADIUS.toFixed(3)}, 1.0, ${BEACON_MAX_GROW.toFixed(1)});\n` +
+            '    transformed *= beaconGrow;\n' +
+            '  }'
         )
       // A steady red ember (always lit, so distant beacons stay on the retina)
       // with a slower, fatter flash on top. The near side no longer machine-guns
@@ -2354,9 +2377,28 @@ export class Cityscape {
             '  float beaconCycle = fract(uTime * 0.5 + vBlinkPhase);\n' +
             '  float beaconFlash = smoothstep(0.0, 0.08, beaconCycle) *\n' +
             '    (1.0 - smoothstep(0.12, 0.42, beaconCycle));\n' +
-            '  gl_FragColor.rgb *= 0.5 + beaconFlash * 2.1;'
+            // Brighter than before (peak 2.6 -> 4.0): the disc is now a
+            // fraction of its old size, so the bloom halo has to carry it.
+            '  gl_FragColor.rgb *= 0.8 + beaconFlash * 3.2;'
+        )
+        .replace(
+          '#include <fog_fragment>',
+          // Transmittance only: the same layered-haze optical depth every
+          // other material uses (objects/layeredHaze.ts), without the mix
+          // toward the sky colour. A 6 km beacon keeps ~20% at 16 km
+          // visibility, which the strobe peak still lifts over the bloom
+          // threshold.
+          '#ifdef USE_FOG\n' +
+            '  gl_FragColor.rgb *= exp(-layeredHazeOpticalDepth(cameraPosition, vFogWorldOffset, fogDensity, fogHabitat));\n' +
+            '#endif'
         )
     }
+  }
+
+  // Minimum on-screen beacon radius, as radians of view: pixels * (2 tan(fov/2)
+  // / viewport height). Called by main.ts when the viewport or fov changes.
+  setBeaconScreenScale(minAngularRadius: number) {
+    this.beaconMinAngular.value = minAngularRadius
   }
 
   // Advance the beacon strobe. Called once per frame from the render loop.
@@ -2526,7 +2568,7 @@ export class Cityscape {
     this.buildTrees(plan.trees, radius)
     this.buildLamps(plan.roads, radius, length)
     this.buildHeroUtilities(plan.roads, radius)
-    this.buildBeacons(plan.buildings, radius, length)
+    this.buildBeacons(plan.buildings, radius)
     this.buildWindowStrips(radius, length)
     this.buildWindowBridges(plan.roads, radius, length)
     this.buildMirrors(radius, length)
@@ -5118,7 +5160,7 @@ export class Cityscape {
   // Red rooftop aviation beacons on the tallest buildings: a sparse, instantly
   // legible night/dusk cue. Only buildings within ~55% of the tallest get one,
   // capped so a dense colony stays cheap. Small habitats get none.
-  private buildBeacons(buildings: CityBuilding[], radius: number, length: number) {
+  private buildBeacons(buildings: CityBuilding[], radius: number) {
     if (buildings.length === 0) {
       return
     }
@@ -5140,10 +5182,10 @@ export class Cityscape {
       return
     }
 
-    const cell = getCityCellSize(radius, length)
-    // A touch larger than before so the overhead beacons clear a pixel across the
-    // bore; near ones stay modest because the flash is now gentle.
-    const beaconRadius = THREE.MathUtils.clamp(cell * 0.05, 0.6, 5)
+    // Physical size only; the shader keeps far beacons a pixel or so wide
+    // (installBeaconBlink). Before 2026-09-05 this was clamp(cell*0.05, 0.6, 5)
+    // = 4 m on Izma: an 8 m red ball on every tower top.
+    const beaconRadius = BEACON_PHYSICAL_RADIUS
     const geometry = new THREE.SphereGeometry(1, 6, 5)
     const mesh = new THREE.InstancedMesh(geometry, this.beaconMaterial, tall.length)
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
