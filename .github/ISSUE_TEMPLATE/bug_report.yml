@@ -1,0 +1,31 @@
+name: Bug report
+description: Something is wrong — physics, rendering, controls, or it did not start.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. Physics nitpicks are bugs too: [docs/whats-real.md](https://github.com/tomingtoming/spinward/blob/main/docs/whats-real.md) says what is computed and what is approximated, and if the app contradicts it, that is a bug.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Browser, OS, GPU
+      description: e.g. Firefox 143 / Windows 11 / Intel Iris Xe. Adding `?stats` to the URL shows fps and draw calls; `?debug` opens the physics panel.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Share link (optional)
+      description: If it happens at a place, Share → Link (or the `L` key) copies a URL that reproduces the view.
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output (optional)
+      render: text
