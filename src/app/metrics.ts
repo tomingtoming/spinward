@@ -317,6 +317,44 @@ export const classifyBootFailure = (
   return 'unknown'
 }
 
+// The failure screen links here. A visitor on an engine that cannot be tested
+// from here (Firefox, Safari, an integrated GPU) is the one person who knows
+// what broke; the link hands the bug template the three facts it asks for
+// (browser, build, reason) so all they have to type is what they saw.
+// GitHub issue forms prefill fields from query params keyed by field id.
+export const BOOT_FAILURE_ISSUE_BASE = 'https://github.com/tomingtoming/spinward/issues/new'
+
+export const bootFailureIssueUrl = ({
+  reason,
+  build,
+  userAgent,
+  probe,
+  error
+}: {
+  reason: BootFailureReason
+  build: string
+  userAgent: string
+  probe: { webgl2: boolean; wasm: boolean }
+  error: unknown
+}): string => {
+  const message = (
+    error instanceof Error ? `${error.name}: ${error.message}` : String(error ?? '')
+  ).slice(0, 200)
+  const params = new URLSearchParams({
+    template: 'bug_report.yml',
+    title: `Boot failed: ${reason}`,
+    what: [
+      'The habitat failed to spin up (the splash screen error).',
+      `Reason: ${reason} · build ${build} · WebGL2 ${probe.webgl2 ? 'yes' : 'no'} · WebAssembly ${probe.wasm ? 'yes' : 'no'}`,
+      '',
+      'What I saw / what I tried:'
+    ].join('\n'),
+    env: userAgent.slice(0, 300),
+    console: message
+  })
+  return `${BOOT_FAILURE_ISSUE_BASE}?${params.toString()}`
+}
+
 export const probeBootCapabilities = (): { webgl2: boolean; wasm: boolean } => {
   let webgl2 = false
   try {

@@ -125,7 +125,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   // itself (one-shot). Doubles as a funnel milestone (metrics.ts).
   'look-lock': {
     title: 'MOUSE LOOK',
-    body: ['Move the mouse to look around.', 'Esc gives the pointer back - click the view to grab it again.'],
+    body: ['Move the mouse to look around. Click to throw.', 'Esc gives the pointer back - click the view to grab it again.'],
     durationSeconds: 6
   }
 }
