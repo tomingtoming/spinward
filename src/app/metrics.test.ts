@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  BOOT_FAILURE_ISSUE_BASE,
+  bootFailureIssueUrl,
   classifyBootFailure,
   createRecorder,
   createShipper,
@@ -297,5 +299,36 @@ describe('reportBootFailure', () => {
     })
 
     expect(JSON.parse(sent[0]).events[0].device).toBe('touch')
+  })
+})
+
+describe('bootFailureIssueUrl', () => {
+  test('prefills the bug template with reason, build, browser and the error', () => {
+    const url = bootFailureIssueUrl({
+      reason: 'webgl',
+      build: 'abc123def456',
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0',
+      probe: { webgl2: false, wasm: true },
+      error: new Error('WebGL creation failed')
+    })
+    const parsed = new URL(url)
+    expect(`${parsed.origin}${parsed.pathname}`).toBe(BOOT_FAILURE_ISSUE_BASE)
+    expect(parsed.searchParams.get('template')).toBe('bug_report.yml')
+    expect(parsed.searchParams.get('title')).toBe('Boot failed: webgl')
+    expect(parsed.searchParams.get('env')).toContain('Firefox/143.0')
+    expect(parsed.searchParams.get('what')).toContain('build abc123def456')
+    expect(parsed.searchParams.get('what')).toContain('WebGL2 no')
+    expect(parsed.searchParams.get('console')).toBe('Error: WebGL creation failed')
+  })
+
+  test('stays short enough for a browser address bar with a long error', () => {
+    const url = bootFailureIssueUrl({
+      reason: 'unknown',
+      build: 'dev',
+      userAgent: 'x'.repeat(1000),
+      probe: { webgl2: true, wasm: true },
+      error: new Error('y'.repeat(5000))
+    })
+    expect(url.length).toBeLessThan(2000)
   })
 })

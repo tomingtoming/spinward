@@ -1,10 +1,18 @@
 import './style.css'
 
 import { bootstrapApp } from './app/main'
-import { probeBootCapabilities, reportBootFailure } from './app/metrics'
+import {
+  bootFailureIssueUrl,
+  classifyBootFailure,
+  probeBootCapabilities,
+  reportBootFailure
+} from './app/metrics'
 
 bootstrapApp().catch((error: unknown) => {
   console.error('Failed to bootstrap app', error)
+
+  const probe = probeBootCapabilities()
+  const build = typeof __SPINWARD_BUILD__ === 'string' ? __SPINWARD_BUILD__ : 'dev'
 
   // Report before touching the DOM: this is the only signal that separates a
   // visitor who saw a black screen from one who never came (docs/metrics.md).
@@ -20,12 +28,12 @@ bootstrapApp().catch((error: unknown) => {
         }
       })(),
       search: window.location.search,
-      build: typeof __SPINWARD_BUILD__ === 'string' ? __SPINWARD_BUILD__ : 'dev',
+      build,
       language: navigator.language ?? '',
       touch: navigator.maxTouchPoints > 0 || 'ontouchstart' in window,
       referrer: document.referrer,
       ownHost: window.location.hostname,
-      probe: probeBootCapabilities(),
+      probe,
       send: (url, body) => {
         try {
           return navigator.sendBeacon(url, body)
@@ -64,5 +72,22 @@ bootstrapApp().catch((error: unknown) => {
   reload.textContent = 'RELOAD'
   reload.addEventListener('click', () => window.location.reload())
 
-  splash.append(detail, reload)
+  // The one visitor who can say what broke on an engine nobody here can run
+  // (Firefox, Safari, an integrated GPU) is looking at this screen. Prefill
+  // the bug template with what the page already knows so they only type
+  // what they saw. Plain link: it must work with the app entirely dead.
+  const report = document.createElement('a')
+  report.className = 'splash__report'
+  report.href = bootFailureIssueUrl({
+    reason: classifyBootFailure(error, probe),
+    build,
+    userAgent: navigator.userAgent,
+    probe,
+    error
+  })
+  report.target = '_blank'
+  report.rel = 'noopener'
+  report.textContent = 'REPORT ON GITHUB'
+
+  splash.append(detail, reload, report)
 })
