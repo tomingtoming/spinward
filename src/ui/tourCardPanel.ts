@@ -135,7 +135,7 @@ export class TourCardPanel {
 
   private readonly canvas = document.createElement('canvas')
   private readonly context: CanvasRenderingContext2D
-  private readonly texture: THREE.CanvasTexture
+  private texture: THREE.CanvasTexture
   private readonly targetPosition = new THREE.Vector3()
   private readonly targetQuaternion = new THREE.Quaternion()
   private readonly cameraPosition = new THREE.Vector3()
@@ -154,8 +154,7 @@ export class TourCardPanel {
     }
 
     this.context = context
-    this.texture = new THREE.CanvasTexture(this.canvas)
-    this.texture.colorSpace = THREE.SRGBColorSpace
+    this.texture = TourCardPanel.createTexture(this.canvas)
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({
@@ -244,6 +243,16 @@ export class TourCardPanel {
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width
       this.canvas.height = height
+      // On WebGL2 three backs a CanvasTexture with immutable storage sized at
+      // its first upload (texStorage2D) and later uploads are texSubImage2D.
+      // A resized canvas therefore lands in the old allocation: a shorter
+      // card leaves the previous card's top rows showing above it (the
+      // "SPINWARD" ghost over every later card), and a taller one fails to
+      // upload at all, so the old card stays. A new texture gets new storage.
+      this.texture.dispose()
+      this.texture = TourCardPanel.createTexture(this.canvas)
+      this.mesh.material.map = this.texture
+      this.mesh.material.needsUpdate = true
     }
 
     ctx.clearRect(0, 0, width, height)
@@ -270,6 +279,12 @@ export class TourCardPanel {
     })
 
     this.texture.needsUpdate = true
+  }
+
+  private static createTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
   }
 
   private applyResponsiveScale(camera: THREE.Camera) {
