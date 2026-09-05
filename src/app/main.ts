@@ -142,6 +142,7 @@ import {
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
+import { isCompactDock } from '../ui/viewportLayout'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
 import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
@@ -1197,6 +1198,10 @@ export const bootstrapApp = async () => {
   const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
     setRaining(!weather.raining)
   )
+  // Phones collapse the five Travel pills into one; without it the dock wraps
+  // to four rows and the bottom UI eats 29% of a 390px-wide screen (measured).
+  const syncDockArrangement = () => beatBar.setCompact(isCompactDock(window.innerWidth))
+  syncDockArrangement()
 
   // Fold the current view into a URL: opening it boots at this exact spot,
   // look, hour, spin and weather. The photo burns the wordmark + site in, so
@@ -2645,6 +2650,7 @@ export const bootstrapApp = async () => {
     inertialObserverCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
     bloomComposer?.setSize(window.innerWidth, window.innerHeight)
+    syncDockArrangement()
   })
 
   window.addEventListener('beforeunload', () => {

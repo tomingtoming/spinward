@@ -11,6 +11,108 @@ const PANEL_SCALE = new THREE.Vector3(0.78, 0.78 * (CANVAS_HEIGHT / CANVAS_WIDTH
 const PANEL_VIEWPORT_MARGIN = 0.56
 const FOLLOW_RATE = 4
 
+// Phones get their own layout. On a 390px-wide screen the wide card renders
+// at 56% of the viewport with its 30px body text scaled down to about 6 CSS
+// pixels — present, but not readable. The narrow layout takes 92% of the
+// width on a smaller canvas and wraps, which lands the same text near 17 CSS
+// pixels. Desktop and VR keep the wide numbers exactly.
+export const NARROW_CARD_MAX_VIEWPORT_WIDTH = 720
+
+type CardLayout = {
+  canvasWidth: number
+  titleFont: string
+  bodyFont: string
+  bodyFontPx: number
+  titleTop: number
+  bodyTop: number
+  lineHeight: number
+  bottomPad: number
+  sidePad: number
+  viewportMargin: number
+}
+
+const WIDE_LAYOUT: CardLayout = {
+  canvasWidth: CANVAS_WIDTH,
+  titleFont: '700 44px "Avenir Next", sans-serif',
+  bodyFont: '500 30px "Avenir Next", sans-serif',
+  bodyFontPx: 30,
+  titleTop: 36,
+  bodyTop: 116,
+  lineHeight: 44,
+  // Chosen so a four-line card measures exactly the historic 300px canvas:
+  // 116 + 3*44 + 30 + 22 = 300. The card only grows when a line wraps.
+  bottomPad: 22,
+  // Just inside the rounded rect (inset 8) plus breathing room. Wider padding
+  // wrapped lines that had always fitted, which would have been a regression
+  // dressed up as a fix.
+  sidePad: 30,
+  viewportMargin: PANEL_VIEWPORT_MARGIN
+}
+
+const NARROW_LAYOUT: CardLayout = {
+  canvasWidth: 720,
+  titleFont: '700 44px "Avenir Next", sans-serif',
+  bodyFont: '500 34px "Avenir Next", sans-serif',
+  bodyFontPx: 34,
+  titleTop: 30,
+  bodyTop: 104,
+  lineHeight: 46,
+  bottomPad: 26,
+  sidePad: 34,
+  viewportMargin: 0.92
+}
+
+// Canvas height for a drawn card: the last line needs its own text height, not
+// a whole line's leading, which is what makes the wide four-line case land on
+// the historic 300px exactly.
+export const cardCanvasHeight = (
+  lineCount: number,
+  layout: { bodyTop: number; lineHeight: number; bodyFontPx: number; bottomPad: number }
+): number =>
+  Math.round(
+    layout.bodyTop + Math.max(0, lineCount - 1) * layout.lineHeight + layout.bodyFontPx + layout.bottomPad
+  )
+
+export const resolveCardLayoutId = (viewportWidth: number): 'wide' | 'narrow' =>
+  viewportWidth > 0 && viewportWidth <= NARROW_CARD_MAX_VIEWPORT_WIDTH ? 'narrow' : 'wide'
+
+// Greedy word wrap. `measure` is the canvas context's textWidth so the wrap
+// matches what actually gets drawn; passing a fake makes this testable without
+// a DOM. A single word longer than the line is left to overflow rather than
+// broken mid-word — the card's vocabulary is short.
+export const wrapCardLines = (
+  lines: readonly string[],
+  measure: (text: string) => number,
+  maxWidth: number
+): string[] => {
+  const out: string[] = []
+
+  for (const line of lines) {
+    const words = line.split(' ').filter((word) => word.length > 0)
+
+    if (words.length === 0) {
+      continue
+    }
+
+    let current = words[0]
+
+    for (const word of words.slice(1)) {
+      const candidate = `${current} ${word}`
+
+      if (measure(candidate) <= maxWidth) {
+        current = candidate
+      } else {
+        out.push(current)
+        current = word
+      }
+    }
+
+    out.push(current)
+  }
+
+  return out
+}
+
 type TourCardView = {
   camera: THREE.Camera
   deltaSeconds: number
@@ -40,6 +142,7 @@ export class TourCardPanel {
   private readonly cameraQuaternion = new THREE.Quaternion()
   private renderedCard: TourCard | null = null
   private wasVisible = false
+  private layout: CardLayout = WIDE_LAYOUT
 
   constructor() {
     this.canvas.width = CANVAS_WIDTH
@@ -77,6 +180,17 @@ export class TourCardPanel {
     }
 
     this.mesh.visible = true
+
+    // VR always gets the wide card (the headset has room and no CSS viewport);
+    // otherwise the window width picks the layout, re-drawing on rotation.
+    const layoutId =
+      view.xrActive || typeof window === 'undefined' ? 'wide' : resolveCardLayoutId(window.innerWidth)
+    const layout = layoutId === 'narrow' ? NARROW_LAYOUT : WIDE_LAYOUT
+
+    if (layout !== this.layout) {
+      this.layout = layout
+      this.renderedCard = null
+    }
 
     if (card !== this.renderedCard) {
       this.renderedCard = card
@@ -117,29 +231,42 @@ export class TourCardPanel {
 
   private draw(card: TourCard) {
     const ctx = this.context
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    const layout = this.layout
+    const width = layout.canvasWidth
+
+    // Wrapping is measured with the body font, so set it before asking.
+    ctx.font = layout.bodyFont
+    // Both layouts wrap. Before this, an over-long line (the PC controls
+    // summary at 1600px) ran off both sides of the panel and was clipped.
+    const lines = wrapCardLines(card.body, (text) => ctx.measureText(text).width, width - layout.sidePad * 2)
+    const height = cardCanvasHeight(lines.length, layout)
+
+    if (this.canvas.width !== width || this.canvas.height !== height) {
+      this.canvas.width = width
+      this.canvas.height = height
+    }
+
+    ctx.clearRect(0, 0, width, height)
 
     ctx.fillStyle = 'rgba(4, 12, 20, 0.82)'
     ctx.beginPath()
-    ctx.roundRect(8, 8, CANVAS_WIDTH - 16, CANVAS_HEIGHT - 16, 18)
+    ctx.roundRect(8, 8, width - 16, height - 16, 18)
     ctx.fill()
     ctx.strokeStyle = 'rgba(103, 232, 249, 0.45)'
     ctx.lineWidth = 2
     ctx.stroke()
 
     ctx.fillStyle = '#67e8f9'
-    ctx.font = '700 44px "Avenir Next", sans-serif'
+    ctx.font = layout.titleFont
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
-    ctx.fillText(card.title, CANVAS_WIDTH * 0.5, 36)
+    ctx.fillText(card.title, width * 0.5, layout.titleTop)
 
     ctx.fillStyle = '#e8f4fa'
-    ctx.font = '500 30px "Avenir Next", sans-serif'
-    const lineHeight = 44
-    const bodyTop = 116
+    ctx.font = layout.bodyFont
 
-    card.body.forEach((line, index) => {
-      ctx.fillText(line, CANVAS_WIDTH * 0.5, bodyTop + index * lineHeight)
+    lines.forEach((line, index) => {
+      ctx.fillText(line, width * 0.5, layout.bodyTop + index * layout.lineHeight)
     })
 
     this.texture.needsUpdate = true
@@ -157,10 +284,12 @@ export class TourCardPanel {
           ? window.innerWidth / window.innerHeight
           : perspectiveCamera.aspect
       const visibleWidth = visibleHeightAt(perspectiveCamera) * aspect
-      panelWidth = Math.min(panelWidth, visibleWidth * PANEL_VIEWPORT_MARGIN)
+      panelWidth = Math.min(panelWidth, visibleWidth * this.layout.viewportMargin)
     }
 
-    this.mesh.scale.set(panelWidth, panelWidth * (CANVAS_HEIGHT / CANVAS_WIDTH), 1)
+    // The canvas height varies with the wrapped line count, so the plane takes
+    // its aspect from the live canvas rather than the wide layout's constants.
+    this.mesh.scale.set(panelWidth, (panelWidth * this.canvas.height) / this.canvas.width, 1)
   }
 
   // Converts the touch controls' reserved screen height into a world-space Y
