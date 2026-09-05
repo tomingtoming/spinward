@@ -51,6 +51,38 @@ describe('/metric', () => {
     expect(points[1].doubles).toEqual([14, 0, 0, 0, 1, 0])
   })
 
+  test('accepts boot-fail from the entry point (the load that never became a session)', async () => {
+    const { env, points } = makeEnv()
+    const request = Object.assign(
+      post({
+        vid: 'visitor9',
+        sid: 'sid9',
+        aud: 'public',
+        build: 'def456',
+        events: [
+          {
+            e: 'boot-fail',
+            reason: 'webgl',
+            device: 'desktop',
+            lang: 'en-US',
+            ref: 'news.ycombinator.com',
+            visits: 1,
+            days: 0
+          }
+        ]
+      }),
+      { cf: { country: 'US' } }
+    )
+    const response = await metric(request, env)
+    expect(response.status).toBe(204)
+    expect(points.length).toBe(1)
+    expect(points[0].blobs).toEqual([
+      'boot-fail', '', '', '', 'desktop', 'en-US', 'news.ycombinator.com', 'webgl', 'public', 'sid9',
+      'def456', 'spinward.toming.app', 'US', ''
+    ])
+    expect(points[0].doubles).toEqual([0, 1, 0, 0, 0, 0])
+  })
+
   test('non-finite doubles and oversized blobs are clamped, unknown audience is public', async () => {
     const { env, points } = makeEnv()
     await metric(

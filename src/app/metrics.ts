@@ -68,7 +68,7 @@ export type MetricsContext = {
 }
 
 export type MetricsEvent = {
-  e: 'session' | 'milestone' | 'vr-start' | 'vr-end' | 'leave'
+  e: 'session' | 'milestone' | 'vr-start' | 'vr-end' | 'leave' | 'boot-fail'
   m?: string
   preset: string
   entry: string
@@ -286,6 +286,106 @@ export type ShipperConfig = {
   // navigator.sendBeacon-shaped: returns whether the browser queued it.
   send: (url: string, body: string) => boolean
   schedule: (flush: () => void, delayMs: number) => void
+}
+
+// Why boot failures need their own path: everything above lives inside the
+// app, so a load that dies before the app exists sends nothing at all — and a
+// visitor who saw a black screen and left is then indistinguishable in the
+// data from one who never arrived. This is the smallest beacon that closes
+// that gap, built from the same wire format and sent from the entry point's
+// catch block.
+export type BootFailureReason = 'webgl' | 'wasm' | 'network' | 'unknown'
+
+// Reads the error, then asks the browser directly. The message is a hint (it
+// varies by engine and is often localised); the capability probe is the fact.
+export const classifyBootFailure = (
+  error: unknown,
+  probe: { webgl2: boolean; wasm: boolean }
+): BootFailureReason => {
+  if (!probe.webgl2) return 'webgl'
+  if (!probe.wasm) return 'wasm'
+
+  const text = (
+    error instanceof Error ? `${error.name} ${error.message}` : String(error ?? '')
+  ).toLowerCase()
+
+  if (text.includes('webgl') || text.includes('context')) return 'webgl'
+  if (text.includes('wasm') || text.includes('webassembly')) return 'wasm'
+  if (text.includes('fetch') || text.includes('network') || text.includes('load failed')) {
+    return 'network'
+  }
+  return 'unknown'
+}
+
+export const probeBootCapabilities = (): { webgl2: boolean; wasm: boolean } => {
+  let webgl2 = false
+  try {
+    webgl2 = document.createElement('canvas').getContext('webgl2') !== null
+  } catch {
+    webgl2 = false
+  }
+  return { webgl2, wasm: typeof WebAssembly === 'object' }
+}
+
+export type BootFailureConfig = {
+  error: unknown
+  store: StorageLike | null
+  search: string
+  build: string
+  language: string
+  touch: boolean
+  referrer: string
+  ownHost: string
+  probe: { webgl2: boolean; wasm: boolean }
+  send: (url: string, body: string) => boolean
+  mkId?: () => string
+}
+
+// Returns the reason it decided on, or null when the visitor opted out — the
+// caller shows the same failure screen either way.
+export const reportBootFailure = ({
+  error,
+  store,
+  search,
+  build,
+  language,
+  touch,
+  referrer,
+  ownHost,
+  probe,
+  send,
+  mkId = randomId
+}: BootFailureConfig): BootFailureReason | null => {
+  const aud = readAudience(store, search)
+
+  if (aud === 'off') {
+    return null
+  }
+
+  const reason = classifyBootFailure(error, probe)
+  const visitor = readVisitor(store, Date.now(), mkId)
+  const body = JSON.stringify({
+    v: WIRE_VERSION,
+    vid: visitor.id,
+    sid: mkId().slice(0, 12),
+    aud,
+    build,
+    events: [
+      {
+        e: 'boot-fail',
+        reason,
+        // The tier the app would have used is unknown (quality resolution runs
+        // inside the app), so only the facts available at the entry point.
+        device: touch ? 'touch' : 'desktop',
+        lang: language.slice(0, 16),
+        ref: referrerHost(referrer, ownHost),
+        visits: visitor.visits,
+        days: visitor.days
+      }
+    ]
+  })
+  send(METRICS_ENDPOINT, body)
+  return reason
 }
 
 // Batches events for a couple of seconds so a burst (throw, jump, throw) is one

@@ -24,6 +24,13 @@ Analytics Engine は**保持3ヶ月・SQLで読める**（Freeプラン: 書き�
 | `milestone` | 各節目に**初めて**到達した瞬間（1ロード1回） | `m`（`throw` / `jump` / `overlook` / `axis` / `surface` / `spin-change` / `drive` / `rain` / `enter-freefly`）・`secs`（ロードからの可視秒）・`depth`（ここまでの節目数） |
 | `vr-start` / `vr-end` | XRセッションの出入り | `secs`（VR秒）・`fps`（平均・計器があるとき） |
 | `leave` | `pagehide` | `secs`（可視秒）・`hidden`（非表示だった秒。`secs` からは引き算済み）・`depth`（到達した節目数） |
+| `boot-fail` | 起動そのものが失敗したとき（`src/main.ts` の catch） | `reason`（`webgl` / `wasm` / `network` / `unknown`）・`device`・`lang`・`ref`・`visits`・`days` |
+
+⚠ **`boot-fail` だけはアプリの外から出る**。ほかの4種は `createRecorder` がアプリの中で吐くので、**アプリが起動しなかったロードは何も送らない**——「黒い画面を見て去った人」と「そもそも来なかった人」がデータ上まったく同じに見える（→ [[待ち受けや関門を組む前に、失敗したときの見え方を先に決める]]）。だから入口（`src/main.ts`）の catch から同じ電文形式で1本だけ撃つ。`tier` と `preset` は品質判定がアプリ内なので空。`?metrics=off` は尊重する。
+
+**読み方（実測で訂正・2026-09-03）**: `boot-fail` は `session` の**代わりではなく、両方来る**。計器の初期化（`app/main.ts`）はレンダラ生成と Rapier ロードより**前**にあるので、起動が死ぬロードでも `session` は先に出ている（Firefox headless で実測: `boot-fail` と `session` の両方が届いた）。∴ **母数は従来どおり `session`** で、`boot-fail` はそのうち死んだものに立つ旗。失敗率は `count(boot-fail) / count(session)`。
+
+⚠ 2つは**同じ `sid` を持たない**（アプリ内の sid は失敗したアプリの中にあるので、入口側は自前で振る）。突き合わせるなら `index1`（vid）と時刻で。Show HN のような初見の波では `reason` の内訳が「どのブラウザで詰んだか」の最初の手掛かりになる。
 
 **両端を記録する**（session と leave）。leave の無い session は「タブを閉じる前に離れた／pagehide が来なかった」で、その差分自体が答えの一部。
 **秒は可視秒**＝非表示タブは rAF が止まっているので、壁時計で数えると置きっぱなしが「体験時間」に化ける（ysflight-web 2026-08-30 の 5時間22分）。

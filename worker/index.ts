@@ -61,7 +61,17 @@ const num = (v: unknown) => {
   return Number.isFinite(x) ? x : 0
 }
 
-export const EVENT_NAMES = new Set(['session', 'milestone', 'vr-start', 'vr-end', 'leave'])
+// 'boot-fail' comes from the entry point's catch block, not the recorder: a
+// load that dies before the app exists would otherwise be invisible, and
+// "saw a black screen and left" would read exactly like "never visited".
+export const EVENT_NAMES = new Set([
+  'session',
+  'milestone',
+  'vr-start',
+  'vr-end',
+  'leave',
+  'boot-fail'
+])
 
 export const metric = async (request: CfRequest, env: Env): Promise<Response> => {
   if (request.method !== 'POST') {
