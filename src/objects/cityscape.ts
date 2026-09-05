@@ -87,6 +87,9 @@ type CityscapeOptions = {
   lod1FullKitGeometry?: boolean
   // Kenney road-tile overlay range around the player; 0 disables the layer.
   roadTileDistance?: number
+  // Rooftop clutter kits on near-disk flat roofs, tallest first; 0 disables.
+  // Vertex budget knob for the mobile tiers (each kit is a few hundred tris).
+  maxRoofClutter?: number
 }
 
 // mode +1 keeps pixels below threshold (incoming LOD), -1 keeps pixels above
@@ -454,6 +457,7 @@ const localYAxis = new THREE.Vector3(0, 1, 0)
 const instanceQuaternion = new THREE.Quaternion()
 const instancePosition = new THREE.Vector3()
 const instanceScale = new THREE.Vector3()
+const clutterTint = new THREE.Color()
 const treeYawScratch = new THREE.Quaternion()
 const unitY = new THREE.Vector3(0, 1, 0)
 const instanceColor = new THREE.Color()
@@ -811,8 +815,11 @@ export const buildingTone = (building: CityBuilding, target: THREE.Color) => {
 // the air at every distance, downtown stays dark decked.
 export const KENNEY_ROOF_TONES = {
   suburban: new THREE.Color(0x55b17c),
-  commercial: new THREE.Color(0x3f434c),
-  skyscraper: new THREE.Color(0x30343e),
+  // Downtown decks one step lighter than the 07-22 values (0x3f434c /
+  // 0x30343e): from 60-200 m up every roof was a near-black slab and the
+  // plant on it could not read. Still darker than the walls.
+  commercial: new THREE.Color(0x4c5159),
+  skyscraper: new THREE.Color(0x3c414b),
   industrial: new THREE.Color(0x7c828c)
 } as const
 
@@ -1817,12 +1824,14 @@ export class Cityscape {
     metalness: 0.35
   })
 
-  // Painted rooftop hardware — darker than the roofs it sits on so the kits
-  // read as clutter, not as another storey.
+  // Painted rooftop hardware. Lighter than the decks it sits on: dark kits
+  // on dark roofs vanished from 60 m up (2026-09-05 stations), and real
+  // rooftop plant is pale — galvanised housings, white tanks, grey cabinets.
+  // Per-instance tint (setColorAt) keeps neighbours from matching.
   private readonly roofClutterMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4d5a68,
-    roughness: 0.7,
-    metalness: 0.3
+    color: 0xc4cad2,
+    roughness: 0.72,
+    metalness: 0.18
   })
 
   private readonly utilityPoleMaterial = new THREE.MeshStandardMaterial({
@@ -2023,6 +2032,7 @@ export class Cityscape {
   private readonly maxDetailedLod0: number
   private readonly maxDetailedLod1: number
   private readonly lod1FullKitGeometry: boolean
+  private readonly maxRoofClutter: number
 
   constructor(
     dimensions: CityscapeDimensions,
@@ -2040,6 +2050,7 @@ export class Cityscape {
     this.maxDetailedLod0 = options?.maxDetailedLod0 ?? 180
     this.maxDetailedLod1 = options?.maxDetailedLod1 ?? 700
     this.roadTileDistance = options?.roadTileDistance ?? 0
+    this.maxRoofClutter = options?.maxRoofClutter ?? 2000
     // Roads and bridges are the dark, thin, high-contrast surfaces that shimmer
     // on the far side; fade them out with distance. Buildings are deliberately
     // excluded so the overhead skyline survives.
@@ -3951,9 +3962,16 @@ export class Cityscape {
   // it would be pure vertex cost. Deterministic without consuming plan RNG —
   // the per-building offsets derive from fields the building already carries.
   private buildRoofClutter(near: BuildingRenderPlacement[]) {
-    // Nearly every flat roof qualifies now (10 m+ tall, 6 m+ across); the
+    // Nearly every flat roof qualifies (10 m+ tall, 6 m+ across); the
     // tallest keep priority under the cap, and roomy roofs (18 m+ across)
     // get a second kit so towers read as busy as the reference skyline.
+    // Until 2026-09-05 this also required `kenneyPickForBuilding(b) === null`,
+    // a leftover from when Kenney kits dressed the near disk with their own
+    // styled roofs. The pick never returns null, so after the Kenney strip
+    // (2026-07-22) every roof was excluded and the kits were never drawn.
+    if (this.maxRoofClutter <= 0) {
+      return
+    }
     const flatRoofed = near
       .filter(
         ({ building }) =>
@@ -3961,12 +3979,10 @@ export class Cityscape {
             building.kind === 'setback' ||
             building.kind === 'slab') &&
           building.height >= 10 &&
-          Math.min(building.width, building.depth) >= 6 &&
-          // Kenney-dressed buildings bring their own styled roofs.
-          kenneyPickForBuilding(building) === null
+          Math.min(building.width, building.depth) >= 6
       )
       .sort((a, b) => b.building.height - a.building.height)
-      .slice(0, 2000)
+      .slice(0, this.maxRoofClutter)
 
     if (flatRoofed.length === 0) {
       return
@@ -3995,6 +4011,14 @@ export class Cityscape {
         placementsByVariant[(variant + 1) % ROOF_CLUTTER_VARIANTS].push({
           render,
           jitterPhase: 1
+        })
+      }
+      // Very wide decks (30 m+) read empty with two kits; a third goes in
+      // the remaining corner so the big slab roofs carry a plant yard.
+      if (Math.min(building.width, building.depth) >= 30) {
+        placementsByVariant[(variant + 2) % ROOF_CLUTTER_VARIANTS].push({
+          render,
+          jitterPhase: 2
         })
       }
     }
@@ -4031,22 +4055,26 @@ export class Cityscape {
         instanceQuaternion.setFromRotationMatrix(basis)
 
         // The setback/slab tops are inset from the footprint, so aim the kit
-        // at the upper part's centre and keep the jitter inside it. A second
-        // kit (jitterPhase 1) lands on the opposite side of the roof.
+        // at the upper part's centre and keep the jitter inside it. The
+        // second kit (jitterPhase 1) lands in the (-,-) corner, the third
+        // (jitterPhase 2) in the (+,-) corner, so three never overlap.
         const topCentreTangent = building.kind === 'slab' ? building.width * 0.14 : 0
         const jitterSeed =
           building.tone * 7.31 + building.azimuth * 13.7 + jitterPhase * 2.618
-        const jitterSign = jitterPhase === 0 ? 1 : -1
+        const cornerT = jitterPhase === 0 ? 0 : jitterPhase === 1 ? -1 : 1
+        const cornerA = jitterPhase === 0 ? 0 : -1
         const jitterT =
           (jitterSeed - Math.floor(jitterSeed) - 0.5) * building.width * 0.16 +
-          jitterSign * (jitterPhase === 0 ? 0 : building.width * 0.18)
+          cornerT * building.width * 0.18
         const jitterA =
           (jitterSeed * 3.7 - Math.floor(jitterSeed * 3.7) - 0.5) * building.depth * 0.16 +
-          jitterSign * (jitterPhase === 0 ? 0 : building.depth * 0.18)
+          cornerA * building.depth * 0.18
+        // Plant scales with the deck: a 30 m+ roof carries a 12 m yard, not
+        // the 9 m one that read as a speck from 200 m up.
         const kitScale = THREE.MathUtils.clamp(
           Math.min(building.width, building.depth) * 0.4,
           2,
-          9
+          13
         )
 
         instancePosition
@@ -4057,9 +4085,21 @@ export class Cityscape {
         instanceScale.setScalar(kitScale)
         instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
         mesh.setMatrixAt(index, instanceMatrix)
+        // Tint: mostly pale greys with a spread, one in eight rust/oxide so a
+        // rooftop reads as a collection of things rather than one stamp.
+        const tintSeed = jitterSeed * 5.13 - Math.floor(jitterSeed * 5.13)
+        if (tintSeed < 0.125) {
+          clutterTint.setRGB(0.62, 0.42, 0.34)
+        } else {
+          clutterTint.setScalar(0.72 + tintSeed * 0.34)
+        }
+        mesh.setColorAt(index, clutterTint)
       }
 
       mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor !== null) {
+        mesh.instanceColor.needsUpdate = true
+      }
       this.roofClutter.push(mesh)
       this.group.add(mesh)
     }

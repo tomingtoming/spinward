@@ -52,6 +52,12 @@ export type QualityProfile = {
   // painted roads carry every distance until the procedural facade skin
   // brings its own street furniture. The machinery stays for that follow-up.
   roadTileDistance: number
+  // Rooftop clutter kits (water tanks, AC yards, masts) on the near-disk flat
+  // roofs, tallest first. Roofs are what you see from Overlook, from a jump
+  // and from across the cylinder, and a bare roof is the biggest tell of a
+  // box city. A kit is a few hundred triangles, so the mobile tiers get the
+  // tallest few hundred roofs and desktop most of the near disk.
+  maxRoofClutter: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -102,6 +108,7 @@ export const getQualityProfile = (): QualityProfile => {
       maxDetailedLod1: 700,
       lod1FullKitGeometry: false,
       roadTileDistance: 0,
+      maxRoofClutter: 300,
       bloom: false,
       rainStreaks: 2600,
       // 16km blessed on-device (toming, 2026-07-22, staging A/B vs 39km/26km/8km).
@@ -123,6 +130,7 @@ export const getQualityProfile = (): QualityProfile => {
       maxDetailedLod1: 900,
       lod1FullKitGeometry: false,
       roadTileDistance: 0,
+      maxRoofClutter: 400,
       bloom: false,
       rainStreaks: 4200,
       fogVisibilityMeters: 16_000,
@@ -144,6 +152,7 @@ export const getQualityProfile = (): QualityProfile => {
     maxDetailedLod1: 2800,
     lod1FullKitGeometry: true,
     roadTileDistance: 0,
+    maxRoofClutter: 1600,
     bloom: true,
     rainStreaks: 7000,
     // 16km blessed on the desktop monitor too (toming, 2026-07-22, production

@@ -288,7 +288,8 @@ export const bootstrapApp = async () => {
       maxDetailedLod0: quality.maxDetailedLod0,
       maxDetailedLod1: quality.maxDetailedLod1,
       lod1FullKitGeometry: quality.lod1FullKitGeometry,
-      roadTileDistance: quality.roadTileDistance
+      roadTileDistance: quality.roadTileDistance,
+      maxRoofClutter: quality.maxRoofClutter
     }
   )
   const spaceport = new Spaceport({
