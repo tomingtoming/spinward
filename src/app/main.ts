@@ -33,6 +33,7 @@ import { DesktopLookControls } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { createPerfMeter } from './perfMeter'
+import { createResolutionGovernor, DESKTOP_GOVERNOR, resolvePixelRatio } from './resolutionGovernor'
 import { getDaylight, stepDayNightPhase } from './dayNight'
 import { computeAmbienceMix } from './ambienceMix'
 import { capturePhoto } from './photoMode'
@@ -213,6 +214,12 @@ export const bootstrapApp = async () => {
   // tuning and the `?debug` panel has a live slider. The confined-air case (a
   // ring's vacuum bore) is handled below by scaling with getAirColumnFraction.
   const quality = getQualityProfile()
+  // Backing-store ratio: device DPR under the tier cap, or `?dpr=<n>` pinned.
+  const pixelRatio = resolvePixelRatio(
+    new URLSearchParams(window.location.search).get('dpr'),
+    window.devicePixelRatio,
+    quality.pixelRatioCap
+  )
   const bootParams = new URLSearchParams(window.location.search)
   const airFog = {
     visibilityMeters: resolveFogVisibility(
@@ -429,7 +436,7 @@ export const bootstrapApp = async () => {
   })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
+  renderer.setPixelRatio(pixelRatio.ratio)
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
   renderer.xr.setReferenceSpaceType('local-floor')
@@ -438,6 +445,13 @@ export const bootstrapApp = async () => {
   // wiped by every internal render() call.
   renderer.info.autoReset = false
   const perfMeter = createPerfMeter()
+  // Desktop only: phones already cap the ratio at 1.75 and Quest renders into
+  // the XR framebuffer, where setPixelRatio has no say. Started once the
+  // splash is gone (below); steps down only, never up. `?dpr=` switches it off.
+  const resolutionGovernor =
+    quality.tier === 'desktop' && !pixelRatio.pinned
+      ? createResolutionGovernor({ initialRatio: pixelRatio.ratio, ...DESKTOP_GOVERNOR })
+      : null
 
   // The wrist watch shows these numbers in VR; `?stats` gives flat screens
   // (phones especially) the same readout for the on-device perf hunt.
@@ -461,7 +475,7 @@ export const bootstrapApp = async () => {
       samples: 4
     })
     bloomComposer = new EffectComposer(renderer, bloomTarget)
-    bloomComposer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
+    bloomComposer.setPixelRatio(pixelRatio.ratio)
     bloomComposer.setSize(window.innerWidth, window.innerHeight)
     bloomRenderPass = new RenderPass(scene, camera)
     bloomComposer.addPass(bloomRenderPass)
@@ -1893,6 +1907,19 @@ export const bootstrapApp = async () => {
     renderer.info.reset()
     statsOverlay?.update(deltaSeconds, perfMeter.stats(), depthMode)
 
+    if (resolutionGovernor !== null && !renderer.xr.isPresenting) {
+      const loweredRatio = resolutionGovernor.frame(performance.now())
+      if (loweredRatio !== null) {
+        // Both setPixelRatio calls re-run setSize internally, so the canvas,
+        // the bloom target and its passes all follow.
+        renderer.setPixelRatio(loweredRatio)
+        bloomComposer?.setPixelRatio(loweredRatio)
+        console.info(
+          `spinward: slow frames — render resolution lowered to ${loweredRatio}x (pin with ?dpr=<n>)`
+        )
+      }
+    }
+
     if (settingsDirty) {
       syncHabitat()
       settingsDirty = false
@@ -2562,6 +2589,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
+      pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
@@ -2641,6 +2669,14 @@ export const bootstrapApp = async () => {
   if (splash !== null) {
     splash.classList.add('splash--done')
     window.setTimeout(() => splash.remove(), 700)
+  }
+  resolutionGovernor?.start(performance.now())
+  if (resolutionGovernor !== null) {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        resolutionGovernor.resume()
+      }
+    })
   }
 
   window.addEventListener('resize', () => {
