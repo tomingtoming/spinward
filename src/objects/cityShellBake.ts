@@ -210,19 +210,6 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
     )
   }
 
-  if (plan.landmark !== null) {
-    ctx.fillStyle = '#b9bcb2'
-    ctx.globalAlpha = 0.9
-    bakeRect(
-      bake,
-      plan.landmark.azimuth,
-      plan.landmark.axial,
-      plan.landmark.domeRadius * 2,
-      plan.landmark.domeRadius * 2,
-      1
-    )
-  }
-
   ctx.globalAlpha = 1
 }
 
@@ -342,19 +329,6 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) 
       ctx.globalAlpha = 0.36
       bakeRect(bake, building.azimuth, building.axial, building.width * 1.4, building.depth * 1.4, 1)
     }
-  }
-
-  if (plan.landmark !== null) {
-    ctx.fillStyle = cssColor(WINDOW_WARM)
-    ctx.globalAlpha = 0.5
-    bakeRect(
-      bake,
-      plan.landmark.azimuth,
-      plan.landmark.axial,
-      plan.landmark.domeRadius * 2.4,
-      plan.landmark.domeRadius * 2.4,
-      2
-    )
   }
 
   if (plan.tower !== null) {

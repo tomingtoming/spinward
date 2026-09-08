@@ -49,8 +49,8 @@ bug: please open an issue.
   rate; nothing else changes, and your weight, your jumps and the ball curves
   follow from that.
 - Gravity falls linearly toward the axis, g(r) = ω²r. The Overlook stop is at
-  R/2 (half weight); the Axis stop is at r = 0 (no weight). Both are the same
-  contact model at a different radius, not separate modes.
+  an altitude capped at 60 m (about 0.981 g₀ on Izma); the Axis stop is at
+  r = 0 (no weight). Half-weight requires h = R/2, which is 1,600 m on Izma.
 - Rapier runs in scaled units (`simScale`, 0.02 for Izma) for floating-point
   headroom. All numbers shown to you are converted back to metres.
 
@@ -104,11 +104,14 @@ bug: please open an issue.
   core at the centre, farmland toward the frontier end), parked cars, street
   lamps, crossings. Vehicle and road models are [Kenney](https://www.kenney.nl/)
   CC0 assets; buildings are generated.
-- **Building height follows the gravity gradient.** Because g(h) = g₀(1 − h/R),
-  high floors are lighter than on Earth, so the civic core is allowed towers to
-  about 230 m (0.93 g₀ on Izma) while the rest of the city is capped near 55 m.
-  This is a design rule derived from the physics, not a simulation of
-  structures.
+- **Gravity decreases with height.** Because g(h) = g₀(1 − h/R),
+  high floors are lighter than the surface. Building massing and height caps
+  are art-directed, not a structural simulation or evidence that taller
+  buildings are structurally feasible.
+- Selected public buildings contain ground-floor cafes, passages or open
+  courtyards. Their walls, lintels, ceilings and major furniture share geometry
+  with streamed player colliders and analytic ball collision. Detail changes
+  do not change contact. [Scope and limits](building-interiors.md).
 - The spaceport sits on the axis at one end cap because docking is only
   possible where the habitat is not spinning against you. That is a layout
   decision the physics forces, not a physics result the app computes.

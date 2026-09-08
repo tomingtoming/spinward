@@ -50,7 +50,7 @@ export const collideSphereWithBuildings = (
       continue
     }
 
-    const buildingRadialCenter = config.habitatRadius - halfHeight
+    const buildingRadialCenter = config.habitatRadius - (building.baseHeight ?? 0) - halfHeight
 
     if (Math.abs(sphereRadial - buildingRadialCenter) > halfHeight + config.sphereRadius) {
       continue

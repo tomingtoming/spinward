@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { CivicDetails } from './civicDetails'
 import { getArterialRoadWidth, planCity, type CityPlan } from './cityLayout'
 
-const emptyPlan = (): CityPlan => ({ buildings: [], roads: [], intersections: [], patches: [], trees: [], tower: null, landmark: null, expressway: null })
+const emptyPlan = (): CityPlan => ({ buildings: [], roads: [], intersections: [], patches: [], trees: [], tower: null, expressway: null })
 
 test('plaza furniture leaves both arterial carriageways and the throwing lane clear', () => {
   const parent = new THREE.Group()

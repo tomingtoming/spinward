@@ -66,7 +66,6 @@ test('createCityShellTextureSet skips habitats below the far-field threshold', (
     patches: [],
     trees: [],
     tower: null,
-    landmark: null,
     expressway: null
   }
 
@@ -80,7 +79,6 @@ test('createCityShellTextureSet skips empty plans', () => {
     patches: [],
     trees: [],
     tower: null,
-    landmark: null,
     expressway: null
   }
 

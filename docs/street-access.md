@@ -118,7 +118,7 @@ house gates. Focused cases cover isolated alleys, corner-only junctions,
 wrong-side roads, blocked paths, footprint overlaps, and the cylinder seam.
 
 This contract covers generated city buildings, not separately authored tower,
-spaceport or landmark circulation. Decorative furniture and vegetation are not
+spaceport circulation. Decorative furniture and vegetation are not
 a pedestrian-navigation graph, and loaded asset door artwork still needs visual
 review. Browser control was unavailable during implementation; desktop/mobile
 appearance and performance remain unverified. No production deployment is made.

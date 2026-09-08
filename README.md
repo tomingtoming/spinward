@@ -41,6 +41,12 @@ Only Ball shots from near the
 starting point count. The ring is a visual scoring gate, not a solid obstacle.
 Travel → Surface returns you to the throwing area.
 
+Public buildings with an **OPEN · WALK IN** sign can be entered. Explore cafes,
+through-passages and courtyards across the city; look up from a courtyard to see
+the opposite neighbourhood overhead. Exterior and interior detail stream
+independently, while walls and doorways keep the same collision shape.
+[Implementation and local preview links](docs/building-interiors.md).
+
 ## 日本語
 
 回転居住区の人工重力を、説明ではなく身体で理解する WebXR デモ。

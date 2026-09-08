@@ -20,6 +20,8 @@ export type CityBuilding = {
   width: number
   depth: number
   height: number
+  // Synthetic interior collision boxes may start above the cylinder floor.
+  baseHeight?: number
   tone: number
   kind: BuildingKind
   // 0..1 urbanization at this lot (downtown = 1). Drives the facade palette;
@@ -96,14 +98,6 @@ export type CityTower = {
   deckRadius: number
 }
 
-// One-off civic dome near the plaza — the city's "face" and a navigation
-// anchor, mirroring the overlook tower across the spawn crossroads.
-export type CityLandmark = {
-  azimuth: number
-  axial: number
-  domeRadius: number
-}
-
 // The elevated expressway ring: one full-circumference deck at a fixed axial
 // position beside downtown. Buildings keep out of its corridor the same way
 // they keep out of the plaza.
@@ -150,7 +144,6 @@ export type CityPlan = {
   patches: CityPatch[]
   trees: CityTree[]
   tower: CityTower | null
-  landmark: CityLandmark | null
   expressway: CityExpressway | null
 }
 
@@ -451,19 +444,6 @@ export const getOverlookTowerClearance = (radius: number) => {
   return (
     getArterialRoadWidth(radius) * 0.5 + getSidewalkWidth(radius) + deckRadius + 4
   )
-}
-
-// Mirrored across the spawn crossroads from the overlook tower, so the two
-// landmarks bracket the plaza and give the player an instant sense of
-// direction. Same clearance dance as the tower: buildings keep out of its lot.
-export const getPlazaLandmark = (radius: number): CityLandmark => {
-  const clearance = getOverlookTowerClearance(radius)
-
-  return {
-    azimuth: clearance / radius,
-    axial: -clearance,
-    domeRadius: Math.min(16, Math.max(3.5, radius * 0.09))
-  }
 }
 
 // The ring runs just south of the plaza block so it fills the spawn vista
@@ -802,7 +782,8 @@ export const resolveCitySurfaceCollision = (
     position.azimuth,
     position.axialPosition
   )) {
-    if (building.height <= minBlockingHeight) {
+    if ((building.baseHeight ?? 0) + building.height <= minBlockingHeight ||
+      (building.baseHeight ?? 0) > minBlockingHeight + 2) {
       continue
     }
 
@@ -851,9 +832,10 @@ export const getCityGroundHeight = (
   let groundHeight = 0
 
   for (const building of resolveBuildingsNear(buildings, azimuth, axialPosition)) {
+    const top = (building.baseHeight ?? 0) + building.height
     if (
-      building.height <= groundHeight ||
-      building.height > altitude + stepTolerance
+      top <= groundHeight ||
+      top > altitude + stepTolerance
     ) {
       continue
     }
@@ -865,7 +847,7 @@ export const getCityGroundHeight = (
       Math.abs(wrapToPi(azimuth - building.azimuth) * radius) < halfWidth &&
       Math.abs(axialPosition - building.axial) < halfDepth
     ) {
-      groundHeight = building.height
+      groundHeight = top
     }
   }
 
@@ -885,7 +867,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       patches: [],
       trees: [],
       tower: null,
-      landmark: null,
       expressway: null
     }
   }
@@ -1039,9 +1020,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   const overlookTower = getOverlookTower(radius)
   const towerClearance =
     overlookTower.deckRadius + Math.max(4, getSidewalkWidth(radius, length))
-  const landmark = getPlazaLandmark(radius)
-  const landmarkClearance =
-    landmark.domeRadius + Math.max(4, getSidewalkWidth(radius, length))
   const expressway = getCityExpressway(radius, length)
   // The old town keeps a plaza-sized clearing of its own — the arrival
   // square — so the port-end respawn always lands on open ground.
@@ -1085,15 +1063,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       Math.abs(wrapToPi(azimuth - overlookTower.azimuth)) * radius <
         towerClearance + width * 0.5 &&
       Math.abs(axialCenter - overlookTower.axial) < towerClearance + depth * 0.5
-    ) {
-      return
-    }
-
-    // Same courtesy for the plaza dome across the crossroads.
-    if (
-      Math.abs(wrapToPi(azimuth - landmark.azimuth)) * radius <
-        landmarkClearance + width * 0.5 &&
-      Math.abs(axialCenter - landmark.axial) < landmarkClearance + depth * 0.5
     ) {
       return
     }
@@ -1748,7 +1717,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     patches,
     trees,
     tower: getOverlookTower(radius),
-    landmark,
     expressway
   }
 }

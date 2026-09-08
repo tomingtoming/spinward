@@ -68,7 +68,7 @@ export const createRotatingCityColliders = (
 
   const addCollider = (building: CityBuilding) => {
     const s = (meters: number) => scaleLengthForRapier(meters, units)
-    const centerRadial = radius - building.height / 2
+    const centerRadial = radius - (building.baseHeight ?? 0) - building.height / 2
     buildingRotation.setFromAxisAngle(Y_AXIS, -building.azimuth)
     return world.createCollider(
       rapier.ColliderDesc.cuboid(

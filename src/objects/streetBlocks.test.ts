@@ -25,7 +25,7 @@ test('rendered sidewalk bands extend to the specified total road width', () => {
     const layer = new StreetAccessLayer(new THREE.Group())
     layer.rebuild({ roads: [{ azimuth: 0, axial: 0, tangentWidth: profile.carriageway,
       axialLength: 100, kind }], buildings: [], intersections: [], patches: [], trees: [],
-      tower: null, landmark: null, expressway: null }, radius, 0, 0)
+      tower: null, expressway: null }, radius, 0, 0)
     if (kind === 'alley') {
       expect(layer.group.children).toHaveLength(0)
     } else {

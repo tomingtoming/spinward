@@ -1,3 +1,5 @@
+import { BuildingInteriorLayer } from './buildingInteriorLayer'
+import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
 import { CivicDetails } from './civicDetails'
 import { StreetAccessLayer } from './streetAccessLayer'
@@ -33,7 +35,6 @@ import {
   type CityCollisionIndex,
   type CityExpressway,
   type CityPlan,
-  type CityLandmark,
   type CityPatch,
   type CityRoad,
   type CityTower,
@@ -855,19 +856,6 @@ const attachRoofColorAttribute = (
 // Suburban default for plan entries without zoning data (synthetic footprints).
 const DEFAULT_URBAN = 0.4
 
-// Walking/roof collision for the plaza dome, as a synthetic plan building.
-// The box is inset to the drum so the walkable "roof" height matches where
-// the dome visually stands, not its curved apex.
-const getLandmarkFootprint = (landmark: CityLandmark): CityBuilding => ({
-  azimuth: landmark.azimuth,
-  axial: landmark.axial,
-  width: landmark.domeRadius * 1.9,
-  depth: landmark.domeRadius * 1.9,
-  height: landmark.domeRadius * 0.35,
-  tone: 0.5,
-  kind: 'block'
-})
-
 // Window grid baked into each facade texture variant. The same numbers drive
 // both the canvas drawing and the per-instance UV scaling, so windows stay a
 // constant real size instead of stretching with the building box.
@@ -1515,6 +1503,9 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
 export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
+  private readonly interiorLayer = new BuildingInteriorLayer(this.group)
+  private interiors = new Map<CityBuilding, BuildingInterior>()
+  private interiorFocus = { azimuth: 0, axial: 0, altitude: 1.8 }
   private readonly streetAccessLayer = new StreetAccessLayer(this.group,
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('access'))
 
@@ -1893,16 +1884,6 @@ export class Cityscape {
     toneMapped: false
   })
 
-  // The plaza dome: glassy civic architecture with a faint self-glow so it
-  // stays a landmark after dark without its own light.
-  private readonly landmarkDomeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x9fbdd4,
-    roughness: 0.22,
-    metalness: 0.55,
-    emissive: new THREE.Color(0x16323e),
-    emissiveIntensity: 0.7
-  })
-
   private readonly towerAccentMaterial = new THREE.MeshBasicMaterial({
     color: 0x67e8f9,
     toneMapped: false
@@ -2031,7 +2012,6 @@ export class Cityscape {
   private utilityWires: THREE.LineSegments | null = null
   private beacons: THREE.InstancedMesh | null = null
   private towerGroup: THREE.Group | null = null
-  private landmarkGroup: THREE.Group | null = null
   private cables: THREE.Mesh | null = null
   private spineRings: THREE.Mesh | null = null
   private axisSpine: THREE.Mesh | null = null
@@ -2519,7 +2499,10 @@ export class Cityscape {
     // across the lot). The fit is baked math, so it also covers the moment
     // before the GLB pack arrives; the fallback box briefly overhangs the
     // collider in the far countryside, which nothing at spawn can reach.
-    this.collisionBuildings = plan.buildings.map((building) => {
+    this.interiors = planBuildingInteriors(plan.buildings, radius)
+    this.collisionBuildings = plan.buildings.flatMap((building) => {
+      const interior = this.interiors.get(building)
+      if (interior) return interiorCollisionBuildings(interior, radius)
       const houseFit = fitSuburbanHouse(building)
       if (houseFit === null) {
         return building
@@ -2538,14 +2521,10 @@ export class Cityscape {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
 
-    if (plan.landmark !== null) {
-      this.collisionBuildings.push(getLandmarkFootprint(plan.landmark))
-    }
-
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
-    this.civicDetails.rebuild(plan, radius)
+    this.civicDetails.rebuild({ ...plan, buildings: plan.buildings.filter(b => !this.interiors.has(b)) }, radius)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2574,10 +2553,6 @@ export class Cityscape {
       this.buildTower(plan.tower, radius)
     }
 
-    if (plan.landmark !== null) {
-      this.buildLandmark(plan.landmark, radius)
-    }
-
     this.cityExpressway = plan.expressway
 
     if (plan.expressway !== null) {
@@ -2586,6 +2561,23 @@ export class Cityscape {
       // with traffic instead of waiting for the next focus step.
       this.rebuildTraffic()
     }
+  }
+
+  // Resolve a named visit against this tier's generated plan, so preview
+  // links work on mobile too (quality budgets generate different parcels).
+  getInteriorVisit(kind: string | null) {
+    if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court') return null
+    const interior = [...this.interiors.values()].filter(i => i.kind === kind)
+      .sort((a, b) => getBuildingSurfaceDistance(this.radius, 0, 0, a.building.azimuth, a.building.axial) -
+        getBuildingSurfaceDistance(this.radius, 0, 0, b.building.azimuth, b.building.axial))[0]
+    if (!interior) return null
+    const b = interior.building, front = b.front!, edge = b.access!.roadEdge
+    const up = new THREE.Vector3(-Math.cos(edge.azimuth), 0, -Math.sin(edge.azimuth))
+    const forward = front.axis === 'axial' ? new THREE.Vector3(0, -front.side, 0)
+      : new THREE.Vector3(Math.sin(edge.azimuth) * front.side, 0, -Math.cos(edge.azimuth) * front.side)
+    const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+      forward.clone().cross(up), up, forward.clone().negate()))
+    return { azimuth: edge.azimuth, axial: edge.axial, orientation }
   }
 
   getBuildings(): readonly CityBuilding[] {
@@ -2626,6 +2618,7 @@ export class Cityscape {
 
   setDaylight(daylight: number) {
     this.civicDetails.setDaylight(daylight)
+    this.interiorLayer.setDaylight(daylight)
     const night = 1 - daylight
     // The facet array BLAZES when it catches the sun: the day tint (sky grade
     // lifted toward white) is pushed deep into HDR by the sun catch, so the
@@ -2742,67 +2735,11 @@ export class Cityscape {
     }
   }
 
-  private buildLandmark(landmark: CityLandmark, radius: number) {
-    const group = new THREE.Group()
-    const cos = Math.cos(landmark.azimuth)
-    const sin = Math.sin(landmark.azimuth)
-    tangent.set(-sin, 0, cos)
-    inward.set(-cos, 0, -sin)
-    binormal.copy(tangent).cross(inward)
-    basis.makeBasis(tangent, inward, binormal)
-
-    const domeRadius = landmark.domeRadius
-    const drumHeight = domeRadius * 0.35
-
-    const drum = new THREE.Mesh(
-      new THREE.CylinderGeometry(domeRadius * 0.96, domeRadius, drumHeight, 24),
-      this.towerMaterial
-    )
-    drum.position.set(0, drumHeight * 0.5, 0)
-
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(domeRadius * 0.96, 24, 12, 0, fullTurn, 0, Math.PI * 0.5),
-      this.landmarkDomeMaterial
-    )
-    dome.position.set(0, drumHeight, 0)
-
-    // Cyan rim at the drum/dome joint — the same accent language as the
-    // overlook tower's deck ring, so the two landmarks read as one family.
-    const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(
-        domeRadius * 0.97,
-        Math.max(0.05, domeRadius * 0.02),
-        6,
-        28
-      ),
-      this.towerAccentMaterial
-    )
-    rim.rotation.x = Math.PI * 0.5
-    rim.position.set(0, drumHeight, 0)
-
-    const spire = new THREE.Mesh(
-      new THREE.CylinderGeometry(domeRadius * 0.015, domeRadius * 0.04, domeRadius * 0.5, 6),
-      this.towerMaterial
-    )
-    spire.position.set(0, drumHeight + domeRadius * 1.1, 0)
-
-    const spireTip = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(0.12, domeRadius * 0.045), 8, 6),
-      this.lampMaterial
-    )
-    spireTip.position.set(0, drumHeight + domeRadius * 1.35, 0)
-
-    group.add(drum, dome, rim, spire, spireTip)
-    group.quaternion.setFromRotationMatrix(basis)
-    group.position.set(cos, 0, sin).multiplyScalar(radius).setY(landmark.axial)
-    this.landmarkGroup = group
-    this.group.add(group)
-  }
-
   dispose() {
     this.disposed = true
     this.clear()
     this.civicDetails.dispose()
+    this.interiorLayer.dispose()
     this.streetAccessLayer.dispose()
     if (this.detailedBuildingGeometries !== null) {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
@@ -2878,7 +2815,6 @@ export class Cityscape {
     this.utilityWireMaterial.dispose()
     this.streetDetailPaintMaterial.dispose()
     this.streetDetailMetalMaterial.dispose()
-    this.landmarkDomeMaterial.dispose()
     this.trafficBodyMaterial.dispose()
     this.headlightMaterial.dispose()
     this.taillightMaterial.dispose()
@@ -2926,6 +2862,8 @@ export class Cityscape {
 
   private clear() {
     this.civicDetails.clear()
+    this.interiorLayer.clear()
+    this.interiors.clear()
     this.streetAccessLayer.clear()
     this.clearRoadTiles()
     this.collisionBuildings = []
@@ -3005,14 +2943,6 @@ export class Cityscape {
       this.towerGroup = null
     }
 
-    if (this.landmarkGroup !== null) {
-      for (const child of this.landmarkGroup.children) {
-        ;(child as THREE.Mesh).geometry?.dispose()
-      }
-      this.group.remove(this.landmarkGroup)
-      this.landmarkGroup = null
-    }
-
     for (const strip of this.windowStrips) {
       strip.geometry.dispose()
       this.group.remove(strip)
@@ -3071,7 +3001,9 @@ export class Cityscape {
   // Two focus grids keep movement smooth without rewriting the 48k-capacity
   // far buffer every few metres. The fine grid rebuilds only nearby GLB and
   // procedural batches; the coarse grid rebuckets near/far buildings.
-  setFocusSurface(azimuth: number, axial: number) {
+  setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
+    this.interiorFocus = { azimuth, axial, altitude }
+    this.interiorLayer.update(azimuth, axial, altitude)
     if (this.cityPlanBuildings.length === 0 || this.radius <= 0) {
       return
     }
@@ -3148,7 +3080,14 @@ export class Cityscape {
     if (this.cityPlan) this.streetAccessLayer.rebuild(this.cityPlan, this.radius,
       this.cityFocusAzimuth, this.cityFocusAxial)
 
-    let procedural = this.cityNearBuildings.map(stableBuildingPlacement)
+    const interiorPlans = this.cityNearBuildings.flatMap(b => {
+      const interior = this.interiors.get(b)
+      return interior ? [interior] : []
+    })
+    this.interiorLayer.rebuild(interiorPlans, this.radius)
+    this.interiorLayer.update(this.interiorFocus.azimuth, this.interiorFocus.axial, this.interiorFocus.altitude)
+    const exteriorBuildings = this.cityNearBuildings.filter(b => !this.interiors.has(b))
+    let procedural = exteriorBuildings.map(stableBuildingPlacement)
 
     // The LOD selection keys on the Kenney pack: it dresses every building,
     // and until it arrives the procedural city carries the whole near disk.
@@ -3174,7 +3113,7 @@ export class Cityscape {
         )
       }
 
-      for (const building of this.cityNearBuildings) {
+      for (const building of exteriorBuildings) {
         const distance = getBuildingSurfaceDistance(
           this.radius,
           this.cityFocusAzimuth,

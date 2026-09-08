@@ -2140,7 +2140,10 @@ export const bootstrapApp = async () => {
     habitat.setFocusAzimuth(playerAzimuth)
     cityscape.setFocusSurface(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
-      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
+      drive.driving ? drive.lastElevation + 1.8 : playerTraversal.mode === 'grounded'
+        ? playerTraversal.groundHeight + 1.8
+        : habitatConfig.radius - Math.hypot(playerFixedColliderPosition.x, playerFixedColliderPosition.z)
     )
     intersectionFurniture.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
@@ -2672,8 +2675,11 @@ export const bootstrapApp = async () => {
   // A shared link spawns where it points; otherwise the first-boot "look up"
   // reveal shows the far side of the colony overhead before the player
   // settles. Desktop/mobile only; XR is head-tracked.
+  const interiorVisit = cityscape.getInteriorVisit(new URLSearchParams(window.location.search).get('visit'))
   if (shareState.pose !== null) {
     applySharedPose(shareState.pose, shareState.orientation)
+  } else if (interiorVisit !== null) {
+    applySharedPose({ mode: 'grounded', azimuth: interiorVisit.azimuth, axialPosition: interiorVisit.axial, groundHeight: 0 }, interiorVisit.orientation)
   } else if (!renderer.xr.isPresenting) {
     desktopLookControls.startIntroReveal()
   }
