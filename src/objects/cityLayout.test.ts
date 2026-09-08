@@ -716,13 +716,22 @@ describe('planCity', () => {
       expect(isInsidePlaza(tree.azimuth, tree.axial, radius)).toBe(false)
     }
 
-    // Zoned blocks hold no buildings: no building center falls inside a
-    // patch. Accumulated into one assertion — with pocket greens the
-    // cross product is tens of millions of pairs, and a per-pair expect()
-    // would dominate the suite's runtime.
+    // Check every possible overlap without the full building × patch product.
+    // Axial sorting skips provably disjoint pairs before cylindrical distances;
+    // this keeps the same invariant affordable on slower CI runners.
+    const axialBuildings = [...buildings].sort((a, b) => a.axial - b.axial)
     let insideCount = 0
-    for (const building of buildings) {
-      for (const patch of patches) {
+    for (const patch of patches) {
+      const start = patch.axial - patch.axialExtent * 0.5
+      const end = patch.axial + patch.axialExtent * 0.5
+      let lo = 0, hi = axialBuildings.length
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1
+        if (axialBuildings[mid].axial <= start) lo = mid + 1
+        else hi = mid
+      }
+      for (let i = lo; i < axialBuildings.length && axialBuildings[i].axial < end; i++) {
+        const building = axialBuildings[i]
         const tangentDelta = Math.abs(wrapToPi(building.azimuth - patch.azimuth)) * radius
         const axialDelta = Math.abs(building.axial - patch.axial)
         if (
