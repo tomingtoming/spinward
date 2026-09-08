@@ -2,8 +2,13 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
 import type { CityRoad } from './cityLayout'
+import { STREET_PROFILES } from './streetProfile'
+import { coalesceRoads } from './roadNetwork'
 
-// ── Kenney City Kit (Roads) as the near-player road surface ─────────────
+// ── Near-player road tile placement ───────────────────────────────────
+// Active geometry comes from roadTileSurface.ts and the shared lane profile.
+// The legacy Kenney loader below remains available but Cityscape no longer
+// loads tiles whose baked-in markings cannot represent both street profiles.
 // The painted arc-band roads read as flat ribbons at street level. This layer
 // lays real curb-and-sidewalk tiles (CC0, kenney.nl) over the roads around
 // the player: straight segments, zebra approaches, and socket-matched
@@ -26,10 +31,7 @@ export const ROAD_TILE_ASSET_URLS: Record<RoadTileKind, string> = {
   bend: '/assets/roads/road-bend-sidewalk.glb'
 }
 
-// Road deck spans this fraction of the tile across; the rest is sidewalk.
-// Tiles are scaled so the DECK matches the plan's road width, which puts a
-// sidewalk band just outside the painted ribbon.
-const ROAD_DECK_FRACTION = 0.8
+// Tile envelopes are carriageway + twice the profile sidewalk width.
 // Mesh height is 0.02 at unit scale. Scaled uniformly with the footprint a
 // 30 m arterial tile would grow 60 cm curbs, so height gets its own fixed
 // scale: deck 5 cm, sidewalk top 10 cm. The deck stays purely visual (no
@@ -41,7 +43,7 @@ export const ROAD_TILE_HEIGHT_SCALE = 5
 // polygonOffset under the log depth buffer). Base the overlay just above the
 // tallest painted layer so the deck never z-fights either road kind.
 export const getRoadTileLiftMeters = (radius: number) =>
-  0.2 + Math.max(0.03, radius * 1.5e-5) + 0.02
+  0.22 + Math.min(0.03, radius * 0.00001)
 // Tiles are flat but the wall curves: a tangential run is split so each
 // tile's chord sagitta (L²/8R) stays invisible — 20 m on r=3200 sags 1.6 cm,
 // and small drums shrink the pitch further. Axial runs are straight and can
@@ -57,6 +59,11 @@ const ROAD_TILE_MIN_RADIUS = 300
 const MIN_TILE_METERS = 2
 
 export type RoadTilePlacement = {
+  roadKind?: 'arterial' | 'collector' | 'local' | 'alley'
+  alongCarriagewayMeters?: number
+  crossCarriagewayMeters?: number
+  crossingAtStart?: boolean
+  crossingAtEnd?: boolean
   kind: RoadTileKind
   azimuth: number
   axial: number
@@ -214,7 +221,9 @@ export const planRoadTilePlacements = (
   // near the focus window. Any junction that could matter to an in-range fill
   // lies within the window, so both of its roads survive this filter.
   const prefilterMargin = rangeMeters + MAX_ALONG_AXIAL * 2
-  const nearRoads = roads.filter((road) => {
+  const nearRoads = coalesceRoads(roads.filter((road) => {
+    // Shared lanes participate in junction topology too. Their zero-sidewalk
+    // profile produces plain pavement, not a raised kerb across the entrance.
     const tangentGap = Math.max(
       0,
       Math.abs(wrapToPi(focusAzimuth - road.azimuth)) * radius - road.tangentWidth * 0.5
@@ -224,13 +233,13 @@ export const planRoadTilePlacements = (
       Math.abs(focusAxial - road.axial) - road.axialLength * 0.5
     )
     return Math.hypot(tangentGap, axialGap) <= prefilterMargin
-  })
+  }), radius)
 
   const avenues = nearRoads.filter((road) => road.axialLength > road.tangentWidth)
   const streets = nearRoads.filter((road) => road.axialLength <= road.tangentWidth)
   const placements: RoadTilePlacement[] = []
 
-  const tileCross = (width: number) => width / ROAD_DECK_FRACTION
+  const tileCross = (width: number, kind: CityRoad['kind']) => width + 2 * STREET_PROFILES[kind].sidewalk
 
   // ── Junctions ───────────────────────────────────────────────────────
   type RoadObstacles = Map<CityRoad, Array<{ start: number; end: number }>>
@@ -238,10 +247,10 @@ export const planRoadTilePlacements = (
   const streetObstacles: RoadObstacles = new Map()
 
   for (const avenue of avenues) {
-    const avenueTile = tileCross(avenue.tangentWidth)
+    const avenueTile = tileCross(avenue.tangentWidth, avenue.kind)
 
     for (const street of streets) {
-      const streetTile = tileCross(street.axialLength)
+      const streetTile = tileCross(street.axialLength, street.kind)
       const streetHalfSpan = street.tangentWidth * 0.5
       const avenueHalfSpan = avenue.axialLength * 0.5
       const tangentOffset = wrapToPi(avenue.azimuth - street.azimuth) * radius
@@ -300,6 +309,8 @@ export const planRoadTilePlacements = (
       const quarterTurns = junctionQuarterTurns(junction)
       placements.push({
         kind: junctionKind(junction),
+        alongCarriagewayMeters: quarterTurns % 2 === 0 ? avenue.tangentWidth : street.axialLength,
+        crossCarriagewayMeters: quarterTurns % 2 === 0 ? street.axialLength : avenue.tangentWidth,
         azimuth: junction.azimuth,
         axial: junction.axial,
         quarterTurns,
@@ -317,7 +328,7 @@ export const planRoadTilePlacements = (
     obstacles: Array<{ start: number; end: number }>
   ) => {
     const width = isAvenue ? road.tangentWidth : road.axialLength
-    const cross = tileCross(width)
+    const cross = tileCross(width, road.kind)
     const maxAlong = isAvenue ? MAX_ALONG_AXIAL : maxAlongTangentFor(radius)
     const fullRing = !isAvenue && road.tangentWidth >= TWO_PI * radius - 1e-3
 
@@ -402,6 +413,10 @@ export const planRoadTilePlacements = (
           (index === count - 1 && interval.endAbutsJunction)
         placements.push({
           kind: abutsJunction && road.kind === 'arterial' ? 'crossing' : 'straight',
+          roadKind: road.kind,
+          crossCarriagewayMeters: width,
+          crossingAtStart: index === 0 && interval.startAbutsJunction,
+          crossingAtEnd: index === count - 1 && interval.endAbutsJunction,
           azimuth,
           axial,
           quarterTurns: isAvenue ? 1 : 0,

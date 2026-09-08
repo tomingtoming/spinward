@@ -1121,17 +1121,27 @@ export const disposeDetailedBuildingGeometryPack = (
 // the procedural box car.
 
 export const KENNEY_CAR_VARIANTS = [
-  { file: 'sedan', length: 4.4 },
-  { file: 'suv', length: 4.6 },
-  { file: 'hatchback-sports', length: 4.0 },
-  { file: 'delivery', length: 5.2 },
-  { file: 'taxi', length: 4.4 },
-  { file: 'truck', length: 5.4 }
+  { file: 'sedan', length: 4.4, width: 1.8, height: 1.5 },
+  { file: 'suv', length: 4.6, width: 1.9, height: 1.75 },
+  { file: 'hatchback-sports', length: 4.0, width: 1.75, height: 1.45 },
+  { file: 'delivery', length: 5.2, width: 2.0, height: 2.35 },
+  { file: 'taxi', length: 4.4, width: 1.8, height: 1.55 },
+  { file: 'truck', length: 5.4, width: 2.2, height: 2.5 }
 ] as const
 
 export type KenneyCarGeometryPack = {
   cars: THREE.BufferGeometry[]
   material: THREE.MeshStandardMaterial
+}
+
+export const fitTrafficCarBody = (body: THREE.BufferGeometry, dimensions: { width: number; height: number; length: number }) => {
+  body.computeBoundingBox()
+  const bounds = body.boundingBox as THREE.Box3
+  const size = bounds.getSize(new THREE.Vector3())
+  const center = bounds.getCenter(new THREE.Vector3())
+  body.translate(-center.x, -bounds.min.y, -center.z)
+  body.scale(dimensions.width / Math.max(size.x, 1e-6), dimensions.height / Math.max(size.y, 1e-6), dimensions.length / Math.max(size.z, 1e-6))
+  body.computeBoundingBox()
 }
 
 export const loadKenneyCarGeometryPack =
@@ -1140,7 +1150,7 @@ export const loadKenneyCarGeometryPack =
     let material: THREE.MeshStandardMaterial | null = null
 
     const cars = await Promise.all(
-      KENNEY_CAR_VARIANTS.map(async ({ file, length }) => {
+      KENNEY_CAR_VARIANTS.map(async ({ file, length, width: targetWidth, height }) => {
         const gltf = await loader.loadAsync(`/assets/vehicles/kenney/${file}.glb`)
         const captured = captureKitMaterial(gltf.scene)
         if (captured !== null) {
@@ -1159,14 +1169,7 @@ export const loadKenneyCarGeometryPack =
             body.deleteAttribute(name)
           }
         }
-        body.computeBoundingBox()
-        const bounds = body.boundingBox as THREE.Box3
-        const size = bounds.getSize(new THREE.Vector3())
-        const center = bounds.getCenter(new THREE.Vector3())
-        body.translate(-center.x, -bounds.min.y, -center.z)
-        const scale = length / Math.max(size.z, 1e-6)
-        body.scale(scale, scale, scale)
-        body.computeBoundingBox()
+        fitTrafficCarBody(body, { width: targetWidth, height, length })
         const scaled = body.boundingBox as THREE.Box3
         const width = scaled.max.x - scaled.min.x
 

@@ -1,3 +1,8 @@
+import { isDistrictPark } from './districtIdentity'
+import { fitSuburbanHouse } from './buildingAssets'
+import { certifyStreetAccess, roadId, type StreetAccess, type StreetAccessRejection } from './streetAccess'
+import { STREET_PROFILES, getStreetProfile } from './streetProfile'
+import { planStreetBlock } from './streetBlocks'
 import {
   ISLAND_THREE_TOPOLOGY,
   type HabitatTopology,
@@ -30,6 +35,9 @@ export type CityBuilding = {
   // (doors, porches) aim at the street with this; optional so synthetic
   // footprints (tower, tests) stay valid.
   front?: { axis: 'tangent' | 'axial'; side: 1 | -1 }
+  // Required on generated buildings after plan certification; optional only
+  // for synthetic collision footprints and hand-authored test fixtures.
+  access?: StreetAccess
   // The full parcel this building owns, as centre offsets from the building
   // centre plus extents (surface metres): the slot pitch along the row and
   // the row's allotted depth. Slot-aligned (jitter-free), so neighbouring
@@ -48,16 +56,15 @@ export type CityBuilding = {
   industrial?: boolean
 }
 
-// 'alley': the back lanes between building rings inside a block. They exist
-// so that NO building stands without street frontage — the inner rings front
-// these lanes. Alleys are real roads in the plan (the near-player road-tile
-// overlay paves them) but the painted far-LOD pipeline, lamps, traffic and
-// bridges all filter on 'arterial'/'local' and deliberately skip them: from
-// a distance a back lane reads as a dark gap, and the night glow grid stays
-// the arterial/local signature.
-export type RoadKind = 'arterial' | 'local' | 'alley'
+// 'alley': shared residential through-lanes inside a block. They exist
+// so that NO building stands without street frontage — inner parcels front
+// these lanes. Their curved surfaces and daytime far bake remain visible,
+// without sidewalk tiles. Lamps, ambient traffic, bridges and night glow
+// keep the arterial/local signature.
+export type RoadKind = 'arterial' | 'collector' | 'local' | 'alley'
 
 export type CityRoad = {
+  id?: string
   azimuth: number
   axial: number
   tangentWidth: number
@@ -136,6 +143,7 @@ export type CityIntersection = {
 }
 
 export type CityPlan = {
+  accessRejected?: StreetAccessRejection[]
   roads: CityRoad[]
   buildings: CityBuilding[]
   intersections: CityIntersection[]
@@ -174,7 +182,6 @@ const MAX_KEEP_PROBABILITY = 0.92
 const PARK_BLOCK_PROBABILITY = 0.08
 const MAX_TREES = 1500
 // Building rows nest inward until the block core is used up.
-const MAX_BLOCK_RINGS = 4
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0
@@ -318,18 +325,18 @@ export const isAzimuthOnLandArc = (
 // City cell scale follows the smaller of the two habitat dimensions, so
 // thin rings (span << radius) still get a walkable street grid.
 export const getCityCellSize = (radius: number, length = Number.POSITIVE_INFINITY) =>
-  Math.max(6, Math.min(radius * 0.025, length * 0.08))
+  Math.max(6, Math.min(80, radius * 0.025, length * 0.08))
 
-// Realistic road widths in absolute meters: arterials top out at a wide
-// boulevard, residential streets stay narrow regardless of habitat scale.
-export const getArterialRoadWidth = (radius: number, length?: number) =>
-  Math.min(24, Math.max(6, getCityCellSize(radius, length) * 0.5))
+// Fixed carriageway widths in metres, independent of habitat scale.
+// Sidewalks are additional space, never included in these two widths.
+export const getArterialRoadWidth = (radius: number, _length?: number) =>
+  getStreetProfile('arterial', radius).carriageway
 
-export const getLocalRoadWidth = (radius: number, length?: number) =>
-  Math.min(8, Math.max(4, getCityCellSize(radius, length) * 0.28))
+export const getLocalRoadWidth = (_radius: number, _length?: number) =>
+  STREET_PROFILES.local.carriageway
 
-export const getSidewalkWidth = (radius: number, length?: number) =>
-  Math.min(5, Math.max(1.2, getCityCellSize(radius, length) * 0.15))
+export const getSidewalkWidth = (_radius: number, _length?: number) =>
+  STREET_PROFILES.arterial.sidewalk
 
 // Even block counts put an avenue at the strip center and a street at
 // axial 0: the spawn point lands exactly on an arterial crossroads.
@@ -470,7 +477,7 @@ export const getCityExpressway = (
     return null
   }
 
-  const deckWidth = Math.min(18, Math.max(10, getArterialRoadWidth(radius, length) * 0.7))
+  const deckWidth = getArterialRoadWidth(radius, length)
   const deckHeight = 18
   // ~5% grade: comfortable to drive, short enough to read as one structure.
   const rampSpan = (deckHeight / 0.05) / radius
@@ -892,21 +899,13 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // Strip edges plus every Nth boundary carry the arterials; the rest are
   // residential streets.
   const avenueKindAt = (index: number): RoadKind =>
-    index === 0 ||
-    index === blocksTangentCount ||
-    index === blocksTangentCount / 2 ||
-    index % 3 === 0
-      ? 'arterial'
-      : 'local'
+    index === blocksTangentCount / 2 ? 'arterial' :
+      index === 0 || index === blocksTangentCount || index % 3 === 0 ? 'collector' : 'local'
   const streetKindAt = (index: number): RoadKind =>
-    index === 0 ||
-    index === blocksAxialCount ||
-    index === blocksAxialCount / 2 ||
-    index % 4 === 0
-      ? 'arterial'
-      : 'local'
+    index === blocksAxialCount / 2 || index % 12 === 0 ? 'arterial' :
+      index === blocksAxialCount || index % 4 === 0 ? 'collector' : 'local'
   const roadWidthFor = (kind: RoadKind) =>
-    kind === 'arterial' ? arterialWidth : localWidth
+    getStreetProfile(kind, radius).carriageway
   const lot = cell * LOT_FRACTION
   // Buildings are human habitation: spin gravity falls off linearly with
   // height (g(h) = g0 * (1 - h/R)), so everyday buildings cling to the 1g
@@ -979,38 +978,12 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // an inflated estimate starves the city instead of filling it.
   const innerWidthEstimate = blockWidth - localWidth - sidewalk * 2
   const innerLengthEstimate = blockLength - localWidth - sidewalk * 2
-  let lotsPerBlockEstimate = 0
-  const lotsPerRingEstimate: number[] = []
-  {
-    let estWidth = innerWidthEstimate
-    let estLength = innerLengthEstimate
-
-    for (let ring = 0; ring < MAX_BLOCK_RINGS; ring += 1) {
-      const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
-
-      if (estWidth < minSpan || estLength < minSpan) {
-        break
-      }
-
-      const ringDepth = Math.min(
-        ring === 0 ? cell * 0.9 : cell * 0.35,
-        estWidth * 0.35,
-        estLength * 0.35
-      )
-      const ringLots =
-        2 * Math.max(0, Math.floor(estLength / lot)) +
-        2 * Math.max(0, Math.floor((estWidth - 2 * (ringDepth + sidewalk)) / lot))
-      lotsPerBlockEstimate += ringLots
-      lotsPerRingEstimate.push(ringLots)
-      const inset = 2 * (ringDepth + sidewalk * 1.5)
-      estWidth -= inset
-      estLength -= inset
-    }
-  }
-  const candidateEstimate =
-    lotsPerBlockEstimate * blocksTangentCount * blocksAxialCount * landArcs.length
-  const ringBudgetFor = (urban: number) =>
-    urban >= 0.65 ? MAX_BLOCK_RINGS : urban >= 0.35 ? 3 : urban >= 0.16 ? 2 : 1
+  const estimateLots = (residential: boolean) => planStreetBlock(
+    { t0: 0, t1: innerWidthEstimate, a0: 0, a1: innerLengthEstimate }, residential, cell
+  ).frontages.reduce((sum, row) => sum + (row.end - row.start < 4 ? 0 :
+    Math.max(1, Math.floor((row.end - row.start) / (lot * (residential ? 0.55 : 1))))), 0)
+  const urbanLots = estimateLots(false), residentialLots = estimateLots(true)
+  const candidateEstimate = Math.max(urbanLots, residentialLots) * blocksTangentCount * blocksAxialCount * landArcs.length
   const farmProbabilityFor = (urban: number) => {
     const rurality = clamp01((0.6 - urban) / 0.6)
     return Math.min(0.78, 0.02 * (1 - urban) + rurality * rurality * 1.05)
@@ -1020,7 +993,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   // infill — so a denser core meant the plan overshot the cap and
   // placeBuilding silently refused everything placed AFTER the cap: whole
   // late-iterated blocks bare on the phone tier. Walk the same block grid,
-  // weigh each block by its urban keep factor, ring budget and patch share,
+  // weigh each block by its urban keep factor, frontage count and patch share,
   // and bisect keep so the EXPECTED count meets maxBuildings instead.
   const expectedPlaced = (keep: number) => {
     let total = 0
@@ -1029,15 +1002,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       for (let j = 0; j < blocksAxialCount; j += 1) {
         const axialCenter = -axialHalf + (j + 0.5) * blockLength
         const { urban, oldTown } = urbanizationAt(tangentCenter, axialCenter)
-        const rings = Math.min(ringBudgetFor(urban), lotsPerRingEstimate.length)
-        let lots = 0
-        for (let ring = 0; ring < rings; ring += 1) {
-          lots += lotsPerRingEstimate[ring]
-        }
-        // Residential ladders carve the row into home parcels (lot·0.55).
-        if (urban < 0.4 && oldTown < 0.5) {
-          lots *= 1.6
-        }
+        const lots = urban < 0.4 && oldTown < 0.5 ? residentialLots : urbanLots
         const patchShare = PARK_BLOCK_PROBABILITY + farmProbabilityFor(urban)
         const coreInfill = clamp01((urban - 0.9) / 0.1)
         const slotKeep = Math.min(1, keep * (0.08 + urban * 1.12) + coreInfill * 0.72)
@@ -1047,8 +1012,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     return total * landArcs.length
   }
   let keepProbability = candidateEstimate > 0 ? MAX_KEEP_PROBABILITY : 0
-  // The estimate runs ~10–20% under the real count (ladders, merges, infill
-  // rolls), so aim a little under the cap and let decimateToBudget below
+  // Merges and infill rolls make the estimate approximate, so aim a little
+  // under the cap and let decimateToBudget below
   // take the uniform remainder rather than the tail of the block order.
   const budgetTarget = maxBuildings * 0.92
   if (candidateEstimate > 0 && expectedPlaced(MAX_KEEP_PROBABILITY) > budgetTarget) {
@@ -1179,7 +1144,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     // its merge rolls make them bigger still) — the 大中小 of the land
     // register instead of one uniform pitch.
     const residentialRow = !industrial && urban < 0.4 && oldTown < 0.5
-    const lotPitch = residentialRow ? lot * 0.55 : lot
+    const lotPitch = Math.min(span, residentialRow ? lot * 0.55 : lot)
     // Thickness (2026-09-03): in urban rows a budget-skipped slot is not a
     // lawn but land the neighbour builds over. The skipped pitch is carried
     // into the next building's plot, so the instance budget thins the GRAIN
@@ -1191,7 +1156,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     let carry = 0
     const count = Math.floor(span / lotPitch)
 
-    if (count < 1 || depthMax <= 0) {
+    if (count < 1 || span < 4 || depthMax <= 0) {
       return
     }
 
@@ -1373,7 +1338,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       let along =
         span > 1
           ? plotSpan * (0.78 + 0.14 * fill + alongRoll * (0.16 - 0.08 * fill))
-          : lotPitch * (0.74 + 0.16 * fill + alongRoll * (0.24 - 0.14 * fill))
+          : pitch * (0.74 + 0.16 * fill + alongRoll * (0.24 - 0.14 * fill))
       let depth = depthMax * (0.55 + 0.25 * fill + depthRoll * (0.45 - 0.25 * fill))
       // The end-of-row jitter must not push a building past the row span:
       // beyond it lies the back ALLEY (a real road since the frontage
@@ -1462,12 +1427,9 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
         continue
       }
 
-      // Building archetypes: low lots lean toward houses, tall rolls become
-      // slim towers or stepped setbacks (downtown trades some setbacks for
-      // podium slabs), everything else stays a block — except a slice of the
-      // block band that folds into L-shapes for silhouette variety. The bands
-      // subdivide the ONE existing kindRoll, so the deterministic roll order
-      // (and every other roll's meaning) is untouched.
+      // Thick perimeter blocks form the everyday city. Large sites may carry
+      // podium buildings; smaller sites keep bounded mid-rise proportions.
+      // Reuse the existing roll without consuming extra plan randomness.
       let kind: BuildingKind = 'block'
       // No towers or podium slabs in the old town: those are the civic core's
       // furniture. The old town keeps perimeter blocks and walk-ups, and its
@@ -1476,16 +1438,9 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       const towerThreshold = 0.84 - urban * 0.26 + 0.3 * oldTown
       const setbackThreshold = 0.62 - urban * 0.16 + 0.25 * oldTown
       const houseBand = 0.55 - 0.35 * oldTown
-      // The civic core reaches up (2026-09-03, 厚みウェーブ): spin gravity
-      // thins with height — g(h) = g0·(1 − h/R), 0.93 g0 at 230 m on Izma —
-      // so the tallest structures are CHEAPER per floor exactly where land is
-      // dearest, the reverse of Earth. Only CBD furniture (towers, podium
-      // slabs, setbacks) climbs; blocks, houses and the old town keep the
-      // 1g contract of heightBase. From 10km a 200 m tower is 0.02 rad —
-      // it survives every tier's far cull and stands in the haze the way
-      // Musashi-Kosugi does from Shibuya (the A definite).
+      // Height is a massing choice, not a structural claim about rotating
+      // habitats. Only broad sites can exceed the everyday mid-rise band.
       const coreTall = clamp01((urban - 0.78) / 0.22) * (1 - oldTown)
-      const towerCap = 78 + coreTall * 152
       const slabCap = 70 + coreTall * 40
       const setbackCap = 76 + coreTall * 44
 
@@ -1502,19 +1457,21 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
       if (!industrial && height < heightBase * 0.45 && kindRoll < houseBand) {
         kind = 'house'
         height = Math.min(height, 10)
-      } else if (!residentialRow && !industrial && kindRoll > towerThreshold && oldTown < 0.5) {
-        kind = 'tower'
-        const slim = Math.min(along, depth) * 0.85
-        along = slim
-        depth = slim
-        height = Math.min(height * (1.25 + coreTall * 1.6), towerCap)
+      } else if (!residentialRow && !industrial && urban > 0.8 && kindRoll > 0.92 &&
+        oldTown < 0.5 && Math.min(along, depth) >= 28 && along * depth >= 1400) {
+        // High-rise buildings need a substantial site, retain its footprint,
+        // and use the existing broad podium + upper-bar geometry. Observation
+        // towers are separate civic landmarks, not random residential needles.
+        kind = 'slab'
+        height = Math.min(Math.max(84, height * 1.6), slabCap, Math.min(along, depth) * 3)
       } else if (!residentialRow && !industrial && kindRoll > setbackThreshold) {
         const bandPosition =
           (kindRoll - setbackThreshold) / Math.max(1e-6, towerThreshold - setbackThreshold)
 
         // The podium slab is downtown furniture — a commercial base with a
         // narrower residential bar on top. The countryside keeps setbacks.
-        if (bandPosition > 0.6 && urban > 0.45 && oldTown < 0.5) {
+        if (bandPosition > 0.6 && urban > 0.45 && oldTown < 0.5 &&
+          Math.min(along, depth) >= 28 && along * depth >= 1400) {
           kind = 'slab'
           height = Math.min(height * (1.15 + coreTall * 0.5), slabCap)
         } else {
@@ -1527,7 +1484,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
 
       height = Math.min(
         height,
-        kind === 'tower' ? towerCap : kind === 'slab' ? slabCap : kind === 'setback' ? setbackCap : 78
+        kind === 'slab' ? slabCap : kind === 'setback' ? 60 : 48,
+        Math.min(along, depth) * (kind === 'slab' ? 3 : 2)
       )
 
       const frontCenter = edgeCoordinate + edgeSide * depth * 0.5
@@ -1636,19 +1594,19 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           -tangentExtent * 0.5 +
           i * blockWidth +
           roadWidthFor(avenueKindAt(i)) * 0.5 +
-          sidewalk
+          STREET_PROFILES[avenueKindAt(i)].sidewalk
         const tangent1 =
           -tangentExtent * 0.5 +
           (i + 1) * blockWidth -
           roadWidthFor(avenueKindAt(i + 1)) * 0.5 -
-          sidewalk
+          STREET_PROFILES[avenueKindAt(i + 1)].sidewalk
         const axial0 =
-          -axialHalf + j * blockLength + roadWidthFor(streetKindAt(j)) * 0.5 + sidewalk
+          -axialHalf + j * blockLength + roadWidthFor(streetKindAt(j)) * 0.5 + STREET_PROFILES[streetKindAt(j)].sidewalk
         const axial1 =
           -axialHalf +
           (j + 1) * blockLength -
           roadWidthFor(streetKindAt(j + 1)) * 0.5 -
-          sidewalk
+          STREET_PROFILES[streetKindAt(j + 1)].sidewalk
         const innerWidth = tangent1 - tangent0
         const innerLength = axial1 - axial0
 
@@ -1683,13 +1641,18 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
             (arrivalSquare !== null &&
               Math.abs(blockCenterAxial - arrivalSquare.axial) < blockLength))
 
+        const districtPark = isDistrictPark(
+          radius, length,
+          ((tangent0 + tangent1) * 0.5) / (tangentExtent * 0.5),
+          blockCenterAxial / axialHalf
+        )
         if (
-          zoneRoll < PARK_BLOCK_PROBABILITY + farmProbability &&
+          (districtPark || zoneRoll < PARK_BLOCK_PROBABILITY + farmProbability) &&
           !guardsVista &&
           !isInsideAnySquare(blockCenterAzimuth, blockCenterAxial)
         ) {
           const kind: CityPatchKind =
-            zoneRoll < PARK_BLOCK_PROBABILITY ? 'park' : 'farm'
+            districtPark || zoneRoll < PARK_BLOCK_PROBABILITY ? 'park' : 'farm'
           patches.push({
             azimuth: blockCenterAzimuth,
             axial: blockCenterAxial,
@@ -1737,223 +1700,50 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
           continue
         }
 
-        // Nested rings of buildings march inward across alleys until the
-        // block core is used up; whatever remains becomes a courtyard
-        // garden, so blocks read full instead of hollow.
-        let ringTangent0 = tangent0
-        let ringTangent1 = tangent1
-        let ringAxial0 = axial0
-        let ringAxial1 = axial1
-
-        // The CBD fills the whole perimeter block; the fringe keeps only its
-        // road-facing row. This makes massing density—not merely facade colour
-        // or height—change across the city while preserving the same road grid.
-        const ringBudget = ringBudgetFor(blockUrban)
-
-        // The block row hugging the port cap is the logistics band: the
-        // port and the old town grew together, and the freight aprons wear
-        // the industrial kit. Same road grid, warehouse dressing.
         const industrialBlock = blockCenterAxial < -axialHalf + blockLength * 1.35
-
-        // Residential blocks parcel as a LADDER, not rings: back-to-back
-        // home rows separated by straight lanes that run the full block and
-        // TEE into the perimeter streets at both ends. Ring alleys are
-        // closed loops — tolerable as service courts between dense urban
-        // building rings, irrational as home streets (the U-shaped-lane
-        // review) — so home lanes are through-roads by construction, and
-        // still no home backs onto any road.
-        const residentialBlock =
-          !industrialBlock && blockUrban < 0.4 && blockOldTown < 0.5
-
-        if (residentialBlock) {
-          const laneBand = sidewalk * 1.5
-          // Rows run along the longer inner dimension; the ladder subdivides
-          // the shorter one.
-          const rowsAlongAxial = innerLength >= innerWidth
-          const across = rowsAlongAxial ? innerWidth : innerLength
-          const rowSpan0 = rowsAlongAxial ? axial0 : tangent0
-          const rowSpan1 = rowsAlongAxial ? axial1 : tangent1
-          const rowFacing = rowsAlongAxial ? ('avenue' as const) : ('street' as const)
-          const edge0 = rowsAlongAxial ? tangent0 : axial0
-          // The back-to-back seam: rear lot lines nearly coincide, the
-          // American-suburb fence-against-fence line.
-          const pairGap = 0.2
-          const nominalRowDepth = Math.min(cell * 0.3, across * 0.2)
-          // Round (not floor) to the nearest pair count, then absorb ALL the
-          // remainder into the parcel depth (bigger or smaller backyards) —
-          // never into the seams. Every front line stays exactly on its
-          // street or lane and the pair's rows meet at the seam with no
-          // dead lawn between; the cap only guards the round-down extreme.
-          const pairs = Math.max(
-            1,
-            Math.round(
-              (across + laneBand) / (nominalRowDepth * 2 + pairGap + laneBand)
-            )
-          )
-          const pairSpacing = (across - (pairs - 1) * laneBand) / pairs
-          const rowDepth = Math.min((pairSpacing - pairGap) / 2, 38)
-
-          for (let pair = 0; pair < pairs; pair += 1) {
-            const base = edge0 + pair * (pairSpacing + laneBand)
-            placeEdgeRow(stripCenter, rowFacing, base, 1, rowSpan0, rowSpan1, rowDepth, blockUrban, blockOldTown)
-            placeEdgeRow(
-              stripCenter,
-              rowFacing,
-              base + pairSpacing,
-              -1,
-              rowSpan0,
-              rowSpan1,
-              rowDepth,
-              blockUrban,
-              blockOldTown
-            )
-
-            if (pair < pairs - 1 && laneBand >= 2.5) {
-              const laneCenter = base + pairSpacing + laneBand * 0.5
-              roads.push(
-                rowsAlongAxial
-                  ? {
-                      azimuth: stripCenter + laneCenter / radius,
-                      axial: (axial0 + axial1) * 0.5,
-                      tangentWidth: laneBand,
-                      // Long enough to overlap the perimeter street rects:
-                      // a real junction at both ends, never a dead end.
-                      axialLength: innerLength + 2 * (sidewalk + localWidth),
-                      kind: 'alley'
-                    }
-                  : {
-                      azimuth: stripCenter + ((tangent0 + tangent1) * 0.5) / radius,
-                      axial: laneCenter,
-                      tangentWidth: innerWidth + 2 * (sidewalk + localWidth),
-                      axialLength: laneBand,
-                      kind: 'alley'
-                    }
-              )
-            }
-          }
-
-          continue
-        }
-
-        for (let ring = 0; ring < ringBudget; ring += 1) {
-          const ringWidth = ringTangent1 - ringTangent0
-          const ringLength = ringAxial1 - ringAxial0
-
-          // The perimeter ring hosts the deep frontage slabs; INNER rings are
-          // shallow infill rows. At city scale the old uniform depth (cell*0.9
-          // ~72 m) plus its inset consumed the whole block, so ring 1 never
-          // ran and dense block interiors were left as bare strips of ground
-          // touching the perimeter's backs — buildings on a roadless void.
-          // Shallow inner rows (and their alley, below) fill the interior
-          // until the backs nearly meet at the block spine.
-          const minSpan = ring === 0 ? cell * 0.6 : cell * 0.35
-
-          if (ringWidth < minSpan || ringLength < minSpan) {
-            break
-          }
-
-          // Every ring after the first fronts a real back lane, not bare
-          // ground: the inset between the outer ring's building backs and
-          // this ring's fronts is exactly sidewalk*1.5 wide, and that band
-          // becomes an 'alley' road loop. This is the no-building-without-
-          // frontage guarantee — the reason inner rings are allowed to exist.
-          // The two axial legs extend across the corners; the tangential legs
-          // butt against them, so the loop covers the corner squares once.
-          // Emitted deterministically from the ring rectangle (no RNG), so
-          // the building layout is untouched. Tiny habitats whose band is
-          // too narrow for a lane keep their legacy alley-free interior.
-          const alleyBand = sidewalk * 1.5
-          const emitAlleyLoop = (t0: number, t1: number, a0: number, a1: number) => {
-            if (alleyBand < 2.5) {
-              return
-            }
-            for (const side of [-1, 1] as const) {
-              roads.push({
-                azimuth:
-                  stripCenter + ((side === -1 ? t0 : t1) + side * alleyBand * 0.5) / radius,
-                axial: (a0 + a1) * 0.5,
-                tangentWidth: alleyBand,
-                axialLength: a1 - a0 + 2 * alleyBand,
-                kind: 'alley'
-              })
-              roads.push({
-                azimuth: stripCenter + ((t0 + t1) * 0.5) / radius,
-                axial: (side === -1 ? a0 : a1) + side * alleyBand * 0.5,
-                tangentWidth: t1 - t0,
-                axialLength: alleyBand,
-                kind: 'alley'
-              })
-            }
-          }
-          if (ring > 0) {
-            emitAlleyLoop(ringTangent0, ringTangent1, ringAxial0, ringAxial1)
-          }
-
-          const ringDepth = Math.min(
-            ring === 0 ? cell * 0.9 : cell * 0.35,
-            ringWidth * 0.35,
-            ringLength * 0.35
-          )
-          placeEdgeRow(stripCenter, 'avenue', ringTangent0, 1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
-          placeEdgeRow(stripCenter, 'avenue', ringTangent1, -1, ringAxial0, ringAxial1, ringDepth, blockUrban, blockOldTown, industrialBlock)
-          placeEdgeRow(
-            stripCenter,
-            'street',
-            ringAxial0,
-            1,
-            ringTangent0 + ringDepth + sidewalk,
-            ringTangent1 - ringDepth - sidewalk,
-            ringDepth,
-            blockUrban,
-            blockOldTown,
-            industrialBlock
-          )
-          placeEdgeRow(
-            stripCenter,
-            'street',
-            ringAxial1,
-            -1,
-            ringTangent0 + ringDepth + sidewalk,
-            ringTangent1 - ringDepth - sidewalk,
-            ringDepth,
-            blockUrban,
-            blockOldTown,
-            industrialBlock
-          )
-
-          const inset = ringDepth + sidewalk * 1.5
-          ringTangent0 += inset
-          ringTangent1 -= inset
-          ringAxial0 += inset
-          ringAxial1 -= inset
-        }
-
-        // Courtyard garden in whatever core is left.
-        const coreWidth = ringTangent1 - ringTangent0
-        const coreLength = ringAxial1 - ringAxial0
-        const coreAzimuth = stripCenter + ((ringTangent0 + ringTangent1) * 0.5) / radius
-        const coreAxial = (ringAxial0 + ringAxial1) * 0.5
-
-        if (
-          coreWidth >= cell * 0.45 &&
-          coreLength >= cell * 0.45 &&
-          !isInsideAnySquare(coreAzimuth, coreAxial)
-        ) {
-          patches.push({
-            azimuth: coreAzimuth,
-            axial: coreAxial,
-            tangentExtent: coreWidth,
-            axialExtent: coreLength,
-            kind: 'park'
+        const residentialBlock = !industrialBlock && blockUrban < 0.4 && blockOldTown < 0.5
+        const reach = (kind: RoadKind) => roadWidthFor(kind) / 2 + STREET_PROFILES[kind].sidewalk
+        const subdivision = planStreetBlock({ t0: tangent0, t1: tangent1, a0: axial0, a1: axial1 }, residentialBlock, cell,
+          { t0: reach(avenueKindAt(i)), t1: reach(avenueKindAt(i + 1)),
+            a0: reach(streetKindAt(j)), a1: reach(streetKindAt(j + 1)) })
+        for (const road of subdivision.roads) {
+          roads.push({
+            azimuth: stripCenter + (road.t0 + road.t1) * 0.5 / radius,
+            axial: (road.a0 + road.a1) * 0.5,
+            tangentWidth: road.t1 - road.t0, axialLength: road.a1 - road.a0,
+            kind: road.kind
           })
+        }
+        for (const row of subdivision.frontages) {
+          placeEdgeRow(stripCenter, row.facing, row.edge, row.side, row.start, row.end,
+            row.depth, blockUrban, blockOldTown, industrialBlock)
+        }
+        for (const court of subdivision.courts) {
+          const azimuth = stripCenter + (court.t0 + court.t1) * 0.5 / radius
+          const axial = (court.a0 + court.a1) * 0.5
+          if (court.t1 - court.t0 < 2 || court.a1 - court.a0 < 2 || isInsideAnySquare(azimuth, axial)) continue
+          patches.push({ azimuth, axial, tangentExtent: court.t1 - court.t0,
+            axialExtent: court.a1 - court.a0, kind: 'park' })
         }
       }
     }
   }
 
+  roads.forEach((road, index) => { road.id = roadId(index) })
+  const access = certifyStreetAccess(decimateToBudget(buildings, maxBuildings), roads, radius, sidewalk + 0.5, building => {
+    const fit = fitSuburbanHouse(building)
+    return fit === null ? building : {
+      ...building,
+      azimuth: building.azimuth + fit.tangentOffset / radius,
+      axial: building.axial + fit.axialOffset,
+      width: fit.tangentExtent,
+      depth: fit.axialExtent
+    }
+  })
   return {
     roads,
-    buildings: decimateToBudget(buildings, maxBuildings),
+    buildings: access.buildings,
+    accessRejected: access.rejected,
     intersections,
     patches,
     trees,

@@ -44,6 +44,11 @@ const ofKind = (placements: RoadTilePlacement[], kind: RoadTilePlacement['kind']
   placements.filter((placement) => placement.kind === kind)
 
 describe('planRoadTilePlacements', () => {
+  test('shared lanes participate in junctions without adding sidewalk width', () => {
+    const tiles = plan([{ ...avenue(0, 'alley'), tangentWidth: 4 }])
+    expect(tiles.length).toBeGreaterThan(0)
+    expect(tiles.every(t => t.roadKind === 'alley' && t.crossMeters === 4)).toBe(true)
+  })
   test('a mid-strip crossing becomes a crossroad tile sized by both roads', () => {
     // Street spans ±400 m; the avenue at azimuth 0 crosses well inside it.
     const placements = plan([avenue(0), street(0, 800)])
@@ -52,11 +57,11 @@ describe('planRoadTilePlacements', () => {
     expect(crossroads).toHaveLength(1)
     expect(crossroads[0].azimuth).toBeCloseTo(0, 9)
     expect(crossroads[0].axial).toBeCloseTo(0, 9)
-    // Envelope: tangential span from the avenue (16/0.8), axial from the
-    // street (12/0.8); quarterTurns is even so mesh X carries the tangent.
+    // Envelope: each carriageway plus two 2.5 m sidewalks; quarterTurns
+    // is even so mesh X carries the tangent.
     expect(crossroads[0].quarterTurns % 2).toBe(0)
-    expect(crossroads[0].alongMeters).toBeCloseTo(20, 6)
-    expect(crossroads[0].crossMeters).toBeCloseTo(15, 6)
+    expect(crossroads[0].alongMeters).toBeCloseTo(22, 6)
+    expect(crossroads[0].crossMeters).toBeCloseTo(18, 6)
   })
 
   test('a street ending on an edge avenue becomes a T with the stem pointing back in', () => {

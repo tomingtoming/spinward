@@ -99,8 +99,8 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'WASD', action: 'Walk' },
       { input: 'Click view', action: 'Mouse look (Esc frees) · or right-drag / arrows' },
       { input: 'Space', action: 'Jump → fly' },
-      { input: 'Click', action: 'Throw (hold = charge)' },
-      { input: 'X / Right-click', action: 'Cycle projectile' },
+      { input: 'Click', action: 'Throw at a fixed speed' },
+      { input: 'Throw menu / X', action: 'Choose Ball / Beam / Firework' },
       { input: '1–4', action: 'Travel / warp' },
       { input: 'E', action: 'Drive (near car)' },
       { input: '− / +', action: 'Spin rpm' },
@@ -168,9 +168,9 @@ export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
 ]
 
 export const PC_CONTROL_SUMMARY =
-  'WASD + mouse · click the view to look (Esc frees) · click throws (hold to charge) · X cycles ammo · 1–4 travel'
+  'WASD + mouse · click the view to look (Esc frees) · click throws · Throw menu selects projectile · 1–4 travel'
 export const SP_CONTROL_SUMMARY =
-  'Left stick walks · drag to look · tap throws · buttons jump / travel'
+  'Left stick walks · drag to look · tap throws · Throw menu selects projectile · buttons jump / travel'
 
 export type ControlPlatform = 'pc' | 'sp' | 'vr'
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { districtNightGain } from './districtIdentity'
 
 import { kenneyPickForBuilding } from './buildingAssets'
 import type { CityBuilding, CityPlan } from './cityLayout'
@@ -141,7 +142,7 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
       ctx.globalAlpha = 0.4 + random() * 0.25
     } else {
       ctx.fillStyle = PARK_TONE
-      ctx.globalAlpha = 0.45
+      ctx.globalAlpha = 0.78
     }
     bakeRect(bake, patch.azimuth, patch.axial, patch.tangentExtent, patch.axialExtent)
   }
@@ -165,12 +166,10 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
     }
   }
 
-  // Roads on top of the fabric. Alleys stay unpainted here exactly like the
-  // painted far-road pipeline: the glow grid is the arterial/local signature.
+  // Keep shared lanes in the daytime far bake too: otherwise their houses
+  // look landlocked as soon as nearby road geometry fades out. Night glow
+  // remains restricted to arterial/local roads in the emissive pass.
   for (const road of plan.roads) {
-    if (road.kind === 'alley') {
-      continue
-    }
     ctx.fillStyle = road.kind === 'arterial' ? ARTERIAL_TONE : LOCAL_TONE
     ctx.globalAlpha = road.kind === 'arterial' ? 0.55 : 0.4
     bakeRect(bake, road.azimuth, road.axial, road.tangentWidth, road.axialLength, 1)
@@ -328,7 +327,7 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) 
     scratchColor
       .copy(WINDOW_COOL)
       .lerp(WINDOW_WARM, Math.min(1, 0.2 + oldTown * 0.6 + random() * 0.3))
-    const gain = shellWindowGain(building) * (0.6 + urban * 0.4)
+    const gain = shellWindowGain(building) * districtNightGain(urban, building.industrial)
     const heightNorm = Math.min(1, building.height / 60)
 
     ctx.fillStyle = cssColor(scratchColor)

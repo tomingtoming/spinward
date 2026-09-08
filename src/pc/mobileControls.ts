@@ -434,7 +434,13 @@ export class MobileControls {
     this.lookPointerId = null
     const heldMs = performance.now() - this.pointerDownAt
 
-    if (this.pointerTravelPx <= TAP_MAX_MOVEMENT_PX && heldMs <= TAP_MAX_DURATION_MS) {
+    if (
+      this.enabled &&
+      event.type !== 'pointercancel' &&
+      !this.handlers.isUiPointerBlocked() &&
+      heldMs <= TAP_MAX_DURATION_MS &&
+      this.pointerTravelPx <= TAP_MAX_MOVEMENT_PX
+    ) {
       this.handlers.onThrow()
     }
   }

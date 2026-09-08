@@ -1,4 +1,10 @@
 import * as THREE from 'three'
+import { CivicDetails } from './civicDetails'
+import { StreetAccessLayer } from './streetAccessLayer'
+import { STREET_PROFILES, streetLaneCenters, streetLaneDividers } from './streetProfile'
+import { buildRoadTileSurface } from './roadTileSurface'
+import { compileRoadNetwork } from './roadNetwork'
+import { buildRoadSurfaceGeometry } from './roadSurfaceGeometry'
 
 import {
   ISLAND_THREE_TOPOLOGY,
@@ -55,13 +61,9 @@ import {
   type SuburbanLotBoundarySegment
 } from './buildingAssets'
 import {
-  disposeRoadTileGeometryPack,
   getRoadTileLiftMeters,
-  loadRoadTileGeometryPack,
   planRoadTilePlacements,
-  ROAD_TILE_HEIGHT_SCALE,
-  type RoadTileGeometryPack,
-  type RoadTileKind
+  ROAD_TILE_HEIGHT_SCALE
 } from './roadTiles'
 import {
   getBuildingChordDistance,
@@ -708,7 +710,7 @@ export const ROAD_TEXTURE_WORLD_METERS = 12
 const drawRoadSurface = (
   context: CanvasRenderingContext2D,
   size: number,
-  kind: 'arterial' | 'local',
+  kind: 'arterial' | 'collector' | 'local',
   style: 'albedo' | 'glow'
 ) => {
   // The glow variant keeps the legacy near-black base and bright markings:
@@ -721,27 +723,31 @@ const drawRoadSurface = (
   // Edge lines on both sides (symmetric, so the BackSide mirror is free).
   context.fillStyle =
     style === 'glow' ? 'rgba(218, 224, 230, 0.5)' : 'rgba(142, 149, 179, 0.55)'
-  context.fillRect(8, 0, 5, size)
-  context.fillRect(size - 13, 0, 5, size)
-
-  if (kind === 'arterial') {
+  const profile = STREET_PROFILES[kind]
+  const linePixels = 0.12 / profile.carriageway * size
+  const edgePixels = 0.16 / profile.carriageway * size
+  context.fillRect(edgePixels - linePixels / 2, 0, linePixels, size)
+  context.fillRect(size - edgePixels - linePixels / 2, 0, linePixels, size)
+  if (profile.lanesPerDirection > 1) {
     // Solid warm center line plus dashed lane separators (4 lanes).
     context.fillStyle =
       style === 'glow' ? 'rgba(226, 196, 116, 0.85)' : 'rgba(255, 126, 68, 0.8)'
-    context.fillRect(size / 2 - 3, 0, 6, size)
+    context.fillRect(size / 2 - linePixels / 2, 0, linePixels, size)
     context.fillStyle =
       style === 'glow' ? 'rgba(220, 226, 232, 0.7)' : 'rgba(160, 168, 201, 0.6)'
-    context.fillRect(62, 16, 4, 120)
-    context.fillRect(size - 66, 16, 4, 120)
+    for (const divider of streetLaneDividers(kind)) for (const side of [-1, 1]) {
+      const x = size * (0.5 + side * divider / profile.carriageway)
+      context.fillRect(x - linePixels / 2, 16, linePixels, 120)
+    }
   } else {
     // Faint short center dash for residential streets.
     context.fillStyle =
       style === 'glow' ? 'rgba(210, 216, 222, 0.22)' : 'rgba(160, 168, 201, 0.25)'
-    context.fillRect(size / 2 - 2, 40, 4, 88)
+    context.fillRect(size / 2 - linePixels / 2, 40, linePixels, 88)
   }
 }
 
-const createRoadTexture = (kind: 'arterial' | 'local', style: 'albedo' | 'glow' = 'albedo') => {
+const createRoadTexture = (kind: 'arterial' | 'collector' | 'local', style: 'albedo' | 'glow' = 'albedo') => {
   const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -1508,6 +1514,9 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
 
 export class Cityscape {
   readonly group = new THREE.Group()
+  private readonly civicDetails = new CivicDetails(this.group)
+  private readonly streetAccessLayer = new StreetAccessLayer(this.group,
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('access'))
 
   private readonly smallFacadeTextureSets = BLOCK_PALETTES.map((palette, index) =>
     createFacadeTextureSet(
@@ -1745,6 +1754,7 @@ export class Cityscape {
     toneMapped: false,
     side: THREE.DoubleSide
   })
+  private readonly bridgeSidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xa4a39a, roughness: 0.95, side: THREE.DoubleSide })
 
   // Roads light up at night as an emissive teal grid — the colony's signature
   // night signal. The asphalt texture doubles as the emissive mask so the lane
@@ -1752,6 +1762,7 @@ export class Cityscape {
   // (setDaylight). The texture is shared between albedo and emissive map.
   private readonly arterialRoadTexture = createRoadTexture('arterial')
   private readonly localRoadTexture = createRoadTexture('local')
+  private readonly collectorRoadMaterial = new THREE.MeshStandardMaterial({ map: createRoadTexture('collector'), roughness: 0.95, side: THREE.BackSide })
   private readonly arterialRoadGlowTexture = createRoadTexture('arterial', 'glow')
   private readonly localRoadGlowTexture = createRoadTexture('local', 'glow')
 
@@ -1972,8 +1983,8 @@ export class Cityscape {
   private detailedBuildingBatches: THREE.InstancedMesh[] = []
   private detailedBuildingGeometries: DetailedBuildingGeometryPack | null = null
   private kenneyBuildingGeometries: KenneyBuildingGeometryPack | null = null
-  private roadTilePack: RoadTileGeometryPack | null = null
-  private roadTileMeshes: THREE.InstancedMesh[] = []
+  private roadTileMeshes: THREE.Mesh[] = []
+  private readonly roadSurfaceMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })
   private readonly roadTileDistance: number
   private disposed = false
   // Water tanks / AC units / masts on the near-arc flat roofs. Lives with the
@@ -2049,6 +2060,16 @@ export class Cityscape {
     dimensions: CityscapeDimensions,
     options?: CityscapeOptions
   ) {
+    // The structural pattern is readable nearby but recedes into the large
+    // window band across the bore, leaving the opposite city as the subject.
+    this.windowStripMaterial.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vWindowDistance;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvWindowDistance = length(mvPosition.xyz);')
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vWindowDistance;')
+        .replace('#include <alphamap_fragment>', '#include <alphamap_fragment>\ndiffuseColor.a *= mix(1.0, 0.12, smoothstep(250.0, 2200.0, vWindowDistance));')
+    }
     this.maxBuildings = options?.maxBuildings
     this.farMinAngularSize = options?.farMinAngularSize ?? 0.004
     this.maxTraffic = options?.maxTraffic ?? 160
@@ -2068,6 +2089,7 @@ export class Cityscape {
     for (const material of [
       this.roadMaterial,
       this.localRoadMaterial,
+      this.collectorRoadMaterial,
       this.alleyMaterial,
       this.bridgeMaterial,
       this.bridgeEdgeMaterial
@@ -2114,9 +2136,6 @@ export class Cityscape {
     // kenneyPick-derived palette still colors the boxes (pure data, no GLB).
     // Cars and road tiles stay: they were never the aesthetic complaint.
     void this.loadKenneyCarAssets()
-    if (this.roadTileDistance > 0) {
-      void this.loadRoadTileAssets()
-    }
   }
 
   private async loadKenneyCarAssets() {
@@ -2135,27 +2154,10 @@ export class Cityscape {
     }
   }
 
-  private async loadRoadTileAssets() {
-    try {
-      const pack = await loadRoadTileGeometryPack()
-      if (this.disposed) {
-        disposeRoadTileGeometryPack(pack)
-        return
-      }
-
-      this.roadTilePack = pack
-      this.rebuildRoadTiles()
-    } catch (error) {
-      // Same contract as the building pack: the painted roads are a complete
-      // fallback, so a missing cosmetic GLB never blocks boot.
-      console.warn('Road tile pack unavailable; keeping painted roads', error)
-    }
-  }
-
   private clearRoadTiles() {
     for (const mesh of this.roadTileMeshes) {
+      mesh.geometry.dispose()
       this.group.remove(mesh)
-      mesh.dispose()
     }
     this.roadTileMeshes = []
   }
@@ -2166,7 +2168,6 @@ export class Cityscape {
     this.clearRoadTiles()
 
     if (
-      this.roadTilePack === null ||
       this.roadTileDistance <= 0 ||
       this.cityPlanRoads.length === 0 ||
       this.radius <= 0
@@ -2178,17 +2179,11 @@ export class Cityscape {
     // buildWindowBridges), so for the overlay each arterial street row is ONE
     // full ring: the tiles run onto the bridge decks and the strip-edge
     // junctions become crossroads instead of dead-end Ts. The pseudo-ring is
-    // sized to the bridge deck (deckWidth * ROAD_DECK_FRACTION), slightly
-    // narrower than the street tiles were, so nothing overhangs the glass.
+    // sized to the same carriageway and sidewalks as the bridge deck.
     // One ring per axial row — the three per-strip street rects would
     // otherwise triple-tile the same ring.
     let plannerRoads = this.cityPlanRoads
     if (getWindowArcs(this.topology).length > 0) {
-      const deckWidth = THREE.MathUtils.clamp(
-        getArterialRoadWidth(this.radius, this.length) * 1.15,
-        4,
-        28
-      )
       const seenRingAxials: number[] = []
       plannerRoads = []
       for (const road of this.cityPlanRoads) {
@@ -2205,7 +2200,7 @@ export class Cityscape {
         plannerRoads.push({
           ...road,
           tangentWidth: Math.PI * 2 * this.radius,
-          axialLength: deckWidth * 0.8
+          axialLength: getArterialRoadWidth(this.radius, this.length)
         })
       }
     }
@@ -2218,50 +2213,39 @@ export class Cityscape {
       rangeMeters: this.roadTileDistance
     })
 
-    const byKind = new Map<RoadTileKind, typeof placements>()
+    const geometries: THREE.BufferGeometry[] = []
     for (const placement of placements) {
-      const list = byKind.get(placement.kind) ?? []
-      list.push(placement)
-      byKind.set(placement.kind, list)
-    }
-
-    for (const [kind, list] of byKind) {
-      const mesh = new THREE.InstancedMesh(
-        this.roadTilePack.geometries[kind],
-        this.roadTilePack.material,
-        list.length
+      const cos = Math.cos(placement.azimuth)
+      const sin = Math.sin(placement.azimuth)
+      tangent.set(-sin, 0, cos)
+      inward.set(-cos, 0, -sin)
+      binormal.copy(tangent).cross(inward)
+      basis.makeBasis(tangent, inward, binormal)
+      instanceQuaternion.setFromRotationMatrix(basis)
+      roadTileYawQuaternion.setFromAxisAngle(
+        localYAxis,
+        placement.quarterTurns * (Math.PI / 2)
       )
-      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-      mesh.frustumCulled = false
-
-      for (let index = 0; index < list.length; index += 1) {
-        const placement = list[index]
-        const cos = Math.cos(placement.azimuth)
-        const sin = Math.sin(placement.azimuth)
-        tangent.set(-sin, 0, cos)
-        inward.set(-cos, 0, -sin)
-        binormal.copy(tangent).cross(inward)
-        basis.makeBasis(tangent, inward, binormal)
-        instanceQuaternion.setFromRotationMatrix(basis)
-        roadTileYawQuaternion.setFromAxisAngle(
-          localYAxis,
-          placement.quarterTurns * (Math.PI / 2)
-        )
-        instanceQuaternion.multiply(roadTileYawQuaternion)
-        instancePosition
-          .set(cos, 0, sin)
-          .multiplyScalar(this.radius - getRoadTileLiftMeters(this.radius))
-          .setY(placement.axial)
-        instanceScale.set(
-          placement.alongMeters,
-          ROAD_TILE_HEIGHT_SCALE,
-          placement.crossMeters
-        )
-        instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-        mesh.setMatrixAt(index, instanceMatrix)
-      }
-
-      mesh.instanceMatrix.needsUpdate = true
+      instanceQuaternion.multiply(roadTileYawQuaternion)
+      instancePosition
+        .set(cos, 0, sin)
+        .multiplyScalar(this.radius - getRoadTileLiftMeters(this.radius))
+        .setY(placement.axial)
+      instanceScale.set(
+        placement.alongMeters,
+        ROAD_TILE_HEIGHT_SCALE,
+        placement.crossMeters
+      )
+      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
+      const geometry = buildRoadTileSurface(placement)
+      geometry.applyMatrix4(instanceMatrix)
+      geometries.push(geometry)
+    }
+    const merged = mergeBufferGeometries(geometries)
+    for (const geometry of geometries) geometry.dispose()
+    if (merged) {
+      const mesh = new THREE.Mesh(merged, this.roadSurfaceMaterial)
+      mesh.receiveShadow = true
       this.roadTileMeshes.push(mesh)
       this.group.add(mesh)
     }
@@ -2561,6 +2545,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
+    this.civicDetails.rebuild(plan, radius)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2640,6 +2625,7 @@ export class Cityscape {
   }
 
   setDaylight(daylight: number) {
+    this.civicDetails.setDaylight(daylight)
     const night = 1 - daylight
     // The facet array BLAZES when it catches the sun: the day tint (sky grade
     // lifted toward white) is pushed deep into HDR by the sun catch, so the
@@ -2816,6 +2802,8 @@ export class Cityscape {
   dispose() {
     this.disposed = true
     this.clear()
+    this.civicDetails.dispose()
+    this.streetAccessLayer.dispose()
     if (this.detailedBuildingGeometries !== null) {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
       this.detailedBuildingGeometries = null
@@ -2823,10 +2811,6 @@ export class Cityscape {
     if (this.kenneyBuildingGeometries !== null) {
       disposeKenneyBuildingGeometryPack(this.kenneyBuildingGeometries)
       this.kenneyBuildingGeometries = null
-    }
-    if (this.roadTilePack !== null) {
-      disposeRoadTileGeometryPack(this.roadTilePack)
-      this.roadTilePack = null
     }
     for (const material of [
       ...this.buildingSideMaterials,
@@ -2866,6 +2850,10 @@ export class Cityscape {
     this.axisSpineMaterial.dispose()
     this.roadMaterial.map?.dispose()
     this.roadMaterial.dispose()
+    this.roadSurfaceMaterial.dispose()
+    this.collectorRoadMaterial.map?.dispose()
+    this.collectorRoadMaterial.dispose()
+    this.bridgeSidewalkMaterial.dispose()
     this.localRoadMaterial.map?.dispose()
     this.localRoadMaterial.dispose()
     this.alleyMaterial.dispose()
@@ -2937,6 +2925,8 @@ export class Cityscape {
   }
 
   private clear() {
+    this.civicDetails.clear()
+    this.streetAccessLayer.clear()
     this.clearRoadTiles()
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
@@ -3155,6 +3145,8 @@ export class Cityscape {
 
   private rebuildNearBuildingBatches() {
     this.disposeNearBuildingBatches()
+    if (this.cityPlan) this.streetAccessLayer.rebuild(this.cityPlan, this.radius,
+      this.cityFocusAzimuth, this.cityFocusAxial)
 
     let procedural = this.cityNearBuildings.map(stableBuildingPlacement)
 
@@ -3322,60 +3314,12 @@ export class Cityscape {
         continue
       }
 
-      let nearest:
-        | {
-            isAvenue: boolean
-            direction: 1 | -1
-            frontage: number
-            gap: number
-          }
-        | null = null
-
-      for (const road of this.cityPlanRoads) {
-        const isAvenue = road.axialLength > road.tangentWidth
-        const tangentDelta =
-          wrapAngleToPi(road.azimuth - building.azimuth) * this.radius
-        const axialDelta = road.axial - building.axial
-        let gap: number
-        let direction: 1 | -1
-        let frontage: number
-
-        if (isAvenue) {
-          if (
-            Math.abs(axialDelta) >
-            (road.axialLength + building.depth) * 0.5
-          ) {
-            continue
-          }
-          gap =
-            Math.abs(tangentDelta) -
-            (road.tangentWidth + building.width) * 0.5
-          direction = tangentDelta >= 0 ? 1 : -1
-          frontage = building.depth
-        } else {
-          if (
-            Math.abs(tangentDelta) >
-            (road.tangentWidth + building.width) * 0.5
-          ) {
-            continue
-          }
-          gap =
-            Math.abs(axialDelta) -
-            (road.axialLength + building.depth) * 0.5
-          direction = axialDelta >= 0 ? 1 : -1
-          frontage = building.width
-        }
-
-        // Inner perimeter rows face alleys rather than a generated road. Keep
-        // the authored modules on real public frontages and off back gardens.
-        if (gap < -0.25 || gap > 14 || (nearest !== null && gap >= nearest.gap)) {
-          continue
-        }
-        nearest = { isAvenue, direction, frontage, gap }
-      }
-
-      if (nearest === null) {
-        continue
+      const { access, front } = building
+      if (!access || !front || fitSuburbanHouse(building) || this.cityPlanRoads[access.roadIndex]?.id !== access.roadId) continue
+      const nearest = {
+        isAvenue: front.axis === 'tangent',
+        direction: front.side,
+        frontage: front.axis === 'tangent' ? building.depth : building.width
       }
 
       const hash =
@@ -3481,7 +3425,14 @@ export class Cityscape {
         const frontageScale = stretchFacade
           ? THREE.MathUtils.clamp((placement.frontage * 0.72) / size.x, 0.78, 1.35)
           : 1
+        // Keep the certified entrance corridor clear. Facade props that cannot
+        // fit beside it are omitted rather than placed across the doorway.
+        const propWidth = size.x * frontageScale
+        const pathWidth = building.access?.width ?? 1.3
+        const fitsBesideEntrance = propWidth + pathWidth / 2 + 0.3 <= placement.frontage / 2
+        instancePosition.addScaledVector(streetAlong, pathWidth / 2 + propWidth / 2 + 0.3)
         instanceScale.set(frontageScale, 1, 1)
+        if (!fitsBesideEntrance) instanceScale.setScalar(0)
         instanceMatrix.compose(
           instancePosition,
           instanceQuaternion,
@@ -3515,6 +3466,9 @@ export class Cityscape {
     }>()
 
     for (const placement of plan) {
+      // Preserve the actual podium/setback envelope at both detailed LODs.
+      // Substituting a generic skyscraper here erases the street-level base.
+      if (placement.building.kind === 'slab' || placement.building.kind === 'setback') continue
       const pick = kenneyPickForBuilding(placement.building)
       const key = `${pick.set}:${pick.variant}`
       const group = kenneyGroups.get(key) ?? { ...pick, list: [] }
@@ -3536,6 +3490,11 @@ export class Cityscape {
           group.set === 'suburban' ? 'uniform' : 'stretch'
         )
       )
+    }
+
+    for (const kind of ['slab', 'setback'] as const) {
+      const batch = this.buildArchetypeBatch(plan.filter(p => p.building.kind === kind), kind)
+      if (batch) this.detailedBuildingBatches.push(batch)
     }
 
     // Lot boundaries ride the same pack gate: the procedural fallback
@@ -3699,8 +3658,7 @@ export class Cityscape {
       return
     }
 
-    const junctionGap = Math.max(0.03, this.radius * 1.5e-5)
-    const laneOffset = getArterialRoadWidth(this.radius, this.length) * 0.22
+    const laneOffsets = streetLaneCenters('arterial', 1, this.radius)
     // Tight windows on purpose: the fleet size is fixed, so every metre of
     // candidate road dilutes cars-per-metre. Sized for ~one car per 60 m so a
     // street view always has several in sight, like a living city.
@@ -3717,7 +3675,7 @@ export class Cityscape {
     let totalSpan = 0
 
     for (const road of this.cityPlanRoads) {
-      if (road.kind !== 'arterial') {
+      if (road.kind === 'alley') {
         continue
       }
 
@@ -3792,14 +3750,14 @@ export class Cityscape {
         this.trafficRoutes.push({
           kind: 'street',
           laneAzimuth: 0,
-          laneAxial: ring.axial + direction * Math.min(laneOffset, ring.deckWidth * 0.24),
+          laneAxial: ring.axial + direction * laneOffsets[i % laneOffsets.length],
           spanStart: -ringCircumference * 0.5,
           spanLength: ringCircumference,
           surfaceRadius: this.radius - ring.deckHeight,
           direction,
           speedMetersPerSecond: 16 + random() * 8,
           phaseMeters: random() * ringCircumference,
-          scale: 0.85 + random() * 0.45
+          scale: 0.97 + random() * 0.06
         })
 
         const paintRoll = random()
@@ -3830,8 +3788,10 @@ export class Cityscape {
 
       for (let i = 0; i < share && count < this.maxTraffic; i += 1) {
         const direction = random() < 0.5 ? 1 : -1
+        const candidateLanes = streetLaneCenters(candidate.road.kind, 1, this.radius)
+        const laneOffset = candidateLanes[Math.floor(random() * candidateLanes.length)]
         const surfaceRadius =
-          this.radius - 0.2 - (candidate.isAvenue ? junctionGap : 0)
+          this.radius - 0.2
 
         this.trafficRoutes.push({
           kind: candidate.isAvenue ? 'avenue' : 'street',
@@ -3847,7 +3807,7 @@ export class Cityscape {
           direction,
           speedMetersPerSecond: 7 + random() * 9,
           phaseMeters: random() * candidate.spanLength,
-          scale: 0.85 + random() * 0.45,
+          scale: 0.97 + random() * 0.06,
           })
 
         // Mostly white/silver/graphite paint, with the occasional loud one.
@@ -4221,11 +4181,24 @@ export class Cityscape {
           .setY(building.axial)
         instanceScale.setScalar(scale)
       } else {
+        // Normalized asset +Z is its entrance. Preserve the world footprint
+        // when turning it toward an avenue by swapping local X/Z extents.
+        if (building.front !== undefined) {
+          if (building.front.axis === 'axial') binormal.set(0, building.front.side, 0)
+          else binormal.copy(tangent).multiplyScalar(building.front.side)
+          tangent.copy(inward).cross(binormal)
+          basis.makeBasis(tangent, inward, binormal)
+          instanceQuaternion.setFromRotationMatrix(basis)
+        }
         instancePosition
           .set(cos, 0, sin)
           .multiplyScalar(this.radius - building.height * 0.5)
           .setY(building.axial)
-        instanceScale.set(building.width, building.height, building.depth)
+        instanceScale.set(
+          building.front?.axis === 'tangent' ? building.depth : building.width,
+          building.height,
+          building.front?.axis === 'tangent' ? building.width : building.depth
+        )
       }
 
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
@@ -4279,7 +4252,7 @@ export class Cityscape {
         })
       }
       const garden = suburbanGardenPlan(building, houseFit)
-      if (garden.path !== null) {
+      if (garden.path !== null && !building.access) {
         paths.push({ building, ...garden.path, height: 1 })
       }
       for (const tree of garden.trees) {
@@ -4686,74 +4659,22 @@ export class Cityscape {
   }
 
   private buildRoads(roads: CityRoad[], radius: number) {
-    // Each road is a thin arc band hugging the inner wall; cross streets
-    // curve with the cylinder, so flat planes would visibly chord. The
-    // clearance is absolute meters: proportional offsets float at head
-    // height on multi-kilometer habitats. Arterials and residential
-    // streets get separate meshes so their surfaces read differently.
-    for (const kind of ['arterial', 'local', 'alley'] as const) {
-      const geometries: THREE.BufferGeometry[] = []
-
-      for (const road of roads) {
-        if (road.kind !== kind) {
-          continue
-        }
-
-        // Avenues run along the axis; cross streets run along the arc.
-        const isAvenue = road.axialLength > road.tangentWidth
-        // Physically lift the road off the ground (and above the fields); the
-        // logarithmic depth buffer makes polygonOffset inert, so the coplanar
-        // land layers are separated by REAL radius: ground at R, fields at R-0.1.
-        // Crossing roads (avenue × street) share a radius and would z-fight at
-        // every junction, so avenues ride higher and pass cleanly OVER the
-        // cross streets. The gap must outrun the log depth buffer's quantum,
-        // which grows with distance: at the far side of the cylinder (2R) one
-        // depth step is ~R·1.7e-6 m, so a fixed 3 cm gap thins to ~6 steps on
-        // Izma and LOSES on Elysium — scale it with the habitat instead.
-        const junctionGap = Math.max(0.03, radius * 1.5e-5)
-        // Alleys ride between the fields (R-0.1) and the streets (R-0.2):
-        // they never cross another road, so they only need to clear the
-        // ground layers under them.
-        const roadRadius =
-          kind === 'alley'
-            ? radius - 0.15
-            : radius - 0.2 - (isAvenue ? junctionGap : 0)
-        const arcRadians = road.tangentWidth / radius
-        const segments = getArcSegments(arcRadians, radius)
-        const geometry = new THREE.CylinderGeometry(
-          roadRadius,
-          roadRadius,
-          road.axialLength,
-          segments,
-          1,
-          true,
-          getThetaStart(road.azimuth, arcRadians),
-          arcRadians
-        )
-        geometry.translate(0, road.axial, 0)
-        bakeRoadUvs(
-          geometry,
-          isAvenue ? road.axialLength : road.tangentWidth,
-          !isAvenue
-        )
-        geometries.push(geometry)
-      }
-
-      const merged = mergeBufferGeometries(geometries)
-
-      for (const geometry of geometries) {
-        geometry.dispose()
-      }
-
+    const network = compileRoadNetwork(roads, radius)
+    for (const kind of ['arterial', 'collector', 'local', 'alley', 'junction'] as const) {
+      const surfaces = network.surfaces.filter(road => kind === 'junction'
+        ? road.junction : !road.junction && road.kind === kind)
+      const merged = buildRoadSurfaceGeometry(surfaces, radius, ROAD_TEXTURE_WORLD_METERS)
       if (merged === null) {
         continue
       }
 
       const mesh = new THREE.Mesh(
         merged,
-        kind === 'arterial'
+        kind === 'arterial' && radius >= 300
           ? this.roadMaterial
-          : kind === 'local'
+          : kind === 'collector' && radius >= 300
+            ? this.collectorRoadMaterial
+          : kind === 'local' || kind === 'arterial' || kind === 'collector'
             ? this.localRoadMaterial
             : this.alleyMaterial
       )
@@ -4763,8 +4684,10 @@ export class Cityscape {
         this.roads = mesh
       } else if (kind === 'local') {
         this.localRoads = mesh
-      } else {
+      } else if (kind === 'alley') {
         this.alleyRoads = mesh
+      } else {
+        this.patchMeshes.push(mesh)
       }
 
       this.group.add(mesh)
@@ -5741,13 +5664,16 @@ export class Cityscape {
 
     const streetHalfArc = (arterialStreets[0].tangentWidth * 0.5) / radius
     const stripCenters = getLandArcs(this.topology).map((arc) => arc.centerAzimuth)
-    const deckWidth = THREE.MathUtils.clamp(getArterialRoadWidth(radius, length) * 1.15, 4, 28)
+    const roadWidth = getArterialRoadWidth(radius, length)
+    const sidewalkWidth = STREET_PROFILES.arterial.sidewalk
+    const deckWidth = roadWidth + sidewalkWidth * 2
     const deckParts: THREE.BufferGeometry[] = []
+    const sidewalkParts: THREE.BufferGeometry[] = []
     const edgeParts: THREE.BufferGeometry[] = []
     // Match the cross streets the bridges continue (R-0.2) so the road carries
     // onto the bridge without a step at the window edge.
     const deckRadius = radius - 0.2
-    const edgeWidth = Math.max(0.25, deckWidth * 0.08)
+    const edgeWidth = 0.25
 
     for (let index = 0; index < stripCenters.length; index += 1) {
       const gapStart = stripCenters[index] + streetHalfArc
@@ -5767,7 +5693,7 @@ export class Cityscape {
         const deck = new THREE.CylinderGeometry(
           deckRadius,
           deckRadius,
-          deckWidth,
+          roadWidth,
           segments,
           1,
           true,
@@ -5779,6 +5705,10 @@ export class Cityscape {
         deckParts.push(deck)
 
         for (const side of [-1, 1]) {
+          const sidewalk = new THREE.CylinderGeometry(deckRadius, deckRadius, sidewalkWidth,
+            segments, 1, true, getThetaStart(gapStart + gapSpan * 0.5, gapSpan), gapSpan)
+          sidewalk.translate(0, axial + side * (roadWidth + sidewalkWidth) / 2, 0)
+          sidewalkParts.push(sidewalk)
           const edge = new THREE.CylinderGeometry(
             deckRadius - 0.05,
             deckRadius - 0.05,
@@ -5795,6 +5725,13 @@ export class Cityscape {
       }
     }
 
+    const sidewalkMerged = mergeBufferGeometries(sidewalkParts)
+    for (const part of sidewalkParts) part.dispose()
+    if (sidewalkMerged) {
+      const mesh = new THREE.Mesh(sidewalkMerged, this.bridgeSidewalkMaterial)
+      this.patchMeshes.push(mesh)
+      this.group.add(mesh)
+    }
     const deckMerged = mergeBufferGeometries(deckParts)
     const edgeMerged = mergeBufferGeometries(edgeParts)
 
@@ -5803,7 +5740,7 @@ export class Cityscape {
     }
 
     if (deckMerged !== null) {
-      this.bridges = new THREE.Mesh(deckMerged, this.bridgeMaterial)
+      this.bridges = new THREE.Mesh(deckMerged, radius < 300 ? this.localRoadMaterial : this.bridgeMaterial)
       this.group.add(this.bridges)
     }
 

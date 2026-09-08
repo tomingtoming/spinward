@@ -30,7 +30,7 @@ export type LampSpot = {
   // for streets).
   side: 1 | -1
   roadHalfWidth: number
-  kind: 'arterial' | 'local'
+  kind: 'arterial' | 'collector' | 'local'
 }
 
 const TWO_PI = Math.PI * 2
@@ -74,7 +74,7 @@ export const planLampSpots = (
         isAvenue,
         side,
         roadHalfWidth: halfWidth,
-        kind: road.kind === 'arterial' ? 'arterial' : 'local'
+        kind: road.kind
       })
     }
   }

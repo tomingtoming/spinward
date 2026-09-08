@@ -11,6 +11,7 @@ import {
   getEffectiveObserverMode
 } from './observerMode'
 import { GameAudio } from './audio'
+import { ThrowTarget } from '../objects/throwTarget'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
 import { resolveFogVisibility, visibilityToFogDensity } from './airVisibility'
 import {
@@ -126,7 +127,7 @@ import {
   respawnOverlook
 } from '../gameplay/respawn'
 import { computeThrowVelocityReal } from '../gameplay/throwVelocity'
-import { computeThrowChargeRatio } from '../xr/throwCharge'
+import { BALL_THROW_SPEEDS, type BallThrowStyle } from '../gameplay/throwTarget'
 import type { ControlPlatform } from '../xr/controlScheme'
 import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
@@ -276,6 +277,11 @@ export const bootstrapApp = async () => {
   // Impact bursts for the beam / firework bolts live alongside the balls in the
   // colony-fixed near layer.
   const explosions = new Explosions(nearLayer)
+  const throwTarget = new ThrowTarget(nearLayer, () => {
+    audio.playModeChange()
+    vibrate(20)
+  })
+  throwTarget.configure(habitatConfig.radius)
 
   const habitat = new CylinderHabitat({
     radius: habitatConfig.radius,
@@ -429,7 +435,7 @@ export const bootstrapApp = async () => {
     0.1,
     4000
   )
-  camera.position.set(0, 1.6, 0)
+  camera.position.set(0, isTouchDevice() ? 1.6 : 1.8, 0)
   viewRig.add(camera)
   scene.add(tourCardPanel.mesh)
 
@@ -747,11 +753,8 @@ export const bootstrapApp = async () => {
   // Simulated accelerometer for the felt g-force readout (measured, not ω²R).
   const feltAccelerometer = new Accelerometer()
   let feltAccelDriving = false
-  // Queued desktop throw: the held-seconds of the ball charge, or null when idle.
-  let desktopThrowQueued: number | null = null
-  // Left-button hold tracking for the PC ball charge-shot.
-  let desktopCharging = false
-  let desktopChargeStartMs = 0
+  let desktopThrowQueued = false
+  let ballThrowStyle: BallThrowStyle = 'normal'
   let desktopJumpQueued = false
   // The throwable currently selected; cycle with X (PC) / right stick-click (VR).
   let selectedProjectile: ProjectileType = 'ball'
@@ -845,6 +848,7 @@ export const bootstrapApp = async () => {
   })
 
   const clearAllBalls = () => {
+    throwTarget.reset()
     clearBalls(balls, (grabTarget) => {
       grabSystem.unregisterTarget(grabTarget)
     })
@@ -1213,7 +1217,8 @@ export const bootstrapApp = async () => {
     // Reuses the exact same action the Tab panel's Habitat preset buttons
     // used to dispatch, so there is one reset sequence, not two.
     (presetId) => handleWatchAction(`preset-apply-${presetId}` as WatchActionId),
-    (projectile) => selectProjectile(projectile)
+    (projectile) => selectProjectile(projectile),
+    (style) => { ballThrowStyle = style }
   )
   // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
   // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
@@ -1465,16 +1470,13 @@ export const bootstrapApp = async () => {
     {
       origin,
       positionSource,
-      releasedByController,
-      heldSeconds = 0
+      releasedByController
     }: {
       origin: THREE.Object3D
       // Visible-hand (grip) space used for the SPAWN POSITION while `origin`
       // (target-ray) stays the AIM. Optional: desktop falls back to `origin`.
       positionSource?: THREE.Object3D
       releasedByController?: THREE.XRTargetRaySpace
-      // Desktop ball charge: how long the mouse was held (0 = a plain tap).
-      heldSeconds?: number
     }
   ) => {
     const spec = PROJECTILES[type]
@@ -1556,6 +1558,7 @@ export const bootstrapApp = async () => {
       frameAngle,
       omega,
       onBounce: (bouncedBall, impactSpeed) => {
+        throwTarget.bounced(bouncedBall)
         const distance = bouncedBall.position.distanceTo(playerFixedColliderPosition)
         const nearness = Math.min(1, 12 / (distance + 3))
         if (spec.explodeOnImpact) {
@@ -1594,6 +1597,7 @@ export const bootstrapApp = async () => {
         )
 
         releasedBall.setVelocity(worldVelocity)
+        throwTarget.track(releasedBall, worldVelocity, rpmToOmega(habitatConfig.rpm))
 
         const throwSpeed = worldVelocity.length()
         if (throwSpeed > 0.01) {
@@ -1628,16 +1632,19 @@ export const bootstrapApp = async () => {
     } else if (releasedByController !== undefined) {
       ball.setVelocity(new THREE.Vector3())
     } else {
-      // Desktop ball throws inherit the thrower's motion AND a hold-to-charge
-      // ramp: a tap leaves at the base 8 m/s, a full (~1.2 s) hold climbs to ~30.
+      // Repeatable throws: aim is the only variable until the player selects
+      // the slower throw. Fine speed scaling remains in the advanced settings.
       fillCarrierRotatingVelocity(controllerCarrierVelocity)
-      const chargeSpeed =
-        (8 + 22 * computeThrowChargeRatio(heldSeconds)) * habitatConfig.ballSpeedScale
+      const throwSpeed = BALL_THROW_SPEEDS[ballThrowStyle] * habitatConfig.ballSpeedScale
       worldVelocity
         .copy(worldForward)
-        .multiplyScalar(chargeSpeed)
+        .multiplyScalar(throwSpeed)
         .add(controllerCarrierVelocity)
       ball.setVelocity(worldVelocity)
+    }
+
+    if (type === 'ball' && releasedByController === undefined) {
+      throwTarget.track(ball, worldVelocity, omega)
     }
 
     nearLayer.add(ball.mesh)
@@ -1664,23 +1671,22 @@ export const bootstrapApp = async () => {
     })
   }
 
-  const throwDesktopBall = (heldSeconds: number) => {
+  const throwDesktopBall = () => {
     if (renderer.xr.isPresenting) {
       return
     }
 
-    spawnProjectile(selectedProjectile, { origin: camera, heldSeconds })
+    spawnProjectile(selectedProjectile, { origin: camera })
     audio.playThrow()
     vibrate(8)
   }
 
-  // Queue a throw with the given charge (0 = a plain tap, used by the mobile tap).
-  const requestDesktopThrow = (heldSeconds = 0) => {
+  const requestDesktopThrow = () => {
     if (renderer.xr.isPresenting) {
       return
     }
 
-    desktopThrowQueued = heldSeconds
+    desktopThrowQueued = true
   }
 
   const cycleSelectedProjectile = () => {
@@ -1822,28 +1828,7 @@ export const bootstrapApp = async () => {
       return
     }
 
-    // Beam / firework are instant bolts: fire on press. The ball charges while
-    // the button is held and throws on release (see the pointerup below) — hold
-    // longer to throw harder.
-    if (PROJECTILES[selectedProjectile].launchSpeed > 0) {
-      requestDesktopThrow(0)
-    } else {
-      desktopCharging = true
-      desktopChargeStartMs = performance.now()
-    }
-  })
-
-  // Release of the held left button throws the charged ball. On window (not the
-  // canvas) so a drag that ends off-canvas still releases the shot.
-  window.addEventListener('pointerup', (event) => {
-    if (event.button !== 0 || !desktopCharging) {
-      return
-    }
-    desktopCharging = false
-    if (renderer.xr.isPresenting) {
-      return
-    }
-    requestDesktopThrow(Math.max(0, (performance.now() - desktopChargeStartMs) * 0.001))
+    requestDesktopThrow()
   })
 
   // Expressway surface height at a point (0 off the structure). Both the
@@ -1872,7 +1857,7 @@ export const bootstrapApp = async () => {
     return Math.max(cityHeight, deckCounts ? expresswayHeight : 0)
   }
 
-  // Seat height: on foot the eye is 1.6 m above the floor, but riding the rover
+  // Seat height: the eye is 1.8 m on PC / 1.6 m on touch; riding the rover
   // you sit up on the chassis, so lift the view while driving for a commanding
   // road view instead of a ground-level one.
   const DRIVER_VIEW_RAISE = 0.6
@@ -2023,10 +2008,9 @@ export const bootstrapApp = async () => {
       }
     }
 
-    if (desktopThrowQueued !== null) {
-      const heldSeconds = desktopThrowQueued
-      desktopThrowQueued = null
-      throwDesktopBall(heldSeconds)
+    if (desktopThrowQueued) {
+      desktopThrowQueued = false
+      throwDesktopBall()
     }
 
     grabSystem.update()
@@ -2327,6 +2311,7 @@ export const bootstrapApp = async () => {
     camera.getWorldPosition(eyeWorldPrev)
     hasEyePrev = true
 
+    throwTarget.configure(habitatConfig.radius, renderer.xr.isPresenting)
     for (const ball of balls) {
       ball.step({
         deltaSeconds,
@@ -2339,6 +2324,7 @@ export const bootstrapApp = async () => {
       })
     }
 
+    throwTarget.step(balls, deltaSeconds)
     removeDisposedBalls()
     explosions.step(deltaSeconds)
     const trackedBall = getTrackedBall(balls)
@@ -2402,6 +2388,8 @@ export const bootstrapApp = async () => {
       ballCount: balls.length,
       projectile: selectedProjectile,
       projectileLabel: PROJECTILES[selectedProjectile].label,
+      ballThrowStyle,
+      slowThrowUnlocked: throwTarget.hasHit,
       feltGravity,
       feltSpeed,
       region: playerRegion,
@@ -2723,6 +2711,7 @@ export const bootstrapApp = async () => {
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()
+    throwTarget.dispose()
     intersectionFurniture.dispose()
     parkedCars.dispose()
     sidewalks.dispose()

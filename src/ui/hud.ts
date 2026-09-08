@@ -1,4 +1,5 @@
 import { EARTH_GRAVITY } from '../gameplay/vehicle'
+import type { BallThrowStyle } from '../gameplay/throwTarget'
 import { PROJECTILES, type ProjectileType } from '../gameplay/projectileTypes'
 import { HABITAT_PRESETS } from '../presets/presets'
 import { getControlScheme, type ControlPlatform, type ControlSection } from '../xr/controlScheme'
@@ -15,6 +16,8 @@ type HudSnapshot = {
   // Id + label of the currently-selected throwable (Ball / Beam / Firework).
   projectile: ProjectileType
   projectileLabel: string
+  ballThrowStyle: BallThrowStyle
+  slowThrowUnlocked: boolean
   region: 'inside' | 'outside'
   playerMode: 'grounded' | 'free-fly'
   rpm: number
@@ -85,7 +88,8 @@ export const createHud = (
   // The preset and projectile chips double as dropdowns — no need to open a
   // separate settings surface just to switch either one.
   onSelectPreset: (presetId: string) => void,
-  onSelectProjectile: (projectile: ProjectileType) => void
+  onSelectProjectile: (projectile: ProjectileType) => void,
+  onSelectThrowStyle: (style: BallThrowStyle) => void
 ): HudHandle => {
   const root = document.createElement('div')
   // display:contents — the wrapper exists only so setVisible can hide the group.
@@ -230,6 +234,15 @@ export const createHud = (
     })),
     onSelectProjectile
   )
+  projectileDropdown.chip.title = 'Choose Ball, Beam or Firework (shortcut: X)'
+  projectileDropdown.chip.setAttribute('aria-label', 'Choose projectile')
+  const throwStyleDropdown = createDropdownChip<BallThrowStyle>(
+    'hud-chip hud-chip--tap',
+    [{ id: 'normal', label: 'Normal — direct throw' }, { id: 'slow', label: 'Slow — try a higher arc' }],
+    onSelectThrowStyle
+  )
+  throwStyleDropdown.chip.setAttribute('aria-label', 'Ball throwing speed')
+  throwStyleDropdown.chip.hidden = true
   // Distance left to close before you could reattach to the wall — only
   // shown while free-flying. Labelled "reattach", not "dock": it applies
   // anywhere on the wall, not just at the spaceport.
@@ -243,6 +256,7 @@ export const createHud = (
     modeChip,
     ballsChip,
     projectileDropdown.chip,
+    throwStyleDropdown.chip,
     reattachChip
   )
   // Anchored above the bar and fixed-positioned, so the card lives on body,
@@ -258,6 +272,7 @@ export const createHud = (
       unregisterControlsClose()
       presetDropdown.destroy()
       projectileDropdown.destroy()
+      throwStyleDropdown.destroy()
     },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
@@ -297,7 +312,15 @@ export const createHud = (
 
       ballsChip.hidden = snapshot.ballCount === 0
       ballsChip.textContent = `balls ${snapshot.ballCount}`
-      projectileDropdown.chip.textContent = `◈ ${snapshot.projectileLabel}`
+      projectileDropdown.chip.textContent = `Throw: ${snapshot.projectileLabel} ▾`
+      throwStyleDropdown.chip.hidden = !snapshot.slowThrowUnlocked || snapshot.projectile !== 'ball'
+      if (throwStyleDropdown.chip.hidden && !throwStyleDropdown.menu.hidden) {
+        closeEverything()
+      }
+      throwStyleDropdown.chip.textContent = `Speed: ${snapshot.ballThrowStyle === 'normal' ? 'Normal' : 'Slow'} ▾`
+      for (const item of throwStyleDropdown.menuItems) {
+        item.element.classList.toggle('is-active', item.id === snapshot.ballThrowStyle)
+      }
       for (const item of projectileDropdown.menuItems) {
         item.element.classList.toggle('is-active', item.id === snapshot.projectile)
       }

@@ -306,20 +306,19 @@ describe('planCity', () => {
       for (const road of roads) {
         const width = Math.min(road.tangentWidth, road.axialLength)
         if (road.kind === 'arterial') {
-          expect(width).toBeGreaterThanOrEqual(6)
-          expect(width).toBeLessThanOrEqual(24)
+          expect(width).toBeCloseTo(radius < 300 ? 6 : 19.5, 6)
+        } else if (road.kind === 'collector') {
+          expect(width).toBeCloseTo(radius < 300 ? 6 : 12, 6)
         } else if (road.kind === 'local') {
-          expect(width).toBeGreaterThanOrEqual(4)
-          expect(width).toBeLessThanOrEqual(8)
+          expect(width).toBeCloseTo(6, 6)
         } else {
-          expect(width).toBeGreaterThanOrEqual(2.5)
-          expect(width).toBeLessThanOrEqual(getSidewalkWidth(radius, length) * 1.5 + 1e-6)
+          expect(width).toBeCloseTo(4, 6)
         }
       }
     }
   })
 
-  test('dense block interiors carry back alleys between the building rings', () => {
+  test('residential blocks carry shared through lanes', () => {
     const { roads } = planCity({ radius: 3200, length: 40000 })
     const alleys = roads.filter((road) => road.kind === 'alley')
 
@@ -425,9 +424,8 @@ describe('planCity', () => {
     }
   })
 
-  test('most buildings face a nearby road (inner-ring courts face alleys)', () => {
+  test('small-habitat buildings remain within sidewalk reach of a road', () => {
     const radius = 18
-    const cell = getCityCellSize(radius, 120)
     const { roads, buildings } = planCity({ radius, length: 120 })
     let facing = 0
 
@@ -439,7 +437,7 @@ describe('planCity', () => {
         })
       )
 
-      if (nearestFrontage <= cell * 0.25) {
+      if (nearestFrontage <= getSidewalkWidth(radius, 120) + 0.5) {
         facing += 1
       }
     }
@@ -568,7 +566,7 @@ describe('planCity', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
     const kinds = new Set(buildings.map((b) => b.kind))
 
-    for (const kind of ['block', 'setback', 'tower', 'house'] as const) {
+    for (const kind of ['block', 'setback', 'slab', 'house'] as const) {
       expect(kinds.has(kind)).toBe(true)
     }
 
@@ -652,11 +650,18 @@ describe('planCity', () => {
     }
   })
 
-  test('the civic core grows a tower band the countryside never gets', () => {
+  test('the core has broad high-rises but no randomly generated needle towers', () => {
     const { buildings } = planCity({ radius: 3200, length: 40000 })
     const core = buildings.filter((b) => Math.abs(b.axial) < 2500)
     const fringe = buildings.filter((b) => Math.abs(b.axial) > 8000)
-    expect(core.filter((b) => b.height > 120).length).toBeGreaterThan(100)
+    expect(core.some((b) => b.height > 78)).toBe(true)
+    expect(buildings.some((b) => b.kind === 'tower')).toBe(false)
+    for (const b of buildings.filter(b => b.height > 78)) {
+      expect(b.kind).toBe('slab')
+      expect(Math.min(b.width, b.depth)).toBeGreaterThanOrEqual(28)
+      expect(b.width * b.depth).toBeGreaterThanOrEqual(1400)
+      expect(b.height / Math.min(b.width, b.depth)).toBeLessThanOrEqual(3 + 1e-6)
+    }
     expect(fringe.every((b) => b.height <= 78 + 1e-9)).toBe(true)
   })
 
@@ -755,7 +760,7 @@ describe('planCity', () => {
   })
 
   test('thin rings still get a city: cell size respects the span', () => {
-    expect(getCityCellSize(30000, 2000)).toBeCloseTo(160, 6)
+    expect(getCityCellSize(30000, 2000)).toBeCloseTo(80, 6)
 
     const { buildings, roads } = planCity({ radius: 30000, length: 2000 })
     expect(buildings.length).toBeGreaterThan(200)

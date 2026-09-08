@@ -18,7 +18,7 @@ Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is sim
 | --- | --- | --- | --- |
 | Move | WASD | left stick (hold grip to climb) | virtual stick on the left |
 | Look | click the view to grab the mouse (Esc frees it) · right-drag · arrow keys | head + right stick snap turn | drag on the right · Gyro button |
-| Throw | left click (hold to charge) | right trigger (hold to charge) | tap on the right |
+| Throw | left click (fixed speed) | right trigger (hold to charge) | tap on the right (fixed speed) |
 | Jump | Space (hold to keep rising) | A | Jump button (hold to keep rising) |
 | Travel | 1 / 2 / 3 / 4 or the Travel menu | B or the wrist menu | Travel menu |
 | Spin rate | Spin −/+ buttons or `-` / `=` | wrist menu rpm | Spin −/+ buttons |
@@ -30,6 +30,16 @@ Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is sim
 ![A thrown ball curves to the side; a dashed line shows the same throw on Earth](docs/img/coriolis-ghost.jpg)
 
 *Throw: the ball flies straight in the inertial frame and curves on screen. The dashed line is where the same throw would land on a flat Earth.*
+
+Try the glowing ring eight metres ahead of the starting point: aim a little high
+and click or tap. It turns green and chimes when the whole ball passes through.
+PC and phone start at a repeatable 16 m/s; after a hit, the Speed menu offers
+Normal / Slow (12 m/s) so you can try a higher arc. The sign compares your result
+with the dashed Earth trajectory. Choose Ball / Beam / Firework from the visible
+Throw menu; X is a shortcut. VR keeps its hand-and-trigger throwing controls.
+Only Ball shots from near the
+starting point count. The ring is a visual scoring gate, not a solid obstacle.
+Travel → Surface returns you to the throwing area.
 
 ## 日本語
 
@@ -58,8 +68,8 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | --- | --- | --- | --- |
 | 移動 | WASD | 左スティック(grip で登攀クラッチ) | 画面左の仮想スティック |
 | 視線 | 画面クリックでマウス追従(Esc で解除) / 右ドラッグ / 矢印キー | 頭 + 右スティック snap turn | ドラッグ / Gyro ボタンでジャイロ |
-| 投げる | 左クリック(長押しでチャージ) | 右トリガー(チャージ可) | タップ |
-| 弾種切替(Ball / Beam / Firework) | X / 右クリック、または ◈ チップ | —(非VR画面で切替) | ◈ チップのドロップダウン |
+| 投げる | 左クリック(一定速度・成功後にNormal / Slow選択) | 右トリガー(チャージ可) | 右側タップ(PCと同じ速度選択) |
+| 弾種切替(Ball / Beam / Firework) | Throw メニュー、または X / 右クリック | —(非VR画面で切替) | Throw メニュー |
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
 | 回転速度 | Spin −/+ ボタン、または `-` / `=` キー | wrist UI の rpm | Spin −/+ ボタン |
@@ -68,7 +78,7 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | 操作ガイド | CONTROL チップにホバー / クリック | 左手首の watch UI(左 B でリセンター) | CONTROL チップをタップ |
 | 離陸(free-fly) | F | A(ジャンプ) | Jump 長押し |
 
-非VR環境では画面下に 1 本のドックが常時出ます: 左に CONTROL・preset・ステータスチップ(felt g / ω rpm / mode / balls / ◈ 弾種)、右に Travel・Spin・(対応環境なら)VR ボタン。スマホはさらに Jump / Drive / Gyro のボタン列が出ます。iOS ではジャイロ使用時に Gyro ボタンから許可ダイアログが出ます。
+非VR環境では画面下に 1 本のドックが常時出ます: 左に CONTROL・preset・ステータスチップ(felt g / ω rpm / mode / balls)・Throw メニュー、右に Travel・Spin・(対応環境なら)VR ボタン。輪を通すと Ball 用の Speed メニューも現れます。スマホはさらに Jump / Drive / Gyro のボタン列が出ます。iOS ではジャイロ使用時に Gyro ボタンから許可ダイアログが出ます。
 
 ## セットアップ
 
@@ -139,14 +149,14 @@ OGP は `index.html` のメタタグ(og:/twitter:、canonical は `https://spinw
 - VR/PC: 空中ではビルにも衝突します。ビルの屋上には着地でき、屋上の上をそのまま歩けます。縁から踏み出せば自由落下です。
 - VR/PC: 着地時は落下速度に応じて視点が沈み込み、バネで戻ります(膝のクッション)。
 - PC: `1 / 2 / 3 / 4` で 地表 / 展望地点 / 軸端 / コロニー外 へワープします(画面下の Travel ボタンでも同じ)。
-- PC: `X` または右クリックで投射物を Ball / Beam / Firework に切り替えます(HUD の ◈ ドロップダウンでも選べます)。
+- PC: Throw メニューで Ball / Beam / Firework を選べます。`X` または右クリックでも切り替えられます。Ball はクリックで通常16m/s、輪を通した後は Speed メニューで12m/sの Slow も選べます。
 - PC: `F` で壁から離陸して `free-fly` に入れます。
 - PC: 内壁にいる間は `WASD` で歩行します。`free-fly` 中は KSP 風の視線基準 6DOF ジェットパックで、`WASD` で前後左右、`Space` で上昇、`Shift` で下降します。`Q/E` のロールは角速度ベース(押すと回転が立ち上がり、離しても惰性で回り続ける)で、`B` でそのロールを止められます。`grounded` に戻ると視点は自動で水平へ戻ります。
 - PC: 画面を左クリックするとマウスが視線に追従します(Esc で解除、`?lock=0` で無効化)。右ドラッグまたは矢印キーでも回せます。
 - 非VR: 画面下のドックにすべての操作 UI が集約されています。左クラスタが CONTROL(ホバー / タップで操作カードが数秒表示されて消える)・preset ドロップダウン・ステータスチップ、右クラスタが Travel(Surface / Overlook / Axis / Exterior)・Spin −/+・フルスクリーン・VR ボタンです。細かい設定(半径・全長・スロー・ジェットパック・リアタッチ・昼夜サイクル長など)は `?debug` の GUI に移りました。
 - スマホ: 画面左側のタッチがバーチャルスティック(歩行 / free-fly 推力 / 運転)、右側のドラッグで視線、右側タップで投擲です。下部のボタン列に Jump・Drive(車の近くで出現、乗車中は Exit と Brake)・Gyro(ジャイロ視点)が並び、Travel と Spin はドックのボタンを使います。
 - スマホ: 描画はモバイル品質(pixelRatio 上限 1.75、建物 6000 棟、雲 50%)に自動調整されます。着地や衝突で軽い振動フィードバックが入ります(Android)。ホーム画面に追加すればフルスクリーンの PWA として起動します。
-- HUD はドック左クラスタのチップ列です: preset(タップで切替)/ felt g・速度 / ω rpm / mode / balls / ◈ 弾種(タップで切替)/ free-fly 中のみ reattach 距離。デバッグ数値を見たいときは URL に `?debug` を付けます。
+- HUD はドック左クラスタのチップ列です: preset(タップで切替)/ felt g・速度 / ω rpm / mode / balls / Throw メニュー / 成功後の Speed メニュー / free-fly 中のみ reattach 距離。PCの目線は1.8m、スマホは1.6mです。デバッグ数値を見たいときは URL に `?debug` を付けます。
 - **音響**(全合成、アセットなし):ハビタットの環境音、スロー/バウンド/ジャンプ/着地/UIクリックのSFX。初回操作で有効化され、`M` でミュートできます。ボールのバウンド音は衝撃と距離で減衰します。
 - 起動時にはスプラッシュ(SPINWARD)が出て、ロード完了でフェードアウトします(初期化に失敗した場合はスプラッシュ上にエラーと RELOAD ボタンが出ます)。lil-gui のデバッグパネルは URL に `?debug` を付けたときだけ表示されます。
 - GUI(`?debug`): `radius`, `rpm`, `surface g`, `span`, `simScale`, `preset`, `throw scale`, `jetpack`, `reattach` 閾値を右上で確認/調整できます。

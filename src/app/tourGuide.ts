@@ -38,7 +38,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       'You live inside a spinning cylinder. Look up — the city wraps overhead.',
       'The floor pushes you in a circle - that push is your "gravity".',
       CONTROLS_TOKEN,
-      'Tour: throw → jump → ② Overlook → ③ Axis'
+      'Try the glowing ring ahead: aim a little high and throw. Then jump → ② → ③.'
     ],
     durationSeconds: 14
   },
