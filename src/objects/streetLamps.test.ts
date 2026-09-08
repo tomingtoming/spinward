@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { LAMP_SPACING_ARTERIAL, LAMP_SPACING_LOCAL, planLampSpots, selectNearbyLamps } from './streetLamps'
+import * as THREE from 'three'
+import { LAMP_SPACING_ARTERIAL, LAMP_SPACING_LOCAL, lampArmQuaternion, planLampSpots, selectNearbyLamps } from './streetLamps'
 import type { CityIntersection, CityRoad } from './cityLayout'
 
 const R = 3200
@@ -29,5 +30,50 @@ describe('planLampSpots', () => {
     expect(near.length).toBeGreaterThan(0)
     for (const s of near) expect(Math.abs(s.axial)).toBeLessThanOrEqual(100)
     expect(selectNearbyLamps(spots, R, avenue.azimuth + 1, 0, 100).length).toBe(0)
+  })
+})
+
+describe('lampArmQuaternion', () => {
+  // Rotating frame, axis = +Y. A lamp at azimuth θ stands on the inner wall at
+  // (cos θ, ·, sin θ)·r; inward (local up) is (−cos θ, 0, −sin θ) and the
+  // tangent is (−sin θ, 0, cos θ). The arm's +Y must run horizontally over
+  // the road: −side·tangent on avenues, −side·axial on streets — never along
+  // the cylinder axis (2026-09-09: every arm pointed at the colony's end).
+  const azimuths = [0, 0.05, Math.PI / 2, 2.1, Math.PI, -1.3]
+  const y = new THREE.Vector3(0, 1, 0)
+  const z = new THREE.Vector3(0, 0, 1)
+  const x = new THREE.Vector3(1, 0, 0)
+
+  test('avenue arms reach tangentially across the road, streets arms axially', () => {
+    for (const azimuth of azimuths) {
+      const inward = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
+      const tangent = new THREE.Vector3(-Math.sin(azimuth), 0, Math.cos(azimuth))
+      for (const side of [1, -1] as const) {
+        const q = lampArmQuaternion(azimuth, true, side)
+        expect(Math.abs(q.length() - 1)).toBeLessThan(1e-9)
+        const along = y.clone().applyQuaternion(q)
+        expect(along.distanceTo(tangent.clone().multiplyScalar(-side))).toBeLessThan(1e-9)
+        expect(Math.abs(along.y)).toBeLessThan(1e-9)
+        // local up stays the habitat's up (arm is horizontal, not tilted)
+        expect(z.clone().applyQuaternion(q).distanceTo(inward)).toBeLessThan(1e-9)
+
+        const qs = lampArmQuaternion(azimuth, false, side)
+        const alongStreet = y.clone().applyQuaternion(qs)
+        expect(alongStreet.distanceTo(new THREE.Vector3(0, -side, 0))).toBeLessThan(1e-9)
+        expect(z.clone().applyQuaternion(qs).distanceTo(inward)).toBeLessThan(1e-9)
+      }
+    }
+  })
+
+  test('is a proper rotation (right-handed frame, not a mirror image)', () => {
+    for (const azimuth of azimuths) {
+      for (const isAvenue of [true, false]) {
+        const q = lampArmQuaternion(azimuth, isAvenue, 1)
+        const ex = x.clone().applyQuaternion(q)
+        const ey = y.clone().applyQuaternion(q)
+        const ez = z.clone().applyQuaternion(q)
+        expect(ex.clone().cross(ey).distanceTo(ez)).toBeLessThan(1e-9)
+      }
+    }
   })
 })

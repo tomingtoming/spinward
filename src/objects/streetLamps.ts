@@ -125,16 +125,45 @@ const junctionGapFor = (radius: number) => Math.max(0.03, radius * 1.5e-5)
 const tangent = new THREE.Vector3()
 const inward = new THREE.Vector3()
 const unitY = new THREE.Vector3(0, 1, 0)
-const unitZ = new THREE.Vector3(0, 0, 1)
 const basis = new THREE.Matrix4()
 const postQuaternion = new THREE.Quaternion()
 const armQuaternion = new THREE.Quaternion()
 const poolQuaternion = new THREE.Quaternion()
-const yawScratch = new THREE.Quaternion()
-const identity = new THREE.Quaternion()
 const position = new THREE.Vector3()
 const scale = new THREE.Vector3()
 const matrix = new THREE.Matrix4()
+
+const armUp = new THREE.Vector3()
+const armAlong = new THREE.Vector3()
+const armX = new THREE.Vector3()
+const armBasis = new THREE.Matrix4()
+
+// Pure: orientation of the arm cylinder (+Y along its length) so it reaches
+// horizontally from the kerb over the road, i.e. toward −side·across
+// (across = tangent for avenues, axial for streets). Right-handed frame:
+// Y = arm direction, Z = inward (local up), X = Y × Z.
+//
+// 2026-09-09 (toming「曲がった先が常にコロニーの尾部を向く」): the previous
+// frame used X = Z × Y, a mirror image (det −1). setFromRotationMatrix on a
+// reflection collapsed to a near-identity quaternion, so every arm pointed
+// along world +Y = the cylinder axis while the head and pool (placed by
+// position arithmetic) stayed on the road side.
+export const lampArmQuaternion = (
+  azimuth: number,
+  isAvenue: boolean,
+  side: 1 | -1,
+  target: THREE.Quaternion = new THREE.Quaternion()
+): THREE.Quaternion => {
+  const cos = Math.cos(azimuth)
+  const sin = Math.sin(azimuth)
+  armUp.set(-cos, 0, -sin)
+  if (isAvenue) armAlong.set(-sin, 0, cos)
+  else armAlong.set(0, 1, 0)
+  armAlong.multiplyScalar(-side)
+  armX.crossVectors(armAlong, armUp)
+  armBasis.makeBasis(armX, armAlong, armUp)
+  return target.setFromRotationMatrix(armBasis)
+}
 
 type Part = { mesh: THREE.InstancedMesh; capacity: number }
 
@@ -251,14 +280,7 @@ export class StreetLamps {
       matrix.compose(position, postQuaternion, scale)
       this.posts.mesh.setMatrixAt(n, matrix)
       // Arm: from the post top, horizontally over the road (toward −side).
-      // The arm cylinder's +Y maps onto the across direction via a yaw of the
-      // local frame: for avenues rotate about local Z (axial) so Y → ∓X...
-      // simpler: build the arm's own basis with Y = −side·across.
-      const acrossVec = position.set(acrossX, acrossY, acrossZ).multiplyScalar(-s.side)
-      const armUp = acrossVec.clone()
-      const armZ = inward.clone().cross(armUp).normalize()
-      basis.makeBasis(armZ.clone().cross(armUp).normalize(), armUp, armZ)
-      armQuaternion.setFromRotationMatrix(basis)
+      lampArmQuaternion(s.azimuth, s.isAvenue, s.side, armQuaternion)
       position.set(cos, 0, sin).multiplyScalar(deck - (h - 0.3))
       position.y = s.axial
       position.x += acrossX * s.side * kerb
@@ -294,9 +316,6 @@ export class StreetLamps {
       part.mesh.count = n
       part.mesh.instanceMatrix.needsUpdate = true
     }
-    void yawScratch
-    void unitZ
-    void identity
   }
 
   dispose() {
