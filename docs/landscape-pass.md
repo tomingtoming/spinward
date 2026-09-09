@@ -38,3 +38,26 @@ roof clearances against existing equipment, readability of the park shapes,
 window shader appearance, and the added GPU cost. Browser control was unavailable
 during implementation; passing geometry tests and TypeScript/build checks do not
 replace this review. No production deployment is part of this pass.
+
+## Ground-floor frontage study (2026-09-10)
+
+The opaque exterior shells now distinguish shops, office lobbies, residential
+entrances and workshops. Lot identity and district character select the use
+without consuming the city planner's random stream. Four related texture bays
+per use vary awning colour, door position or glazing; floor heights range from
+3.2 to 4.6 metres. Each wall fits its own whole number of bays so an elongated
+footprint no longer compresses the same eight shop windows into its narrow end.
+The facade UV program has a separate cache key from the upper-floor grid.
+
+These are painted architectural openings on the existing opaque band, not new
+rooms or projecting awning meshes. The existing enterable cafe/passage/court
+buildings remain excluded upstream and retain their real openings and collision.
+Four use batches consolidate the box faces into sides and caps, limiting this
+layer to eight draw calls (previously six), with the same triangle count.
+Textures and emissive maps share the bay layout and are disposed with the city.
+
+Validation: 604 tests and TypeScript/production build; matching street views at
+day/night on Radeon 780M/RADV. Desktop/phone/Quest quality profiles are exercised
+on that desktop GPU; these measurements do not establish physical phone/Quest
+performance. Visual review covers the photographed street views, not all lots.
+This remains a local design study pending the user's visual review.

@@ -1,3 +1,4 @@
+import { FRONTAGES, FRONTAGE_KINDS, FRONTAGE_TEXTURE_BAYS, frontageKind, frontageLayout, paintFrontage, type FrontageKind } from './groundFloorFrontages'
 import { BuildingInteriorLayer } from './buildingInteriorLayer'
 import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
@@ -865,10 +866,6 @@ const GRID_WARM: FacadeGrid = { columns: 7, rows: 10 }
 const GRID_DENSE: FacadeGrid = { columns: 14, rows: 20 }
 const GRID_TOWER: FacadeGrid = { columns: 6, rows: 18 }
 const GRID_FAR: FacadeGrid = { columns: 26, rows: 38 }
-// Street-level shop strip: one row of bays wrapped around an urban block's
-// base (facade study 2026-07-22, direction C).
-const GRID_SHOPS: FacadeGrid = { columns: 8, rows: 1 }
-const SHOP_BAND_METERS = 4.6
 // Target real-world size of one facade bay (window column) and floor (window
 // row). Per-instance UV repeat = building extent / (grid cells × these), so a
 // short, wide block tiles more windows across instead of stretching a few.
@@ -1286,78 +1283,24 @@ const createFacadeTextureSet = (
   }
 }
 
-// Street-level shop strip (facade study 2026-07-22, direction C): one bay per
-// GRID_SHOPS column — big glazing off a kick plate, an awning with its drop
-// shadow, a small sign box, sometimes a recessed entrance. Lit shops glow
-// through the glazing and spill onto the sidewalk edge at the strip's bottom.
-// Wrapped around an urban block's base as a thin instanced band.
-const createShopStripTextureSet = (seed: number): TextureSet => {
-  const width = 512
-  const height = 64
-  const { canvas: albedoCanvas, context: albedo } = createCanvas(width, height)
-  const { canvas: emissiveCanvas, context: emissive } = createCanvas(width, height)
-  const random = createSeededRandom(seed)
-  const bayWidth = width / GRID_SHOPS.columns
-
-  albedo.fillStyle = '#54565c'
-  albedo.fillRect(0, 0, width, height)
-  emissive.fillStyle = '#000000'
-  emissive.fillRect(0, 0, width, height)
-
-  for (let bay = 0; bay < GRID_SHOPS.columns; bay += 1) {
-    const x = bay * bayWidth
-    const lit = random() < 0.72
-    const warm = random() < 0.7
-    const glow = warm ? '#ffc98c' : '#d9f2ff'
-
-    // Big glazing rising from the kick plate.
-    albedo.fillStyle = lit ? 'rgba(255, 230, 196, 0.5)' : 'rgba(80, 100, 122, 0.55)'
-    albedo.fillRect(x + bayWidth * 0.08, height * 0.3, bayWidth * 0.84, height * 0.66)
-    // Awning band and the shadow it drops on the glass.
-    albedo.fillStyle = warm ? '#7a4034' : '#2e4a55'
-    albedo.fillRect(x + bayWidth * 0.04, height * 0.18, bayWidth * 0.92, height * 0.14)
-    albedo.fillStyle = 'rgba(0, 0, 0, 0.4)'
-    albedo.fillRect(x + bayWidth * 0.04, height * 0.3, bayWidth * 0.92, height * 0.05)
-    // Sign box above the awning.
-    const signWidth = bayWidth * (0.24 + random() * 0.3)
-    const signX = x + bayWidth * (0.1 + random() * 0.5)
-    albedo.fillStyle = 'rgba(240, 244, 250, 0.2)'
-    albedo.fillRect(signX, height * 0.04, signWidth, height * 0.1)
-
-    if (lit) {
-      drawEmissiveRect(emissive, signX, height * 0.04, signWidth, height * 0.1, glow, 0.85)
-      drawEmissiveRect(
-        emissive,
-        x + bayWidth * 0.08,
-        height * 0.3,
-        bayWidth * 0.84,
-        height * 0.66,
-        glow,
-        0.5
-      )
-      // Sidewalk spill: the strip's bottom edge glows a touch stronger.
-      emissive.globalAlpha = 0.3
-      emissive.fillStyle = glow
-      emissive.fillRect(x, height * 0.9, bayWidth, height * 0.1)
-      emissive.globalAlpha = 1
+// Four related bays per use, fitted independently to the length of each wall.
+const createShopStripTextureSet = (kind: FrontageKind): TextureSet => {
+  const { canvas: albedoCanvas, context: albedo } = createCanvas(256 * FRONTAGE_TEXTURE_BAYS, 256)
+  const { canvas: emissiveCanvas, context: emissive } = createCanvas(256 * FRONTAGE_TEXTURE_BAYS, 256)
+  for (let variant = 0; variant < FRONTAGE_TEXTURE_BAYS; variant++) {
+    for (const ctx of [albedo, emissive]) {
+      ctx.save()
+      ctx.translate(variant * 256, 0)
+      if (variant % 2 === 1 && kind !== 'lobby') {
+        ctx.translate(256, 0)
+        ctx.scale(-1, 1)
+      }
     }
-
-    // Recessed entrance cut.
-    if (random() < 0.4) {
-      albedo.fillStyle = 'rgba(12, 14, 18, 0.8)'
-      albedo.fillRect(
-        x + bayWidth * (0.36 + random() * 0.2),
-        height * 0.34,
-        bayWidth * 0.16,
-        height * 0.62
-      )
-    }
+    paintFrontage(albedo, emissive, kind, variant)
+    albedo.restore()
+    emissive.restore()
   }
-
-  return {
-    albedo: finishTexture(albedoCanvas),
-    emissive: finishTexture(emissiveCanvas)
-  }
+  return { albedo: finishTexture(albedoCanvas), emissive: finishTexture(emissiveCanvas) }
 }
 
 const createRoofTextureSet = (): TextureSet => {
@@ -1544,7 +1487,7 @@ export class Cityscape {
     'warm',
     0x19a7c3e5
   )
-  private readonly shopStripTextures = createShopStripTextureSet(0x5a3f9c17)
+  private readonly shopStripTextures = FRONTAGE_KINDS.map(createShopStripTextureSet)
   private readonly roofTextures = createRoofTextureSet()
   private readonly signTextureSets = [
     createSignTextureSet('環街', '#224956', '#b48a4b'),
@@ -1580,15 +1523,15 @@ export class Cityscape {
   // Shop band wrapped around urban block bases. Emissive stays white: the
   // strip bakes its own warm/cool shopfront colours, unlike the window
   // facades whose tint rides the material emissive.
-  private readonly shopBandMaterial = new THREE.MeshStandardMaterial({
+  private readonly shopBandMaterials = this.shopStripTextures.map(set => new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    map: this.shopStripTextures.albedo,
+    map: set.albedo,
     roughness: 0.8,
     metalness: 0.05,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
-    emissiveMap: this.shopStripTextures.emissive
-  })
+    emissiveMap: set.emissive
+  }))
 
   private readonly largeBuildingSideMaterials = this.largeFacadeTextureSets.map(
     (set) =>
@@ -2080,9 +2023,9 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      this.shopBandMaterial
+      ...this.shopBandMaterials
     ]) {
-      this.installFacadeUvScale(material)
+      this.installFacadeUvScale(material, this.shopBandMaterials.includes(material))
     }
     // Ordered screen-door transitions preserve depth writes and opaque draw
     // order on phones/Quest while making the two authored LOD boundaries blend.
@@ -2092,7 +2035,7 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      this.shopBandMaterial,
+      ...this.shopBandMaterials,
       this.buildingRoofMaterial,
       this.kenneyRoofMaterial,
       ...this.buildingSignMaterials,
@@ -2249,15 +2192,17 @@ export class Cityscape {
   // Scale each instance's window texture by its own aUvScale attribute. The map
   // and emissive (lit-window) maps share the building's UV channel, so both
   // varyings are scaled in lockstep right after three computes them.
-  private installFacadeUvScale(material: THREE.MeshStandardMaterial) {
+  private installFacadeUvScale(material: THREE.MeshStandardMaterial, frontage = false) {
+    material.customProgramCacheKey = () => frontage ? 'frontage-uv-v1' : 'facade-uv-v1'
     material.onBeforeCompile = (shader) => {
       shader.vertexShader =
         'attribute vec2 aUvScale;\n' +
         shader.vertexShader.replace(
           '#include <uv_vertex>',
           '#include <uv_vertex>\n' +
-            '#ifdef USE_MAP\n  vMapUv *= aUvScale;\n#endif\n' +
-            '#ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv *= aUvScale;\n#endif'
+            (frontage ? 'vec2 facadeRepeat = vec2(abs(normal.x) > 0.5 ? aUvScale.y : aUvScale.x, 1.0);\n' : 'vec2 facadeRepeat = aUvScale;\n') +
+            '#ifdef USE_MAP\n  vMapUv *= facadeRepeat;\n#endif\n' +
+            '#ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv *= facadeRepeat;\n#endif'
         )
     }
   }
@@ -2649,7 +2594,9 @@ export class Cityscape {
     this.farBuildingSideMaterial.emissiveIntensity = windowGlow * 2.1
     // Shopfronts burn brighter than office windows and switch on a beat
     // earlier through dusk (sqrt curve): commerce leads the night city.
-    this.shopBandMaterial.emissiveIntensity = Math.sqrt(night) * night * 2.2
+    this.shopBandMaterials.forEach((material, index) => {
+      material.emissiveIntensity = Math.sqrt(night) * night * FRONTAGES[FRONTAGE_KINDS[index]].glow
+    })
     this.buildingRoofMaterial.emissiveIntensity = windowGlow * 0.42
     // The Kenney kits glow through their glass-masked emissive maps, so the
     // whole skyline keeps the night-window signature.
@@ -2672,7 +2619,7 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      this.shopBandMaterial
+      ...this.shopBandMaterials
     ]) {
       material.color.setScalar(facadeLift)
     }
@@ -2750,7 +2697,7 @@ export class Cityscape {
       ...this.largeBuildingSideMaterials,
       ...this.towerBuildingSideMaterials,
       this.farBuildingSideMaterial,
-      this.shopBandMaterial,
+      ...this.shopBandMaterials,
       ...this.buildingSignMaterials,
       this.hedgeMaterial,
       this.fenceMaterial
@@ -2770,7 +2717,7 @@ export class Cityscape {
     }
     disposeTextureSet(this.farFacadeTextures)
     disposeTextureSet(this.houseFacadeTextures)
-    disposeTextureSet(this.shopStripTextures)
+    this.shopStripTextures.forEach(disposeTextureSet)
     disposeTextureSet(this.roofTextures)
     for (const set of this.signTextureSets) {
       disposeTextureSet(set)
@@ -3494,16 +3441,12 @@ export class Cityscape {
       }
     }
 
-    // Every urban building tall enough for an upstairs gets a street-level
-    // shop band; houses keep their gardens instead.
-    const shopBand = this.buildShopBandBatch(
-      near.filter(
-        ({ building }) => building.kind !== 'house' && building.height >= 8
+    // Opaque exteriors only: enterable buildings are filtered upstream.
+    for (const kind of FRONTAGE_KINDS) {
+      const shopBand = this.buildShopBandBatch(
+        near.filter(({ building }) => building.kind !== 'house' && building.height >= 8 && frontageKind(building) === kind), kind
       )
-    )
-
-    if (shopBand !== null) {
-      this.archetypeBatches.push(shopBand)
+      if (shopBand !== null) this.archetypeBatches.push(shopBand)
     }
 
     // Towers split across three restrained skins so the skyline varies without
@@ -4519,34 +4462,37 @@ export class Cityscape {
     return mesh
   }
 
-  // Direction C of the facade study: a thin instanced box wrapped around each
-  // urban block's base carries the shop strip. It outgrows the walls by 0.3m
+  // A thin instanced box wrapped around each opaque urban block's base
+  // carries its ground-floor use. It outgrows the walls by 0.3m
   // so its faces never share a plane with the building (no z-fight), and the
   // 0.15m overhang caps with the roof material — a canopy lip when seen from
-  // above. The body facade stays fully tileable; no shader UV surgery needed.
+  // above. The body facade keeps its own independent window grid.
   private buildShopBandBatch(
-    plan: BuildingRenderPlacement[]
+    plan: BuildingRenderPlacement[],
+    kind: FrontageKind
   ): THREE.InstancedMesh | null {
     if (plan.length === 0) {
       return null
     }
 
     const geometry = new THREE.BoxGeometry(1, 1, 1)
-    const materials = [
-      this.shopBandMaterial,
-      this.shopBandMaterial,
-      this.kenneyRoofMaterial,
-      this.kenneyRoofMaterial,
-      this.shopBandMaterial,
-      this.shopBandMaterial
-    ]
+    // Consolidate the box's six face groups into sides + caps: four uses
+    // need at most eight draws, versus six for the old single-use strip.
+    const original = Array.from(geometry.index!.array)
+    geometry.setIndex([0, 1, 4, 5, 2, 3].flatMap(face => original.slice(face * 6, face * 6 + 6)))
+    geometry.clearGroups()
+    geometry.addGroup(0, 24, 0)
+    geometry.addGroup(24, 12, 1)
+    const materials = [this.shopBandMaterials[FRONTAGE_KINDS.indexOf(kind)], this.kenneyRoofMaterial]
     const mesh = new THREE.InstancedMesh(geometry, materials, plan.length)
+    mesh.name = `ground-floor-${kind}`
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     mesh.frustumCulled = false
     const uvScales = new Float32Array(plan.length * 2)
 
     for (let index = 0; index < plan.length; index += 1) {
       const building = plan[index].building
+      const layout = frontageLayout(building, kind)
       const cos = Math.cos(building.azimuth)
       const sin = Math.sin(building.azimuth)
 
@@ -4557,11 +4503,11 @@ export class Cityscape {
       instanceQuaternion.setFromRotationMatrix(basis)
       instancePosition
         .set(cos, 0, sin)
-        .multiplyScalar(this.radius - SHOP_BAND_METERS * 0.5)
+        .multiplyScalar(this.radius - layout.height * 0.5)
         .setY(building.axial)
       instanceScale.set(
         building.width + 0.3,
-        SHOP_BAND_METERS,
+        layout.height,
         building.depth + 0.3
       )
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
@@ -4569,13 +4515,8 @@ export class Cityscape {
       // White: the strip bakes its own shopfront colours; the per-building
       // wall tone must not tint the glazing.
       mesh.setColorAt(index, instanceColor.setScalar(1))
-      writeFacadeUvScale(
-        (building.width + building.depth) * 0.5,
-        SHOP_BAND_METERS,
-        GRID_SHOPS,
-        uvScales,
-        index * 2
-      )
+      uvScales[index * 2] = layout.widthBays / FRONTAGE_TEXTURE_BAYS
+      uvScales[index * 2 + 1] = layout.depthBays / FRONTAGE_TEXTURE_BAYS
     }
 
     geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(uvScales, 2))
