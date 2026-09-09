@@ -4,6 +4,7 @@ import { planStreetBlock } from './streetBlocks'
 import { STREET_PROFILES, FOOTPATH_WIDTH } from './streetProfile'
 import { getArterialRoadWidth, getLocalRoadWidth, getCityCellSize, planCity } from './cityLayout'
 import { StreetAccessLayer } from './streetAccessLayer'
+import { planSidewalkSegments } from './sidewalks'
 
 test('street profiles stay human-sized across habitat scales', () => {
   for (const radius of [18, 800, 3200, 30000]) {
@@ -18,28 +19,21 @@ test('street profiles stay human-sized across habitat scales', () => {
   expect(FOOTPATH_WIDTH).toBe(2)
 })
 
-test('rendered sidewalk bands extend to the specified total road width', () => {
+test('raised sidewalk bands use the shared profile, without a second skin in the entrance layer', () => {
   const radius = 3200
-  for (const kind of ['arterial', 'local', 'alley'] as const) {
+  for (const kind of ['arterial', 'collector', 'local', 'alley'] as const) {
     const profile = STREET_PROFILES[kind]
-    const layer = new StreetAccessLayer(new THREE.Group())
-    layer.rebuild({ roads: [{ azimuth: 0, axial: 0, tangentWidth: profile.carriageway,
-      axialLength: 100, kind }], buildings: [], intersections: [], patches: [], trees: [],
-      tower: null, expressway: null }, radius, 0, 0)
-    if (kind === 'alley') {
-      expect(layer.group.children).toHaveLength(0)
-    } else {
-      expect(layer.group.children).toHaveLength(1)
-      const geometry = (layer.group.children[0] as THREE.Mesh).geometry
-      const positions = geometry.getAttribute('position')
-      let outer = 0, inner = Infinity
-      for (let i = 0; i < positions.count; i++) {
-        const t = Math.abs(Math.atan2(positions.getZ(i), positions.getX(i)) * radius)
-        outer = Math.max(outer, t); inner = Math.min(inner, t)
-      }
-      expect(inner).toBeCloseTo(profile.carriageway / 2, 3)
-      expect(outer).toBeCloseTo(profile.carriageway / 2 + profile.sidewalk, 3)
+    const roads = [{ azimuth: 0, axial: 0, tangentWidth: profile.carriageway, axialLength: 100, kind }]
+    const segments = planSidewalkSegments(roads, [], radius, 3, () => false)
+    expect(segments).toHaveLength(kind === 'alley' ? 0 : 2)
+    for (const s of segments) {
+      expect(s.tangentExtent).toBe(profile.sidewalk)
+      expect(Math.abs(s.azimuth * radius) - s.tangentExtent / 2).toBeCloseTo(profile.carriageway / 2, 5)
     }
+    const layer = new StreetAccessLayer(new THREE.Group())
+    layer.rebuild({ roads, buildings: [], intersections: [], patches: [], trees: [],
+      tower: null, expressway: null }, radius, 0, 0)
+    expect(layer.group.children).toHaveLength(0)
     layer.dispose()
   }
 })

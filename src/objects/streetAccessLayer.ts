@@ -1,22 +1,21 @@
 import * as THREE from 'three'
 import type { CityPlan } from './cityLayout'
-import { planStreetWalkways } from './streetWalkways'
 
 const wrap = (a: number) => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
 
 // Pavement is a thin visual skin on the existing walkable cylinder. It uses
-// exactly the certified corridor rectangles; no independent path routing.
+// exactly the certified entrance corridors. The continuous kerbed bands
+// belong to Sidewalks; a second skin here would have different clipping/LOD.
 export class StreetAccessLayer {
   readonly group = new THREE.Group()
   private readonly pathMaterial = new THREE.MeshStandardMaterial({ color: 0xb2aca0, roughness: 0.95, side: THREE.DoubleSide })
-  private readonly sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xa4a39a, roughness: 0.95, side: THREE.DoubleSide })
   private readonly validMaterial = new THREE.LineBasicMaterial({ color: 0x55ffaa, depthTest: false })
   private readonly rejectedMaterial = new THREE.LineBasicMaterial({ color: 0xff4455, depthTest: false })
   constructor(parent: THREE.Group, private readonly debug = false) { parent.add(this.group) }
 
   rebuild(plan: CityPlan, radius: number, azimuth: number, axial: number) {
     this.clear()
-    const path: number[] = [], sidewalks: number[] = [], valid: number[] = [], rejected: number[] = []
+    const path: number[] = [], valid: number[] = [], rejected: number[] = []
     // Above fields (0.1 m), below alleys (0.15 m) and roads (0.2 m).
     const position = (t: number, a: number, lift = 0.12) => {
       const angle = azimuth + t / radius
@@ -34,9 +33,6 @@ export class StreetAccessLayer {
         const p = [position(x0, bottom, lift), position(x1, bottom, lift), position(x1, top, lift), position(x0, top, lift)]
         for (const index of [0, 1, 2, 0, 2, 3]) out.push(...p[index])
       }
-    }
-    for (const p of planStreetWalkways(plan.roads, radius, azimuth, axial)) {
-      rect(sidewalks, (p.t0 + p.t1) / 2, (p.a0 + p.a1) / 2, p.t1 - p.t0, p.a1 - p.a0, 0.14)
     }
     for (const building of plan.buildings) {
       const { access, front } = building
@@ -59,7 +55,7 @@ export class StreetAccessLayer {
       rejected.push(...position(t - 1, a - 1, 0.4), ...position(t + 1, a + 1, 0.4),
         ...position(t - 1, a + 1, 0.4), ...position(t + 1, a - 1, 0.4))
     }
-    for (const [vertices, material] of [[sidewalks, this.sidewalkMaterial], [path, this.pathMaterial]] as const) {
+    for (const [vertices, material] of [[path, this.pathMaterial]] as const) {
       if (!vertices.length) continue
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
@@ -84,7 +80,6 @@ export class StreetAccessLayer {
   dispose() {
     this.clear()
     this.pathMaterial.dispose()
-    this.sidewalkMaterial.dispose()
     this.validMaterial.dispose(); this.rejectedMaterial.dispose()
     this.group.removeFromParent()
   }

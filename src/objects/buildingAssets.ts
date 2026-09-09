@@ -1120,13 +1120,15 @@ export const disposeDetailedBuildingGeometryPack = (
 // material groups 1/2 so the night traffic streaks survive the swap from
 // the procedural box car.
 
+// Dimensions include the full mesh envelope. Traffic adds at most 3%;
+// parked cars share these same geometries at unit scale.
 export const KENNEY_CAR_VARIANTS = [
-  { file: 'sedan', length: 4.4, width: 1.8, height: 1.5 },
-  { file: 'suv', length: 4.6, width: 1.9, height: 1.75 },
-  { file: 'hatchback-sports', length: 4.0, width: 1.75, height: 1.45 },
-  { file: 'delivery', length: 5.2, width: 2.0, height: 2.35 },
-  { file: 'taxi', length: 4.4, width: 1.8, height: 1.55 },
-  { file: 'truck', length: 5.4, width: 2.2, height: 2.5 }
+  { file: 'sedan', length: 4.1, width: 1.7, height: 1.45 },
+  { file: 'suv', length: 4.3, width: 1.8, height: 1.65 },
+  { file: 'hatchback-sports', length: 3.7, width: 1.65, height: 1.4 },
+  { file: 'delivery', length: 4.8, width: 1.85, height: 2.15 },
+  { file: 'taxi', length: 4.1, width: 1.7, height: 1.455 },
+  { file: 'truck', length: 5.0, width: 2.0, height: 2.3 }
 ] as const
 
 export type KenneyCarGeometryPack = {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { planSidewalkSegments } from './sidewalks'
-import type { CityIntersection, CityRoad } from './cityLayout'
+import { planCity, type CityIntersection, type CityRoad } from './cityLayout'
+import { SurfaceIndex } from './streetAccess'
 
 const R = 3200
 const sidewalk = 5
@@ -17,19 +18,19 @@ describe('planSidewalkSegments', () => {
     // avenue: 2 runs (before / after the crossing) × 2 sides
     expect(avenueBands.length).toBe(4)
     for (const b of avenueBands) {
-      expect(b.tangentExtent).toBe(sidewalk)
+      expect(b.tangentExtent).toBe(2)
       // never inside the cross street's road box
       const lo = b.axial - b.axialExtent * 0.5
       const hi = b.axial + b.axialExtent * 0.5
       expect(hi <= 200 - 12 + 1e-9 || lo >= 200 + 12 - 1e-9).toBe(true)
       // centred one half road + half sidewalk off the avenue centreline
-      expect(Math.abs((b.azimuth - avenue.azimuth) * R)).toBeCloseTo(4 + 2.5, 6)
+      expect(Math.abs((b.azimuth - avenue.azimuth) * R)).toBeCloseTo(4 + 1, 6)
     }
     // street: 2 runs (either side of the avenue) × 2 sides
     expect(streetBands.length).toBe(4)
     for (const b of streetBands) {
-      expect(b.axialExtent).toBe(sidewalk)
-      expect(Math.abs(b.axial - street.axial)).toBeCloseTo(12 + 2.5, 6)
+      expect(b.axialExtent).toBe(3)
+      expect(Math.abs(b.axial - street.axial)).toBeCloseTo(12 + 1.5, 6)
       const t0 = (b.azimuth - street.azimuth) * R - b.tangentExtent * 0.5
       const t1 = (b.azimuth - street.azimuth) * R + b.tangentExtent * 0.5
       const avenueT = (avenue.azimuth - street.azimuth) * R
@@ -50,4 +51,38 @@ describe('planSidewalkSegments', () => {
     const segments = planSidewalkSegments([avenue], [], R, sidewalk, (_, axial) => Math.abs(axial) < 1e9)
     expect(segments.length).toBe(0)
   })
+})
+
+// Check the layer actually used by main.ts, not only the access-path layer.
+const overlapsRoad = (s: ReturnType<typeof planSidewalkSegments>[number], r: CityRoad, radius: number) => {
+  const dt = Math.abs(Math.atan2(Math.sin(s.azimuth - r.azimuth), Math.cos(s.azimuth - r.azimuth))) * radius
+  return dt < (s.tangentExtent + r.tangentWidth) / 2 - 1e-5 &&
+    Math.abs(s.axial - r.axial) < (s.axialExtent + r.axialLength) / 2 - 1e-5
+}
+
+test('uncatalogued shared lanes and offset T junctions cut the actual raised sidewalks, including the seam', () => {
+  for (const focus of [0, Math.PI - 0.001]) {
+    const roads: CityRoad[] = [
+      { azimuth: focus, axial: 0, tangentWidth: 12, axialLength: 300, kind: 'collector' },
+      { azimuth: focus + 50 / R, axial: 45, tangentWidth: 100, axialLength: 4, kind: 'alley' },
+      { azimuth: focus - 52 / R, axial: -50, tangentWidth: 100, axialLength: 6, kind: 'local' }
+    ]
+    const segments = planSidewalkSegments(roads, [], R, 3, () => false)
+    expect(segments.length).toBeGreaterThan(4)
+    for (const s of segments) for (const road of roads) expect(overlapsRoad(s, road, R)).toBe(false)
+  }
+})
+
+test('every raised sidewalk in the production Izma plan clears every carriageway', () => {
+  const plan = planCity({ radius: R, length: 40000, maxBuildings: 64000 })
+  const segments = planSidewalkSegments(plan.roads, plan.intersections, R, 3, () => false)
+  const index = new SurfaceIndex(R)
+  plan.roads.forEach((road, i) => index.insert(road, i))
+  let overlaps = 0
+  for (const s of segments) {
+    for (const i of index.query({ ...s, tangentWidth: s.tangentExtent, axialLength: s.axialExtent }))
+      if (overlapsRoad(s, plan.roads[i], R)) overlaps++
+  }
+  expect(segments.length).toBeGreaterThan(1000)
+  expect(overlaps).toBe(0)
 })
