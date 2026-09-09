@@ -4,7 +4,7 @@ import { SurfaceIndex } from './streetAccess'
 
 export type WalkwayRect = { t0: number; t1: number; a0: number; a1: number }
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
-const cut = (p: WalkwayRect, road: WalkwayRect): WalkwayRect[] => {
+export const subtractWalkwayRect = (p: WalkwayRect, road: WalkwayRect): WalkwayRect[] => {
   const t0 = Math.max(p.t0, road.t0), t1 = Math.min(p.t1, road.t1)
   const a0 = Math.max(p.a0, road.a0), a1 = Math.min(p.a1, road.a1)
   if (t1 - t0 <= 1e-5 || a1 - a0 <= 1e-5) return [p]
@@ -36,7 +36,7 @@ export const planStreetWalkways = (roads: CityRoad[], radius: number, azimuth: n
         tangentWidth: rect.t1 - rect.t0, axialLength: rect.a1 - rect.a0 }
       for (const id of index.query(query)) {
         const r = roads[id], rt = wrap(r.azimuth - azimuth) * radius, ra = r.axial - axial
-        remaining = remaining.flatMap(p => cut(p, { t0: rt - r.tangentWidth / 2, t1: rt + r.tangentWidth / 2,
+        remaining = remaining.flatMap(p => subtractWalkwayRect(p, { t0: rt - r.tangentWidth / 2, t1: rt + r.tangentWidth / 2,
           a0: ra - r.axialLength / 2, a1: ra + r.axialLength / 2 }))
       }
       pieces.push(...remaining)

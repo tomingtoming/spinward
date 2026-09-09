@@ -797,15 +797,14 @@ const bakeRoadUvs = (
 }
 
 // The near disk speaks Kenney, so the mid procedural boxes and the far
-// skyline take their per-instance colour from the SAME kit pick — the
-// palette no longer jumps at the LOD boundaries. Values are the kits'
-// representative wall colours, with a mild luminance jitter from the
-// building's tone roll so rows stay varied.
+// skyline take their per-instance colour from the same building category.
+// Towers use pale metal/concrete tints; a dark tint multiplied by a facade
+// texture would double-darken their walls. Mild jitter keeps rows varied.
 const KENNEY_COMMERCIAL_WALL_TONES = [
   0xefece6, 0xe6d9c4, 0x979db8, 0xc8745e, 0xb6bac2, 0x767b8c
 ]
 const KENNEY_SUBURBAN_WALL_TONES = [0xf2f2f0, 0xe9e4d8]
-const KENNEY_SKYSCRAPER_WALL_TONES = [0x4c5160, 0x3f4756, 0x5a6070]
+const KENNEY_SKYSCRAPER_WALL_TONES = [0xa2afbd, 0x91a2b5, 0xb4b8bd]
 const KENNEY_INDUSTRIAL_WALL_TONE = 0xd4d6d9
 
 export const buildingTone = (building: CityBuilding, target: THREE.Color) => {
@@ -828,11 +827,10 @@ export const buildingTone = (building: CityBuilding, target: THREE.Color) => {
 // the air at every distance, downtown stays dark decked.
 export const KENNEY_ROOF_TONES = {
   suburban: new THREE.Color(0x55b17c),
-  // Downtown decks one step lighter than the 07-22 values (0x3f434c /
-  // 0x30343e): from 60-200 m up every roof was a near-black slab and the
-  // plant on it could not read. Still darker than the walls.
-  commercial: new THREE.Color(0x4c5159),
-  skyscraper: new THREE.Color(0x3c414b),
+  // Daylight roof decks stay darker than the walls but light enough for
+  // rooftop equipment to read from 60–200 m. Shared with the shell bake.
+  commercial: new THREE.Color(0x737a80),
+  skyscraper: new THREE.Color(0x68737e),
   industrial: new THREE.Color(0x7c828c)
 } as const
 
@@ -1075,15 +1073,13 @@ const createFacadeTextureSet = (
   const isDense = variant === 'dense' || variant === 'far'
   const cellWidth = size / columns
   const cellHeight = size / rows
-  // Bases sit a stop or two brighter than a pure night skin so the daytime color
-  // lift (setDaylight) reaches a believable concrete/glass grey instead of near
-  // black; night stays dark because the hemisphere light is low after dusk.
-  // Neutral grey bases: the hue comes from the per-instance Kenney wall
-  // tone, so the texture must not fight it with a cast of its own.
+  // Daylight concrete/metal reflectance. The instance tint already supplies
+  // the building colour, so multiplying it by a second dark night skin would
+  // crush tall facades to black. Window emission is a separate night map.
   const base =
-    palette?.base ?? (isTower ? '#33353b' : variant === 'warm' ? '#616164' : '#4a4b4f')
+    palette?.base ?? (isTower ? '#919aa4' : variant === 'warm' ? '#b9b7b0' : '#a9adb0')
   const rib =
-    palette?.rib ?? (isTower ? '#1e2024' : variant === 'warm' ? '#6a6a6e' : '#303236')
+    palette?.rib ?? (isTower ? '#64717d' : variant === 'warm' ? '#a8a69f' : '#7c848b')
   const seam =
     palette?.seam ??
     (isTower ? 'rgba(200, 205, 215, 0.08)' : 'rgba(225, 225, 230, 0.08)')
@@ -1472,16 +1468,16 @@ const disposeTextureSet = (textures: TextureSet) => {
 // Facade wardrobes. Block batches split by a per-building hash across these
 // palettes so neighbouring buildings stop wearing the same skin.
 const BLOCK_PALETTES: Array<FacadePalette | undefined> = [
-  undefined, // the original slate
+  undefined, // neutral concrete
   {
-    base: '#8b8d92',
-    rib: '#5f6165',
+    base: '#c2c3bd',
+    rib: '#939898',
     seam: 'rgba(45, 46, 50, 0.12)',
     coolGlass: 'rgba(105, 112, 125, 0.4)'
   }, // pale tile
   {
-    base: '#4b4a49',
-    rib: '#2e2d2c',
+    base: '#b6a89b',
+    rib: '#83766c',
     seam: 'rgba(228, 224, 218, 0.1)'
   } // warm masonry
 ]
@@ -1492,8 +1488,8 @@ const TOWER_PALETTES: Array<FacadePalette | undefined> = [
   undefined,
   undefined,
   {
-    base: '#36383e',
-    rib: '#24262b',
+    base: '#a5a6a4',
+    rib: '#747b80',
     seam: 'rgba(210, 210, 216, 0.06)',
     coolGlass: 'rgba(110, 118, 130, 0.38)'
   }
@@ -2666,11 +2662,10 @@ export class Cityscape {
       this.kenneyBuildingGeometries.industrialMaterial.emissiveIntensity =
         windowGlow * 0.24
     }
-    // The facade albedo is authored dark (a night base + lit-window cut-outs);
-    // lift it hard through the day so sunlit walls read as a daytime city rather
-    // than the dim night skin. Roofs lift too, and dim below 1 at night so only
-    // the emissive rooftop details carry.
-    const facadeLift = 1 + daylight * 2.6
+    // Daytime wall reflectance lives in the albedo, independently of the
+    // night window map. Dim reflected light after dusk; do not compensate
+    // a near-black texture with an HDR multiplier at noon.
+    const facadeLift = 0.45 + daylight * 1.35
     for (const material of [
       ...this.buildingSideMaterials,
       this.houseBuildingSideMaterial,

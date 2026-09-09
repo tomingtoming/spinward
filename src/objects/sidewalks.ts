@@ -3,18 +3,15 @@ import * as THREE from 'three'
 import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArcSegments, getThetaStart } from './cityscape'
 import { mergeBufferGeometries } from './cylinder'
+import { SurfaceIndex } from './streetAccess'
+import { getStreetProfile } from './streetProfile'
+import { coalesceRoads } from './roadNetwork'
+import { subtractWalkwayRect } from './streetWalkways'
 
-// Sidewalks with a kerb (2026-09-03, 緻密さ②). Until now the 5 m band between
-// a road and its frontage was bare ground: the block grid reserves it
-// (buildings start at road edge + sidewalk) but nothing was drawn there. This
-// lays a paved band on both sides of every grid road (arterial/local; alleys
-// are service lanes), cut at every crossing so it never paves the cross
-// street, and lifted 12 cm above the road deck so the edge reads as a kerb.
-//
-// Radii (larger = lower): ground R, fields R−0.1, alleys R−0.15, roads R−0.2
-// (avenues a junction gap lower). Sidewalks sit at R−0.32; street-side bands
-// go 1 cm higher so the corner squares, which both roads' bands cover, do
-// not z-fight.
+// Raised concrete bands along the shared street profiles, clipped against
+// every actual carriageway (including block streets and shared alleys).
+// Radii: ground R, fields R−0.1, roads R−0.2, kerbs R−0.32. Tangential
+// bands are 1 cm higher to resolve their shared corner with axial bands.
 
 export const SIDEWALK_LIFT = 0.32
 export const SIDEWALK_TEXTURE_METERS = 5
@@ -36,73 +33,49 @@ const wrapToPi = (angle: number) => {
   return wrapped > Math.PI ? wrapped - TWO_PI : wrapped
 }
 
-// Split [start, end] by the exclusion intervals (sorted by centre) into the
-// runs that remain, dropping runs shorter than `minLength`.
-const runsBetween = (
-  start: number,
-  end: number,
-  exclusions: Array<{ at: number; halfWidth: number }>,
-  minLength: number
-) => {
-  const sorted = [...exclusions].sort((a, b) => a.at - b.at)
-  const runs: Array<[number, number]> = []
-  let cursor = start
-  for (const x of sorted) {
-    const lo = x.at - x.halfWidth
-    const hi = x.at + x.halfWidth
-    if (hi < start || lo > end) continue
-    if (lo - cursor >= minLength) runs.push([cursor, lo])
-    cursor = Math.max(cursor, hi)
-  }
-  if (end - cursor >= minLength) runs.push([cursor, end])
-  return runs
-}
-
-// Pure: the paved bands for a plan. `isOpenSquare` marks ground kept clear
-// (plaza, arrival square) where no band is laid.
+// Use carriageways, not the signal/intersection catalogue: block-generated
+// streets, offset T entries and shared alleys all interrupt the kerb even if
+// there is no traffic-light node at their centre. Keep the old arguments for
+// callers supplying plaza exclusions and the no-sidewalk switch.
 export const planSidewalkSegments = (
   roads: CityRoad[],
-  intersections: CityIntersection[],
+  _intersections: CityIntersection[],
   radius: number,
   sidewalk: number,
   isOpenSquare: (azimuth: number, axial: number) => boolean
 ): SidewalkSegment[] => {
   const out: SidewalkSegment[] = []
   if (radius <= 0 || sidewalk <= 0) return out
-  const minLength = sidewalk * 0.6
-  for (const road of roads) {
-    if (road.kind === 'alley') continue
+  const index = new SurfaceIndex(radius)
+  roads.forEach((road, i) => index.insert(road, i))
+  for (const road of coalesceRoads(roads, radius)) {
+    const width = getStreetProfile(road.kind, radius).sidewalk
+    if (!width) continue
     const isAvenue = road.axialLength > road.tangentWidth
-    if (isAvenue) {
-      const crossings = intersections
-        .filter((x) => Math.abs(wrapToPi(x.azimuth - road.azimuth)) * radius < 0.5)
-        .map((x) => ({ at: x.axial, halfWidth: x.streetWidth * 0.5 }))
-      const runs = runsBetween(
-        road.axial - road.axialLength * 0.5,
-        road.axial + road.axialLength * 0.5,
-        crossings,
-        minLength
-      )
-      for (const [a0, a1] of runs) {
-        for (const side of [-1, 1] as const) {
-          const azimuth = road.azimuth + (side * (road.tangentWidth * 0.5 + sidewalk * 0.5)) / radius
-          const axial = (a0 + a1) * 0.5
-          if (isOpenSquare(azimuth, axial)) continue
-          out.push({ azimuth, axial, tangentExtent: sidewalk, axialExtent: a1 - a0, isAvenue: true, roadSide: (-side) as 1 | -1 })
-        }
+    for (const side of [-1, 1] as const) {
+      const t = isAvenue ? side * (road.tangentWidth + width) / 2 : 0
+      const a = isAvenue ? 0 : side * (road.axialLength + width) / 2
+      const w = isAvenue ? width : road.tangentWidth
+      const h = isAvenue ? road.axialLength : width
+      let pieces = [{ t0: t - w / 2, t1: t + w / 2, a0: a - h / 2, a1: a + h / 2 }]
+      const candidates = index.query({ azimuth: road.azimuth + t / radius,
+        axial: road.axial + a, tangentWidth: w, axialLength: h })
+      for (const id of candidates) {
+        const other = roads[id]
+        const rt = wrapToPi(other.azimuth - road.azimuth) * radius
+        const ra = other.axial - road.axial
+        pieces = pieces.flatMap(p => subtractWalkwayRect(p, {
+          t0: rt - other.tangentWidth / 2, t1: rt + other.tangentWidth / 2,
+          a0: ra - other.axialLength / 2, a1: ra + other.axialLength / 2
+        }))
+        if (!pieces.length) break
       }
-    } else {
-      const crossings = intersections
-        .filter((x) => Math.abs(x.axial - road.axial) < 0.5)
-        .map((x) => ({ at: wrapToPi(x.azimuth - road.azimuth) * radius, halfWidth: x.avenueWidth * 0.5 }))
-      const runs = runsBetween(-road.tangentWidth * 0.5, road.tangentWidth * 0.5, crossings, minLength)
-      for (const [t0, t1] of runs) {
-        for (const side of [-1, 1] as const) {
-          const azimuth = road.azimuth + ((t0 + t1) * 0.5) / radius
-          const axial = road.axial + side * (road.axialLength * 0.5 + sidewalk * 0.5)
-          if (isOpenSquare(azimuth, axial)) continue
-          out.push({ azimuth, axial, tangentExtent: t1 - t0, axialExtent: sidewalk, isAvenue: false, roadSide: (-side) as 1 | -1 })
-        }
+      for (const p of pieces) {
+        const azimuth = road.azimuth + (p.t0 + p.t1) / (2 * radius)
+        const axial = road.axial + (p.a0 + p.a1) / 2
+        if (isOpenSquare(azimuth, axial)) continue
+        out.push({ azimuth, axial, tangentExtent: p.t1 - p.t0,
+          axialExtent: p.a1 - p.a0, isAvenue, roadSide: -side as 1 | -1 })
       }
     }
   }
