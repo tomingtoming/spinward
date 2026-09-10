@@ -1,3 +1,5 @@
+import type { RoomEnvironment } from '../objects/roomExperience'
+
 // Synthesized audio: no assets, everything generated with WebAudio. The
 // context unlocks on the first user gesture (browser autoplay policy).
 //
@@ -34,6 +36,13 @@ export class GameAudio {
   private selfGain: GainNode | null = null
   private nextHeartTime = 0
   private muted = false
+  private roomCafeGain: GainNode | null = null
+  private roomLobbyGain: GainNode | null = null
+  private roomSteamGain: GainNode | null = null
+  private roomStepGain: GainNode | null = null
+  private roomStepBuffer: AudioBuffer | null = null
+  private roomStepTime = 0
+  private roomSteps = 0
   // Sustained jetpack voice (built lazily, modulated each frame by throttle).
   // The looping noise source stays alive via its graph connection to master.
   private jetFilter: BiquadFilterNode | null = null
@@ -336,6 +345,54 @@ export class GameAudio {
         this.nextHeartTime += HEARTBEAT_PERIOD_SECONDS
       }
     }
+  }
+
+  // Room appliances are local air-carried voices, built once after a gesture.
+  // They do not imply unseen customers: boiler, pressure release and ventilation.
+  private startRoomVoices() {
+    const ctx=this.context,world=this.worldBus
+    if(!ctx||!world||this.roomCafeGain)return
+    const gain=()=>{const node=ctx.createGain();node.gain.value=0;node.connect(world);return node}
+    this.roomCafeGain=gain();this.roomLobbyGain=gain();this.roomSteamGain=gain();this.roomStepGain=gain()
+    for(const [frequency,level] of [[90,.7],[180,.2]]) {
+      const oscillator=ctx.createOscillator(),volume=ctx.createGain()
+      oscillator.frequency.value=frequency;volume.gain.value=level
+      oscillator.connect(volume);volume.connect(this.roomCafeGain);oscillator.start()
+    }
+    const ventilation=this.makeLoopingNoise(5,'brown'),steam=this.makeLoopingNoise(4,'pink')
+    if(ventilation){const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;ventilation.connect(filter);filter.connect(this.roomLobbyGain);ventilation.start()}
+    if(steam){const filter=ctx.createBiquadFilter();filter.type='bandpass';filter.frequency.value=1400;filter.Q.value=.6;steam.connect(filter);filter.connect(this.roomSteamGain);steam.start()}
+    this.roomStepBuffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.10),ctx.sampleRate)
+    const data=this.roomStepBuffer.getChannelData(0)
+    for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/data.length*9)
+  }
+
+  setRoomEnvironment(room: RoomEnvironment, speed: number, walking: boolean, deltaSeconds: number) {
+    const ctx=this.context
+    if(!ctx)return
+    if(room.shelter>0)this.startRoomVoices()
+    const now=ctx.currentTime,cafe=Math.max(0,Math.min(1,room.cafe)),lobby=Math.max(0,Math.min(1,room.lobby))
+    this.roomCafeGain?.gain.setTargetAtTime(cafe*.026,now,.35)
+    this.roomLobbyGain?.gain.setTargetAtTime(lobby*.065,now,.45)
+    const phase=now%14
+    const rise=Math.max(0,Math.min(1,(phase-10.5)/.5)),fall=Math.max(0,Math.min(1,(13.2-phase)/.8))
+    this.roomSteamGain?.gain.setTargetAtTime(cafe*.07*rise*fall,now,.15)
+    this.roomStepGain?.gain.setTargetAtTime(room.shelter*.08,now,.18)
+    if(!walking||speed<.6||room.shelter<.05){this.roomStepTime=0;return}
+    this.roomStepTime+=Math.min(.1,Math.max(0,deltaSeconds))
+    const interval=Math.max(.28,.53-Math.min(speed,10)*.025)
+    if(this.roomStepTime<interval||!this.roomStepBuffer||!this.roomStepGain)return
+    this.roomStepTime%=interval;this.roomSteps++
+    const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),volume=ctx.createGain()
+    source.buffer=this.roomStepBuffer;filter.type='lowpass';filter.frequency.value=lobby>cafe?1700:1100
+    volume.gain.setValueAtTime(.7,now);volume.gain.exponentialRampToValueAtTime(.001,now+.12)
+    source.connect(filter);filter.connect(volume);volume.connect(this.roomStepGain);source.start(now);source.stop(now+.13)
+    source.onended=()=>{source.disconnect();filter.disconnect();volume.disconnect()}
+  }
+
+  get roomAudioState() {
+    return {state:this.context?.state??'locked',muted:this.muted,cafe:this.roomCafeGain?.gain.value??0,
+      lobby:this.roomLobbyGain?.gain.value??0,steam:this.roomSteamGain?.gain.value??0,steps:this.roomSteps}
   }
 
   // Filtered noise burst with a falling band-pass sweep.

@@ -24,6 +24,8 @@ export type AmbienceInput = {
   airspeed: number
   // 0..1 day factor: streets murmur by day, hush at night.
   daylight: number
+  // Enclosed public room; outdoors remains audible quietly through its portals.
+  shelter?: number
 }
 
 export type AmbienceMix = {
@@ -48,7 +50,8 @@ export const computeAmbienceMix = ({
   radialFraction,
   inAir,
   airspeed,
-  daylight
+  daylight,
+  shelter = 0
 }: AmbienceInput): AmbienceMix => {
   if (!inAir) {
     return { city: 0, wind: 0, vacuum: 1 }
@@ -63,8 +66,8 @@ export const computeAmbienceMix = ({
     CITY_NIGHT_FLOOR + (1 - CITY_NIGHT_FLOOR) * THREE.MathUtils.clamp(daylight, 0, 1)
 
   return {
-    city: altitude * busy,
-    wind: THREE.MathUtils.smoothstep(airspeed, WIND_SILENT_SPEED, WIND_FULL_SPEED),
+    city: altitude * busy * (1 - 0.78 * THREE.MathUtils.clamp(shelter, 0, 1)),
+    wind: THREE.MathUtils.smoothstep(airspeed, WIND_SILENT_SPEED, WIND_FULL_SPEED) * (1 - 0.85 * THREE.MathUtils.clamp(shelter, 0, 1)),
     vacuum: 0
   }
 }

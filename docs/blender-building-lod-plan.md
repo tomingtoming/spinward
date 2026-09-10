@@ -1,9 +1,10 @@
 # Blender buildings and LOD plan
 
-Status: staged implementation authorized by toming on 2026-09-10. Stages 1–3
-have connected-Blender cafe/lobby assets and local three-level LOD switching.
+Status: staged implementation authorized by toming on 2026-09-10. Stages 1–4
+have connected-Blender cafe/lobby assets, local three-level LOD switching, room
+dressing and localized ambience.
 Production is unchanged. Stage-1 and stage-2 sections below are historical;
-the stage-3 section records the current implementation. Baseline: local frontage study `879e234`, parent production
+the stage-3 and stage-4 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.
 
@@ -469,3 +470,68 @@ Remaining work: richer room dressing and local ambience/activity for the lived-i
 street, then broader building variety and city-scale batching/visibility. LOD3/4,
 full interior/roof budgets and physical XR dither review are still outstanding.
 No public push or production deployment has been performed.
+
+
+## Stage 4 completed locally — room dressing and local sound (2026-09-10)
+
+The existing cafe counter now carries an espresso machine, grinder, cups and
+stacked saucers. Tables and benches gain cups, books and small plants; a wall
+menu identifies ORBIT COFFEE. Meridian gains plants, books and a wall directory.
+`build_room_dressing.py` ran through the connected Blender 5.2.1 LTS process and
+saved `room-dressing.blend` plus the shared `room-dressing.glb` (325,592 bytes).
+The cafe adds **3,617 triangles / 7 material primitives**, and the lobby adds
+**1,334 / 6**. These are additional room-detail budgets, separate from the
+unchanged stage-3 exterior meshes. All details sit on existing furniture or
+walls; original collision parts and portal dimensions remain unchanged.
+
+The shared pack loads once within 32 m of either matching room and below 6.5 m.
+Details remain full within 12 m of the room envelope and dither out by 22 m;
+their altitude fade runs from 4.5 to 6.5 m independently of exterior LOD.
+`?roomDetails=0` provides a visual comparison. Failed loading leaves existing
+furniture intact. Geometry/material clones belong to each room; source textures
+remain owned by the cached asset. Coarse-grid rebuilds reuse the loaded source.
+
+Room sound follows physical room bounds and real doorways independently of
+asset loading. Entering the cafe introduces boiler hum and periodic pressure
+release; the lobby introduces low ventilation noise. Outdoor city sound falls
+by up to 78%, and wind/rain sound by 85%. Grounded walking adds quiet footsteps,
+which stop when stationary or airborne. These synthesized voices share the
+existing world/master audio buses, vacuum behavior and M mute. Audio still
+requires the existing first click/key/XR gesture. There are no simulated
+customers, ordering interactions or seating actions in this stage. Visual rain
+occlusion and true sound-source spatialization are not added here.
+
+Validation: **620 tests pass / 0 fail**, and `bun run build` passes. Six new tests
+cover room bounds, both portal orientations, wrapped azimuth, ceiling/distance
+fades, sheltered ambience and vacuum, GLB dimensions/triangle/byte budgets and
+unobstructed door rays. Browser checks cover entry/exit, standing/walking,
+muting, roof exclusion, day/night and failed loading. The normal runs reported
+no JavaScript errors; the deliberately aborted GLB produced only its expected
+network failure. The cafe and lobby each transitioned from zero room weight to
+one indoors and back to zero outdoors; the lobby gain then decayed through its
+configured tail. Footstep count rose from 0 to 3 during walking and stayed at 3
+after stopping.
+
+Actual browser audio output was captured through the master destination. The
+cafe sample measured RMS 0.00962 / peak 0.02676, and mute measured RMS 0 / peak 0.
+Separate doorway checks measured cafe RMS 0.01123 and lobby RMS 0.01013 indoors.
+These verify signal generation and gating, not subjective sound quality: the
+agent could not listen to the audio input. A 13.5-second recording is retained
+for human listening. Physical XR and city-scale performance remain unverified.
+
+Independent image review recognized the props and readable menu/directory,
+confirmed the visible central passages stay clear, and found no large placement
+errors. It caught the machine's ORBIT label crossing the body edge; the label
+was reduced and lowered. Saucer and book stack spacing was also tightened.
+The final independent check confirmed the label sits within the body, stacks
+remain supported, and the added night views retain readable menu text and
+identifiable cups, books and plants. Night wood surfaces remain quite dark.
+The existing plain floor/contact-shadow treatment still makes some table feet
+hard to judge from images; no new floating furniture is asserted from that.
+Screenshots, review crops, audio and JSON probes are under
+`/home/toming/Pictures/Spinward/2026-09-10_room-experience/`.
+
+Next: add a small meaningful action in these rooms (for example seating or a
+counter interaction), then broaden building variety and measure city-scale
+visibility/batching. LOD3/4 integration remains separate outstanding work.
+This stage is local only; no public push or production deployment was performed.

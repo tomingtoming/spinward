@@ -2507,6 +2507,10 @@ export class Cityscape {
 
   // Resolve a named visit against this tier's generated plan, so preview
   // links work on mobile too (quality budgets generate different parcels).
+  sampleRoomEnvironment(azimuth: number, axial: number, altitude: number) {
+    return this.interiorLayer.sampleRoomEnvironment(azimuth, axial, altitude)
+  }
+
   getInteriorVisit(kind: string | null) {
     if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby') return null
     const interior = [...this.interiors.values()].filter(i => kind === 'lobby'

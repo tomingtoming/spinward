@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { AuthoredBuildingPilot, CAFE_PILOT, LOBBY_PILOT } from './cafePilot'
+import { RoomDressing } from './roomDressing'
 import { getRoadTileLiftMeters } from './roadTiles'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import {
@@ -23,11 +24,13 @@ export class BuildingInteriorLayer {
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ color: 0x797b75, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
   private entries: Array<{ interior: BuildingInterior; lod: BuildingExperienceLod; parts: Array<{ part: InteriorPart; matrix: THREE.Matrix4 }> }> = []
   private readonly pilots: AuthoredBuildingPilot[]
+  private readonly roomDressing: RoomDressing
   private radius = 1
   private focus = new THREE.Vector3(Infinity, Infinity, Infinity)
 
   constructor(parent: THREE.Group) {
     parent.add(this.group)
+    this.roomDressing = new RoomDressing(this.group)
     this.pilots = [CAFE_PILOT, LOBBY_PILOT].map(spec => new AuthoredBuildingPilot(this.group, () => {
       const { x, y, z } = this.focus
       this.focus.set(Infinity, Infinity, Infinity)
@@ -79,6 +82,7 @@ export class BuildingInteriorLayer {
     this.clear()
     this.radius = radius
     this.pilots.forEach(pilot => pilot.rebuild(interiors, radius))
+    this.roomDressing.rebuild(interiors, radius)
     const rotation = new THREE.Quaternion(), scale = new THREE.Vector3(), position = new THREE.Vector3()
     this.entries = interiors.map(interior => ({ interior, lod: 4 as BuildingExperienceLod,
       parts: interior.parts.map(part => {
@@ -120,6 +124,7 @@ export class BuildingInteriorLayer {
   }
 
   update(azimuth: number, axial: number, altitude: number) {
+    this.roomDressing.update(azimuth, axial, altitude)
     let changed = false
     for (const pilot of this.pilots) if (pilot.update(azimuth, axial, altitude)) changed = true
     if (!changed && Math.hypot((azimuth - this.focus.x) * this.radius, axial - this.focus.y, altitude - this.focus.z) < 1) return
@@ -145,7 +150,12 @@ export class BuildingInteriorLayer {
     })
   }
 
+  sampleRoomEnvironment(azimuth: number, axial: number, altitude: number) {
+    return this.roomDressing.sampleEnvironment(azimuth, axial, altitude)
+  }
+
   setDaylight(daylight: number) {
+    this.roomDressing.setDaylight(daylight)
     this.pilots.forEach(pilot => pilot.setDaylight(daylight))
     this.materials[4].emissiveIntensity = 0.5 + (1 - daylight) * 1.5
     // A little interior bounce without hundreds of realtime point lights.
@@ -156,6 +166,7 @@ export class BuildingInteriorLayer {
   }
 
   clear() {
+    this.roomDressing.clear()
     this.pilots.forEach(pilot => pilot.rebuild([], this.radius))
     for (const mesh of this.meshes) { mesh.dispose(); mesh.removeFromParent() }
     if (this.floor) { this.floor.geometry.dispose(); this.floor.removeFromParent(); this.floor = null }
@@ -164,6 +175,7 @@ export class BuildingInteriorLayer {
   }
 
   dispose() {
+    this.roomDressing.dispose()
     this.pilots.forEach(pilot => pilot.dispose()); this.clear(); this.geometry.dispose(); this.windows.dispose(); this.sign.dispose(); this.floorMaterial.dispose()
     this.materials.forEach(material => material.dispose())
     this.group.removeFromParent()

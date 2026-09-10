@@ -1,0 +1,17 @@
+{
+  "bytes": 325592,
+  "rooms": [
+    {
+      "name": "cafe_room_dressing",
+      "triangles": 3617,
+      "materials": 7
+    },
+    {
+      "name": "lobby_room_dressing",
+      "triangles": 1334,
+      "materials": 6
+    }
+  ],
+  "visibility": "Full within 12m of room envelope; fades out by 22m and above room ceiling",
+  "collision": "Non-solid detail on existing counter, tables, benches or walls; original colliders unchanged"
+}

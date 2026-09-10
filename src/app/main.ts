@@ -2486,6 +2486,9 @@ export const bootstrapApp = async () => {
     const carrierInAir =
       playerRegion === 'inside' &&
       carrierRadial >= habitatConfig.radius - atmosphereDepth - 1
+    const roomEnvironment = carrierInAir
+      ? cityscape.sampleRoomEnvironment(Math.atan2(carrierRotatingPosition.z, carrierRotatingPosition.x), carrierRotatingPosition.y, habitatConfig.radius - carrierRadial)
+      : { cafe: 0, lobby: 0, shelter: 0 }
     sampleRainField(
       carrierRotatingPosition,
       omega,
@@ -2503,7 +2506,7 @@ export const bootstrapApp = async () => {
       deltaSeconds,
       intensity: rainStrength
     })
-    audio.setRainLevel(rainStrength)
+    audio.setRainLevel(rainStrength * (1 - roomEnvironment.shelter * .85))
 
     dayNightPhase = stepDayNightPhase(
       dayNightPhase,
@@ -2523,9 +2526,13 @@ export const bootstrapApp = async () => {
         radialFraction: carrierRadial / Math.max(1e-6, habitatConfig.radius),
         inAir: carrierInAir,
         airspeed: carrierRotatingVelocity.length(),
-        daylight
+        daylight,
+        shelter: roomEnvironment.shelter
       })
     )
+
+    audio.setRoomEnvironment(roomEnvironment, carrierRotatingVelocity.length(),
+      playerTraversal.mode === 'grounded' && !drive.driving, deltaSeconds)
 
     light.intensity = 0.22 + daylight * 0.9
 
@@ -2607,6 +2614,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
+      room: { ...roomEnvironment, audio: audio.roomAudioState },
       pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
