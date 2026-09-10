@@ -77,7 +77,7 @@ export class RoomDressing {
   }
   sampleEnvironment(azimuth:number,axial:number,altitude:number):RoomEnvironment{
     const result:RoomEnvironment={cafe:0,lobby:0,shelter:0}
-    for(const e of this.entries)result[e.spec.id]=roomPresence(e.interior,this.radius,azimuth,axial,altitude)
+    for(const e of this.entries)if(e.spec.id==='cafe'||e.spec.id==='lobby')result[e.spec.id]=roomPresence(e.interior,this.radius,azimuth,axial,altitude)
     result.shelter=Math.max(result.cafe,result.lobby);return result
   }
   setDaylight(daylight:number){

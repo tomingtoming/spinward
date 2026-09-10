@@ -744,3 +744,73 @@ checks are in `followup-final.json`.
 Next: improve the street's night lighting and add more visible everyday activity
 around this small cafe district. City-wide LOD3/4 and scheduled inhabitants remain
 outstanding. This stage is local only; no push or deployment was performed.
+
+## Stage 8 — Nyaan's apartment and room (2026-09-10)
+
+Added a four-storey apartment building, a shared ground-floor hallway and an
+open, walkable room 101. `?visit=nyaan` arrives at its street entrance, roughly
+146 m from the cafe. The compact room contains a bed with rounded mattress and
+pillow, a window desk and chair, a low table with a cup/notebook, a bookshelf,
+calendar, sale notices, a bag, a kitchenette and a bathroom. The window is
+transparent and has a solid collider. Other apartments and upper floors remain
+closed; stairs, a resident character, door operation and bed/chair interactions
+are not part of this stage.
+
+This is a Spinward reconstruction inspired by Nyaan from GQuuuuuuX, not a
+measured recreation of the production set. The four floors, room number 101,
+exterior and all dimensions/layout are original staging. Reference: the
+[official character page](https://gundam-official.com/gquuuuuux/character/2/)
+and the [episode 6 discussion in Dengeki Online, 2025-05-15](https://dengekionline.com/article/202505/42032)
+(the red Zeon technical-university reference books). The additional permit-book
+label and wall notices are authored dressing, not verified quotations from the
+room. No production images or external textures are embedded in the asset.
+
+`assets/blender/nyaan-apartment.json` is the metre-based layout/collision contract.
+`assets/blender/build_nyaan_apartment.py` builds the connected Blender scene
+`Spinward Nyaan Apartment`, saves `nyaan-apartment.blend`, and exports
+`public/assets/buildings/nyaan-apartment.glb`. The script uses the existing
+`building_mesh_kit.py` and the system Noto Sans CJK font, converted into mesh
+letters. The final GLB is **865,372 bytes**, with **10,568 / 977 / 756 triangles**
+for LOD0 / LOD1 / LOD2. These share the established pilot thresholds: enter at
+25 / 120 m from the full building envelope, exit at 30 / 144 m, with the existing
+240 ms dither transition. Low LODs retain architectural openings; nearby
+procedural furniture supplies the reduced model where appropriate. Nighttime
+material emission supplies inexpensive indoor bounce; no new realtime lights
+or shadow maps are introduced.
+
+The exact desktop lot is matched by orientation and all envelope dimensions.
+Its former closed collision volume is replaced by the authored solid parts.
+The room has a 1.15 m entrance and a 0.90 m bathroom doorway. A browser walk
+caught the city's additional 0.25 m vehicle collision margin closing this
+bathroom opening: apartment parts now explicitly set `collisionMargin: 0`,
+while other buildings keep the existing margin. A real Rapier regression test
+runs with the application margin, verifies passage with the override, and
+confirms the former inflated geometry blocks it. Shelter sampling is independent
+of whether the GLB loaded, and does not trigger cafe/lobby ambience.
+
+Validation: **636 tests pass / 0 fail**, `bun run build` passes (existing large
+chunk warning). Five new tests cover exact-lot binding, continuous player-width
+clearance, room/entrance/roof shelter, exported model portals/glass/budgets, and
+the real Rapier margin regression. Browser keyboard traversal passes street →
+hall → room → window approach → bathroom → street with the body enabled and
+non-sensor throughout. LOD0/1/2 forcing, natural 60/160 m envelope distances,
+disabled-model entry, aborted-asset shelter/fallback, day/night and a 390×844
+portrait view are checked. The portrait check forces the desktop parcel plan;
+it is not phone hardware or physical XR validation. Normal checks report no
+JS/console errors; the intentional failed request reports only its expected
+network error.
+
+Independent image review confirmed the entrance, 101/Nyaan plaque, readable
+vertical book titles, furnishings, kitchenette and bathroom. It caught a towel
+face coincident with a wall, which was separated, and a plain washstand that
+needed a basin/tap. The overlapping bathroom-wall corner was also trimmed. A fine dotted join
+remains visible in the close bathroom crop; further seam/lighting cleanup is
+outstanding, distinct from the resolved broad towel Z-fighting. Original screenshots, detail crops and probe
+records are under `/home/toming/Pictures/Spinward/2026-09-10_nyaan-apartment/`:
+`runtime-final.json`, `followup-final.json`, exterior/room day/night and detail
+captures. Failed intermediate checks remain there as evidence.
+
+This stage is local only. Next candidates: connect this home to an everyday
+walking route through the cafe district, add apartment-specific room ambience,
+and improve surface wear/lighting. A closer canonical reconstruction would
+need direct visual references for the actual room layout.

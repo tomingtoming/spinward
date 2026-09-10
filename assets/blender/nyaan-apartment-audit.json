@@ -1,0 +1,22 @@
+{
+  "bytes": 865372,
+  "models": [
+    {
+      "name": "nyaan_runtime_lod0",
+      "triangles": 10568,
+      "materials": 15
+    },
+    {
+      "name": "nyaan_runtime_lod1",
+      "triangles": 977,
+      "materials": 10
+    },
+    {
+      "name": "nyaan_runtime_lod2",
+      "triangles": 756,
+      "materials": 10
+    }
+  ],
+  "room": "Compact ground-floor 101; inferred layout and exterior, not a measured set reconstruction",
+  "collision": "Contract solid parts, shared entry and open room doorway; other units remain closed"
+}

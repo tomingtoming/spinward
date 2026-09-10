@@ -3,7 +3,7 @@ import { fitSuburbanHouse } from './buildingAssets'
 import { wrapBuildingAngleToPi } from './buildingLod'
 import { SurfaceIndex } from './streetAccess'
 
-export type InteriorKind = 'cafe' | 'passage' | 'court'
+export type InteriorKind = 'cafe' | 'passage' | 'court' | 'apartment'
 export type InteriorPart = {
   // Front-local metres: x along facade, z towards the street, y inward/up.
   x: number; y: number; z: number
@@ -69,7 +69,7 @@ export const planBuildingInteriors = (buildings: readonly CityBuilding[], radius
   return result
 }
 
-export const createBuildingInterior = (building: CityBuilding, kind: InteriorKind): BuildingInterior => {
+export const createBuildingInterior = (building: CityBuilding, kind: Exclude<InteriorKind, 'apartment'>): BuildingInterior => {
   const front = building.front!
   const w = front.axis === 'tangent' ? building.depth : building.width
   const d = front.axis === 'tangent' ? building.width : building.depth
@@ -139,7 +139,9 @@ export const interiorPartBuilding = (interior: BuildingInterior, part: InteriorP
     azimuth: b.azimuth + t / radius, axial: b.axial + a,
     width: front.axis === 'tangent' ? part.depth : part.width,
     depth: front.axis === 'tangent' ? part.width : part.depth,
-    height: part.height, baseHeight: part.y - part.height / 2
+    height: part.height, baseHeight: part.y - part.height / 2,
+    // The compact authored apartment uses measured openings, without car clearance padding.
+    ...(interior.kind === 'apartment' ? { collisionMargin: 0 } : {})
   }
 }
 

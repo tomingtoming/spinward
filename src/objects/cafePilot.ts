@@ -6,7 +6,7 @@ import type { BuildingInterior, InteriorPart } from './buildingInteriors'
 import { wrapBuildingAngleToPi } from './buildingLod'
 
 export type AuthoredPilotSpec = {
-  id: 'cafe' | 'lobby'
+  id: 'cafe' | 'lobby' | 'nyaan'
   radius: number
   kind: BuildingInterior['kind']
   building: typeof contract.interior.building
@@ -195,6 +195,10 @@ export class AuthoredBuildingPilot {
         if (!(material instanceof THREE.MeshStandardMaterial)) continue
         if (material.name.endsWith('LIGHT')) material.emissiveIntensity = 0.08 + (1 - daylight) * 0.8
         if (material.name.endsWith('SHOP_GLASS')) material.emissiveIntensity = 0.025 + (1 - daylight) * 0.32
+        // Low-cost indoor bounce for the apartment; the upper shell and glass stay dark.
+        if (/^SWNY_(plaster|concrete|wood|fabric|ivory|red|blue|paper|tile)$/.test(material.name)) {
+          material.emissiveIntensity = 1 + (1 - daylight) * 5
+        }
       }
     })
   }

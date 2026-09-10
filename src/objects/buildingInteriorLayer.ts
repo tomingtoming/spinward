@@ -1,3 +1,4 @@
+import { NYAAN_PILOT, apartmentShelter } from './nyaanApartment'
 import * as THREE from 'three'
 import { AuthoredBuildingPilot, CAFE_PILOT, LOBBY_PILOT } from './cafePilot'
 import { RoomDressing } from './roomDressing'
@@ -11,8 +12,8 @@ import {
 const MATERIALS: InteriorPart['material'][] = ['wall', 'upper', 'wood', 'green', 'light', 'sign']
 
 // Six material batches plus a curved floor, independent of room count. No per-building lights,
-// transparent sorting, or geometry generation during traversal. Two authored building
-// pilots load separately, retaining these batches until its GLB is ready.
+// geometry generation during traversal. Authored building
+// pilots load separately, retaining these batches until their GLB is ready.
 export class BuildingInteriorLayer {
   readonly group = new THREE.Group()
   private readonly geometry = new THREE.BoxGeometry(1, 1, 1)
@@ -31,7 +32,7 @@ export class BuildingInteriorLayer {
   constructor(parent: THREE.Group) {
     parent.add(this.group)
     this.roomDressing = new RoomDressing(this.group)
-    this.pilots = [CAFE_PILOT, LOBBY_PILOT].map(spec => new AuthoredBuildingPilot(this.group, () => {
+    this.pilots = [CAFE_PILOT, LOBBY_PILOT, NYAAN_PILOT].map(spec => new AuthoredBuildingPilot(this.group, () => {
       const { x, y, z } = this.focus
       this.focus.set(Infinity, Infinity, Infinity)
       if (Number.isFinite(x)) this.update(x, y, z)
@@ -151,7 +152,10 @@ export class BuildingInteriorLayer {
   }
 
   sampleRoomEnvironment(azimuth: number, axial: number, altitude: number) {
-    return this.roomDressing.sampleEnvironment(azimuth, axial, altitude)
+    const environment = this.roomDressing.sampleEnvironment(azimuth, axial, altitude)
+    const apartment = this.entries.find(entry => entry.interior.kind === 'apartment')?.interior
+    if (apartment) environment.shelter = Math.max(environment.shelter, apartmentShelter(apartment, this.radius, azimuth, axial, altitude))
+    return environment
   }
 
   setDaylight(daylight: number) {

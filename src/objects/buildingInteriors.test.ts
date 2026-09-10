@@ -17,7 +17,7 @@ const point = (front: NonNullable<CityBuilding['front']>, x: number, altitude: n
 
 for (const axis of ['axial', 'tangent'] as const) for (const side of [-1, 1] as const) {
   describe(`${axis} ${side} facade`, () => {
-    for (const kind of ['cafe', 'passage', 'court'] as InteriorKind[]) {
+    for (const kind of ['cafe', 'passage', 'court'] as Exclude<InteriorKind, 'apartment'>[]) {
       test(`${kind}: continuous street-to-room route, walls and ceilings`, () => {
         const front = { axis, side }, interior = createBuildingInterior(fixture(front), kind)
         const boxes = interiorCollisionBuildings(interior, radius)

@@ -22,6 +22,8 @@ export type CityBuilding = {
   height: number
   // Synthetic interior collision boxes may start above the cylinder floor.
   baseHeight?: number
+  // Exact interior openings may opt out of the vehicle-oriented box inflation.
+  collisionMargin?: number
   tone: number
   kind: BuildingKind
   // 0..1 urbanization at this lot (downtown = 1). Drives the facade palette;

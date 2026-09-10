@@ -1,3 +1,4 @@
+import { planNyaanApartment } from './nyaanApartment'
 import { planCoffeeStation, type CoffeeStation } from '../app/coffeeService'
 import { NeighborhoodFronts, neighborhoodPoint, matchNeighborhoodLot } from './neighborhoodFronts'
 import { planRoomSeats, type RoomSeat } from '../app/roomSeating'
@@ -2449,6 +2450,8 @@ export class Cityscape {
     // collider in the far countryside, which nothing at spawn can reach.
     this.neighborhoodFronts.rebuild(plan.buildings, radius)
     this.interiors = planBuildingInteriors(plan.buildings, radius)
+    const apartment = planNyaanApartment(plan.buildings, radius)
+    if (apartment) this.interiors.set(apartment.building, apartment)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
@@ -2541,9 +2544,9 @@ export class Cityscape {
       const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(forward.clone().cross(up), up, forward.clone().negate()))
       return { azimuth, axial: p.y, orientation }
     }
-    if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby') return null
+    if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby' && kind !== 'nyaan') return null
     const interior = [...this.interiors.values()].filter(i => kind === 'lobby'
-      ? matchesAuthoredPilot(i, this.radius, LOBBY_PILOT) : i.kind === kind)
+      ? matchesAuthoredPilot(i, this.radius, LOBBY_PILOT) : i.kind === (kind === 'nyaan' ? 'apartment' : kind))
       .sort((a, b) => getBuildingSurfaceDistance(this.radius, 0, 0, a.building.azimuth, a.building.axial) -
         getBuildingSurfaceDistance(this.radius, 0, 0, b.building.azimuth, b.building.axial))[0]
     if (!interior) return null
