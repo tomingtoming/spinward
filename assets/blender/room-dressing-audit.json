@@ -1,15 +1,15 @@
 {
-  "bytes": 325592,
+  "bytes": 372252,
   "rooms": [
     {
       "name": "cafe_room_dressing",
-      "triangles": 3617,
+      "triangles": 3955,
       "materials": 7
     },
     {
       "name": "lobby_room_dressing",
-      "triangles": 1334,
-      "materials": 6
+      "triangles": 1717,
+      "materials": 7
     }
   ],
   "visibility": "Full within 12m of room envelope; fades out by 22m and above room ceiling",

@@ -1,3 +1,5 @@
+import { RoomSeating, nearestRoomSeat } from './roomSeating'
+import { createRoomAction } from '../ui/roomAction'
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -684,6 +686,21 @@ export const bootstrapApp = async () => {
   streetLamps.group.visible = bootParams.get('lamps') !== '0'
   nearLayer.add(streetLamps.group)
   const drive = new DriveRuntime()
+  const roomSeating = new RoomSeating()
+  const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
+  const toggleRoomSeat = () => {
+    if (drive.driving || renderer.xr.isPresenting) return false
+    audio.unlock()
+    roomSeating.update(playerTraversal, seatFrame(), cityscape.getRoomSeats())
+    if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
+    const seat = nearestRoomSeat(cityscape.getRoomSeats(), playerTraversal, habitatConfig.radius)
+    if (!seat || !roomSeating.enter(seat, playerTraversal, seatFrame())) return false
+    audio.playClick(); return true
+  }
+  const roomAction = createRoomAction(toggleRoomSeat, () => Math.max(
+    window.innerHeight - dock.root.getBoundingClientRect().top,
+    mobileControls?.getReservedBottomHeight() ?? 0
+  ))
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
 
@@ -1014,6 +1031,7 @@ export const bootstrapApp = async () => {
   }
 
   const tryToggleDrive = (viaPointer = false) => {
+    if (roomSeating.seat) roomSeating.leave(playerTraversal, seatFrame())
     if (drive.driving) {
       exitDrive()
       return
@@ -1246,7 +1264,7 @@ export const bootstrapApp = async () => {
     camera.updateWorldMatrix(true, false)
     camera.getWorldQuaternion(shareQuaternionScratch)
     const grounded = drive.driving || playerTraversal.mode === 'grounded'
-    const surface = drive.driving ? drive.surface : playerTraversal.surface
+    const surface = drive.driving ? drive.surface : roomSeating.seat?.exit ?? playerTraversal.surface
     const pose: SharePose = grounded
       ? {
           mode: 'grounded',
@@ -1779,6 +1797,7 @@ export const bootstrapApp = async () => {
     }
 
     if (event.code === 'KeyE') {
+      if (toggleRoomSeat()) return
       tryToggleDrive()
       return
     }
@@ -2032,7 +2051,20 @@ export const bootstrapApp = async () => {
         : 0
     audio.setJetpackThrottle(jetpackAcousticThrottle)
 
-    const jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
+    roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getRoomSeats())
+    let jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
+    if (roomSeating.seat && (renderer.xr.isPresenting || jumpRequested || locomotionIntent.detachRequested ||
+        Math.hypot(locomotionIntent.groundedAxis, locomotionIntent.groundedTangent) > .1)) {
+      roomSeating.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
+      jumpRequested = false
+      locomotionIntent.detachRequested = false
+      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+    }
+    // Finish standing before walking: restore floor contacts at rest first.
+    if (roomSeating.stepDeparture(deltaSeconds)) {
+      jumpRequested = false; locomotionIntent.detachRequested = false
+      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+    }
     // While driving, the VR jump button (right A) is the dismount, not a jump.
     if (drive.driving && xrWatchInput.jumpPressed) {
       exitDrive()
@@ -2088,7 +2120,11 @@ export const bootstrapApp = async () => {
       justJumped = true
     }
 
-    if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
+    if (roomSeating.seat) {
+      // Stay attached at the end-of-step angle; dismounts use the start angle
+      // before normal walking advances the body through this frame.
+      roomSeating.update(playerTraversal, seatFrame(), cityscape.getRoomSeats())
+    } else if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: locomotionIntent.detachLaunchVelocity,
         radius: habitatConfig.radius,
@@ -2168,8 +2204,10 @@ export const bootstrapApp = async () => {
     )
     physicsWorld.timestep = deltaSeconds
     physicsWorld.step()
-    syncPlayerTraversalFromPhysics(playerTraversal)
-    syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
+    if (!roomSeating.seat) {
+      syncPlayerTraversalFromPhysics(playerTraversal)
+      syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
+    }
 
     if (drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
@@ -2229,7 +2267,7 @@ export const bootstrapApp = async () => {
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
     let landed = false
-    if (!drive.driving) {
+    if (!drive.driving && !roomSeating.seat) {
       landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
@@ -2278,7 +2316,8 @@ export const bootstrapApp = async () => {
       deltaSeconds
     landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
     landingSettle *= Math.exp(-Math.max(0, deltaSeconds) / LANDING_SETTLE_TAU)
-    viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0)
+    viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
+      (!renderer.xr.isPresenting ? (1.3 - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
@@ -2309,7 +2348,8 @@ export const bootstrapApp = async () => {
         -2,
         2
       )
-      viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0)
+      viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
+      (!renderer.xr.isPresenting ? (1.3 - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
     }
     camera.getWorldPosition(eyeWorldPrev)
     hasEyePrev = true
@@ -2532,7 +2572,7 @@ export const bootstrapApp = async () => {
     )
 
     audio.setRoomEnvironment(roomEnvironment, carrierRotatingVelocity.length(),
-      playerTraversal.mode === 'grounded' && !drive.driving, deltaSeconds)
+      playerTraversal.mode === 'grounded' && !drive.driving && !roomSeating.seat, deltaSeconds)
 
     light.intensity = 0.22 + daylight * 0.9
 
@@ -2614,7 +2654,9 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
-      room: { ...roomEnvironment, audio: audio.roomAudioState },
+      room: { ...roomEnvironment, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
+        seats: cityscape.getRoomSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),
+        sensor: playerTraversal.physics?.freeFlyBody.collider(0).isSensor() },
       pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
@@ -2637,6 +2679,9 @@ export const bootstrapApp = async () => {
         contacts: drive.lastContacts
       }
     }
+
+    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getRoomSeats(), playerTraversal, habitatConfig.radius) : null
+    roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice())
 
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
@@ -2738,6 +2783,7 @@ export const bootstrapApp = async () => {
     tourCardPanel.dispose()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
+    roomAction.dispose()
     hud.destroy()
     beatBar.destroy()
     shareBar.destroy()

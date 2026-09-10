@@ -45,9 +45,9 @@ def plant(b,x,y,z):
  lathe(b,x,y,z,[(0,0),(.17,0),(.235,.30),(.245,.31),(.245,.34),(.215,.34),(.20,.29),(0,.29)],terra)
  lathe(b,x,y+.292,z,[(0,0),(.20,0)],coffee)
  for j in range(7):
-  a=j*2.4;top=.66+.12*(j%3);dx=math.cos(a)*.31;dz=math.sin(a)*.31
+  a=j*2.4;top=.43+.07*(j%3);dx=math.cos(a)*.24;dz=math.sin(a)*.24
   pipe(b,(x,y+.29,z),(x+dx*.42,y+top,z+dz*.42),.01,leaf,5)
-  center=Vector(local(x+dx*.65,y+top-.08,z+dz*.65));tip=Vector(local(x+dx,y+top+.08,z+dz));base=Vector(local(x+dx*.2,y+top-.25,z+dz*.2));width=Vector(local(-math.sin(a)*.105,0,math.cos(a)*.105))
+  center=Vector(local(x+dx*.65,y+top-.08,z+dz*.65));tip=Vector(local(x+dx,y+top+.08,z+dz));base=Vector(local(x+dx*.2,y+top-.10,z+dz*.2));width=Vector(local(-math.sin(a)*.105,0,math.cos(a)*.105))
   b.face([base,center-width,tip,center+Vector((0,0,.025))],leaf);b.face([base,center+Vector((0,0,.025)),tip,center+width],leaf)
 def text(parts,body,x,y,z,size,material=ivory):
  c=bpy.data.curves.new('SWRM_Letters','FONT');c.body=body;c.align_x='CENTER';c.align_y='CENTER';c.size=size;c.resolution_u=3;c.extrude=0
@@ -58,7 +58,19 @@ models=[];reports=[]
 for kind in ['cafe','lobby']:
  I=json.loads((ROOT/f'assets/blender/{kind}-pilot.json').read_text())['interior'];W,D=I['frontage'],I['depth']
  b=MeshBuilder(scene,kind+'_room_props',mats);parts=[]
- for side in [-1,1]:plant(b,side*(W/2-1.4),.60,.60)
+ for side in [-1,1]:
+  plant(b,side*(W/2-1.4),.60,.60)
+  # Cushion marks the actual interactive seat, away from the plant and books.
+  b.box(side*(W/2-1.4)-side*.38,.635,-.1,.63,.07,.65,paper)
+ # A thin inset welcome mat lies on the existing 25cm floor finish.
+ b.box(0,.262,D/2-1.45,2.7,.022,1.6,dark)
+ for strip in [-1,1]:b.box(strip*1.22,.275,D/2-1.45,.025,.004,1.42,paper)
+ for j in range(9):b.box(0,.275,D/2-2.08+j*.157,2.35,.004,.012,metal)
+ # Small wall plaque, projecting only 18mm beyond the front plane.
+ b.box(2.4,2.05,D/2+.006,.88,.50,.012,dark)
+ text(parts,'OPEN' if kind=='cafe' else 'PUBLIC',2.4,2.11,D/2+.018,.16)
+ text(parts,'WELCOME' if kind=='cafe' else 'SEATING',2.4,1.93,D/2+.018,.075)
+
  if kind=='cafe':
   z=-D/2+1.25;x=-4.0
   b.box(x,1.17,z,1.4,.14,.74,dark);b.box(x,1.53,z-.10,1.28,.60,.54,metal)
@@ -81,7 +93,7 @@ for kind in ['cafe','lobby']:
  else:
   bx=-3.85;b.box(bx,2.30,-D/2+.34,2.12,1.55,.065,dark)
   for body,y,size in [('MERIDIAN',2.82,.23),('PUBLIC LOBBY',2.46,.17),('01   STUDIOS',2.16,.15),('02   OFFICES',1.88,.15)]:text(parts,body,bx,y,-D/2+.38,size)
-  for j in range(3):b.box(-W/2+1.4,.6225+j*.045,-.30,.52,.045,.36,[terra,paper,dark][j])
+  for j in range(3):b.box(-W/2+1.4,.6225+j*.045,-.60,.52,.045,.36,[terra,paper,dark][j])
  parts.insert(0,b.finish());model=join(scene,kind+'_room_dressing',parts)
  model['units']='metres';model['non_solid']=True
  models.append(model);reports.append({'name':model.name,'triangles':len(model.data.loop_triangles),'materials':len(set(p.material_index for p in model.data.polygons))})

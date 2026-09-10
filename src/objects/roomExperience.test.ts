@@ -48,16 +48,16 @@ test('room shelter quiets city and wind while retaining the vacuum override',()=
 
 test('Blender dressing is bounded to rooms and leaves the existing door paths clear',async()=>{
  const bytes=readFileSync(new URL('../../public/assets/buildings/room-dressing.glb',import.meta.url))
- expect(bytes.byteLength).toBeLessThan(400_000)
+ expect(bytes.byteLength).toBeLessThan(450_000)
  const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')
  gltf.scene.updateMatrixWorld(true)
- for(const [name,contract,budget] of [['cafe',cafe,4000],['lobby',lobby,1800]] as const) {
+ for(const [name,contract,budget] of [['cafe',cafe,4600],['lobby',lobby,2300]] as const) {
   const model=gltf.scene.getObjectByName(`${name}_room_dressing`)!
   expect(model).toBeDefined()
   const box=new THREE.Box3().setFromObject(model),room=contract.interior
-  expect(box.min.y).toBeGreaterThan(.59);expect(box.max.y).toBeLessThan(3.5)
+  expect(box.min.y).toBeGreaterThan(.249);expect(box.max.y).toBeLessThan(3.5)
   expect(box.min.x).toBeGreaterThan(-room.frontage/2+.3);expect(box.max.x).toBeLessThan(room.frontage/2-.3)
-  expect(box.min.z).toBeGreaterThan(-room.depth/2+.29);expect(box.max.z).toBeLessThan(room.depth/2-.3)
+  expect(box.min.z).toBeGreaterThan(-room.depth/2+.29);expect(box.max.z).toBeLessThan(room.depth/2+.021)
   let triangles=0;model.traverse(o=>{if(o instanceof THREE.Mesh)triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3})
   expect(triangles).toBeLessThanOrEqual(budget)
   for(const x of [-1.5,0,1.5])for(const y of [.3,1.6,3.0]){

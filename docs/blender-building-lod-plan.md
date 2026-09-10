@@ -1,10 +1,10 @@
 # Blender buildings and LOD plan
 
-Status: staged implementation authorized by toming on 2026-09-10. Stages 1–4
+Status: staged implementation authorized by toming on 2026-09-10. Stages 1–5
 have connected-Blender cafe/lobby assets, local three-level LOD switching, room
-dressing and localized ambience.
+dressing, localized ambience and usable bench seats.
 Production is unchanged. Stage-1 and stage-2 sections below are historical;
-the stage-3 and stage-4 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
+the stage-3 through stage-5 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.
 
@@ -535,3 +535,66 @@ Next: add a small meaningful action in these rooms (for example seating or a
 counter interaction), then broaden building variety and measure city-scale
 visibility/batching. LOD3/4 integration remains separate outstanding work.
 This stage is local only; no public push or production deployment was performed.
+
+
+## Stage 5 — usable benches and welcoming entrances (2026-09-10)
+
+Both pilot rooms now provide two bench seats. Approach the clear aisle beside a
+bench and press E or the contextual screen button to sit; E/the button stands
+up again. Walking, jump or detach input also starts standing. The PC/touch eye
+rests at 1.3 m above the room floor, and restores its normal height over 300 ms
+on departure. Looking around and local room sound continue while seated;
+footsteps are suppressed. The rover retains E away from a bench. Shared links
+from a seat restore at its aisle position, so recipients do not spawn inside
+solid furniture.
+
+`RoomSeating` owns four stable anchors from the actual cafe/lobby contracts.
+Each has a separate aisle point outside original solid furniture. Only a grounded
+player within 1.25 m of that point can enter; rooftops, flying and other lots are
+excluded. The player sphere remains active but uses sensor response during the
+attachment. Contact response returns before standing in the aisle. The rotating
+anchor is advanced at the end-of-step angle; dismounts enter normal walking at
+the start angle. A 300 ms standing interval allows contact to settle before
+locomotion resumes. This was added after browser traces caught floor penetration
+when movement resumed immediately, although standalone physics tests passed.
+Respawns and city rebuilds release the attachment rather than pulling the player
+back. XR entry releases a seat; head-tracked seated interaction is not enabled in
+this stage. The authored lots remain specific to the desktop city plan. Touch
+UI is checked with that plan forced by `?tier=desktop`, not claimed to exist in
+the default phone/Quest parcel plans.
+
+The connected Blender scene now includes thin seat pads, entrance mats and small
+OPEN / WELCOME and PUBLIC / SEATING plaques. Mats sit above the existing 25 cm
+floor finish without new collision steps; plaques project 18 mm beyond the front
+plane, alongside the portal. The existing 3.2 m opening remains unobstructed.
+The shared detail asset is now **372,252 bytes**, with **3,955 cafe triangles** and
+**1,717 lobby triangles**, seven material primitives in each. Exterior meshes
+and distance/altitude policy remain unchanged. Independent visual review caught
+plants filling much of the seated view; their foliage was lowered below the
+seated eye. Lobby books moved toward the back of the bench to clear the seated
+body volume. Thin pads remain visually simple rather than upholstered furniture.
+
+Validation: **624 tests pass / 0 fail**, and `bun run build` passes.
+The browser measured a 1.3 m seated eye in both rooms, and touch sit/stand passed
+with desktop quality forced. On the 390×844 touch viewport, the action button
+ends at y=671, above the mobile controls at y=683 and dock at y=737. Its position
+follows their measured height. Normal final browser runs reported no JS errors.
+Final independent review confirmed both lowered plants leave the entrance and
+eye line clear, and PUBLIC / SEATING remains readable at night.
+
+Four new tests cover real supporting benches, clear aisle anchors, torso/head
+clearance against the exported GLB, exact-lot matching, rotating-frame tracking,
+respawn/rebuild release, and repeated restoration of real floor collisions.
+Browser assertions exercise all four seats with E, Space and walking departures,
+button entry and respawn. Additional checks cover held walking after standing,
+eye height, day/night entrances and narrow-screen touch input. Evidence, including
+the failed intermediate traces, is retained under
+`/home/toming/Pictures/Spinward/2026-09-10_seating-street/`. Successful desktop
+seat/exit records are in `desktop-final.json`; the subsequent long-input/touch
+checks are in `final-followup.json`. Visual checking covers the photographed
+poses, not physical XR, city-scale performance or all lighting conditions.
+
+Next: broaden this treatment into neighboring storefronts and a second street
+segment; use material/contact-shadow improvements and one small counter action
+to make the existing rooms more convincing. Full NPC schedules, economies and
+citywide authored assets remain outside this bounded stage. Local work only.

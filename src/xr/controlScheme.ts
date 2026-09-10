@@ -102,7 +102,7 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'Click', action: 'Throw at a fixed speed' },
       { input: 'Throw menu / X', action: 'Choose Ball / Beam / Firework' },
       { input: '1–4', action: 'Travel / warp' },
-      { input: 'E', action: 'Drive (near car)' },
+      { input: 'E', action: 'Sit / stand, drive nearby' },
       { input: '− / +', action: 'Spin rpm' },
       { input: 'R', action: 'Rain' },
       { input: 'P / L', action: 'Photo / copy link' }

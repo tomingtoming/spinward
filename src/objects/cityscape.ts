@@ -1,3 +1,4 @@
+import { planRoomSeats, type RoomSeat } from '../app/roomSeating'
 import { FRONTAGES, FRONTAGE_KINDS, FRONTAGE_TEXTURE_BAYS, frontageKind, frontageLayout, paintFrontage, type FrontageKind } from './groundFloorFrontages'
 import { BuildingInteriorLayer } from './buildingInteriorLayer'
 import { LOBBY_PILOT, matchesAuthoredPilot } from './cafePilot'
@@ -1444,6 +1445,7 @@ export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
   private readonly interiorLayer = new BuildingInteriorLayer(this.group)
+  private roomSeats: RoomSeat[] = []
   private interiors = new Map<CityBuilding, BuildingInterior>()
   private interiorFocus = { azimuth: 0, axial: 0, altitude: 1.8 }
   private readonly streetAccessLayer = new StreetAccessLayer(this.group,
@@ -2442,6 +2444,7 @@ export class Cityscape {
     // before the GLB pack arrives; the fallback box briefly overhangs the
     // collider in the far countryside, which nothing at spawn can reach.
     this.interiors = planBuildingInteriors(plan.buildings, radius)
+    this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
       const interior = this.interiors.get(building)
       if (interior) return interiorCollisionBuildings(interior, radius)
@@ -2510,6 +2513,8 @@ export class Cityscape {
   sampleRoomEnvironment(azimuth: number, axial: number, altitude: number) {
     return this.interiorLayer.sampleRoomEnvironment(azimuth, axial, altitude)
   }
+
+  getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
 
   getInteriorVisit(kind: string | null) {
     if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby') return null
@@ -2812,6 +2817,7 @@ export class Cityscape {
     this.civicDetails.clear()
     this.interiorLayer.clear()
     this.interiors.clear()
+    this.roomSeats = []
     this.streetAccessLayer.clear()
     this.clearRoadTiles()
     this.collisionBuildings = []
