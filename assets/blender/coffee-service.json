@@ -1,0 +1,10 @@
+{
+  "counterX": 1.9,
+  "approachFromBack": 2.5,
+  "cupFromBack": 1.60,
+  "signFromBack": 1.14,
+  "counterHeight": 1.10,
+  "brewSeconds": 3,
+  "sipSeconds": 1.2,
+  "servings": 3
+}

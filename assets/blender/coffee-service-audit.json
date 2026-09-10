@@ -1,0 +1,17 @@
+{
+  "bytes": 101632,
+  "models": [
+    {
+      "name": "coffee_mug",
+      "triangles": 896
+    },
+    {
+      "name": "coffee_liquid",
+      "triangles": 64
+    },
+    {
+      "name": "coffee_station_sign",
+      "triangles": 549
+    }
+  ]
+}

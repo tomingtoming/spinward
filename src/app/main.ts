@@ -1,3 +1,6 @@
+import { CoffeeService } from './coffeeService'
+import { CoffeeServiceView } from '../objects/coffeeServiceView'
+import { createCoffeeAction } from '../ui/coffeeAction'
 import { RoomSeating, nearestRoomSeat } from './roomSeating'
 import { createRoomAction } from '../ui/roomAction'
 import * as THREE from 'three'
@@ -701,6 +704,19 @@ export const bootstrapApp = async () => {
     window.innerHeight - dock.root.getBoundingClientRect().top,
     mobileControls?.getReservedBottomHeight() ?? 0
   ))
+  const coffeeService = new CoffeeService()
+  const coffeeView = new CoffeeServiceView(cityscape.group, camera)
+  const coffeeContext = () => ({ station: cityscape.getCoffeeStation(), player: playerTraversal,
+    radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
+  const activateCoffee = () => {
+    if (!coffeeService.activate(coffeeContext())) return
+    audio.unlock(); audio.playClick()
+  }
+  const coffeeAction = createCoffeeAction(activateCoffee, () => Math.max(
+    roomAction.getReservedBottomHeight(),
+    window.innerHeight - dock.root.getBoundingClientRect().top,
+    mobileControls?.getReservedBottomHeight() ?? 0
+  ))
   drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
 
@@ -974,6 +990,7 @@ export const bootstrapApp = async () => {
   }
 
   const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
+    coffeeService.reset()
     playerTraversal = rebuildPlayerTraversalRuntime(
       {
         playerTraversal,
@@ -1109,6 +1126,7 @@ export const bootstrapApp = async () => {
         toggleDepthModeAndReload(depthMode)
         return true
       case 'respawn':
+        coffeeService.reset()
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
           reportTour('surface')
@@ -1793,6 +1811,11 @@ export const bootstrapApp = async () => {
 
     if (event.code === 'Digit5') {
       handleWatchAction('respawn-old-town')
+      return
+    }
+
+    if (event.code === 'KeyC') {
+      activateCoffee()
       return
     }
 
@@ -2654,7 +2677,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       mode: playerTraversal.mode,
-      room: { ...roomEnvironment, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
+      room: { ...roomEnvironment, coffee: { phase: coffeeService.phase, servings: coffeeService.servings, sipRemaining: coffeeService.sipRemaining }, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
         seats: cityscape.getRoomSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),
         sensor: playerTraversal.physics?.freeFlyBody.collider(0).isSensor() },
       pixelRatio: renderer.getPixelRatio(),
@@ -2682,6 +2705,10 @@ export const bootstrapApp = async () => {
 
     const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getRoomSeats(), playerTraversal, habitatConfig.radius) : null
     roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice())
+    const coffeeCtx = coffeeContext()
+    coffeeService.update(deltaSeconds, coffeeCtx)
+    coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
+    coffeeView.update(coffeeService, coffeeCtx.station, !coffeeCtx.blocked && playerTraversal.mode === 'grounded', roomEnvironment.cafe > 0, coffeeAction.getReservedBottomHeight())
 
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
@@ -2702,7 +2729,8 @@ export const bootstrapApp = async () => {
     // Keyed off the tour state (game time), not a wall-clock timer: on a slow
     // device the card outlives its nominal duration and a timer would fire
     // straight into the overlap this exists to avoid.
-    if (!controlsBootFlashDone && activeTourCard === null) {
+    if (!controlsBootFlashDone && activeTourCard === null &&
+      coffeeService.prompt(coffeeCtx) === null && nearSeat === null && !roomSeating.seat) {
       controlsBootFlashDone = true
       hud.peekControls()
     }
@@ -2710,7 +2738,7 @@ export const bootstrapApp = async () => {
       camera: desktopUiCamera,
       deltaSeconds,
       xrActive: renderer.xr.isPresenting,
-      bottomClearancePx: mobileControls?.getReservedBottomHeight() ?? 0
+      bottomClearancePx: Math.max(mobileControls?.getReservedBottomHeight() ?? 0, roomAction.getReservedBottomHeight(), coffeeAction.getReservedBottomHeight())
     })
     if (bloomComposer !== null && bloomRenderPass !== null && !renderer.xr.isPresenting) {
       bloomRenderPass.camera = desktopUiCamera
@@ -2784,6 +2812,8 @@ export const bootstrapApp = async () => {
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
     roomAction.dispose()
+    coffeeAction.dispose()
+    coffeeView.dispose()
     hud.destroy()
     beatBar.destroy()
     shareBar.destroy()

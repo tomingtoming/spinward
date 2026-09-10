@@ -20,6 +20,7 @@ export function createRoomAction(onActivate:()=>void, reservedBottom:()=>number)
         if(nextBottom!==bottom){button.style.bottom=`${nextBottom}px`;bottom=nextBottom}
       }
     },
+    getReservedBottomHeight(){return button.hidden?0:window.innerHeight-button.getBoundingClientRect().top},
     dispose(){button.remove();style.remove()}
   }
 }

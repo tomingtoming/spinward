@@ -1,3 +1,4 @@
+import { planCoffeeStation, type CoffeeStation } from '../app/coffeeService'
 import { NeighborhoodFronts, neighborhoodPoint, matchNeighborhoodLot } from './neighborhoodFronts'
 import { planRoomSeats, type RoomSeat } from '../app/roomSeating'
 import { FRONTAGES, FRONTAGE_KINDS, FRONTAGE_TEXTURE_BAYS, frontageKind, frontageLayout, paintFrontage, type FrontageKind } from './groundFloorFrontages'
@@ -1447,6 +1448,7 @@ export class Cityscape {
   private readonly civicDetails = new CivicDetails(this.group)
   private readonly interiorLayer = new BuildingInteriorLayer(this.group)
   private readonly neighborhoodFronts = new NeighborhoodFronts(this.group)
+  private coffeeStation: CoffeeStation | null = null
   private roomSeats: RoomSeat[] = []
   private interiors = new Map<CityBuilding, BuildingInterior>()
   private interiorFocus = { azimuth: 0, axial: 0, altitude: 1.8 }
@@ -2448,6 +2450,7 @@ export class Cityscape {
     this.neighborhoodFronts.rebuild(plan.buildings, radius)
     this.interiors = planBuildingInteriors(plan.buildings, radius)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
+    this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
       const interior = this.interiors.get(building)
       if (interior) return interiorCollisionBuildings(interior, radius)
@@ -2518,8 +2521,17 @@ export class Cityscape {
   }
 
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
+  getCoffeeStation() { return this.coffeeStation }
 
   getInteriorVisit(kind: string | null) {
+    if (kind === 'coffee' && this.coffeeStation) {
+      const station = this.coffeeStation, front = station.interior.building.front!
+      const up = new THREE.Vector3(-Math.cos(station.azimuth), 0, -Math.sin(station.azimuth))
+      const forward = front.axis === 'axial' ? new THREE.Vector3(0, -front.side, 0)
+        : new THREE.Vector3(Math.sin(station.azimuth) * front.side, 0, -Math.cos(station.azimuth) * front.side)
+      const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(forward.clone().cross(up), up, forward.clone().negate()))
+      return { azimuth: station.azimuth, axial: station.axialPosition, orientation }
+    }
     if (kind === 'shops') {
       const b = matchNeighborhoodLot(this.cityPlanBuildings, this.radius)
       if (!b) return null
@@ -2833,6 +2845,7 @@ export class Cityscape {
     this.neighborhoodFronts.clear()
     this.interiors.clear()
     this.roomSeats = []
+    this.coffeeStation = null
     this.streetAccessLayer.clear()
     this.clearRoadTiles()
     this.collisionBuildings = []
