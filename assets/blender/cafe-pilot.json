@@ -1,0 +1,347 @@
+{
+  "version": 1,
+  "habitat": {
+    "radius": 3200,
+    "length": 40000,
+    "maxBuildings": 64000
+  },
+  "interior": {
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": -300.94325213073205,
+      "width": 23.442699876292487,
+      "depth": 30.694140899823886,
+      "height": 46.88539975258497,
+      "tone": 0.7747740288671977,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": -1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": 3.530617722131012,
+        "tangentExtent": 24.53818424037711,
+        "axialExtent": 37.75537634408586
+      },
+      "access": {
+        "roadId": "road-76",
+        "roadIndex": 76,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": -316.290322580644
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": -318.290322580644
+        },
+        "width": 2,
+        "length": 1.9999999999999964
+      }
+    },
+    "kind": "cafe",
+    "frontage": 23.442699876292487,
+    "depth": 30.694140899823886,
+    "parts": [
+      {
+        "x": -6.6606749690731215,
+        "y": 2.1,
+        "z": 15.197070449911942,
+        "width": 10.121349938146244,
+        "height": 4.2,
+        "depth": 0.3,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 6.6606749690731215,
+        "y": 2.1,
+        "z": 15.197070449911942,
+        "width": 10.121349938146244,
+        "height": 4.2,
+        "depth": 0.3,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 0,
+        "y": 3.6500000000000004,
+        "z": 15.197070449911942,
+        "width": 3.2,
+        "height": 1.1,
+        "depth": 0.3,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 0,
+        "y": 2.1,
+        "z": -15.197070449911942,
+        "width": 23.442699876292487,
+        "height": 4.2,
+        "depth": 0.3,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": -11.571349938146243,
+        "y": 2.1,
+        "z": 0,
+        "width": 0.3,
+        "height": 4.2,
+        "depth": 30.094140899823884,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 11.571349938146243,
+        "y": 2.1,
+        "z": 0,
+        "width": 0.3,
+        "height": 4.2,
+        "depth": 30.094140899823884,
+        "material": "wall",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 0,
+        "y": 25.542699876292485,
+        "z": 0,
+        "width": 23.442699876292487,
+        "height": 42.68539975258497,
+        "depth": 30.694140899823886,
+        "material": "upper",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "x": 0,
+        "y": 3.65,
+        "z": 15.337070449911943,
+        "width": 4.2,
+        "height": 0.45,
+        "depth": 0.04,
+        "material": "sign",
+        "detail": 2,
+        "solid": false
+      },
+      {
+        "x": 0,
+        "y": 3.25,
+        "z": 14.747070449911943,
+        "width": 4.2,
+        "height": 0.15,
+        "depth": 1.1,
+        "material": "light",
+        "detail": 2,
+        "solid": false
+      },
+      {
+        "x": -1.7000000000000002,
+        "y": 1.5,
+        "z": 15.327070449911943,
+        "width": 0.08,
+        "height": 3,
+        "depth": 0.04,
+        "material": "light",
+        "detail": 2,
+        "solid": false
+      },
+      {
+        "x": 1.7000000000000002,
+        "y": 1.5,
+        "z": 15.327070449911943,
+        "width": 0.08,
+        "height": 3,
+        "depth": 0.04,
+        "material": "light",
+        "detail": 2,
+        "solid": false
+      },
+      {
+        "x": -10.321349938146243,
+        "y": 0.3,
+        "z": 0,
+        "width": 1.5,
+        "height": 0.6,
+        "depth": 2.4,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": -10.321349938146243,
+        "y": 0.72,
+        "z": -0.95,
+        "width": 1.4,
+        "height": 0.85,
+        "depth": 0.16,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": -10.321349938146243,
+        "y": 0.67,
+        "z": 0.6,
+        "width": 0.24,
+        "height": 0.12,
+        "depth": 0.18,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": 10.321349938146243,
+        "y": 0.3,
+        "z": 0,
+        "width": 1.5,
+        "height": 0.6,
+        "depth": 2.4,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": 10.321349938146243,
+        "y": 0.72,
+        "z": -0.95,
+        "width": 1.4,
+        "height": 0.85,
+        "depth": 0.16,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": 10.321349938146243,
+        "y": 0.67,
+        "z": 0.6,
+        "width": 0.24,
+        "height": 0.12,
+        "depth": 0.18,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": -3.2,
+        "y": 0.95,
+        "z": 1.8,
+        "width": 1.2,
+        "height": 0.12,
+        "depth": 1.2,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": -3.2,
+        "y": 0.45,
+        "z": 1.8,
+        "width": 0.2,
+        "height": 0.9,
+        "depth": 0.2,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": -3.2,
+        "y": 1.1,
+        "z": 1.8,
+        "width": 0.12,
+        "height": 0.18,
+        "depth": 0.12,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": 3.2,
+        "y": 0.95,
+        "z": 1.8,
+        "width": 1.2,
+        "height": 0.12,
+        "depth": 1.2,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": 3.2,
+        "y": 0.45,
+        "z": 1.8,
+        "width": 0.2,
+        "height": 0.9,
+        "depth": 0.2,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": 3.2,
+        "y": 1.1,
+        "z": 1.8,
+        "width": 0.12,
+        "height": 0.18,
+        "depth": 0.12,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": 0,
+        "y": 0.55,
+        "z": -14.097070449911943,
+        "width": 21.442699876292487,
+        "height": 1.1,
+        "depth": 1,
+        "material": "wood",
+        "detail": 1,
+        "solid": true
+      },
+      {
+        "x": -0.55,
+        "y": 1.2,
+        "z": -14.097070449911943,
+        "width": 0.18,
+        "height": 0.2,
+        "depth": 0.18,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": 0,
+        "y": 1.2,
+        "z": -14.097070449911943,
+        "width": 0.18,
+        "height": 0.2,
+        "depth": 0.18,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      },
+      {
+        "x": 0.55,
+        "y": 1.2,
+        "z": -14.097070449911943,
+        "width": 0.18,
+        "height": 0.2,
+        "depth": 0.18,
+        "material": "light",
+        "detail": 0,
+        "solid": false
+      }
+    ]
+  }
+}

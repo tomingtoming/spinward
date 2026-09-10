@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { CafePilot } from './cafePilot'
 import { getRoadTileLiftMeters } from './roadTiles'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import {
@@ -9,7 +10,8 @@ import {
 const MATERIALS: InteriorPart['material'][] = ['wall', 'upper', 'wood', 'green', 'light', 'sign']
 
 // Six material batches plus a curved floor, independent of room count. No per-building lights,
-// GLB requests, transparent sorting, or geometry generation during traversal.
+// transparent sorting, or geometry generation during traversal. One authored cafe
+// pilot loads separately, retaining these batches until its GLB is ready.
 export class BuildingInteriorLayer {
   readonly group = new THREE.Group()
   private readonly geometry = new THREE.BoxGeometry(1, 1, 1)
@@ -20,11 +22,17 @@ export class BuildingInteriorLayer {
   private floor: THREE.Mesh | null = null
   private readonly floorMaterial = new THREE.MeshStandardMaterial({ color: 0x797b75, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
   private entries: Array<{ interior: BuildingInterior; lod: BuildingExperienceLod; parts: Array<{ part: InteriorPart; matrix: THREE.Matrix4 }> }> = []
+  private readonly pilot: CafePilot
   private radius = 1
   private focus = new THREE.Vector3(Infinity, Infinity, Infinity)
 
   constructor(parent: THREE.Group) {
     parent.add(this.group)
+    this.pilot = new CafePilot(this.group, () => {
+      const { x, y, z } = this.focus
+      this.focus.set(Infinity, Infinity, Infinity)
+      if (Number.isFinite(x)) this.update(x, y, z)
+    })
     const canvas = document.createElement('canvas')
     canvas.width = 64; canvas.height = 64
     const ctx = canvas.getContext('2d')!
@@ -70,6 +78,7 @@ export class BuildingInteriorLayer {
   rebuild(interiors: BuildingInterior[], radius: number) {
     this.clear()
     this.radius = radius
+    this.pilot.rebuild(interiors, radius)
     const rotation = new THREE.Quaternion(), scale = new THREE.Vector3(), position = new THREE.Vector3()
     this.entries = interiors.map(interior => ({ interior, lod: 4 as BuildingExperienceLod,
       parts: interior.parts.map(part => {
@@ -113,7 +122,7 @@ export class BuildingInteriorLayer {
   update(azimuth: number, axial: number, altitude: number) {
     if (Math.hypot((azimuth - this.focus.x) * this.radius, axial - this.focus.y, altitude - this.focus.z) < 1) return
     this.focus.set(azimuth, axial, altitude)
-    let changed = false
+    let changed = this.pilot.update(azimuth, axial, altitude)
     for (const entry of this.entries) {
       // Near/far ownership belongs to Cityscape's existing coarse grid. Keep
       // the structural shell even when the independently managed room is far.
@@ -123,6 +132,7 @@ export class BuildingInteriorLayer {
     if (!changed && this.meshes.some(mesh => mesh.count > 0)) return
     const counts = MATERIALS.map(() => 0)
     for (const entry of this.entries) for (const { part, matrix } of entry.parts) {
+      if (this.pilot.replaces(entry.interior)) continue
       if (part.detail < 3 && entry.lod > part.detail) continue
       const index = MATERIALS.indexOf(part.material)
       this.meshes[index].setMatrixAt(counts[index]++, matrix)
@@ -135,6 +145,7 @@ export class BuildingInteriorLayer {
   }
 
   setDaylight(daylight: number) {
+    this.pilot.setDaylight(daylight)
     this.materials[4].emissiveIntensity = 0.5 + (1 - daylight) * 1.5
     // A little interior bounce without hundreds of realtime point lights.
     for (const index of [0, 2]) {
@@ -144,6 +155,7 @@ export class BuildingInteriorLayer {
   }
 
   clear() {
+    this.pilot.rebuild([], this.radius)
     for (const mesh of this.meshes) { mesh.dispose(); mesh.removeFromParent() }
     if (this.floor) { this.floor.geometry.dispose(); this.floor.removeFromParent(); this.floor = null }
     this.meshes = []; this.entries = []
@@ -151,7 +163,7 @@ export class BuildingInteriorLayer {
   }
 
   dispose() {
-    this.clear(); this.geometry.dispose(); this.windows.dispose(); this.sign.dispose(); this.floorMaterial.dispose()
+    this.pilot.dispose(); this.clear(); this.geometry.dispose(); this.windows.dispose(); this.sign.dispose(); this.floorMaterial.dispose()
     this.materials.forEach(material => material.dispose())
     this.group.removeFromParent()
   }

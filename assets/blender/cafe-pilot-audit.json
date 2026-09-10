@@ -1,0 +1,68 @@
+{
+  "stage": 1,
+  "name": "cafe_pilot_lod0",
+  "triangles": 22700,
+  "vertices": 14174,
+  "materials": 8,
+  "native_dimensions": [
+    23.57270050048828,
+    31.419139862060547,
+    46.885398864746094
+  ],
+  "source": "assets/blender/cafe-pilot.blend",
+  "glb": "public/assets/buildings/cafe-pilot.glb",
+  "bytes": 3326276,
+  "contract": {
+    "azimuth": 0.12222539976560025,
+    "axial": -300.94325213073205,
+    "width": 23.442699876292487,
+    "depth": 30.694140899823886,
+    "height": 46.88539975258497,
+    "tone": 0.7747740288671977,
+    "kind": "block",
+    "urban": 1,
+    "oldTown": 0,
+    "front": {
+      "axis": "axial",
+      "side": -1
+    },
+    "parcel": {
+      "tangentOffset": 0,
+      "axialOffset": 3.530617722131012,
+      "tangentExtent": 24.53818424037711,
+      "axialExtent": 37.75537634408586
+    },
+    "access": {
+      "roadId": "road-76",
+      "roadIndex": 76,
+      "entrance": {
+        "azimuth": 0.12222539976560025,
+        "axial": -316.290322580644
+      },
+      "roadEdge": {
+        "azimuth": 0.12222539976560025,
+        "axial": -318.290322580644
+      },
+      "width": 2,
+      "length": 1.9999999999999964
+    }
+  },
+  "ao": {
+    "size": [
+      2048,
+      2048
+    ],
+    "images": 1,
+    "method": "Cycles contact AO, 0.7 m radius, 32 samples"
+  },
+  "limitations": [
+    "Master exceeds the planned 8\u201312k LOD0 target.",
+    "Buried-triangle and reference comparison audit pending."
+  ],
+  "uv": {
+    "triangles": 22700,
+    "summed_uv_triangle_area": 0.5079371568669688,
+    "raster_occupancy_1024": 0.6468038558959961,
+    "note": "UV area includes overlaps; raster occupancy includes edge pixels. Neither measures hidden geometry."
+  }
+}
