@@ -1,7 +1,9 @@
 # Blender buildings and LOD plan
 
-Status: staged implementation authorized by toming on 2026-09-10. Stage 1
-has a connected-Blender cafe master and local integration; production is unchanged. Baseline: local frontage study `879e234`, parent production
+Status: staged implementation authorized by toming on 2026-09-10. Stages 1–2
+have a connected-Blender cafe master, three exterior meshes, and local runtime
+LOD switching. Production is unchanged. The stage-1 section below is historical;
+the stage-2 section records the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.
 
@@ -279,3 +281,89 @@ All current comparison images use the final 8-primitive export. `gpu-smoke.json`
 `runtime-checks.json`, `uv-audit.json`, and the images are in the Pictures path
 above. GLB tests verify that its embedded AO image equals the source PNG byte for
 byte, guarding against Blender re-exporting an old packed image after a bake.
+
+
+## Stage 2 completed locally — 2026-09-10
+
+The original cafe now switches between three Blender exterior meshes. This is
+one exact lot, not a citywide rollout or the completed five-representation chain.
+
+| Mesh | Triangles | Material primitives | Reduction from approved master |
+| --- | ---: | ---: | ---: |
+| LOD0, approved master | 22,700 | 8 | — |
+| LOD1, street | 2,083 | 7 | 90.8% |
+| LOD2, block | 320 | 6 | 98.6% |
+
+LOD1 and LOD2 meet their initial triangle targets. LOD0 remains above its 8–12k
+target and has not been simplified in this stage. The master is the measured
+reference; no unrelated low-poly reference asset was substituted.
+
+`assets/blender/build_cafe_lods.py` runs through the connected official Blender
+addon against the approved master. It preserves the original scene and creates
+`cafe-pilot-lods.blend` with two separate objects. The low pack is
+`public/assets/buildings/cafe-pilot-lods.glb` (2,947,356 bytes). Its new 2048×1024
+facade atlases contain albedo, ORM (R=AO, G=roughness, B=metallic), and emission.
+Both low meshes share them; retained master parts also use the original AO image.
+Each bake creates a fresh image before packing, and tests compare the embedded
+PNG bytes with the sources. Materials preserve window roughness/metallicity and
+runtime daylight emission. LOD1 retains only the forward caps of the sign letters
+so ORBIT CAFE remains legible without their extrusion and rear faces.
+
+The 3.2×3.1 m entrance portal, roof/parapet and projecting canopy remain. LOD1/2
+replace structural/detail-tier 2–3 parts while the existing interior layer retains
+its own furniture/small-object selection. Collision and the curved floor still
+come from the existing procedural contracts. This does not yet constitute a
+complete independent roof/interior budget system.
+
+Runtime thresholds use distance to the full building envelope, including altitude
+and wrapped azimuth. Approach thresholds are 25 m for LOD0 and 120 m for LOD1;
+exit thresholds are 30 m and 144 m. The selection latch survives coarse-grid
+rebuilds and asynchronous asset arrival. Changes fade over 240 ms with
+complementary opaque screen-space dither, including while the player is still.
+The existing coarse city grid still owns the outer visibility boundary. LOD3 and
+LOD4 have not been implemented by this pilot.
+
+Both the 3.33 MB master and 2.95 MB low pack load once when the original lot is
+present, about 6.27 MB total. Streaming/memory efficiency and batching remain
+future work. A failed required asset retains available bounded high detail or
+the procedural fallback. `?cafeModel=0` selects the baseline; debug-only
+`?debug&cafeLod=0|1|2` fixes a level for camera-matched comparisons.
+
+Validation: `bun test` **610 pass / 0 fail** and `bun run build` passed. Tests
+cover thresholds/altitude, exported triangle budgets, bounds, clear doorway rays,
+roof rays, shared ORM texture references and embedded bake freshness. Browser
+checks covered day/night, entrance walking, roof proximity, stationary fading,
+asset failures and forced phone/Quest budgets. An actual keyboard flight recorded
+LOD1→2 outward and LOD2→1→0 inward, with 15 and 30 transition frames respectively.
+Ground-level LOD0→1 also faded and settled without residual grain. Far silhouette
+comparisons use identical overhead cameras with rotation stopped (`rpm=0`), since
+a ground camera was occluded by another building. Normal rotating-habitat street,
+roof and entrance checks were performed separately.
+
+An independent final image review measured matched window pixels after ORM baking:
+day dark glass RGB 23.4/41.6/51.8 → 23.2/41.4/51.6; night dark glass
+38.14/47.06/49.76 → 38.23/47.32/50.06; lit glass
+163.44/152.56/127.67 → 163.48/152.94/127.69. The earlier brightness jump was resolved,
+and ORBIT CAFE remained legible day and night. Thinner frames/edges at LOD1 are
+expected. These static checks do not certify temporal aliasing or stereo comfort.
+
+The Blender audit measured each level alone. Normal-direction ray occlusion was
+15,575 / 1,259 / 153 triangles for LOD0/1/2; five-ray 25° cone tests within 8 cm
+flagged 4,140 / 499 / 52 candidates. These are directional occlusion measurements,
+**not globally invisible faces**, and were not used for automatic deletion.
+Summed UV triangle areas (overlaps included) were 0.508 for master AO; LOD1
+0.204 master AO plus 0.883 facade; LOD2 0.084 master AO plus 0.968 facade.
+These sums are not raster occupancy percentages.
+
+Evidence is under `/home/toming/Pictures/Spinward/2026-09-10_cafe-lods/`:
+`verification.json`, `flight-checks.json`, `fallback-checks.json`,
+`geometry-audit.json`, camera-matched PNGs and `comparison-final.jpg`.
+Desktop Radeon 780M/Vulkan samples stayed near the 60 fps cap. One building's
+triangle reduction does not prove a citywide frame-time gain; forced phone/Quest
+settings on this PC are not physical-device validation. Physical XR dither review
+remains outstanding. No production deployment or public push was performed.
+
+Next: simplify the close master without sacrificing contact details, evaluate
+roof/interior budgets and physical XR transitions, then test a second building
+and city-scale batching/visibility before completing LOD3/4. Street activity,
+room dressing and ambience remain separate stages of the lived-in-city goal.

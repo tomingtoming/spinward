@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import contract from '../../assets/blender/cafe-pilot.json'
-import type { BuildingInterior } from './buildingInteriors'
+import type { BuildingInterior, InteriorPart } from './buildingInteriors'
 import { wrapBuildingAngleToPi } from './buildingLod'
 
 // Stage 1 is one authored lot, not an asset stretched across the whole city.
@@ -29,18 +29,39 @@ export function cafePilotPoint(interior: BuildingInterior, radius: number, point
   return point.set(Math.cos(azimuth) * (radius - point.y), b.axial + axial, Math.sin(azimuth) * (radius - point.y))
 }
 
+export type CafeLod = 0 | 1 | 2
+
+// Distances are from the complete envelope, with 20% exit hysteresis.
+// No upper cutoff here: Cityscape retains ownership of the coarse near grid.
+export function selectCafeLod(distance: number, previous: CafeLod = 2): CafeLod {
+  if (distance <= (previous === 0 ? 30 : 25)) return 0
+  if (distance <= (previous <= 1 ? 144 : 120)) return 1
+  return 2
+}
+
 export class CafePilot {
   readonly group = new THREE.Group()
   interior: BuildingInterior | null = null
-  private source: THREE.Group | null = null
-  private loading = false
+  private sources: Array<THREE.Object3D | null> = [null, null, null]
+  private assets: THREE.Group[] = []
+  private loading = [false, false]
+  private requested = [false, false]
   private disposed = false
   private radius = 1
   private daylight = 1
-  private readonly enabled = new URLSearchParams(window.location.search).get('cafeModel') !== '0'
+  private level: CafeLod | -1 = -1
+  private selection: CafeLod = 2
+  private groups = [new THREE.Group(), new THREE.Group(), new THREE.Group()]
+  private fades = this.groups.map(() => ({ fraction: { value: 1 }, inverse: { value: 0 } }))
+  private transition: { from: CafeLod; to: CafeLod; started: number } | null = null
+  private readonly params = new URLSearchParams(window.location.search)
+  private readonly enabled = this.params.get('cafeModel') !== '0'
+  private readonly forced = this.params.has('debug') && /^[012]$/.test(this.params.get('cafeLod') ?? '')
+    ? Number(this.params.get('cafeLod')) as CafeLod : null
   constructor(parent: THREE.Group, private readonly invalidate: () => void) {
     this.group.name = 'blender-cafe-pilot'
     this.group.visible = false
+    this.groups.forEach((group, i) => { group.name = `cafe-lod-${i}`; group.visible = false; this.group.add(group) })
     parent.add(this.group)
   }
   rebuild(interiors: BuildingInterior[], radius: number) {
@@ -48,56 +69,109 @@ export class CafePilot {
     this.radius = radius
     this.interior = this.enabled ? interiors.find(interior => matchesCafePilot(interior, radius)) ?? null : null
     if (!this.interior) return
-    if (this.source) this.mount()
-    else if (!this.loading) {
-      this.loading = true
-      new GLTFLoader().load('/assets/buildings/cafe-pilot.glb', gltf => {
-        this.loading = false
-        if (this.disposed) { this.releaseSource(gltf.scene); return }
-        this.source = gltf.scene
-        this.mount()
-        this.invalidate()
+    this.mount()
+    for (const index of [0, 1]) {
+      if (this.requested[index] || this.loading[index]) continue
+      this.requested[index] = true; this.loading[index] = true
+      new GLTFLoader().load(index === 0 ? '/assets/buildings/cafe-pilot.glb' : '/assets/buildings/cafe-pilot-lods.glb', gltf => {
+        this.loading[index] = false
+        if (this.disposed) { this.releaseAssets([gltf.scene]); return }
+        this.assets.push(gltf.scene)
+        if (index === 0) this.sources[0] = gltf.scene
+        else {
+          this.sources[1] = gltf.scene.getObjectByName('cafe_pilot_lod1') ?? null
+          this.sources[2] = gltf.scene.getObjectByName('cafe_pilot_lod2') ?? null
+        }
+        this.mount(); this.invalidate()
       }, undefined, error => {
-        this.loading = false
-        console.warn('Cafe pilot unavailable; keeping procedural cafe.', error)
+        this.loading[index] = false
+        console.warn('Cafe LOD unavailable; retaining available fallback.', error)
       })
     }
   }
   private mount() {
     this.clearGeometry()
-    if (!this.source || !this.interior) return
+    if (!this.interior) return
     const interior = this.interior
     const origin = cafePilotPoint(interior, this.radius, new THREE.Vector3())
     this.group.position.copy(origin)
-    this.source.updateMatrixWorld(true)
-    this.source.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return
-      const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld)
-      const positions = geometry.getAttribute('position'), point = new THREE.Vector3()
-      for (let i = 0; i < positions.count; i++) {
-        point.fromBufferAttribute(positions, i)
-        cafePilotPoint(interior, this.radius, point).sub(origin)
-        positions.setXYZ(i, point.x, point.y, point.z)
-      }
-      geometry.computeVertexNormals(); geometry.computeBoundingSphere()
-      const mesh = new THREE.Mesh(geometry, object.material)
-      mesh.name = object.name
-      mesh.castShadow = true; mesh.receiveShadow = true
-      this.group.add(mesh)
+    this.sources.forEach((source, level) => {
+      if (!source) return
+      source.updateWorldMatrix(true, true)
+      const materials = new Map<THREE.Material, THREE.Material>()
+      source.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return
+        const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld)
+        const positions = geometry.getAttribute('position'), point = new THREE.Vector3()
+        for (let i = 0; i < positions.count; i++) {
+          point.fromBufferAttribute(positions, i)
+          cafePilotPoint(interior, this.radius, point).sub(origin)
+          positions.setXYZ(i, point.x, point.y, point.z)
+        }
+        geometry.computeVertexNormals(); geometry.computeBoundingSphere()
+        const clone = (sourceMaterial: THREE.Material) => {
+          let material = materials.get(sourceMaterial)
+          if (material) return material
+          material = sourceMaterial.clone()
+          material.onBeforeCompile = shader => {
+            shader.uniforms.cafeFraction = this.fades[level].fraction
+            shader.uniforms.cafeInverse = this.fades[level].inverse
+            shader.fragmentShader = 'uniform float cafeFraction; uniform float cafeInverse;\n' + shader.fragmentShader
+            shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+              float cafeNoise = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+              if (cafeInverse < 0.5 ? cafeNoise >= cafeFraction : cafeNoise < cafeFraction) discard;`)
+          }
+          material.customProgramCacheKey = () => 'cafe-lod-dither-v1'
+          materials.set(sourceMaterial, material)
+          return material
+        }
+        const mesh = new THREE.Mesh(geometry, Array.isArray(object.material) ? object.material.map(clone) : clone(object.material))
+        mesh.name = object.name; mesh.castShadow = true; mesh.receiveShadow = true
+        this.groups[level].add(mesh)
+      })
     })
     this.setDaylight(this.daylight)
   }
   update(azimuth: number, axial: number, altitude: number) {
-    const previous = this.group.visible
-    // Temporary stage-1 promotion range. Authored LOD1/2 follow after review.
-    this.group.visible = !!this.interior && this.group.children.length > 0 &&
-      cafePilotDistance(this.interior, this.radius, azimuth, axial, altitude) <= (previous ? 144 : 120)
-    return previous !== this.group.visible
+    const previous = this.level
+    const distance = this.interior ? cafePilotDistance(this.interior, this.radius, azimuth, axial, altitude) : Infinity
+    const wanted = this.forced ?? selectCafeLod(distance, this.selection)
+    this.selection = wanted
+    let next: CafeLod | -1 = this.interior && this.groups[wanted].children.length ? wanted : -1
+    // Keep the original procedural cafe if a needed distant model fails. A
+    // high-detail fallback is bounded to the old 144m pilot promotion range.
+    if (next < 0 && this.interior && distance <= 144 && this.groups[0].children.length) next = 0
+    if (next !== previous) {
+      this.transition = next !== -1 && previous !== -1 && this.forced === null
+        ? { from: previous, to: next, started: performance.now() } : null
+      this.level = next
+    }
+    this.groups.forEach((group, i) => {
+      group.visible = i === this.level
+      this.fades[i].fraction.value = 1; this.fades[i].inverse.value = 0
+    })
+    if (this.transition) {
+      const { from, to, started } = this.transition
+      const fraction = Math.min(1, (performance.now() - started) / 240)
+      if (fraction >= 1) this.transition = null
+      else {
+        this.groups[from].visible = this.groups[to].visible = true
+        this.fades[from].fraction.value = this.fades[to].fraction.value = fraction
+        this.fades[from].inverse.value = 1
+      }
+    }
+    this.group.visible = this.level >= 0
+    this.group.userData.lod = this.level
+    this.group.userData.distance = distance
+    this.group.userData.transitioning = !!this.transition
+    return previous !== this.level
   }
-  replaces(interior: BuildingInterior) { return this.group.visible && this.interior === interior }
+  replaces(interior: BuildingInterior, part: InteriorPart) {
+    return this.group.visible && this.interior === interior && (this.level === 0 || part.detail >= 2)
+  }
   setDaylight(daylight: number) {
     this.daylight = daylight
-    this.source?.traverse(object => {
+    this.group.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return
       for (const material of (Array.isArray(object.material) ? object.material : [object.material])) {
         if (!(material instanceof THREE.MeshStandardMaterial)) continue
@@ -107,16 +181,23 @@ export class CafePilot {
     })
   }
   private clearGeometry() {
-    for (const object of [...this.group.children]) {
-      if (object instanceof THREE.Mesh) object.geometry.dispose()
-      object.removeFromParent()
-    }
-    this.group.visible = false
-  }
-  private releaseSource(source: THREE.Group) {
     const materials = new Set<THREE.Material>()
-    const textures = new Set<THREE.Texture>()
-    source.traverse(object => {
+    for (const group of this.groups) {
+      for (const object of [...group.children]) {
+        if (object instanceof THREE.Mesh) {
+          object.geometry.dispose()
+          for (const material of Array.isArray(object.material) ? object.material : [object.material]) materials.add(material)
+        }
+        object.removeFromParent()
+      }
+      group.visible = false
+    }
+    materials.forEach(material => material.dispose())
+    this.group.visible = false; this.level = -1; this.transition = null
+  }
+  private releaseAssets(assets: THREE.Group[]) {
+    const materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>()
+    for (const asset of assets) asset.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()
       for (const material of (Array.isArray(object.material) ? object.material : [object.material])) materials.add(material)
@@ -128,10 +209,8 @@ export class CafePilot {
     textures.forEach(texture => texture.dispose())
   }
   dispose() {
-    this.disposed = true
-    this.clearGeometry()
-    if (this.source) this.releaseSource(this.source)
-    this.source = null; this.interior = null
+    this.disposed = true; this.clearGeometry(); this.releaseAssets(this.assets)
+    this.assets = []; this.sources = [null, null, null]; this.interior = null
     this.group.removeFromParent()
   }
 }

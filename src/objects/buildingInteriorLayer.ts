@@ -120,9 +120,9 @@ export class BuildingInteriorLayer {
   }
 
   update(azimuth: number, axial: number, altitude: number) {
-    if (Math.hypot((azimuth - this.focus.x) * this.radius, axial - this.focus.y, altitude - this.focus.z) < 1) return
-    this.focus.set(azimuth, axial, altitude)
     let changed = this.pilot.update(azimuth, axial, altitude)
+    if (!changed && Math.hypot((azimuth - this.focus.x) * this.radius, axial - this.focus.y, altitude - this.focus.z) < 1) return
+    this.focus.set(azimuth, axial, altitude)
     for (const entry of this.entries) {
       // Near/far ownership belongs to Cityscape's existing coarse grid. Keep
       // the structural shell even when the independently managed room is far.
@@ -132,7 +132,7 @@ export class BuildingInteriorLayer {
     if (!changed && this.meshes.some(mesh => mesh.count > 0)) return
     const counts = MATERIALS.map(() => 0)
     for (const entry of this.entries) for (const { part, matrix } of entry.parts) {
-      if (this.pilot.replaces(entry.interior)) continue
+      if (this.pilot.replaces(entry.interior, part)) continue
       if (part.detail < 3 && entry.lod > part.detail) continue
       const index = MATERIALS.indexOf(part.material)
       this.meshes[index].setMatrixAt(counts[index]++, matrix)

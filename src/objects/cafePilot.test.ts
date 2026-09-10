@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import contract from '../../assets/blender/cafe-pilot.json'
-import { cafePilotDistance, cafePilotPoint, matchesCafePilot } from './cafePilot'
+import { cafePilotDistance, cafePilotPoint, matchesCafePilot, selectCafeLod } from './cafePilot'
 import { createBuildingInterior, interiorPartBuilding } from './buildingInteriors'
 import type { CityBuilding } from './cityLayout'
 
@@ -73,4 +73,65 @@ test('exported GLB contains only the metre-scale pilot and preserves its walk-th
   for (const x of [-1.5, 0, 1.5]) expect(hitDistance(x, 1.6)).toBeGreaterThan(5)
   expect(hitDistance(1.7, 1.6)).toBeLessThan(3)
   expect(hitDistance(0, 3.15)).toBeLessThan(3)
+})
+
+
+test('LOD selection is stable across approach/retreat and includes altitude', () => {
+  expect(selectCafeLod(24, 2)).toBe(0)
+  expect(selectCafeLod(29, 0)).toBe(0)
+  expect(selectCafeLod(31, 0)).toBe(1)
+  expect(selectCafeLod(26, 1)).toBe(1)
+  expect(selectCafeLod(121, 1)).toBe(1)
+  expect(selectCafeLod(145, 1)).toBe(2)
+  expect(selectCafeLod(121, 2)).toBe(2)
+  expect(selectCafeLod(119, 2)).toBe(1)
+  expect(selectCafeLod(cafePilotDistance(interior, radius, building.azimuth, building.axial, building.height + 10))).toBe(0)
+  expect(selectCafeLod(cafePilotDistance(interior, radius, building.azimuth, building.axial, building.height + 200))).toBe(2)
+})
+
+test('Blender LODs reduce actual exported geometry while preserving the portal and roof', async () => {
+  const data = readFileSync(new URL('../../public/assets/buildings/cafe-pilot-lods.glb', import.meta.url))
+  const length = data.readUInt32LE(12), json = JSON.parse(data.subarray(20, 20 + length).toString())
+  // A stale packed image once survived a rebake: verify actual embedded bytes.
+  for (const channel of ['albedo', 'orm', 'emission']) {
+    const expected = readFileSync(new URL(`../../assets/blender/cafe-lod-${channel}.png`, import.meta.url))
+    expect(json.images.some((image: { bufferView: number }) => {
+      const view = json.bufferViews[image.bufferView], start = 28 + length + (view.byteOffset ?? 0)
+      return data.subarray(start, start + view.byteLength).equals(expected)
+    })).toBe(true)
+  }
+  const stripTextures = (object: Record<string, unknown>) => {
+    for (const key of Object.keys(object)) {
+      if (key.endsWith('Texture')) delete object[key]
+      else if (object[key] && typeof object[key] === 'object') stripTextures(object[key] as Record<string, unknown>)
+    }
+  }
+  const facade = json.materials.find((material: { name: string }) => material.name === 'SWCP_BAKED_LIGHT')
+  expect(facade.pbrMetallicRoughness.metallicRoughnessTexture).toBeDefined()
+  expect(json.textures[facade.pbrMetallicRoughness.metallicRoughnessTexture.index].source).toBe(
+    json.textures[facade.occlusionTexture.index].source)
+  json.materials.forEach(stripTextures)
+  data.fill(32, 20, 20 + length); data.write(JSON.stringify(json), 20)
+  const gltf = await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '')
+  gltf.scene.updateMatrixWorld(true)
+  for (const [level, maximum] of [[1, 3000], [2, 400]]) {
+    const model = gltf.scene.getObjectByName(`cafe_pilot_lod${level}`)!
+    expect(model).toBeDefined()
+    const bounds = new THREE.Box3().setFromObject(model)
+    expect(bounds.min.y).toBeCloseTo(0, 3)
+    expect(bounds.max.y).toBeCloseTo(building.height, 3)
+    expect(bounds.max.z).toBeCloseTo(interior.depth / 2 + 0.66, 3)
+    let triangles = 0
+    model.traverse(object => {
+      if (object instanceof THREE.Mesh) triangles += (object.geometry.index?.count ?? object.geometry.getAttribute('position').count) / 3
+    })
+    expect(triangles).toBeLessThanOrEqual(maximum)
+    const ray = new THREE.Raycaster()
+    for (const x of [-1.5, 0, 1.5]) {
+      ray.set(new THREE.Vector3(x, 1.6, interior.depth / 2 + 2), new THREE.Vector3(0, 0, -1))
+      expect(ray.intersectObject(model, true)[0]?.distance ?? Infinity).toBeGreaterThan(5)
+    }
+    ray.set(new THREE.Vector3(0, building.height + 1, 0), new THREE.Vector3(0, -1, 0))
+    expect(ray.intersectObject(model, true)[0]?.distance).toBeLessThan(1.3)
+  }
 })

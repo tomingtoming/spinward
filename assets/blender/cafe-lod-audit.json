@@ -1,0 +1,26 @@
+{
+  "source_master_triangles": 22700,
+  "bytes": 2947356,
+  "levels": [
+    {
+      "name": "cafe_pilot_lod1",
+      "triangles": 2083,
+      "materials": 7,
+      "dimensions": [
+        23.48270034790039,
+        31.374141693115234,
+        46.885398864746094
+      ]
+    },
+    {
+      "name": "cafe_pilot_lod2",
+      "triangles": 320,
+      "materials": 6,
+      "dimensions": [
+        23.442699432373047,
+        31.354141235351562,
+        46.885398864746094
+      ]
+    }
+  ]
+}
