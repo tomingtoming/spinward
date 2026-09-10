@@ -1,0 +1,32 @@
+{
+  "bytes": 1050852,
+  "levels": [
+    {
+      "name": "lobby_runtime_lod0",
+      "triangles": 2380,
+      "materials": 7
+    },
+    {
+      "name": "lobby_runtime_lod1",
+      "triangles": 1154,
+      "materials": 7
+    },
+    {
+      "name": "lobby_runtime_lod2",
+      "triangles": 156,
+      "materials": 6
+    }
+  ],
+  "front": {
+    "axis": "tangent",
+    "side": -1
+  },
+  "structural_dimensions": [
+    13.119314516129142,
+    12.1568449274889,
+    14
+  ],
+  "portal_width": 3.2,
+  "portal_height": 3.1,
+  "canopy": "Inside lot on both ends; 0m existing street approach"
+}

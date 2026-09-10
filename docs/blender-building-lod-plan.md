@@ -1,9 +1,9 @@
 # Blender buildings and LOD plan
 
-Status: staged implementation authorized by toming on 2026-09-10. Stages 1–2
-have a connected-Blender cafe master, three exterior meshes, and local runtime
-LOD switching. Production is unchanged. The stage-1 section below is historical;
-the stage-2 section records the current implementation. Baseline: local frontage study `879e234`, parent production
+Status: staged implementation authorized by toming on 2026-09-10. Stages 1–3
+have connected-Blender cafe/lobby assets and local three-level LOD switching.
+Production is unchanged. Stage-1 and stage-2 sections below are historical;
+the stage-3 section records the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.
 
@@ -367,3 +367,105 @@ Next: simplify the close master without sacrificing contact details, evaluate
 roof/interior budgets and physical XR transitions, then test a second building
 and city-scale batching/visibility before completing LOD3/4. Street activity,
 room dressing and ambience remain separate stages of the lived-in-city goal.
+
+
+## Stage 3 completed locally — cafe contact mesh and Meridian lobby (2026-09-10)
+
+Two exact existing lots now use the shared Blender mesh kit and runtime LOD
+controller. The cafe's approved 22,700-triangle master remains the reference;
+its runtime contact mesh is now **12,695 triangles (44.1% fewer)**. An initial
+11,979-triangle attempt lost the narrow mullions and introduced horizontal wall
+seams. Independent image review caught both. Narrow vertical piers and per-window
+spandrels now follow the cylinder curvature without the long horizontal chords;
+the original 19 cm reveal geometry/AO and front mullion planes are retained.
+Closed wedge-shaped sills and front-only sign caps save geometry. The resulting
+695 triangles above the initial 12k guide are an explicit visual-quality tradeoff,
+not a claim that the original 8–12k target was fully met.
+
+| Building / exterior level | Triangles | Material primitives |
+| --- | ---: | ---: |
+| Cafe LOD0 | 12,695 | 8 |
+| Cafe LOD1 | 2,083 | 7 |
+| Cafe LOD2 | 320 | 6 |
+| Meridian lobby LOD0 | 2,380 | 7 |
+| Meridian lobby LOD1 | 1,154 | 7 |
+| Meridian lobby LOD2 | 156 | 6 |
+
+The second pilot is a 14 m building with 13.119 m frontage and 12.157 m depth,
+selected from the actual existing `passage` interiors. Its tangent-facing front
+(side -1), two exits, smaller scale and zero-length street approach contrast with
+the cafe's axial-facing front, single exit and 2 m approach. It is a compact
+public office lobby study, rather than the initially proposed long, narrow
+mid-rise office. `lobby-pilot.json` preserves the original lot and collision parts.
+Both 3.2×3.1 m portals remain open at every LOD. Canopies and upper window sills
+stay within its existing footprint; the sign letters project 9 mm. The signs read
+MERIDIAN and PUBLIC PASSAGE. All furniture keeps the existing collision contract.
+
+`building_mesh_kit.py` supplies native-metre boxes, facade coordinates, short
+spandrels/piers, recessed windows, closed sill profiles, joins and exports.
+`bake_building_maps.py` provides contact AO and albedo/ORM/emission facade baking.
+`build_cafe_close.py` consumes the existing cafe master and facade bakes;
+`build_lobby_pilot.py` authors and bakes the lobby independently with the same
+coordinate and atlas conventions. Modules are explicitly reloaded on a second
+run because the connected Blender Python process persists between tool calls.
+Only the named output scenes are replaced. To reproduce the cafe from a fresh
+Blender, run `build_cafe_pilot.py`, `build_cafe_lods.py`, then
+`build_cafe_close.py`; the lobby script needs only its JSON and shared Python files.
+Source scenes are `cafe-pilot-close.blend` and `lobby-pilot.blend`.
+
+Each building now loads one runtime GLB containing all three mesh levels and
+four shared images. `cafe-pilot-runtime.glb` is 4,073,604 bytes, down from about
+6.27 MB for the two previous separately embedded packs. `lobby-pilot-runtime.glb`
+is 1,050,852 bytes. The old master/low packs are retained as authoring references
+but are no longer requested by the runtime. Mesh/texture streaming within each
+pack is not implemented. The two lots load independently when their coarse city
+cells are present, and all other buildings retain their existing rendering.
+
+`AuthoredBuildingPilot` uses an explicit descriptor per lot, validates native
+dimensions, radius, interior kind and front direction, and shares the existing
+25/30 m and 120/144 m thresholds plus 240 ms dither transition. Selection remains
+per building, including through coarse-grid rebuilds. Interior furniture follows
+its existing independent policy at LOD1/2. A failed pack returns that lot to its
+procedural representation. `?visit=lobby` visits the new existing passage;
+`?lobbyModel=0` and `?debug&lobbyLod=0|1|2` mirror the cafe comparison controls.
+
+Validation: **614 tests pass / 0 fail**, and `bun run build` passes. New tests
+recompute the real city plan and verify exactly one match per contract, collision
+part equality, tangent-front coordinate conversion, native bounds, both lobby
+portals with 18 unobstructed rays per LOD, roof hits, triangle budgets and the four
+embedded source images without duplicate texture bytes. The test bounds caught
+an upper sill projecting onto the zero-gap road; that geometry was corrected.
+Final runtime tests cover keyboard entry-to-exit walking, day/night, roof views,
+both LOD boundaries in both directions and failed pack loads. Captured dither
+transitions span about 15 frames; the close return flight can cross a boundary
+again while coasting, and is recorded rather than treated as a stationary test.
+For both buildings, aborted asset loading produced the same triangle count as
+their disabled-model baseline. Normal cafe load requested each of the two packs once (both coarse cells are
+present there), about 5.12 MB total versus 6.27 MB for the previous cafe alone.
+
+Independent cafe comparison confirmed removal of the horizontal seams and return
+of the mullions. At the former night seam pixel (763,493), before and after both
+read RGB 61/58/54; the restored mullion at (718,280) reads 31/39/39 in daylight and
+65/57/40 at night in both images. Window reveals remain visually readable from
+street and roof views. Sill edges and some frame shading still differ from the
+master. Static image comparisons are not a temporal aliasing/stereo certification.
+The lobby review also caught a 6 cm gap below the low-detail roof deck. The
+facade now meets its underside, with ray tests at three heights to prevent
+recurrence. The corrected roof image no longer shows the white/black fragments;
+the previously white pixel (628,703) changed from 253/253/252 to 131/133/130.
+
+All verification screenshots, crops and telemetry are in
+`/home/toming/Pictures/Spinward/2026-09-10_building-kit/`: `cafe-before.json`,
+`cafe-after.json`, `cafe-flight-checks.json`, `cafe-fallback-checks.json`,
+`lobby-checks.json`, `lobby-runtime-checks.json`, `lobby-roof-final.json`, and
+the labelled comparison PNGs.
+Lobby street comparisons use 8 m cameras; an earlier 18 m camera was inside the
+opposite building and is not valid evidence. Elevated fixed-pose comparisons use
+`rpm=0`; entrance walking and street views use the rotating habitat. The desktop
+GPU remains near its 60 fps cap. This proves these two integrations at the checked
+poses, not city-scale throughput, mobile performance or physical XR comfort.
+
+Remaining work: richer room dressing and local ambience/activity for the lived-in
+street, then broader building variety and city-scale batching/visibility. LOD3/4,
+full interior/roof budgets and physical XR dither review are still outstanding.
+No public push or production deployment has been performed.

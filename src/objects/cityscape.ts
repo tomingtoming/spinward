@@ -1,5 +1,6 @@
 import { FRONTAGES, FRONTAGE_KINDS, FRONTAGE_TEXTURE_BAYS, frontageKind, frontageLayout, paintFrontage, type FrontageKind } from './groundFloorFrontages'
 import { BuildingInteriorLayer } from './buildingInteriorLayer'
+import { LOBBY_PILOT, matchesAuthoredPilot } from './cafePilot'
 import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
 import { CivicDetails } from './civicDetails'
@@ -2507,8 +2508,9 @@ export class Cityscape {
   // Resolve a named visit against this tier's generated plan, so preview
   // links work on mobile too (quality budgets generate different parcels).
   getInteriorVisit(kind: string | null) {
-    if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court') return null
-    const interior = [...this.interiors.values()].filter(i => i.kind === kind)
+    if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby') return null
+    const interior = [...this.interiors.values()].filter(i => kind === 'lobby'
+      ? matchesAuthoredPilot(i, this.radius, LOBBY_PILOT) : i.kind === kind)
       .sort((a, b) => getBuildingSurfaceDistance(this.radius, 0, 0, a.building.azimuth, a.building.axial) -
         getBuildingSurfaceDistance(this.radius, 0, 0, b.building.azimuth, b.building.axial))[0]
     if (!interior) return null

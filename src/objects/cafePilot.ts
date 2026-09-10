@@ -1,15 +1,36 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import contract from '../../assets/blender/cafe-pilot.json'
+import lobbyContract from '../../assets/blender/lobby-pilot.json'
 import type { BuildingInterior, InteriorPart } from './buildingInteriors'
 import { wrapBuildingAngleToPi } from './buildingLod'
 
-// Stage 1 is one authored lot, not an asset stretched across the whole city.
-export function matchesCafePilot(interior: BuildingInterior, radius: number) {
-  const b = interior.building, target = contract.interior.building
-  return radius === contract.habitat.radius && interior.kind === 'cafe' &&
+export type AuthoredPilotSpec = {
+  id: 'cafe' | 'lobby'
+  radius: number
+  kind: BuildingInterior['kind']
+  building: typeof contract.interior.building
+  asset: string
+  nodePrefix: string
+}
+export const CAFE_PILOT: AuthoredPilotSpec = {
+  id: 'cafe', radius: contract.habitat.radius, kind: 'cafe', building: contract.interior.building,
+  asset: '/assets/buildings/cafe-pilot-runtime.glb', nodePrefix: 'cafe_runtime_lod'
+}
+export const LOBBY_PILOT: AuthoredPilotSpec = {
+  id: 'lobby', radius: lobbyContract.habitat.radius, kind: 'passage', building: lobbyContract.interior.building,
+  asset: '/assets/buildings/lobby-pilot-runtime.glb', nodePrefix: 'lobby_runtime_lod'
+}
+
+// Authoring is tied to two exact lots; arbitrary footprints must not be stretched.
+export function matchesAuthoredPilot(interior: BuildingInterior, radius: number, spec: AuthoredPilotSpec) {
+  const b = interior.building, target = spec.building
+  return radius === spec.radius && interior.kind === spec.kind &&
     b.front?.axis === target.front.axis && b.front.side === target.front.side &&
     (['azimuth', 'axial', 'width', 'depth', 'height'] as const).every(key => Math.abs(b[key] - target[key]) < 1e-6)
+}
+export function matchesCafePilot(interior: BuildingInterior, radius: number) {
+  return matchesAuthoredPilot(interior, radius, CAFE_PILOT)
 }
 
 export function cafePilotDistance(interior: BuildingInterior, radius: number, azimuth: number, axial: number, altitude: number) {
@@ -39,13 +60,13 @@ export function selectCafeLod(distance: number, previous: CafeLod = 2): CafeLod 
   return 2
 }
 
-export class CafePilot {
+export class AuthoredBuildingPilot {
   readonly group = new THREE.Group()
   interior: BuildingInterior | null = null
   private sources: Array<THREE.Object3D | null> = [null, null, null]
   private assets: THREE.Group[] = []
-  private loading = [false, false]
-  private requested = [false, false]
+  private loading = false
+  private requested = false
   private disposed = false
   private radius = 1
   private daylight = 1
@@ -55,40 +76,37 @@ export class CafePilot {
   private fades = this.groups.map(() => ({ fraction: { value: 1 }, inverse: { value: 0 } }))
   private transition: { from: CafeLod; to: CafeLod; started: number } | null = null
   private readonly params = new URLSearchParams(window.location.search)
-  private readonly enabled = this.params.get('cafeModel') !== '0'
-  private readonly forced = this.params.has('debug') && /^[012]$/.test(this.params.get('cafeLod') ?? '')
-    ? Number(this.params.get('cafeLod')) as CafeLod : null
-  constructor(parent: THREE.Group, private readonly invalidate: () => void) {
-    this.group.name = 'blender-cafe-pilot'
+  private readonly enabled: boolean
+  private readonly forced: CafeLod | null
+  constructor(parent: THREE.Group, private readonly invalidate: () => void, private readonly spec: AuthoredPilotSpec = CAFE_PILOT) {
+    this.enabled = this.params.get(`${spec.id}Model`) !== '0'
+    const forced = this.params.get(`${spec.id}Lod`)
+    this.forced = this.params.has('debug') && /^[012]$/.test(forced ?? '') ? Number(forced) as CafeLod : null
+    this.group.name = `blender-${spec.id}-pilot`
     this.group.visible = false
-    this.groups.forEach((group, i) => { group.name = `cafe-lod-${i}`; group.visible = false; this.group.add(group) })
+    this.groups.forEach((group, i) => { group.name = `${spec.id}-lod-${i}`; group.visible = false; this.group.add(group) })
     parent.add(this.group)
   }
   rebuild(interiors: BuildingInterior[], radius: number) {
     this.clearGeometry()
     this.radius = radius
-    this.interior = this.enabled ? interiors.find(interior => matchesCafePilot(interior, radius)) ?? null : null
+    this.interior = this.enabled ? interiors.find(interior => matchesAuthoredPilot(interior, radius, this.spec)) ?? null : null
     if (!this.interior) return
     this.mount()
-    for (const index of [0, 1]) {
-      if (this.requested[index] || this.loading[index]) continue
-      this.requested[index] = true; this.loading[index] = true
-      new GLTFLoader().load(index === 0 ? '/assets/buildings/cafe-pilot.glb' : '/assets/buildings/cafe-pilot-lods.glb', gltf => {
-        this.loading[index] = false
-        if (this.disposed) { this.releaseAssets([gltf.scene]); return }
-        this.assets.push(gltf.scene)
-        if (index === 0) this.sources[0] = gltf.scene
-        else {
-          this.sources[1] = gltf.scene.getObjectByName('cafe_pilot_lod1') ?? null
-          this.sources[2] = gltf.scene.getObjectByName('cafe_pilot_lod2') ?? null
-        }
-        this.mount(); this.invalidate()
-      }, undefined, error => {
-        this.loading[index] = false
-        console.warn('Cafe LOD unavailable; retaining available fallback.', error)
-      })
-    }
+    if (this.requested || this.loading) return
+    this.requested = true; this.loading = true
+    new GLTFLoader().load(this.spec.asset, gltf => {
+      this.loading = false
+      if (this.disposed) { this.releaseAssets([gltf.scene]); return }
+      this.assets.push(gltf.scene)
+      this.sources = [0, 1, 2].map(level => gltf.scene.getObjectByName(`${this.spec.nodePrefix}${level}`) ?? null)
+      this.mount(); this.invalidate()
+    }, undefined, error => {
+      this.loading = false
+      console.warn(`${this.spec.id} LOD unavailable; retaining procedural fallback.`, error)
+    })
   }
+
   private mount() {
     this.clearGeometry()
     if (!this.interior) return
