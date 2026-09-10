@@ -1,0 +1,37 @@
+{
+  "bytes": 446332,
+  "models": [
+    {
+      "name": "folio_lod0",
+      "triangles": 1822,
+      "materials": 8
+    },
+    {
+      "name": "folio_lod1",
+      "triangles": 258,
+      "materials": 6
+    },
+    {
+      "name": "spin-cycle_lod0",
+      "triangles": 1242,
+      "materials": 8
+    },
+    {
+      "name": "spin-cycle_lod1",
+      "triangles": 311,
+      "materials": 6
+    },
+    {
+      "name": "leaf-market_lod0",
+      "triangles": 1923,
+      "materials": 9
+    },
+    {
+      "name": "leaf-market_lod1",
+      "triangles": 318,
+      "materials": 6
+    }
+  ],
+  "projection": "display relief <= 0.32m; awning <= 0.95m above 2.9m; road setback 2m",
+  "collision": "Original closed-building envelope and central access unchanged"
+}

@@ -1,0 +1,63 @@
+{
+  "radius": 3200,
+  "building": {
+    "azimuth": 0.11127970136897872,
+    "axial": -269.0336021505367,
+    "width": 30.696467190171006,
+    "depth": 89.36576837718093,
+    "height": 48,
+    "tone": 0.36272845169592843,
+    "kind": "block",
+    "urban": 1,
+    "oldTown": 0,
+    "front": {
+      "axis": "tangent",
+      "side": -1
+    },
+    "parcel": {
+      "tangentOffset": 3.5294545769574484,
+      "axialOffset": 0,
+      "tangentExtent": 37.75537634408586,
+      "axialExtent": 94.31344086021464
+    },
+    "access": {
+      "roadId": "road-2833",
+      "roadIndex": 2833,
+      "entrance": {
+        "azimuth": 0.1064833783705145,
+        "axial": -269.0336021505367
+      },
+      "roadEdge": {
+        "azimuth": 0.10585837837051414,
+        "axial": -269.0336021505367
+      },
+      "width": 2,
+      "length": 2.000000000001137
+    }
+  },
+  "shops": [
+    {
+      "id": "folio",
+      "label": "FOLIO",
+      "subtitle": "BOOKS & MAPS",
+      "x": 32,
+      "color": "866250"
+    },
+    {
+      "id": "spin-cycle",
+      "label": "SPIN CYCLE",
+      "subtitle": "LAUNDRY",
+      "x": 20,
+      "color": "527d80"
+    },
+    {
+      "id": "leaf-market",
+      "label": "LEAF MARKET",
+      "subtitle": "GREENGROCER",
+      "x": 8,
+      "color": "68784d"
+    }
+  ],
+  "moduleWidth": 10.4,
+  "note": "Closed exterior storefronts on one exact existing lot; original building collision and central entrance unchanged."
+}

@@ -1,3 +1,4 @@
+import { NeighborhoodFronts, neighborhoodPoint, matchNeighborhoodLot } from './neighborhoodFronts'
 import { planRoomSeats, type RoomSeat } from '../app/roomSeating'
 import { FRONTAGES, FRONTAGE_KINDS, FRONTAGE_TEXTURE_BAYS, frontageKind, frontageLayout, paintFrontage, type FrontageKind } from './groundFloorFrontages'
 import { BuildingInteriorLayer } from './buildingInteriorLayer'
@@ -1445,6 +1446,7 @@ export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
   private readonly interiorLayer = new BuildingInteriorLayer(this.group)
+  private readonly neighborhoodFronts = new NeighborhoodFronts(this.group)
   private roomSeats: RoomSeat[] = []
   private interiors = new Map<CityBuilding, BuildingInterior>()
   private interiorFocus = { azimuth: 0, axial: 0, altitude: 1.8 }
@@ -2443,6 +2445,7 @@ export class Cityscape {
     // across the lot). The fit is baked math, so it also covers the moment
     // before the GLB pack arrives; the fallback box briefly overhangs the
     // collider in the far countryside, which nothing at spawn can reach.
+    this.neighborhoodFronts.rebuild(plan.buildings, radius)
     this.interiors = planBuildingInteriors(plan.buildings, radius)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
@@ -2517,6 +2520,15 @@ export class Cityscape {
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
 
   getInteriorVisit(kind: string | null) {
+    if (kind === 'shops') {
+      const b = matchNeighborhoodLot(this.cityPlanBuildings, this.radius)
+      if (!b) return null
+      const p = neighborhoodPoint(b, this.radius, new THREE.Vector3(32, 0, b.width / 2 + 7))
+      const azimuth = Math.atan2(p.z, p.x), up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
+      const forward = new THREE.Vector3(Math.sin(azimuth) * b.front!.side, 0, -Math.cos(azimuth) * b.front!.side)
+      const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(forward.clone().cross(up), up, forward.clone().negate()))
+      return { azimuth, axial: p.y, orientation }
+    }
     if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby') return null
     const interior = [...this.interiors.values()].filter(i => kind === 'lobby'
       ? matchesAuthoredPilot(i, this.radius, LOBBY_PILOT) : i.kind === kind)
@@ -2571,6 +2583,7 @@ export class Cityscape {
   setDaylight(daylight: number) {
     this.civicDetails.setDaylight(daylight)
     this.interiorLayer.setDaylight(daylight)
+    this.neighborhoodFronts.setDaylight(daylight)
     const night = 1 - daylight
     // The facet array BLAZES when it catches the sun: the day tint (sky grade
     // lifted toward white) is pushed deep into HDR by the sun catch, so the
@@ -2693,6 +2706,7 @@ export class Cityscape {
     this.clear()
     this.civicDetails.dispose()
     this.interiorLayer.dispose()
+    this.neighborhoodFronts.dispose()
     this.streetAccessLayer.dispose()
     if (this.detailedBuildingGeometries !== null) {
       disposeDetailedBuildingGeometryPack(this.detailedBuildingGeometries)
@@ -2816,6 +2830,7 @@ export class Cityscape {
   private clear() {
     this.civicDetails.clear()
     this.interiorLayer.clear()
+    this.neighborhoodFronts.clear()
     this.interiors.clear()
     this.roomSeats = []
     this.streetAccessLayer.clear()
@@ -2958,6 +2973,7 @@ export class Cityscape {
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)
+    this.neighborhoodFronts.update(azimuth, axial, altitude)
     if (this.cityPlanBuildings.length === 0 || this.radius <= 0) {
       return
     }

@@ -1,10 +1,10 @@
 # Blender buildings and LOD plan
 
-Status: staged implementation authorized by toming on 2026-09-10. Stages 1–5
+Status: staged implementation authorized by toming on 2026-09-10. Stages 1–6
 have connected-Blender cafe/lobby assets, local three-level LOD switching, room
-dressing, localized ambience and usable bench seats.
+dressing, localized ambience, usable bench seats and three neighboring shops.
 Production is unchanged. Stage-1 and stage-2 sections below are historical;
-the stage-3 through stage-5 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
+the stage-3 through stage-6 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.
 
@@ -598,3 +598,71 @@ Next: broaden this treatment into neighboring storefronts and a second street
 segment; use material/contact-shadow improvements and one small counter action
 to make the existing rooms more convincing. Full NPC schedules, economies and
 citywide authored assets remain outside this bounded stage. Local work only.
+
+
+## Stage 6 — three neighboring storefronts (2026-09-10)
+
+A real closed block around the cafe corner now has FOLIO (books and maps),
+SPIN CYCLE (laundry) and LEAF MARKET (greengrocer). Each 10.4 m module has a
+colored pitched canopy, readable name, closed door and a shallow display.
+Bookshelves, six washing machines, and produce crates give the street distinct
+uses. The greengrocer's continuous shelves and uprights were added after image
+review found the upper crates looked unsupported. All three doors explicitly
+say CLOSED / BACK AT 08:00; this is static dressing, not an opening schedule.
+They do not add enterable rooms, transactions or NPCs.
+
+The connected Blender scene is `Spinward Neighbourhood Shops`. Regenerate with
+`assets/blender/build_neighborhood_fronts.py`; the exact lot/front and module
+positions live in `assets/blender/neighborhood-fronts.json`. This is one 48 m
+closed block in the desktop R=3200 city plan, not a replacement for arbitrary
+buildings. Original building collisions and the central 2 m access remain.
+Displays project no more than 0.32 m beyond the original wall; the canopy is
+above 2.9 m and projects less than 0.95 m into the existing 2 m setback. No new
+ground-level props obstruct walking. Window backing is opaque; this stage uses
+shallow relief to stay compatible with the original solid shell.
+
+The single untextured GLB is **446,332 bytes**, with two mesh levels per shop:
+
+| Shop | Detailed triangles | Simplified triangles |
+| --- | ---: | ---: |
+| FOLIO | 1,822 | 258 |
+| SPIN CYCLE | 1,242 | 311 |
+| LEAF MARKET | 1,923 | 318 |
+
+These levels belong to the small facade overlay, separate from the complete
+building LOD0–4 plan. Distance is measured from each module rather than the tall
+building envelope. Complementary screen-space dithering transitions at 45–60 m;
+the overlay fades out at 140–175 m and at 12–22 m altitude. First loading occurs
+within 190 m and below 25 m altitude. The simplified model keeps the shop name,
+window divisions, door and canopy but drops goods, subtitle and closed notice.
+Original facades remain on disabled/failed loading. `?shops=0` disables this
+layer; `?debug&shopsLod=0|1` isolates a mesh level for inspection.
+`?visit=shops` opens the bookshop approach in the matching desktop plan.
+
+Validation: **627 tests pass / 0 fail**, and `bun run build` passes (existing
+large-chunk warning remains). Three new tests check exact real-lot binding,
+non-interior status, module spacing and central access, surface coordinates and
+altitude/distance exclusion, plus actual GLB bounds, triangle/byte budgets and
+clear rays through the original entrance. Browser checks load the visit link,
+measure detailed display at 20 m, both levels at 50 m (blend 0.263), simplified
+at 70 m, then repeat 50 and 20 m. These are separate spawn poses, not a continuous
+walk benchmark. The 155 m pose has 0.606 coverage; the 180 m pose has zero.
+A 70 m-altitude spawn and the disabled layer make no asset request. Each nearby
+page requests the GLB once. Deliberately aborted loading leaves the ordinary
+facade and produces only the expected network error. Normal runs have no JS or
+console errors. Day/night and forced-low views cover all three shops. Final
+independent image review confirms the produce crates sit on visible shelves
+and the pitched canopies leave names/subtitles clear, with no additional
+obvious placement defects in these views.
+
+Night comparison with `shops=0` confirms the strong white wash in front of the
+laundry also exists without these models. It obscures the lower display in that
+view and remains a lighting limitation. City-scale performance, continuous
+walking transitions, default mobile parcel plans and physical XR are not claimed
+as validated. Evidence and probes are under
+`/home/toming/Pictures/Spinward/2026-09-10_shopfronts/`.
+
+Next: improve street lighting/contact cues and add a small counter interaction
+inside the existing cafe before spreading authored detail across more blocks.
+City-wide LOD3/4 integration and scheduled inhabitants remain outstanding.
+This stage is local only; no push or production deployment was performed.
