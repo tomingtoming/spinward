@@ -1,3 +1,5 @@
+import {ColonyBuildings} from './colonyBuildings'
+import {colonyBuildingSpec} from './colonyBuildingPlan'
 import {AuthoredCityBlock} from './authoredCityBlock'
 import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
@@ -63,7 +65,6 @@ import {
   kenneyPickForBuilding,
   suburbanGardenPlan,
   disposeKenneyCarGeometryPack,
-  loadDetailedBuildingGeometryPack,
   loadKenneyCarGeometryPack,
   suburbanLotBoundary,
   type DetailedBuildingGeometryPack,
@@ -1748,8 +1749,9 @@ export class Cityscape {
     side: THREE.BackSide
   })
 
+  readonly colonyBuildings=new ColonyBuildings(this.group)
   readonly authoredBlock=new AuthoredCityBlock(this.group)
-  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian)}
+  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian)}
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x59764b,
@@ -2085,14 +2087,8 @@ export class Cityscape {
     this.installRoofColor(this.kenneyRoofMaterial)
     this.installBeaconBlink(this.beaconMaterial)
     this.setDimensions(dimensions)
-    void this.loadDetailedBuildingAssets()
-    // Kenney BUILDING shells are stripped (toming, 2026-07-22): the kit's
-    // stylized look never gelled with the colony's realism target, so the
-    // harmonized boxes carry every distance until the procedural facade skin
-    // (docs/far-field-lod.md) lands. The pack loader is kept dormant — the
-    // "pack unavailable" fallback contract below is now the design, and the
-    // kenneyPick-derived palette still colors the boxes (pure data, no GLB).
-    // Cars and road tiles stay: they were never the aesthetic complaint.
+    // Retired building packs are no longer requested; the colony module kit owns all exteriors.
+    // Vehicle assets are independent of the retired building packs.
     void this.loadKenneyCarAssets()
   }
 
@@ -2206,25 +2202,6 @@ export class Cityscape {
       mesh.receiveShadow = true
       this.roadTileMeshes.push(mesh)
       this.group.add(mesh)
-    }
-  }
-
-  private async loadDetailedBuildingAssets() {
-    try {
-      const pack = await loadDetailedBuildingGeometryPack()
-      if (this.disposed) {
-        disposeDetailedBuildingGeometryPack(pack)
-        return
-      }
-
-      this.detailedBuildingGeometries = pack
-      if (this.cityNearBuildings.length > 0) {
-        this.rebuildNearBuildingBatches()
-      }
-    } catch (error) {
-      // The procedural city is deliberately a complete fallback: a missing or
-      // corrupt cosmetic GLB must never keep WebXR from starting.
-      console.warn('Detailed building pack unavailable; using procedural city', error)
     }
   }
 
@@ -2558,16 +2535,13 @@ export class Cityscape {
       maxBuildings: this.maxBuildings,
       topology: this.topology
     })
-    // Physics tracks what the player sees: suburban houses collide at their
-    // fitted real-size box (walkable garden instead of an invisible wall
-    // across the lot). The fit is baked math, so it also covers the moment
-    // before the GLB pack arrives; the fallback box briefly overhangs the
-    // collider in the far countryside, which nothing at spawn can reach.
+    // Structural collision follows the same authored recipes as the visible city.
     this.neighborhoodFronts.rebuild(plan.buildings, radius)
     this.interiors = planBuildingInteriors(plan.buildings, radius)
     const apartment = planNyaanApartment(plan.buildings, radius)
     if (apartment) this.interiors.set(apartment.building, apartment)
     this.authoredBlock.rebuild(plan.buildings,radius)
+    this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
@@ -2575,18 +2549,7 @@ export class Cityscape {
       if(authored)return cityBlockCollision(building,authored,radius)
       const interior = this.interiors.get(building)
       if (interior) return interiorCollisionBuildings(interior, radius)
-      const houseFit = fitSuburbanHouse(building)
-      if (houseFit === null) {
-        return building
-      }
-      return {
-        ...building,
-        azimuth: building.azimuth + houseFit.tangentOffset / radius,
-        axial: building.axial + houseFit.axialOffset,
-        width: houseFit.tangentExtent,
-        depth: houseFit.axialExtent,
-        height: houseFit.height
-      }
+      return cityBlockCollision(building,colonyBuildingSpec(building),radius)
     })
 
     if (plan.tower !== null) {
@@ -2596,7 +2559,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
-    this.civicDetails.rebuild({ ...plan, buildings: plan.buildings.filter(b => !this.interiors.has(b)&&!cityBlockSpec(b,radius)) }, radius)
+    this.civicDetails.rebuild({ ...plan, buildings: [] }, radius) // Preserve plaza/deck furniture; retire old building facade overlays.
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2725,6 +2688,7 @@ export class Cityscape {
   setDaylight(daylight: number) {
     this.civicDetails.setDaylight(daylight)
     this.authoredBlock.setDaylight(daylight)
+    this.colonyBuildings.setDaylight(daylight)
     this.interiorLayer.setDaylight(daylight)
     this.neighborhoodFronts.setDaylight(daylight)
     const night = 1 - daylight
@@ -2849,6 +2813,7 @@ export class Cityscape {
     this.disposed = true
     this.clear()
     this.authoredBlock.dispose()
+    this.colonyBuildings.dispose()
     this.civicDetails.dispose()
     this.interiorLayer.dispose()
     this.neighborhoodFronts.dispose()
@@ -3119,6 +3084,7 @@ export class Cityscape {
   // procedural batches; the coarse grid rebuckets near/far buildings.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.authoredBlock.update(azimuth,axial,altitude)
+    this.colonyBuildings.update(azimuth,axial,altitude)
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)
     this.neighborhoodFronts.update(azimuth, axial, altitude)
@@ -3188,7 +3154,7 @@ export class Cityscape {
     }
 
     this.cityNearBuildings = near
-    this.updateFarBatch(far)
+    this.updateFarBatch([]) // Far silhouettes now belong to the Blender colony kit.
     this.rebuildNearBuildingBatches()
     this.rebuildTraffic()
   }
@@ -3204,7 +3170,10 @@ export class Cityscape {
     })
     this.interiorLayer.rebuild(interiorPlans, this.radius)
     this.interiorLayer.update(this.interiorFocus.azimuth, this.interiorFocus.axial, this.interiorFocus.altitude)
-    const exteriorBuildings = this.cityNearBuildings.filter(b => !this.interiors.has(b)&&!cityBlockSpec(b,this.radius))
+    this.colonyBuildings.setNearInteriors(interiorPlans.map(p=>p.building))
+    this.colonyBuildings.update(this.interiorFocus.azimuth,this.interiorFocus.axial,this.interiorFocus.altitude)
+    // Retired near batches receive no lots, including when module loading fails.
+    const exteriorBuildings:CityBuilding[] = []
     let procedural = exteriorBuildings.map(stableBuildingPlacement)
 
     // The LOD selection keys on the Kenney pack: it dresses every building,
@@ -3939,7 +3908,7 @@ export class Cityscape {
   }
 
   private updateFarBatch(far: CityBuilding[]) {
-    this.ensureFarBatchCapacity(Math.max(1, this.cityPlanBuildings.length))
+    this.ensureFarBatchCapacity(Math.max(1, far.length))
     const mesh = this.farBuildings
 
     if (mesh === null) {

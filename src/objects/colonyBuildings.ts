@@ -1,0 +1,125 @@
+import * as THREE from 'three'
+import type { CityBuilding } from './cityLayout'
+import type { BuildingInterior } from './buildingInteriors'
+import { cityBlockSpec, cityBlockDistance, type BlockSpec, type BlockVolume } from './authoredCityBlockPlan'
+import { colonyBuildingSpec, colonyWindowGrid } from './colonyBuildingPlan'
+import { colonyFacadeMaterial, loadColonyModules, type ColonyModules } from './colonyBuildingModules'
+
+type Entry={spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean}
+/** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
+export class ColonyBuildings {
+ readonly group=new THREE.Group()
+ private entries:Entry[]=[]
+ private radius=1
+ private modules:ColonyModules|null=null
+ private fallback=new THREE.BoxGeometry(1,1,1)
+ private facade=colonyFacadeMaterial()
+ private entranceFacade=colonyFacadeMaterial(true)
+ private frame=new THREE.MeshStandardMaterial({color:0x65716b,roughness:.7})
+ private door=new THREE.MeshStandardMaterial({color:0x28434c,roughness:.55})
+ private batches=new Map<string,THREE.InstancedMesh>()
+ private nearInteriors=new Set<CityBuilding>()
+ private focus=new THREE.Vector3(Infinity,Infinity,Infinity)
+ private projection=935
+ private extent=1
+ private disposed=false
+ constructor(parent:THREE.Group){
+  this.group.name='blender-colony-buildings';parent.add(this.group)
+  loadColonyModules().then(modules=>{if(this.disposed)return;this.modules=modules;this.clearBatches();this.invalidate()}).catch(e=>console.warn('Colony modules unavailable; retaining the new structural recipe.',e))
+ }
+ setProjection(value:number){if(Math.abs(value-this.projection)>1){this.projection=value;this.invalidate()}}
+ private invalidate(){this.focus.set(Infinity,Infinity,Infinity)}
+ rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>){
+  this.clearBatches();this.radius=radius;this.nearInteriors.clear()
+  this.entries=buildings.filter(b=>!cityBlockSpec(b,radius)).map(b=>{
+   const interior=interiors.get(b),spec=colonyBuildingSpec(b,interior),a=b.azimuth,side=b.front?.side??-1,tangent=b.front?.axis==='tangent'
+   const x=tangent?new THREE.Vector3(0,side,0):new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a))
+   const z=tangent?new THREE.Vector3(-side*Math.sin(a),0,side*Math.cos(a)):new THREE.Vector3(0,side,0)
+   const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*radius,b.axial,Math.sin(a)*radius)
+   return {spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height)}
+  })
+  this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
+  this.invalidate()
+ }
+ setNearInteriors(buildings:CityBuilding[]){this.nearInteriors=new Set(buildings);this.invalidate()}
+ private batch(key:string,geometry:THREE.BufferGeometry,material:THREE.Material,capacity:number){
+  let mesh=this.batches.get(key)
+  if(!mesh||mesh.instanceMatrix.count<capacity){if(mesh){mesh.removeFromParent();mesh.dispose()}
+   mesh=new THREE.InstancedMesh(geometry,material,Math.max(capacity,1));mesh.name='colony-'+key;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.castShadow=true;mesh.receiveShadow=true;this.group.add(mesh);this.batches.set(key,mesh)
+  }mesh.count=0;return mesh
+ }
+ update(azimuth:number,axial:number,altitude:number){
+  const camera=new THREE.Vector3(Math.cos(azimuth)*(this.radius-altitude),axial,Math.sin(azimuth)*(this.radius-altitude))
+  if(camera.distanceTo(this.focus)<8)return
+  this.focus.copy(camera)
+  const shell=this.batch('structure',this.modules?.structure??this.fallback,this.facade,this.entries.reduce((n,e)=>n+e.spec.volumes.length,0))
+  const frontShell=this.batch('entrance-structure',this.modules?.structure??this.fallback,this.entranceFacade,this.entries.length)
+  const trim=this.batch('trim',this.modules?.canopy??this.fallback,this.frame,4096)
+  const doors=this.batch('doors',this.modules?.door??this.fallback,this.door,2048)
+  const frames=this.modules?this.batch('window-frames',this.modules.window_frame,this.frame,8192):null
+  const up=new THREE.Vector3(0,1,0),local=new THREE.Matrix4(),world=new THREE.Matrix4(),q=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3()
+  const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0)=>{
+   if(batch.count>=batch.instanceMatrix.count)return
+   if(batch===shell||batch===frontShell){
+    const data=batch.instanceMatrix.array,m=e.matrix.elements,i=batch.count*16
+    for(let row=0;row<3;row++){
+     data[i+row]=m[row]*v.w;data[i+4+row]=m[4+row]*v.h;data[i+8+row]=m[8+row]*v.d
+     data[i+12+row]=m[row]*v.x+m[4+row]*v.y+m[8+row]*v.z+m[12+row]
+    }
+    data[i+3]=data[i+7]=data[i+11]=0;data[i+15]=1;batch.setColorAt(batch.count,e.color)
+   }else{
+    q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(e.matrix,local);batch.setMatrixAt(batch.count,world)
+   }
+   batch.count++
+  }
+  let visible=0,near=0,framed=0
+  const close:Array<{e:Entry;distance:number}>=[]
+  for(const e of this.entries){
+   if(e.interior&&this.nearInteriors.has(e.spec.building))continue
+   const distance=Math.max(1,camera.distanceTo(p.setFromMatrixPosition(e.matrix))-e.size)
+   const threshold=e.spec.building.kind==='tower'?(e.visible?1.7:2):(e.visible?3.1:3.6)
+   e.visible=e.size*this.projection/distance>=threshold
+   if(!e.visible)continue
+   visible++
+   for(const v of e.spec.volumes)add(!e.interior&&v.y-v.h/2<.01&&Math.abs(v.x)<v.w/2?frontShell:shell,e,v)
+   if(distance<144&&!e.interior)close.push({e,distance:cityBlockDistance(e.spec,this.radius,{azimuth,axial,altitude})})
+  }
+  close.sort((a,b)=>a.distance-b.distance)
+  for(const {e,distance} of close.slice(0,160)){
+   near++
+   const detailed=distance<30&&framed++<6
+   // Entrance on the most central front-accessible volume; fixed human dimensions.
+   const v=e.spec.volumes.find(v=>Math.abs(v.x)<v.w/2&&v.y-v.h/2<.01)??e.spec.volumes[0]
+   const front=v.z+v.d/2,width=Math.min(e.spec.building.kind==='house'?1.3:2.2,v.w*.6),height=Math.min(2.5,v.h*.8)
+   add(doors,e,{x:v.x,y:height/2,z:front+.012,w:width,h:height,d:.025})
+   add(trim,e,{x:v.x,y:height+.12,z:front-.4,w:Math.min(width+.6,v.w),h:.16,d:.85})
+   for(const sign of [-1,1])add(trim,e,{x:v.x+sign*width/2,y:height/2,z:front+.035,w:.065,h:height,d:.065})
+   add(trim,e,{x:v.x,y:height,z:front+.035,w:width,h:.065,d:.065})
+   if(width>1.5)add(trim,e,{x:v.x,y:height/2,z:front+.035,w:.045,h:height,d:.065})
+   add(trim,e,{x:v.x+width*.32,y:Math.min(1.1,height*.5),z:front+.08,w:.045,h:.35,d:.06})
+   for(const volume of e.spec.volumes){
+    const top=volume.y+volume.h/2
+    // Insets and roof edge are metric trims, never stretched complete buildings.
+    for(const sign of [-1,1])add(trim,e,{x:volume.x,y:top-.12,z:volume.z+sign*(volume.d/2-.1),w:volume.w,h:.24,d:.18})
+    if(!detailed||!frames)continue
+    const grid=colonyWindowGrid(volume)
+    for(const axis of ['x','z'] as const)for(const sign of [-1,1]){
+     const columns=axis==='z'?grid.columnsX:grid.columnsZ,width=axis==='z'?volume.w:volume.d
+     if(width<1.5||volume.h<2)continue
+     for(let row=0;row<grid.floors;row++)for(let col=0;col<columns;col++){
+      const along=(col+.5)*width/columns-width/2,y=volume.y-volume.h/2+(row+.5)*volume.h/grid.floors
+      const x=volume.x+(axis==='z'?along:sign*(volume.w/2+.012)),z=volume.z+(axis==='z'?sign*(volume.d/2+.012):along)
+      if(volume===v&&axis==='z'&&sign===1&&Math.abs(x-v.x)<Math.min(2.2,v.w*.6)/2+width/columns*.32&&y<height+volume.h/grid.floors*.3)continue
+      if(e.spec.volumes.some(o=>o!==volume&&Math.abs(x-o.x)<o.w/2+.01&&Math.abs(z-o.z)<o.d/2+.01&&Math.abs(y-o.y)<o.h/2))continue
+      add(frames,e,{x,y,z,w:width/columns*.64,h:volume.h/grid.floors*.6,d:1},axis==='z'?(sign===1?0:Math.PI):sign*Math.PI/2)
+     }
+    }
+   }
+  }
+  for(const batch of this.batches.values()){batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;if(batch===shell||batch===frontShell)batch.boundingSphere=new THREE.Sphere(new THREE.Vector3(),this.extent);else batch.computeBoundingSphere()}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.count+frontShell.count,windowFrames:frames?.count??0}
+ }
+ setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=.015+(1-daylight)*.5}
+ private clearBatches(){for(const m of this.batches.values()){m.removeFromParent();m.dispose()}this.batches.clear()}
+ dispose(){this.disposed=true;this.clearBatches();this.fallback.dispose();this.facade.dispose();this.entranceFacade.dispose();this.frame.dispose();this.door.dispose();this.group.removeFromParent()}
+}

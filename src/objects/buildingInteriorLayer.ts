@@ -1,3 +1,4 @@
+import {loadColonyModules,colonyFacadeMaterial} from './colonyBuildingModules'
 import { NYAAN_PILOT, apartmentShelter } from './nyaanApartment'
 import * as THREE from 'three'
 import { AuthoredBuildingPilot, CAFE_PILOT, LOBBY_PILOT } from './cafePilot'
@@ -17,8 +18,9 @@ const MATERIALS: InteriorPart['material'][] = ['wall', 'upper', 'wood', 'green',
 export class BuildingInteriorLayer {
   readonly group = new THREE.Group()
   private readonly geometry = new THREE.BoxGeometry(1, 1, 1)
+  private structure:THREE.BufferGeometry=this.geometry
+  private disposed=false
   private readonly materials: THREE.MeshStandardMaterial[]
-  private readonly windows: THREE.CanvasTexture
   private readonly sign: THREE.CanvasTexture
   private meshes: THREE.InstancedMesh[] = []
   private floor: THREE.Mesh | null = null
@@ -37,17 +39,6 @@ export class BuildingInteriorLayer {
       this.focus.set(Infinity, Infinity, Infinity)
       if (Number.isFinite(x)) this.update(x, y, z)
     }, spec))
-    const canvas = document.createElement('canvas')
-    canvas.width = 64; canvas.height = 64
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#a5a79e'; ctx.fillRect(0, 0, 64, 64)
-    ctx.fillStyle = '#444f55'; ctx.fillRect(12, 12, 40, 40)
-    ctx.fillStyle = '#79817e'; ctx.fillRect(14, 14, 36, 15)
-    ctx.fillStyle = '#b9b9aa'; ctx.fillRect(10, 52, 44, 3)
-    ctx.fillStyle = '#a5a79e'; ctx.fillRect(30, 12, 3, 40)
-    this.windows = new THREE.CanvasTexture(canvas)
-    this.windows.colorSpace = THREE.SRGBColorSpace
-    this.windows.wrapS = this.windows.wrapT = THREE.RepeatWrapping
     const signCanvas = document.createElement('canvas')
     signCanvas.width = 512; signCanvas.height = 64
     const signCtx = signCanvas.getContext('2d')!
@@ -59,24 +50,15 @@ export class BuildingInteriorLayer {
     this.sign.colorSpace = THREE.SRGBColorSpace
     this.materials = [
       new THREE.MeshStandardMaterial({ color: 0xb9b5a5, roughness: 0.85 }),
-      new THREE.MeshStandardMaterial({ map: this.windows, roughness: 0.8 }),
+      colonyFacadeMaterial(),
       new THREE.MeshStandardMaterial({ color: 0x816047, roughness: 0.85 }),
       new THREE.MeshStandardMaterial({ color: 0x557342, roughness: 1 }),
       new THREE.MeshStandardMaterial({ color: 0xffddb0, emissive: 0xffc880, emissiveIntensity: 0.8 }),
       new THREE.MeshStandardMaterial({ map: this.sign, emissiveMap: this.sign, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.8 })
     ]
+    loadColonyModules().then(modules=>{if(this.disposed)return;this.structure=modules.structure;for(const mesh of this.meshes)mesh.geometry=this.structure}).catch(()=>{})
     // Upper floors keep metre-sized windows even on differently sized lots.
-    this.materials[1].onBeforeCompile = shader => {
-      shader.vertexShader = 'varying vec2 vRoomRepeat; varying float vRoomWall;\n' + shader.vertexShader
-      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec3 size = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
-        vRoomRepeat = vec2(abs(normal.x) > 0.5 ? size.z : size.x, size.y) / vec2(2.8, 3.2);
-        vRoomWall = 1.0 - abs(normal.y);`)
-      shader.fragmentShader = 'varying vec2 vRoomRepeat; varying float vRoomWall;\n' + shader.fragmentShader
-      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-        vec4 facade = texture2D(map, vMapUv * vRoomRepeat);
-        diffuseColor *= mix(vec4(0.53, 0.55, 0.52, 1.0), facade, vRoomWall);`)
-    }
+
   }
 
   rebuild(interiors: BuildingInterior[], radius: number) {
@@ -115,7 +97,7 @@ export class BuildingInteriorLayer {
     }
     const capacity = Math.max(1, this.entries.reduce((sum, entry) => sum + entry.parts.length, 0))
     this.meshes = this.materials.map(material => {
-      const mesh = new THREE.InstancedMesh(this.geometry, material, capacity)
+      const mesh = new THREE.InstancedMesh(this.structure, material, capacity)
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
       mesh.count = 0
       mesh.castShadow = true; mesh.receiveShadow = true
@@ -159,6 +141,7 @@ export class BuildingInteriorLayer {
   }
 
   setDaylight(daylight: number) {
+    this.materials[1].emissiveIntensity=.015+(1-daylight)*.5
     this.roomDressing.setDaylight(daylight)
     this.pilots.forEach(pilot => pilot.setDaylight(daylight))
     this.materials[4].emissiveIntensity = 0.5 + (1 - daylight) * 1.5
@@ -179,8 +162,9 @@ export class BuildingInteriorLayer {
   }
 
   dispose() {
+    this.disposed=true
     this.roomDressing.dispose()
-    this.pilots.forEach(pilot => pilot.dispose()); this.clear(); this.geometry.dispose(); this.windows.dispose(); this.sign.dispose(); this.floorMaterial.dispose()
+    this.pilots.forEach(pilot => pilot.dispose()); this.clear(); this.geometry.dispose(); this.sign.dispose(); this.floorMaterial.dispose()
     this.materials.forEach(material => material.dispose())
     this.group.removeFromParent()
   }

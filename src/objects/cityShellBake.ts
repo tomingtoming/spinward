@@ -1,3 +1,7 @@
+import {planBuildingInteriors} from './buildingInteriors'
+import {planNyaanApartment} from './nyaanApartment'
+import type {BlockSpec} from './authoredCityBlockPlan'
+import {colonyBuildingSpec} from './colonyBuildingPlan'
 import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import * as THREE from 'three'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
@@ -131,7 +135,7 @@ const ARTERIAL_TONE = '#585a5e'
 const LOCAL_TONE = '#606268'
 const EXPRESSWAY_TONE = '#4a4c52'
 
-const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
+const bakeAlbedo = (bake: BakeContext, plan: CityPlan, recipes:Map<CityBuilding,BlockSpec>) => {
   const { ctx } = bake
   const random = createSeededRandom(0x51ab7e01)
   ctx.clearRect(0, 0, bake.width, bake.height)
@@ -192,7 +196,7 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
   // Building roofs from the shared kit palette, nudged toward the wall tone so
   // grazing views agree with the far-batch boxes.
   for (const building of plan.buildings) {
-    const block=cityBlockSpec(building,bake.radius)
+    const block=recipes.get(building)
     if(block){
       ctx.fillStyle='#'+block.roof;ctx.globalAlpha=.85
       for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
@@ -274,7 +278,8 @@ const bakeEmissive = (
   bake: BakeContext,
   plan: CityPlan,
   roadGlowScale: number,
-  landArcs: LandArc[] | null
+  landArcs: LandArc[] | null,
+  recipes:Map<CityBuilding,BlockSpec>
 ) => {
   const { ctx } = bake
   const random = createSeededRandom(0x9e11ba25)
@@ -322,7 +327,7 @@ const bakeEmissive = (
   for (const building of plan.buildings) {
     const litChance = FACADE_LIT_CHANCE * (building.industrial === true ? 0.4 : 1)
     if (random() >= litChance) {
-      const block=cityBlockSpec(building,bake.radius)
+      const block=recipes.get(building)
       if(block){
         ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
         for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
@@ -353,7 +358,7 @@ const bakeEmissive = (
     const speckle = nightSpeckle(building.azimuth, building.axial)
     ctx.fillStyle = cssColor(scratchColor)
     ctx.globalAlpha = gain * (0.38 + heightNorm * 0.55) * speckle
-    const block=cityBlockSpec(building,bake.radius)
+    const block=recipes.get(building)
     if(block){
       ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
       // One bounded roof/light footprint per structural volume; the courtyard
@@ -423,8 +428,12 @@ export const createCityShellTextureSet = (
   const emissiveBake = createBakeContext(emissiveWidth, emissiveWidth / 2, radius, length)
   const albedoBake = createBakeContext(emissiveWidth / 2, emissiveWidth / 4, radius, length)
 
-  bakeAlbedo(albedoBake, plan)
-  bakeEmissive(emissiveBake, plan, roadGlowScale, landArcs)
+  const interiors=planBuildingInteriors(plan.buildings,radius)
+  const apartment=planNyaanApartment(plan.buildings,radius)
+  if(apartment)interiors.set(apartment.building,apartment)
+  const recipes=new Map(plan.buildings.map(b=>[b,cityBlockSpec(b,radius)??colonyBuildingSpec(b,interiors.get(b))]))
+  bakeAlbedo(albedoBake, plan,recipes)
+  bakeEmissive(emissiveBake, plan, roadGlowScale, landArcs,recipes)
 
   return {
     albedo: finishCityTexture(albedoBake.ctx.canvas),

@@ -1020,3 +1020,66 @@ After the height correction, independent image review found continuous paving
 to the entrance in all six near views. Six forced-LOD2 captures also completed
 without JavaScript errors; the inspected office view retains plain paving.
 Static captures do not verify temporal flicker or continuous walking.
+
+## Complete city building replacement (2026-09-11)
+
+All planned city lots now use the new architecture. The desktop plan comprises
+304 existing authored block placements and 63,696 modular replacements; phone
+comprises 190 and 15,810 respectively. The old near/far building batches receive
+zero instances, the old facade overlays are retired, and the old
+`spinward-buildings.glb` pack is no longer requested. Historical source assets
+and dormant legacy helpers remain in the repository; they are not a rendering
+fallback. Vehicles, civic furniture and the separate observation/port structures
+are outside this city-lot replacement.
+
+`build_colony_modules.py`, executed through Blender MCP, authors the shared
+structure, window frame, canopy and door in `colony-modules.blend`, exported as
+a 9,572-byte GLB. Runtime recipes assemble these components at metric dimensions
+instead of stretching finished buildings. Industrial, stepped/tower, L-shaped,
+courtyard/slab and compact residential recipes retain their massing in the
+skyline. District palettes distinguish warm old-town walls, cool business
+facades and muted industrial surfaces. This is a reusable architectural system,
+not 64,000 individually authored meshes.
+
+Window grids divide wall width and height into approximately 2.8m bays and
+3.2m storeys. At close range the six nearest eligible buildings receive actual
+Blender frames, capped at 8,192 instances. Entrances, handles, canopies and roof
+edges remain in the street range; beyond it, shared structural geometry carries
+the same massing with a filtered procedural facade. Normal buildings hand off
+to the shell at roughly 3–4 pixels and towers at roughly 2 pixels, with hysteresis.
+The shell's daytime footprints and night lights use the same structural recipe,
+including public-room courtyards. LOD2 and LOD3 intentionally share these small
+structural modules; they do not load separate full-building GLBs.
+
+Public rooms retain their existing openings, furniture, collision and recent
+Blender cafe/lobby/apartment assets. Their generic structural parts and upper
+facades use the new module kit too. Garden houses retain the certified setback
+inside their parcel; undersized parcels use a bounded building envelope. The
+new regression checks every desktop street approach, as well as structural
+bounds at three habitat radii and both quality budgets. If the module request
+fails, the same new structural recipe remains visible with simple primitives;
+no old building pack is requested.
+
+Validation: 671 tests pass and the production build passes with the existing
+chunk-size warning. `colony-replacement.mjs` checks replacement coverage, actual
+legacy batch counts, retired network requests, JavaScript and shader errors,
+eight browser views (overview, street, old town, industrial, house, phone-profile,
+night and aborted-module fallback), and a short structural-update CPU probe.
+These browser samples do not establish physical phone/XR performance or full
+continuous traversal of the colony. Local changes only; not published.
+
+The final eight-view run reports zero old near/far instances and no shader or
+JavaScript errors. Overview, old-town, industrial, garden-house, phone-profile
+and night views report 60fps; overview uses 144 draws. All normal views have
+p95 frame intervals of about 16.8ms. The desktop street sample nevertheless
+contains an 83.3ms outlier; a follow-up waiting for all pilot models to finish
+still contains a 66.8ms interval (rolling overlay 56fps). These spikes remain
+unresolved, so this change is not a claim of hitch-free traversal. Eight direct
+16m focus updates measured 5.2–32.1ms in that follow-up; this is a CPU probe,
+not an end-to-end walking benchmark.
+
+Independent image review caught entrance/window overlap and a partially masked
+upper window; both were corrected with whole-window exclusion and aligned
+geometry frames. A later access regression caught the garden-house setback
+contract. Final house imagery shows the retained garden path meeting the new
+door; structural/collision tests pass for the corrected placement.
