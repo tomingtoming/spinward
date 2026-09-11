@@ -724,3 +724,33 @@ and mute, single construction/disposal, and an unavailable device. Full suite:
 799 tests across 134 files; production build passes. Evidence:
 `street-audio-startup-{before,control,after}`, `audio-prepared`, and the optional
 GPU/CPU timing modes in `street-streaming.mjs`.
+
+
+## Twenty-seventh increment — the sky outside artificial daylight (07:14)
+
+The all-preset tour exposed an exterior visibility error: the same artificial
+daylight factor that washed out stars through the colony air also turned off
+stars in vacuum. At night, every point had nearly the same brightness and the
+unmasked point sprites produced square halos. Exterior stars now have a dim
+visibility independent of the colony day, while air-filled views retain daytime
+suppression. The existing carrier-in-air classification also handles Elysium's
+vacuum bore. Boundary changes fade over time rather than popping.
+
+The original 1,800 angular positions remain deterministic. A separate hash
+assigns mostly dim lights and a few brighter ones, with restrained warm/cool
+variation. One shared 32×32 RGBA soft sprite rounds their edges; one colour
+attribute adds 21,600 bytes and the sprite adds 4,096 source bytes. Rendering
+still uses one points draw. These are presentation choices, not a measured
+star catalogue, eye adaptation model or HDR radiometry. Final teardown now
+also disposes the owned star geometry, material and sprite.
+
+The follow-up tour covers 18 Surface/Axis/Exterior views across all four
+presets, plus Izma night and the phone profile. TypeScript/build pass and
+803 tests pass, including visibility separation, frame-rate independent fade,
+bounded brightness, sprite shape and resource release. Evidence:
+`tour-star-visibility*`, compared with `tour-overnight-integration*`.
+
+The completed broader tour before this change covered 27 stops with no
+JavaScript or shader exceptions. The audio preparation change also passed
+three genuine cached-history returns in capability-adjusted Chrome; walking,
+mute and the same running audio context survived each return.

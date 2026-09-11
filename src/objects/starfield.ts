@@ -19,14 +19,40 @@ export const computeDistantSkyScale = (shellRadius: number, observerDistance: nu
 
 const shellDirection = new THREE.Vector3()
 const STAR_OPACITY_NIGHT = 0.9
+const STAR_OPACITY_VACUUM = 0.6
+
+// A display treatment, not stellar radiometry: colony daylight hides stars
+// through its air, but its artificial day must not switch off the outer sky.
+export const starVisibility = (daylight: number, inAir: boolean) =>
+  inAir ? STAR_OPACITY_NIGHT * (1 - THREE.MathUtils.smoothstep(daylight, 0.12, 0.55)) : STAR_OPACITY_VACUUM
+
+const createStarSprite = () => {
+  const size = 32, data = new Uint8Array(size * size * 4)
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const distance = Math.hypot((x + 0.5) / size * 2 - 1, (y + 0.5) / size * 2 - 1)
+    const alpha = 1 - THREE.MathUtils.smoothstep(distance, 0.05, 1)
+    const offset = (y * size + x) * 4
+    data[offset] = data[offset + 1] = data[offset + 2] = 255
+    data[offset + 3] = Math.round(alpha * 255)
+  }
+  const texture = new THREE.DataTexture(data, size, size)
+  texture.minFilter = texture.magFilter = THREE.LinearFilter
+  texture.needsUpdate = true
+  return texture
+}
 
 export class Starfield {
   readonly group = new THREE.Group()
 
   // Fixed pixel size: with world-unit attenuation, small habitats put the
   // star shell close to the camera and the stars turned into chunky dots.
+  private readonly starSprite = createStarSprite()
   private readonly starsMaterial = new THREE.PointsMaterial({
-    color: 0xe5f4ff,
+    color: 0xffffff,
+    vertexColors: true,
+    map: this.starSprite,
+    depthWrite: false,
+    toneMapped: false,
     size: 2.2,
     sizeAttenuation: false,
     transparent: true,
@@ -58,14 +84,12 @@ export class Starfield {
     this.group.add(this.stars)
   }
 
-  // Daylight washes the stars out. The window-haze pane only carries the
-  // in-scatter of the air column, and with a boundary-layer atmosphere that
-  // column is thin overhead — thin enough that stars would leak through a
-  // daytime window at full brightness. Real daylight sky luminance hides
-  // them; fade with the same daylight the scene lights use.
-  setDaylight(daylight: number) {
-    const day = THREE.MathUtils.smoothstep(daylight, 0.12, 0.55)
-    this.starsMaterial.opacity = STAR_OPACITY_NIGHT * (1 - day)
+  // Fade the air/vacuum boundary without coupling the outer sky to the
+  // colony's artificial day. Initialization may set the target immediately.
+  setDaylight(daylight: number, inAir = true, deltaSeconds?: number) {
+    const target = starVisibility(daylight, inAir)
+    this.starsMaterial.opacity = deltaSeconds === undefined ? target
+      : THREE.MathUtils.damp(this.starsMaterial.opacity, target, 7, Math.max(0, deltaSeconds))
   }
 
   setFrameAngle(frameAngle: number) {
@@ -86,8 +110,17 @@ export class Starfield {
     return this.radius
   }
 
+  dispose() {
+    this.stars?.geometry.dispose()
+    this.starsMaterial.dispose()
+    this.starSprite.dispose()
+    this.group.removeFromParent()
+  }
+
   private buildStarsGeometry(radius: number, count: number) {
     const positions = new Float32Array(count * 3)
+    const colors = new Float32Array(count * 3)
+    const tint = new THREE.Color()
     let seed = 0x5f3759df
 
     for (let index = 0; index < count; index += 1) {
@@ -104,10 +137,17 @@ export class Starfield {
       positions[offset] = shellDirection.x
       positions[offset + 1] = shellDirection.y
       positions[offset + 2] = shellDirection.z
+      // Independent hash keeps the original angular positions unchanged.
+      let hash = Math.imul(index + 1, 0x45d9f3b) >>> 0
+      hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0
+      const brightness = 0.14 + 0.86 * Math.pow((hash >>> 0) / 0xffffffff, 3)
+      tint.setHex(index % 7 === 0 ? 0xffefda : index % 5 === 0 ? 0xcfe2ff : 0xf3f5ff).multiplyScalar(brightness)
+      tint.toArray(colors, offset)
     }
 
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
     return geometry
   }
 }

@@ -2781,7 +2781,7 @@ export const bootstrapApp = async () => {
     cityscape.setSkyColor(skyGrade.fog)
     cityscape.setDaylight(daylight)
     habitat.setCityShellDaylight(daylight)
-    starfield.setDaylight(daylight)
+    starfield.setDaylight(daylight, carrierInAir, deltaSeconds)
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
     streetLamps.update(
@@ -2997,6 +2997,7 @@ export const bootstrapApp = async () => {
     cityscape.dispose()
     spaceport.dispose()
     sun.dispose()
+    starfield.dispose()
     atmosphereGlow.dispose()
     tourCardPanel.dispose()
     mobileControls?.dispose()

@@ -109,7 +109,9 @@ bug: please open an issue.
   habitat, not a scattering model. The haze takes its colour from that grade.
 - Stars and the sun are a distant directional background. Their shell follows
   the observer, expands beyond the colony and preserves angular positions/size;
-  it does not simulate a nearby star system. Exterior travel frames the hull
+  it does not simulate a nearby star system. Star brightness is art-directed,
+  with daylight suppression inside the air and an independent dim star field
+  in vacuum. This is not eye adaptation or exposure-based stellar radiometry. Exterior travel frames the hull
   and mirror wings. On desktop/touch its view starts at inertial rest, retaining
   the chosen heading while the colony rotates; manual look remains available.
 - One day-night cycle is **180 seconds** by default (a demo compression; a real
