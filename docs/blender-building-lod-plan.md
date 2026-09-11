@@ -1291,3 +1291,68 @@ ground-floor glazing. No mandatory visual correction was identified in those
 views. Flat curtain shading can still read as panels close up; cloth folds are a
 future refinement. Static captures do not establish temporal shimmer behavior,
 back-facade quality or XR comfort. Local implementation only; not published.
+
+## Planted entrance edges with shared collision (2026-09-11)
+
+Residential entrances, office lobbies and selected grocery/bakery/coffee/market
+frontages now receive small planted containers where the existing pavement has
+room. Residential pots are narrower and clay/stone coloured; office containers
+are wider and darker. Shop containers stand beside display glazing, away from
+the alternating shop door. At most two are selected per building, preferring
+the candidates nearest the central entrance on long commercial facades.
+
+The planner works from actual carriageways and certified entrance corridors.
+It requires the entire footprint to lie on the existing paved band, keeps at
+least 2m between the pot and kerb, excludes road ends/intersections and rejects
+overlap with other lots, any certified approach or another new container.
+Narrow streets, houses, industrial buildings and enterable/authored pilots are
+excluded. Pavement is not expanded to accommodate decoration. In the 250m-radius
+generated test layout no candidate has spare space, so none is placed; the
+four-direction synthetic fixtures separately exercise valid small-radius cases.
+
+The connected Blender generator adds a hollow tapered `planter` (28 triangles)
+and a three-crown `planting` module (240 triangles). Smooth shrub normals and no
+unused shrub UVs keep the complete eight-node pack at 23,040 bytes, up from
+16,104. Only the owned SWCM scene is rebuilt; the active Scene is restored.
+The runtime uses two shared instanced batches, capped at 320 pairs within the
+existing 160-building near-detail selection. No per-pot lights or textures are
+added. The geometry-only maximum is 85,760 additional triangles, including both
+parts; normal street views contain far fewer pots. Distant views omit them.
+
+Render placement uses the local surface normal at each pot, with the same
+0.32/0.33m lift as its sidewalk orientation. Permanent collision is generated
+from the same layout and blocks the solid pot while leaving foliage soft.
+Loading failure uses visible box proxies at those same positions. Collision
+does not disappear with rendering LOD. Existing building masses, entrances,
+shop signs and window grammar are preserved.
+
+Unit checks cover all four frontage orientations, the cylinder seam, 250m and
+3200m radii, centre-door and kerb-side walking, crossing roads, neighbour lots,
+other buildings' approach paths, the actual 64k layout and GLB bounds/budgets.
+The reusable browser `forecourt-probe.mjs` compares rendered matrices to the
+permanent collision list and local gravity and verifies the instance cap.
+
+Independent visual review flagged the office pot's proximity to the intercom.
+A walking-collision probe reproduced the problem at a standing position 0.8m
+in front of that panel with 0.45m body clearance. Moving each office pot another
+0.2m outwards clears that position; the regression now runs in all four frontage
+orientations at both radii. This clearance is a scene design check, not a claim
+of accessibility-standard compliance. The residential mailbox and shop doors
+retain their existing separate clear space.
+
+Validation: all 683 tests and the production build pass. The final default
+layout contains 4,522 planned containers. Close daytime views of residential,
+office and shop frontages checked 11, 3 and 4 rendered pots respectively against
+their permanent colliders. The final office placement also passes the same
+matrix/collision checks by night, with no JavaScript or shader errors.
+Independent review confirms that the visible left pot leaves more room beside
+the intercom in both light conditions and introduces no visible grounding or
+entrance obstruction. The right pot is outside these final close views; its
+clearance is covered by the symmetric layout and collision regression tests.
+
+Broader street, phone-profile, night-overview and aborted-module fallback checks
+passed before the final 0.2m office adjustment. The ordinary street view adds
+two draws for the two shared batches; frame intervals remain variable and these
+checks do not demonstrate an overall frame-rate improvement. Browser captures
+use Metal on an M1 Pro; the phone tier is a desktop profile check, not physical
+phone or Quest performance validation. Local implementation only; not published.

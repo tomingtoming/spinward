@@ -4,7 +4,8 @@ import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArcSegments, getThetaStart } from './cityscape'
 import { mergeBufferGeometries } from './cylinder'
 import { SurfaceIndex } from './streetAccess'
-import { getStreetProfile } from './streetProfile'
+import { getStreetProfile, SIDEWALK_LIFT } from './streetProfile'
+export { SIDEWALK_LIFT } from './streetProfile'
 import { coalesceRoads } from './roadNetwork'
 import { subtractWalkwayRect } from './streetWalkways'
 
@@ -13,7 +14,6 @@ import { subtractWalkwayRect } from './streetWalkways'
 // Radii: ground R, fields R−0.1, roads R−0.2, kerbs R−0.32. Tangential
 // bands are 1 cm higher to resolve their shared corner with axial bands.
 
-export const SIDEWALK_LIFT = 0.32
 export const SIDEWALK_TEXTURE_METERS = 5
 
 export type SidewalkSegment = {

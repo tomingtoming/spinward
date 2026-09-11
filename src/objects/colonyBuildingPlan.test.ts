@@ -39,7 +39,7 @@ test('public room structural recipe retains its existing collision openings',()=
 })
 test('Blender module export contains only the reusable structural parts',()=>{
  const bytes=fs.readFileSync(new URL('../../public/assets/buildings/colony-modules.glb',import.meta.url)),g=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12)))
- expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','canopy','door','shop_awning','structure','window_frame'])
+ expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','canopy','door','planter','planting','shop_awning','structure','window_frame'])
  const structure=g.meshes[g.nodes.find(n=>n.name==='structure').mesh]
  const a=g.accessors[structure.primitives[0].attributes.POSITION]
  expect(a.min).toEqual([-.5,-.5,-.5]);expect(a.max).toEqual([.5,.5,.5])
@@ -48,7 +48,12 @@ test('Blender module export contains only the reusable structural parts',()=>{
  expect(bounds.min[2]).toBeCloseTo(0,5);expect(bounds.max[2]).toBeLessThan(1)
  expect(bounds.min[1]).toBeCloseTo(-.12,5);expect(bounds.max[1]).toBeCloseTo(.96,5)
  expect(g.accessors[balcony.indices].count).toBeLessThanOrEqual(144)
- expect(bytes.length).toBeLessThan(20000)
+ for(const name of ['planter','planting']){
+  const p=g.meshes[g.nodes.find(n=>n.name===name).mesh].primitives[0],a=g.accessors[p.attributes.POSITION]
+  for(let axis=0;axis<3;axis++){expect(a.min[axis]).toBeCloseTo(-.5,5);expect(a.max[axis]).toBeCloseTo(.5,5)}
+  expect(g.accessors[p.indices].count/3).toBeLessThanOrEqual(name==='planter'?28:240)
+ }
+ expect(bytes.length).toBeLessThan(32000)
 })
 
 test('replacement masses keep every certified street approach clear',()=>{

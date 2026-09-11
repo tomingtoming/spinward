@@ -22,3 +22,4 @@ export const streetLaneDividers = (kind: StreetKind) => {
   return Array.from({ length: Math.max(0, p.lanesPerDirection - 1) }, (_, i) => (i + 1) * p.laneWidth)
 }
 export const FOOTPATH_WIDTH = 2
+export const SIDEWALK_LIFT = .32

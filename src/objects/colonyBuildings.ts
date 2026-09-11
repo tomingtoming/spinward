@@ -2,8 +2,9 @@ import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
 import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
 import * as THREE from 'three'
-import type { CityBuilding } from './cityLayout'
+import type { CityBuilding,CityRoad } from './cityLayout'
 import type { BuildingInterior } from './buildingInteriors'
 import { cityBlockSpec, cityBlockDistance, type BlockSpec, type BlockVolume } from './authoredCityBlockPlan'
 import { colonyBuildingSpec, colonyWindowGrid } from './colonyBuildingPlan'
@@ -16,6 +17,7 @@ type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>
 export class ColonyBuildings {
  readonly group=new THREE.Group()
  private entries:Entry[]=[]
+ private forecourts=new Map<CityBuilding,ForecourtPlanter[]>()
  private capacities={shell:1,entrance:1,mixed:1}
  private entryByBuilding=new Map<CityBuilding,Entry>()
  private radius=1
@@ -26,6 +28,8 @@ export class ColonyBuildings {
  private mixedFacade=colonyFacadeMaterial(true,true,true)
  private shopColors=['#587970','#a18161','#687987','#917565','#657c70','#607984','#8b816e','#887660'].map(c=>new THREE.Color(c))
  private timber=new THREE.Color('#9e8768')
+ private potColors=['#9e806b','#a3a698','#667675'].map(c=>new THREE.Color(c))
+ private leafColors=['#657b54','#728862','#527565'].map(c=>new THREE.Color(c))
  private frame=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7})
  private signGeometry=new THREE.PlaneGeometry(1,1)
  private signs=colonyShopSignMaterial()
@@ -44,7 +48,7 @@ export class ColonyBuildings {
  }
  setProjection(value:number){if(Math.abs(value-this.projection)>1){this.projection=value;this.invalidate()}}
  private invalidate(){this.focus.set(Infinity,Infinity,Infinity)}
- rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>){
+ rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>,roads:CityRoad[]){
   this.clearBatches();this.radius=radius;this.nearInteriors.clear()
   this.entries=buildings.filter(b=>!cityBlockSpec(b,radius)).map(b=>{
    const interior=interiors.get(b),spec=colonyBuildingSpec(b,interior),a=b.azimuth,side=b.front?.side??-1,tangent=b.front?.axis==='tangent'
@@ -61,10 +65,12 @@ export class ColonyBuildings {
    this.capacities[kind]++
   }
   this.entryByBuilding=new Map(this.entries.map(e=>[e.spec.building,e]))
+  this.forecourts=planColonyForecourts(this.entries,buildings,roads,radius)
   this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
   this.invalidate()
  }
  isBuildingVisible(b:CityBuilding){const e=this.entryByBuilding.get(b);return !!e&&(e.visible||(e.interior&&this.nearInteriors.has(b)))}
+ getForecourtColliders(){return [...this.forecourts].flatMap(([b,planters])=>planters.map(p=>forecourtCollider(b,p)))}
  setNearInteriors(buildings:CityBuilding[]){this.nearInteriors=new Set(buildings);this.invalidate()}
  private batch(key:string,geometry:THREE.BufferGeometry,material:THREE.Material,capacity:number){
   let mesh=this.batches.get(key)
@@ -95,10 +101,13 @@ export class ColonyBuildings {
   const balconies=this.modules?this.batch('balconies',this.modules.balcony,this.frame,1024):null
   const awnings=this.modules?this.batch('awnings',this.modules.shop_awning,this.frame,512):null
   const signs=this.batch('signs',this.signGeometry,this.signs,1024)
+  const pots=this.batch('planters',this.modules?.planter??this.fallback,this.frame,320)
+  const plants=this.batch('planting',this.modules?.planting??this.fallback,this.frame,320)
   const up=new THREE.Vector3(0,1,0),local=new THREE.Matrix4(),world=new THREE.Matrix4(),q=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3()
-  const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0,tint=e.trim)=>{
+  const mount=new THREE.Matrix4(),mx=new THREE.Vector3(),my=new THREE.Vector3(),mz=new THREE.Vector3()
+  const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0,tint=e.trim,frame=e.matrix)=>{
    if(batch.count>=batch.instanceMatrix.count)return
-   q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(e.matrix,local);batch.setMatrixAt(batch.count,world);if(batch!==doors&&batch!==signs)batch.setColorAt(batch.count,tint)
+   q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(frame,local);batch.setMatrixAt(batch.count,world);if(batch!==doors&&batch!==signs)batch.setColorAt(batch.count,tint)
    batch.count++
   }
   const label=(e:Entry,v:BlockVolume,id:number)=>{
@@ -135,6 +144,15 @@ export class ColonyBuildings {
   for(const {e,distance} of close.slice(0,160)){
    near++
    const detailed=distance<30&&framed++<6
+   for(const planter of this.forecourts.get(e.spec.building)??[]){
+    const a=planter.azimuth,side=e.spec.building.front!.side,tangent=e.spec.building.front!.axis==='tangent'
+    mx.set(tangent?0:side*Math.sin(a),tangent?side:0,tangent?0:-side*Math.cos(a))
+    my.set(-Math.cos(a),0,-Math.sin(a))
+    mz.set(tangent?-side*Math.sin(a):0,tangent?0:side,tangent?side*Math.cos(a):0)
+    mount.makeBasis(mx,my,mz).setPosition(Math.cos(a)*this.radius,planter.axial,Math.sin(a)*this.radius)
+    add(pots,e,{x:0,y:planter.lift+planter.height/2,z:0,w:planter.width,h:planter.height,d:planter.depth},0,this.potColors[planter.tint],mount)
+    add(plants,e,{x:0,y:planter.lift+planter.height+planter.leafHeight/2-.06,z:0,w:planter.width*.9,h:planter.leafHeight,d:planter.depth*.94},0,this.leafColors[Math.floor(e.design.seed*3)%3],mount)
+   }
    // Entrance on the most central front-accessible volume; fixed human dimensions.
    const v=e.spec.volumes.find(v=>Math.abs(v.x)<v.w/2&&v.y-v.h/2<.01)??e.spec.volumes[0]
    const groundHeight=colonyGroundHeight(v,e.design),retail=e.design.use.ground==='retail'&&groundHeight>0
@@ -245,7 +263,7 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:balconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:balconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}

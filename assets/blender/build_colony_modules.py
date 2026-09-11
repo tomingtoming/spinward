@@ -40,9 +40,38 @@ cube('balcony',[(0,-.06,.48,1,.12,.96),(0,.48,.94,1,.96,.055),(-.4975,.48,.48,.0
 awning=cube('shop_awning',[(0,0,.5,1,.055,1),(0,-.14,.98,1,.23,.035)])
 # Lower the front edge, preserving the back attachment at y=0.
 for v in awning.data.vertices:v.co.z+=v.co.y*.16
+# A hollow tapered planter. Runtime origin at its centre, unit outer bounds;
+# the rim and inner wall survive at the same low detail level as the pot.
+verts=[]
+for y,extent in [(-.5,.40),(.5,.5),(.5,.43),(-.38,.34)]:
+    verts.extend([(x,-z,y) for x,z in [(-extent,-extent),(extent,-extent),(extent,extent),(-extent,extent)]])
+faces=[]
+for ring in range(3):
+    for j in range(4):
+        k=(j+1)%4;faces.append((ring*4+j,ring*4+k,(ring+1)*4+k,(ring+1)*4+j))
+faces.extend([(12,13,14,15),(3,2,1,0)])
+mesh=bpy.data.meshes.new('SWCM_planter');mesh.from_pydata(verts,[],faces);mesh.update()
+pot=bpy.data.objects.new('planter',mesh);scene.collection.objects.link(pot);mesh.materials.append(mat)
+# Recalculate winding after mapping runtime Y/Z to Blender's axes.
+bpy.ops.object.select_all(action='DESELECT');pot.select_set(True);bpy.context.view_layer.objects.active=pot
+bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT');bpy.ops.mesh.normals_make_consistent(inside=False);bpy.ops.object.mode_set(mode='OBJECT')
+# Three overlapping low-poly shrub crowns, kept within the pot footprint.
+crowns=[]
+for x,y,z,w,h,d in [(-.27,.02,0,.55,.8,.92),(.03,.1,.04,.56,1,.86),(.31,-.04,-.03,.48,.7,.82)]:
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=1,location=(x,-z,y))
+    o=bpy.context.object;o.scale=(w/2,d/2,h/2);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);crowns.append(o)
+bpy.ops.object.select_all(action='DESELECT')
+for o in crowns:o.select_set(True)
+bpy.context.view_layer.objects.active=crowns[0];bpy.ops.object.join();plant=bpy.context.object;plant.name='planting'
+scene.cursor.location=(0,0,0);bpy.ops.object.origin_set(type='ORIGIN_CURSOR');plant.data.materials.append(mat)
+for axis in range(3):
+    lo=min(v.co[axis] for v in plant.data.vertices);hi=max(v.co[axis] for v in plant.data.vertices)
+    for v in plant.data.vertices:v.co[axis]=(v.co[axis]-(lo+hi)/2)/(hi-lo)
+for polygon in plant.data.polygons:polygon.use_smooth=True
+for uv in list(plant.data.uv_layers):plant.data.uv_layers.remove(uv)
 bpy.ops.object.select_all(action='SELECT')
 path=ROOT/'public/assets/buildings/colony-modules.glb'
 bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT')
 bpy.data.libraries.write(str(ROOT/'assets/blender/colony-modules.blend'),{scene},fake_user=True,compress=True)
 bpy.context.window.scene=previous
-result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','shop_awning']}
+result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','shop_awning','planter','planting']}

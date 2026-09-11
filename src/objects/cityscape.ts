@@ -2543,7 +2543,7 @@ export class Cityscape {
     const apartment = planNyaanApartment(plan.buildings, radius)
     if (apartment) this.interiors.set(apartment.building, apartment)
     this.authoredBlock.rebuild(plan.buildings,radius)
-    this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors)
+    this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors,plan.roads)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
@@ -2554,6 +2554,7 @@ export class Cityscape {
       return cityBlockCollision(building,colonyBuildingSpec(building),radius)
     })
 
+    this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
