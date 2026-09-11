@@ -27,7 +27,7 @@ test('generated land use follows the actual frontage road; shops leave the certi
   expect(b.streetKind).toBe(plan.roads[b.access!.roadIndex].kind)
   const d=colonyBuildingDesign(b);primary.add(d.use.primary);grounds.add(d.use.ground)
   expect(colonyBuildingUse({...b})).toEqual(d.use)
-  if(d.use.primary==='apartments'){expect(d.profile.paneBottom).toBeLessThan(.06);expect(d.profile.paneHeight).toBeGreaterThanOrEqual(.7)}
+  if(d.use.primary==='apartments'){expect(d.profile.paneBottom).toBeGreaterThanOrEqual(.3);expect(d.profile.paneHeight).toBeLessThanOrEqual(.48)}
   const volumes=colonyBuildingSpec(b).volumes
   if(d.use.groundHeight>0)expect(volumes.some(v=>colonyGroundHeight(v,d)>0)).toBe(true)
   for(const v of volumes){

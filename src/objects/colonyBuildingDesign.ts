@@ -30,7 +30,9 @@ export function colonyBuildingDesign(b:CityBuilding,interior?:InteriorKind){
  }
  const style=use.primary==='industrial'?2:use.primary==='office'?1:use.primary==='commercial'?4:(b.oldTown??0)>.5?3:0
  const base=COLONY_FACADES[style]
- const paneHeight=use.primary==='apartments'?[.7,.74,.78,.82][(seed>>>8)%4]:Math.min(.86,Math.max(.22,base.paneHeight+[-.1,-.03,.04,.08][(seed>>>8)%4]))
- const profile={bay:base.bay*[.82,1,1.18,1.34][seed%4],storey:base.storey*[.94,1,1.08][(seed>>>3)%3],paneWidth:Math.min(.86,Math.max(.36,base.paneWidth+[-.14,-.04,.04,.1][(seed>>>6)%4])),paneHeight,paneBottom:use.primary==='apartments'?.04:style===2?Math.min(.55,1-paneHeight-.08):(1-paneHeight)/2}
+ const residential=use.primary==='apartments'||use.primary==='house',office=use.primary==='office',officeFull=office&&(seed>>>14)%2===0
+ const paneHeight=residential?[.38,.42,.46,.48][(seed>>>8)%4]:office?(officeFull?[.76,.80,.84,.86]:[.42,.46,.5,.54])[(seed>>>8)%4]:Math.min(.86,Math.max(.22,base.paneHeight+[-.1,-.03,.04,.08][(seed>>>8)%4]))
+ const paneBottom=residential?[.30,.32,.34][(seed>>>10)%3]:office?(officeFull?.04:.28):style===2?Math.min(.55,1-paneHeight-.08):(1-paneHeight)/2
+ const profile={bay:base.bay*[.82,1,1.18,1.34][seed%4],storey:base.storey*[.94,1,1.08][(seed>>>3)%3],paneWidth:Math.min(.86,Math.max(.36,base.paneWidth+[-.14,-.04,.04,.1][(seed>>>6)%4])),paneHeight,paneBottom}
  return {use,style,profile,windows:colonyWindowAppearance(use.primary,seed),wall:PALETTES[style][(seed>>>12)%6],trim:TRIMS[(seed>>>16)%4],seed:(seed%65536)/65536,band:style===1?.94:[.78,.86,.94][(seed>>>20)%3]}
 }

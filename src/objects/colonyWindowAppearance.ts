@@ -17,14 +17,20 @@ float colonyWindowHash(vec2 p) {
  return fract((p3.x+p3.y)*p3.z);
 }
 vec3 colonyLamp(float kind) {
- return kind<.5?vec3(1.,.68,.40):kind<2.5?vec3(.76,.86,1.):vec3(1.,.83,.59);
+ return kind<.5?vec3(.92,.84,.76):kind<2.5?vec3(.76,.86,1.):vec3(1.,.83,.59);
+}
+vec3 colonyRoomLamp(float kind,float pick) {
+ if(kind>=.5)return colonyLamp(kind);
+ // Warm, neutral and daylight lamps vary by dwelling; offices share daylight.
+ return pick<.34?vec3(1.,.65,.36):pick<.68?vec3(.98,.94,.85):vec3(.76,.86,1.);
 }
 void colonyWindowSurface(vec2 cell,vec2 pane,vec2 paneSize,float bottom,vec4 appearance,
- float seed,vec3 face,vec2 footprint,out vec3 colour,out float light,out float surfaceRoughness) {
+ float seed,vec3 face,vec2 footprint,out vec3 colour,out float light,out float surfaceRoughness,out vec3 lamp) {
  bool residential=appearance.x<.5;
  float floorId=floor(cell.y)+appearance.w;
  float faceId=dot(face,vec3(7.,0.,19.));
  float room=colonyWindowHash(vec2(floor(cell.x)+faceId,floorId)+seed*103.);
+ lamp=colonyRoomLamp(appearance.x,colonyWindowHash(vec2(room*131.,seed*29.+17.)));
  float floorState=colonyWindowHash(vec2(floorId,seed*71.));
  vec2 uv=(pane-vec2((1.-paneSize.x)*.5,bottom))/paneSize;
  vec2 aa=max(vec2(.001),footprint/paneSize);

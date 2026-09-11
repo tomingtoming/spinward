@@ -24,8 +24,10 @@ def atlas(name,wall):
         for y in range(256):
             for x in range(256):
                 cx,cy=x//64,y//64;u,v=x%64/64,y%64/64
-                glass=.16<u<.84 and .2<v<.82;lit=(cx+cy*3)%4==1
-                colour=('ffd89b' if glass and lit else '000000') if emissive else ('71858c' if glass and lit else '354e58' if glass else wall)
+                bottom,top=(.32,.77) if name=='residential' else (.04,.88) if name=='office' else (.2,.82)
+                glass=.16<u<.84 and bottom<v<top;lit=(cx+cy*3)%4==1
+                lamp=['ffd09a','fff5e8','dcecff'][(cx+cy*2)%3] if name=='residential' else 'dcecff' if name=='office' else 'ffd89b'
+                colour=(lamp if glass and lit else '000000') if emissive else ('71858c' if glass and lit else '354e58' if glass else wall)
                 pixels.extend(tuple(int(colour[i:i+2],16)/255 for i in (0,2,4))+(1,))
         img.pixels.foreach_set(pixels);img.update();img.pack();images.append(img)
     m=mat(name+'_atlas','ffffff');nodes=m.node_tree.nodes;links=m.node_tree.links;p=nodes.get('Principled BSDF')
@@ -83,9 +85,13 @@ for spec in C['blocks']:
                     for col in range(cols):
                         u=-span/2+(col+.5)*cw;y=v['y']-v['h']/2+(row+.5)*ch
                         if buried(surf(v,u,y,n+.03,side),v):continue
-                        l=u-cw*.34;r=u+cw*.34;lo=y-ch*.3;hi=y+ch*.32
+                        bottom,top=(.32,.77) if id=='residential' else (.04,.88) if id=='office' else (.2,.82)
+                        l=u-cw*.34;r=u+cw*.34;lo=y+(bottom-.5)*ch;hi=y+(top-.5)*ch
                         if side==0 and v is spec['volumes'][0] and lo<3.45 and hi>0 and v['x']+l<1.85 and v['x']+r>-1.85:continue
-                        wall(v,side,l,r,lo,hi,n+.015,4 if (col+row*3)%4==1 else 3)
+                        # The same atlas texel supplies each lit room's colour at
+                        # near and far LOD, keeping one shared glazing primitive.
+                        lit=(col+row*3)%4==1;uv=[((col%4+.5)/4,(row%4+(bottom+top)/2)/4)]*4
+                        wall(v,side,l,r,lo,hi,n+.015,5 if lit else 3,uv if lit else None)
                         if lod==0:
                             # Raised stone surround and deep jambs around the dark glazing.
                             edge=.10;depth=.16

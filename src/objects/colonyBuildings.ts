@@ -2,7 +2,7 @@ import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
 import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
-import {colonyBalconies,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
+import {colonyBalconies,colonyBalconyWindowRange,colonyWindowPane,type BalconyWindowRange,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
 import {colonyRoofSurface,colonyRoofUnits,colonyRoofLod,ROOF_BUILDING_LIMIT,ROOF_DETAIL_LIMIT,ROOF_UNIT_LIMIT} from './colonyRoofs'
 import {planColonyStairs,colonyStairParts,colonyStairCollider,STAIR_BUILDING_LIMIT,STAIR_CORE_LIMIT,type ColonyStair} from './colonyStairs'
 import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
@@ -14,7 +14,7 @@ import { colonyBuildingSpec, colonyWindowGrid } from './colonyBuildingPlan'
 import { colonyFacadeMaterial, prepareColonyGeometry,writeColonyFacade, loadColonyModules, type ColonyModules } from './colonyBuildingModules'
 
 type StructureKind='structure'|'entrance-structure'|'mixed-structure'
-type StructurePart={volume:BlockVolume;kind:StructureKind;ground:number;slot:InstanceSlot}
+type StructurePart={volume:BlockVolume;kind:StructureKind;ground:number;slot:InstanceSlot;balcony:BalconyWindowRange}
 type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2}
 /** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
 export class ColonyBuildings {
@@ -63,7 +63,8 @@ export class ColonyBuildings {
    const z=tangent?new THREE.Vector3(-side*Math.sin(a),0,side*Math.cos(a)):new THREE.Vector3(0,side,0)
    const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*radius,b.axial,Math.sin(a)*radius)
    const design=colonyBuildingDesign(b,interior?.kind)
-   const parts:StructurePart[]=spec.volumes.map(volume=>{const ground=interior?0:colonyGroundHeight(volume,design);return {volume,ground,kind:ground>0?'mixed-structure':!interior&&volume.y-volume.h/2<.01&&Math.abs(volume.x)<volume.w/2?'entrance-structure':'structure',slot:{index:-1}}})
+   const balcony=colonyBalconies(spec,design)
+   const parts:StructurePart[]=spec.volumes.map(volume=>{const ground=interior?0:colonyGroundHeight(volume,design);return {volume,ground,kind:ground>0?'mixed-structure':!interior&&volume.y-volume.h/2<.01&&Math.abs(volume.x)<volume.w/2?'entrance-structure':'structure',slot:{index:-1},balcony:colonyBalconyWindowRange(balcony,volume)}})
    return {parts,design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height),roof:interior?null:colonyRoofSurface(spec),roofLod:2}
   })
   this.capacities={shell:0,entrance:0,mixed:0}
@@ -149,7 +150,7 @@ export class ColonyBuildings {
       data[i+12+row]=m[row]*v.x+m[4+row]*v.y+m[8+row]*v.z+m[12+row]
      }
      data[i+3]=data[i+7]=data[i+11]=0;data[i+15]=1
-     mesh.setColorAt(index,e.color);writeColonyFacade(mesh,index,e.design,part.ground,v.y-v.h/2)
+     mesh.setColorAt(index,e.color);writeColonyFacade(mesh,index,e.design,part.ground,v.y-v.h/2,part.balcony)
     })
    }
    if(!e.visible)continue
@@ -275,15 +276,21 @@ export class ColonyBuildings {
     if(!detailed||!frames)continue
     const ground=e.interior?0:colonyGroundHeight(volume,e.design),upper=volume.h-ground
     const profile=e.design.profile,grid=colonyWindowGrid({...volume,h:upper},profile)
+    const balcony=e.parts.find(p=>p.volume===volume)!.balcony
     for(const axis of ['x','z'] as const)for(const sign of [-1,1]){
      const columns=axis==='z'?grid.columnsX:grid.columnsZ,width=axis==='z'?volume.w:volume.d
      if(width<1.5||volume.h<2)continue
      for(let row=0;row<grid.floors;row++)for(let col=0;col<columns;col++){
-      const along=(col+.5)*width/columns-width/2,y=volume.y-volume.h/2+ground+(row+profile.paneBottom+profile.paneHeight/2)*upper/grid.floors
-      const x=volume.x+(axis==='z'?along:sign*(volume.w/2+.012)),z=volume.z+(axis==='z'?sign*(volume.d/2+.012):along)
+      const pane=colonyWindowPane(profile,balcony,axis==='z'&&sign===1,row,col)
+      const along=(col+.5)*width/columns-width/2,y=volume.y-volume.h/2+ground+(row+pane.bottom+pane.height/2)*upper/grid.floors
+      // Seat the back of the raised frame into the wall so oblique views
+      // cannot see an emissive strip through a gap behind the outer jamb.
+      const x=volume.x+(axis==='z'?along:sign*(volume.w/2-.002)),z=volume.z+(axis==='z'?sign*(volume.d/2-.002):along)
       if(ground===0&&volume===v&&axis==='z'&&sign===1&&Math.abs(x-v.x)<Math.min(2.2,v.w*.6)/2+width/columns*profile.paneWidth*.5&&y<height+volume.h/grid.floors*profile.paneHeight*.5)continue
       if(e.spec.volumes.some(o=>o!==volume&&Math.abs(x-o.x)<o.w/2+.01&&Math.abs(z-o.z)<o.d/2+.01&&Math.abs(y-o.y)<o.h/2))continue
-      add(frames,e,{x,y,z,w:width/columns*profile.paneWidth,h:upper/grid.floors*profile.paneHeight,d:1},axis==='z'?(sign===1?0:Math.PI):sign*Math.PI/2)
+      // The Blender frame's clear opening is 96% of its outer bounds.
+      // Fit that opening to the glass; its jamb must cover the surrounding wall.
+      add(frames,e,{x,y,z,w:width/columns*profile.paneWidth/.96,h:upper/grid.floors*pane.height/.96,d:1},axis==='z'?(sign===1?0:Math.PI):sign*Math.PI/2)
      }
     }
    }

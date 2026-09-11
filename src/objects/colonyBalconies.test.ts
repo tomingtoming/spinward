@@ -1,5 +1,5 @@
 import {test,expect} from 'bun:test'
-import {colonyBalconies,BALCONY_SECTION_LIMIT} from './colonyBalconies'
+import {colonyBalconies,colonyBalconyWindowRange,colonyWindowPane,BALCONY_SECTION_LIMIT} from './colonyBalconies'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {colonyBuildingSpec,colonyWindowGrid} from './colonyBuildingPlan'
 import {colonyGroundHeight} from './colonyBuildingFrontage'
@@ -31,6 +31,17 @@ test('generated balconies align with upper windows, avoid masses and retain boun
    const design=colonyBuildingDesign(building)
    if(design.use.primary!=='apartments')continue
    const spec=colonyBuildingSpec(building),plan=colonyBalconies(spec,design)
+   for(const volume of spec.volumes){
+    const range=colonyBalconyWindowRange(plan,volume),parts=plan.sections.filter(s=>s.volume===volume)
+    if(!parts.length){expect(range).toEqual([-1,-1,-1,-1]);continue}
+    expect((range[1]-range[0]+1)*(range[3]-range[2]+1)).toBe(parts.reduce((n,s)=>n+s.last-s.first+1,0))
+    for(const s of parts){
+     const front=colonyWindowPane(design.profile,range,true,s.row,s.first),rear=colonyWindowPane(design.profile,range,false,s.row,s.first)
+     expect(front.bottom).toBe(.04);expect(rear.bottom).toBeGreaterThanOrEqual(.3)
+     expect(front.bottom+front.height).toBeCloseTo(rear.bottom+rear.height,8)
+    }
+    expect(colonyWindowPane(design.profile,range,true,range[2]-1,range[0]).bottom).toBe(design.profile.paneBottom)
+   }
    expect(plan.sections.length).toBeLessThanOrEqual(BALCONY_SECTION_LIMIT)
    expect(plan.dividers.length).toBeLessThanOrEqual(BALCONY_SECTION_LIMIT)
    if(!plan.sections.length)continue

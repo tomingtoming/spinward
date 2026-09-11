@@ -1,7 +1,7 @@
 [
   {
     "id": "residential",
-    "bytes": 729424,
+    "bytes": 728996,
     "levels": [
       {
         "lod": 0,
@@ -27,7 +27,7 @@
   },
   {
     "id": "office",
-    "bytes": 475820,
+    "bytes": 475764,
     "levels": [
       {
         "lod": 0,
@@ -53,7 +53,7 @@
   },
   {
     "id": "commercial",
-    "bytes": 468544,
+    "bytes": 468240,
     "levels": [
       {
         "lod": 0,

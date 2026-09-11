@@ -42,6 +42,8 @@ for(const e of c.entries)for(const part of e.parts){
  for(let row=0;row<3;row++)if(Math.abs(a[slot*16+12+row]-(m[row]*v.x+m[4+row]*v.y+m[8+row]*v.z+m[12+row]))>.002)errors.push('position');
  if(Math.abs(mesh.instanceColor.getX(slot)-e.color.r)>1e-5)errors.push('colour');
  if(Math.abs(mesh.geometry.getAttribute('aColonyFacade').getX(slot)-e.design.profile.bay)>1e-5)errors.push('facade');
+ const balcony=mesh.geometry.getAttribute('aColonyBalcony');
+ if(!balcony)errors.push('missing balcony identity');else for(let i=0;i<4;i++)if(balcony.array[slot*4+i]!==part.balcony[i])errors.push('balcony identity');
  const windows=mesh.geometry.getAttribute('aColonyWindows'),expected=e.design.windows;
  if(!windows)errors.push('missing window identity');else for(const [component,value] of [expected.kind,expected.tint,expected.occupied,Math.round((v.y-v.h/2+part.ground)/e.design.profile.storey)].entries())if(Math.abs(windows.array[slot*4+component]-value)>1e-5)errors.push('window identity');
 }

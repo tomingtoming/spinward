@@ -13,12 +13,14 @@ export function probeBalconies(){
     const m=e.matrix.elements,delta=a.slice(12,15).map((v,j)=>v-m[12+j]);
     const local=[0,4,8].map(k=>delta.reduce((s,v,j)=>s+v*m[k+j],0)),[x,y,z]=local;
     if([0,1,2].some(j=>Math.abs(a[4+j]-m[4+j])>.0001))return false;
-    return e.parts.some(({volume:v,ground})=>{
+    return e.parts.some(({volume:v,ground,kind,slot})=>{
      const upper=v.h-ground,floors=Math.max(1,Math.round(upper/e.design.profile.storey)),pitch=v.w/Math.max(1,Math.round(v.w/e.design.profile.bay));
      const nearInteger=n=>Math.abs(n-Math.round(n))<.002;
      if(Math.abs(z-(v.z+v.d/2-.04))>.002||Math.abs(x-v.x)+width/2>v.w/2+.002||y<3.399||y+1.07>=v.y+v.h/2)return false;
      if(!nearInteger((y-v.y+v.h/2-ground)*floors/upper)||!nearInteger((width+.16)/pitch)||!nearInteger((x-width/2-v.x+v.w/2-.08)/pitch))return false;
      if(style==='rail'&&Math.abs(width-(pitch-.16))>.002)return false;
+     const mask=c.structures.get(kind).mesh.geometry.getAttribute('aColonyBalcony'),row=Math.round((y-v.y+v.h/2-ground)*floors/upper),first=Math.round((x-width/2-v.x+v.w/2-.08)/pitch),last=first+Math.round((width+.16)/pitch)-1;
+     if(!mask||first<mask.getX(slot.index)||last>mask.getY(slot.index)||row<mask.getZ(slot.index)||row>mask.getW(slot.index))throw Error('Balcony has no matching tall glazing');
      if(e.spec.volumes.some(o=>o!==v&&x+width/2>o.x-o.w/2+.003&&x-width/2<o.x+o.w/2-.003&&z+depth>o.z-o.d/2+.003&&z<o.z+o.d/2-.003&&y+1.07>o.y-o.h/2+.003&&y-.12<o.y+o.h/2-.003))throw Error('Balcony penetrates another building mass');
      return true;
     });

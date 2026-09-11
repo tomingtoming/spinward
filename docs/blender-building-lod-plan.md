@@ -1548,3 +1548,70 @@ Final desktop/phone captures have no reported JavaScript/shader errors, and
 all 178 street and 158 industrial pool transforms match the pre-change data.
 The daytime check retains the existing approximately 0.0025 pool opacity.
 All 691 tests and the production build pass. Local only; not published.
+
+## Residential window heights and room light temperatures (2026-09-11)
+
+Residential facades now use waist windows by default, including the upper
+storeys of houses. Apartments vary the sill between 30–34% of the storey and
+the glazed height between 38–48%. Only front-facing bays covered by an actual
+balcony plan extend down to 4%, keeping their original head height. The mask
+comes from the complete balcony plan, independent of the near-detail draw cap;
+rear faces and floors without balconies retain their sills. A compact four-value
+range per structural volume is shared by the facade shader and physical frames.
+Generated-plan tests verify that these rectangular ranges cover exactly the
+planned bays. Future disconnected balcony runs fall back to waist windows.
+
+Offices deliberately retain two distinct facade families: waist windows
+(28% sill, 42–54% glazed height) and glazing from near the floor to near the
+ceiling (4% sill, 76–86% height). Selection is stable per building. Retail
+frontage retains its own large openings. This is an architectural art rule,
+not a claim that every real building uses these proportions.
+
+The existing stable room identity now chooses warm, neutral-white or daylight
+lighting for homes, independently of occupancy and curtains. Offices share a
+single daylight colour, including their lobby; retail premises keep their warm
+lighting. Distant/subpixel windows converge to a use-specific average rather
+than shimmering between room colours. The browser GPU probe executes the
+production GLSL: 64 residential samples contain three light colours, 64 office
+samples contain one, and repeated draws reproduce identical pixels. There are
+no new runtime lights, textures or draw batches for these changes.
+
+The three authored Blender templates were re-exported at all four LODs. The
+residential template uses waist windows and room colours sampled from its shared
+atlas at both detailed and baked levels. The office template represents the
+full-height family with daylight lamps. Existing primitive/triangle budgets are
+unchanged; the residential/office/commercial GLBs are respectively 728,996,
+475,764 and 468,240 bytes. Forced LOD0/LOD2 night captures verify their window
+positions and colour continuity.
+
+Independent image review also exposed a narrow emissive line outside the raised
+window frames in oblique night views. Their backs previously floated 12mm off
+the wall; they now overlap it by 2mm. Their 96% clear opening is fitted to
+the glazing instead of placing the frame's outer edge on the glowing boundary.
+This seals the jamb and covers edge-sampling artifacts without adding geometry.
+The window QA checklist now includes: inspect the top and side edges of bright
+windows at an oblique angle in both apartments and offices, at full image
+resolution, and reject light strips outside the frame. Balcony door-to-floor
+heights are checked by live instance/grid probes because rails occlude the
+lower edge in the screenshots. Independent review of the final oblique night
+images confirms that the reported external light lines are gone in both uses.
+
+All 692 tests and the production build pass. The street, phone profile, night,
+asset-failure and house browser probes report no JavaScript/shader errors;
+balcony/stair/roof/forecourt attachment and instance-swap identity checks pass.
+The standard street/phone/night/fallback views retain 145/123/146/142 draws,
+respectively. No former building model is requested or rendered.
+
+Performance in this session was slower and more variable than the earlier
+60fps capture. A contemporaneous comparison used the previous source commit
+(91e0406) and the window implementation before the final jamb-sizing correction
+in one Chrome/Metal session,
+1440x1000, after four seconds of settling and over six seconds per sample.
+Before/after both measured 33.4ms median and 50.1ms p95 in the first pair;
+the reversed pair measured 50.0/50.1ms median and 83.3ms p95 for both builds.
+Both retained the same 145 draws, 959 frames and 67,766 visible structural
+instances. The baseline reused the regenerated pilot GLBs to isolate runtime
+source cost. These results show no material regression in this comparison,
+but do not establish a 60fps guarantee or the cause of the session-wide slowdown.
+The phone profile still measured 16.8ms p95; it is not a physical phone or XR test.
+Local implementation only; not published.
