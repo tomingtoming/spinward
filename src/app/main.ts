@@ -2977,7 +2977,12 @@ export const bootstrapApp = async () => {
     syncDockArrangement()
   })
 
-  window.addEventListener('beforeunload', () => {
+  let appDisposed = false
+  window.addEventListener('pagehide', (event) => {
+    // A cached history entry resumes this same JS heap and WebGL scene.
+    // Retain it while frozen; beforeunload also fires on those navigations.
+    if (event.persisted || appDisposed) return
+    appDisposed = true
     // Stop ticking before freeing physics, or a final frame races the
     // disposed Rapier world.
     renderer.setAnimationLoop(null)

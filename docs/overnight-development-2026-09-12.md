@@ -633,3 +633,31 @@ not a frame-rate or GPU-byte benchmark. Evidence: `travel-soak-overnight-final`.
 Next: fix an actual browser-history return failure. With WebXR absent and
 back-forward caching enabled, beforeunload tears down a page that is then
 restored from cache: its dock is gone and movement no longer runs.
+
+## Twenty-fourth increment — working browser-history restoration (06:41)
+
+Application teardown now runs on non-persisted pagehide, once. A persisted
+pagehide retains the scene, physics, inputs and UI for history restoration;
+the separate audio-activity policy still suspends and resumes sound. The frame
+loop already bounds the first resumed physics step to 50 ms. No new reload or
+state reconstruction is required for a cached entry.
+
+Chrome's normal back-forward cache was explicitly re-enabled for the probe.
+With the WebXR capability genuinely absent (including the `in` check), the
+original page is restored with pageshow.persisted = true. Before this fix it
+had zero dock elements, zero walking movement and repeated disposed-world
+errors on subsequent departures. Afterward, three cached returns preserve the
+dock and mute choice, resume the same audio context and walk about 0.95 m in
+the 0.6 s input sample. An old W key released on the other page does not remain
+held: idle drift during 0.25 s is below 5 mm. Three ordinary WebXR-enabled
+Chrome returns also pass via full reload; that browser reports `webxrdevice`
+as its reason for not caching the page.
+
+This is Chrome capability emulation, not a Safari/Firefox device claim. The
+initial about:blank probe incorrectly used crypto.randomUUID there, then an
+undefined XR shadow property; those failed harness attempts were corrected
+before the reproduced before/after comparison. Full suite: 796 tests; build
+passes. Evidence: `history-return.mjs`, `history-return-no-xr-{before,after}`,
+`history-return-xr-after`.
+
+Next: sample street movement and wider travel for remaining large frame stalls.
