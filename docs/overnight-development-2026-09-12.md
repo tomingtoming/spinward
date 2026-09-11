@@ -754,3 +754,27 @@ The completed broader tour before this change covered 27 stops with no
 JavaScript or shader exceptions. The audio preparation change also passed
 three genuine cached-history returns in capability-adjusted Chrome; walking,
 mute and the same running audio context survived each return.
+
+
+## Twenty-eighth increment — readable night guidance (07:18)
+
+Tour cards were part of the same HDR/bloom image as the city. Their white
+letters and cyan headings therefore produced a large nighttime halo, obscuring
+both the instructions and the scene around them. On the desktop bloom path,
+the card now renders in a tiny overlay scene after the world's OutputPass.
+The canvas's ordinary text colours reach the screen without the world glow or
+exposure. The renderer's auto-clear setting is restored immediately afterward.
+Only the existing card mesh is reparented; no extra copy or texture is created.
+Renderer statistics already accumulate all passes, so the card remains counted.
+
+Phone profiles and immersive rendering use their original direct-scene path.
+Six Surface/Exterior captures cover daytime desktop, nighttime desktop and the
+nighttime phone profile. The text is sharp and the surrounding city, stars,
+lamps and target ring remain visible. Full suite: 803 tests; production build
+passes. Evidence: `tour-overlay-clear*`, against `tour-star-visibility*`.
+
+The preceding star change also passed independent review across eight images:
+exterior stars remain visible by artificial day, the square halos are gone,
+the structure is not obscured and the day Surface view retains suppression.
+The dark exterior side remains an existing lighting limitation, not resolved
+by changing stars or the instruction overlay.

@@ -435,6 +435,7 @@ export const bootstrapApp = async () => {
   // the game loop the first time no tour card is on screen.
   let controlsBootFlashDone = false
   const tourCardPanel = new TourCardPanel()
+  const tourOverlayScene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
@@ -2918,13 +2919,23 @@ export const bootstrapApp = async () => {
       bottomClearancePx: Math.max(mobileControls?.getReservedBottomHeight() ?? 0, roomAction.getReservedBottomHeight(), coffeeAction.getReservedBottomHeight())
     })
     if (bloomComposer !== null && bloomRenderPass !== null && !renderer.xr.isPresenting) {
+      // Instructions are an overlay: keep their letters out of the world's
+      // bloom and exposure pass. Phone and XR retain their direct scene path.
+      if (tourCardPanel.mesh.parent !== tourOverlayScene) tourOverlayScene.add(tourCardPanel.mesh)
       bloomRenderPass.camera = desktopUiCamera
       if (bloomPass !== null) {
         // Subtle by day (sun glow), full at night (city lights).
         bloomPass.strength = BLOOM_BASE_STRENGTH * (0.25 + (1 - daylight) * 0.75)
       }
       bloomComposer.render()
+      if (tourCardPanel.mesh.visible) {
+        const autoClear = renderer.autoClear
+        renderer.autoClear = false
+        try { renderer.render(tourOverlayScene, desktopUiCamera) }
+        finally { renderer.autoClear = autoClear }
+      }
     } else {
+      if (tourCardPanel.mesh.parent !== scene) scene.add(tourCardPanel.mesh)
       renderer.render(scene, desktopUiCamera)
     }
   })
