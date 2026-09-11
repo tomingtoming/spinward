@@ -105,6 +105,25 @@ for spec in C['blocks']:
             top=v['y']+v['h']/2
             b(v['x'],top-.15,v['z']-v['d']/2+.14,v['w']-.04,.3,.24,1);b(v['x'],top-.15,v['z']+v['d']/2-.14,v['w']-.04,.3,.24,1)
             b(v['x']-v['w']/2+.14,top-.15,v['z'],.24,.3,v['d']-.52,1);b(v['x']+v['w']/2-.14,top-.15,v['z'],.24,.3,v['d']-.52,1)
+        # A continuous approach links the frontage to
+        # the door. Reuse existing materials, including a blank atlas texel at LOD2.
+        doorz=spec['volumes'][0]['z']+spec['volumes'][0]['d']/2
+        front=spec['building']['depth']/2-.02
+        if lod<3:
+            # Clear raised meadow patches (0.1m) plus tangent sag (<0.06m).
+            paving=0 if lod<2 else 5
+            blank=[(.01,.01)]*4
+            def paving_rect(x0,x1,z0,z1,material=paving,y=.2):
+                quad([(x0,y,z0),(x0,y,z1),(x1,y,z1),(x1,y,z0)],material,blank)
+            paving_rect(-1.2,1.2,doorz+.03,front)
+            # Landing wings meet the central approach without coplanar overlap.
+            landing=min(front,doorz+1.6)
+            paving_rect(-1.9,-1.2,doorz+.03,landing)
+            paving_rect(1.2,1.9,doorz+.03,landing)
+            if lod<2:
+                for i in range(1,int((front-doorz)/2)+1):
+                    z=doorz+i*2
+                    if z+.015<front:paving_rect(-1.2,1.2,z-.015,z+.015,2,.212)
         if lod<2:
             # Entrance is a 3.2m door at the back of the accessible front recess.
             if id=='residential':doorz=spec['volumes'][0]['z']+spec['volumes'][0]['d']/2
@@ -113,7 +132,7 @@ for spec in C['blocks']:
             door=dict(x=0,y=0,z=0)
             wall(door,0,-1.6,1.6,.05,3.1,doorz+.025,3)
             wall(door,0,-.045,.045,.05,3.1,doorz+.04,2)
-            wall(door,0,-1.75,1.75,3.1,3.35,doorz+.12,1)
+            b(0,3.26,doorz+.48,3.8,.18,1,2)
             if lod==0:
                 wall(door,0,.8,.84,1,1.65,doorz+.08,2)
         mesh=bpy.data.meshes.new(PREFIX+id+str(lod));mesh.from_pydata(verts,[],faces);mesh.update()

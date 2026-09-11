@@ -990,3 +990,33 @@ do not establish physical-device headroom. `city-block-facing.mjs` now captures
 all three model families on both signs of tangent-facing streets. The prior
 axial-direction captures remain as evidence. Tests: 666 passed; production build
 passes with the existing chunk warning. Local only; not published.
+
+
+## Entrance paving and canopies (2026-09-11)
+
+The existing 304 placements now share updated Blender models with a 2.4m-wide
+paved approach and 3.8m entrance landing, plus a solid cantilever canopy at
+LOD0/1. Paving remains at LOD2 using the blank, non-emissive atlas region; LOD3
+omits it. No materials or draw primitives were added. Source GLBs total
+1,673,788 bytes (+12,224 bytes). LOD0/1/2/3 triangle counts are residential
+8600/1398/246/48, office 5496/830/246/48, commercial 5444/850/186/36.
+
+A visual review caught the initial 8cm paving plane disappearing beneath raised
+meadow patches on a tangent-facing residential lot. It now sits at local 20cm,
+clearing the 10cm patches and less than 6cm tangent sag across these placements.
+The asset regression samples actual exported triangles along each approach at
+LOD0–2. The paving stays inside the original lot envelope; the narrow grass
+setback between some lots and the public sidewalk remains. Doors remain closed,
+and this decorative surface does not introduce a new collision step.
+
+The six-second overview sample measured 60fps, median 16.7ms, p95/max 16.8ms,
+211 total draws, 18 unique render-graph geometries and three serialized asset
+requests. This is a capped desktop browser sample, not physical mobile/XR
+headroom. Tests: 667 passed; build passed with the existing chunk-size warning.
+`city-block-approaches.mjs` captures six tangent-facing entrances and accepts
+`BLOCK_LOD=0|1|2` for fixed-level comparisons. Local only; not published.
+
+After the height correction, independent image review found continuous paving
+to the entrance in all six near views. Six forced-LOD2 captures also completed
+without JavaScript errors; the inspected office view retains plain paving.
+Static captures do not verify temporal flicker or continuous walking.

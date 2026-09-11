@@ -88,3 +88,18 @@ test('certified road-to-entrance access stays clear in every frontage direction'
   }
  }
 });
+test('exported approaches form an unbroken paved route at LOD0–2',()=>{
+ for(const s of CITY_BLOCK.blocks){
+  const bytes=fs.readFileSync(new URL(`../../public/assets/buildings/city-block-${s.id}.glb`,import.meta.url));
+  const jsonLength=bytes.readUInt32LE(12),g=JSON.parse(bytes.toString('utf8',20,20+jsonLength)),base=28+jsonLength;
+  const read=(index:number,i:number)=>{const a=g.accessors[index],v=g.bufferViews[a.bufferView],stride=v.byteStride??(a.type==='VEC3'?12:a.componentType===5125?4:2),offset=base+(v.byteOffset??0)+(a.byteOffset??0)+i*stride;return a.type==='VEC3'?[bytes.readFloatLE(offset),bytes.readFloatLE(offset+4),bytes.readFloatLE(offset+8)]:a.componentType===5125?bytes.readUInt32LE(offset):bytes.readUInt16LE(offset)};
+  for(const lod of [0,1,2]){
+   const mesh=g.meshes[g.nodes.find(n=>n.name===s.id+'_lod'+lod).mesh],ground:number[][][]=[];
+   for(const p of mesh.primitives)for(let i=0;i<g.accessors[p.indices].count;i+=3){const tri=[0,1,2].map(k=>read(p.attributes.POSITION,read(p.indices,i+k) as number) as number[]);if(tri.every(v=>Math.abs(v[1]-.2)<1e-4))ground.push(tri)}
+   const back=s.volumes[0].z+s.volumes[0].d/2;
+   for(let z=back+.08;z<s.building.depth/2-.05;z+=.5){
+    expect(ground.some(t=>{const c=t.map((v,i)=>{const w=t[(i+1)%3];return (w[0]-v[0])*(z-v[2])-(w[2]-v[2])*(-v[0])});return c.every(n=>n>=-1e-5)||c.every(n=>n<=1e-5)})).toBe(true);
+   }
+  }
+ }
+});

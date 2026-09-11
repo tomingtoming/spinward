@@ -1,21 +1,21 @@
 [
   {
     "id": "residential",
-    "bytes": 723964,
+    "bytes": 729424,
     "levels": [
       {
         "lod": 0,
-        "triangles": 8564,
+        "triangles": 8600,
         "materials": 5
       },
       {
         "lod": 1,
-        "triangles": 1362,
+        "triangles": 1398,
         "materials": 5
       },
       {
         "lod": 2,
-        "triangles": 240,
+        "triangles": 246,
         "materials": 3
       },
       {
@@ -27,21 +27,21 @@
   },
   {
     "id": "office",
-    "bytes": 472272,
+    "bytes": 475820,
     "levels": [
       {
         "lod": 0,
-        "triangles": 5476,
+        "triangles": 5496,
         "materials": 5
       },
       {
         "lod": 1,
-        "triangles": 810,
+        "triangles": 830,
         "materials": 5
       },
       {
         "lod": 2,
-        "triangles": 240,
+        "triangles": 246,
         "materials": 3
       },
       {
@@ -53,21 +53,21 @@
   },
   {
     "id": "commercial",
-    "bytes": 465328,
+    "bytes": 468544,
     "levels": [
       {
         "lod": 0,
-        "triangles": 5426,
+        "triangles": 5444,
         "materials": 5
       },
       {
         "lod": 1,
-        "triangles": 832,
+        "triangles": 850,
         "materials": 5
       },
       {
         "lod": 2,
-        "triangles": 180,
+        "triangles": 186,
         "materials": 3
       },
       {
