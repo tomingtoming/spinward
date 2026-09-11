@@ -35,6 +35,17 @@ the body and the low contrast of unlit shoes at night. The HUD is a useful next
 increment across the whole walking experience. Probe:
 `qa/neighborhood-life/player-body.mjs` (`PLAYWRIGHT_MODULE` as in other probes).
 
-Next after this increment: connect the VR head/controller frame carefully,
-then take a broad colony pass and choose another useful improvement. Avoid
-unbounded character-art polish, new UI systems or a full ragdoll rewrite.
+## Second increment — phone view clearance (00:59)
+
+At widths up to 720 px the dock keeps one 44 px row for fullscreen, the colony
+preset, Travel and More. More reveals the secondary controls; Escape/click
+closes them. Mobile game actions continue to measure the live dock height.
+Chrome touch emulation at 320/390/720 px passes bounds, overlap, expansion,
+weather toggles and the Travel menu; wide desktop controls remain visible.
+Independent images confirm the improved view of the legs. Jump/Gyro still
+overlap a small part of the right knee; this is a bounded remaining overlay,
+not a reason to spend the whole night on HUD polish. 698 tests/build passed.
+
+Next: connect the VR head/controller frame carefully, then improve activity
+and movement through the wider colony. Avoid unbounded character-art polish,
+new UI systems or a full ragdoll rewrite.

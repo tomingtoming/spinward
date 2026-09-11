@@ -224,3 +224,12 @@ Independent image review found no clear leg penetration in these samples,
 but the existing phone HUD obscures much of the lower body and shoes have low
 contrast on an unlit road at night. These remain follow-up items; phone/Quest
 hardware comfort and continuous-motion fidelity have not been verified.
+
+The follow-up phone dock now folds secondary actions behind More below 720 px.
+Fullscreen, colony selection and Travel remain in one row; touch game actions
+track the live expanded/collapsed height. `mobile-dock.mjs` verifies actual
+touch input, viewport bounds and menu/weather access at 320, 390 and 720 px,
+plus the full desktop arrangement. The collapsed dock measures 44 px at all
+three widths. Independent visual review confirms clearer feet and legs; the
+Jump/Gyro overlay still covers a small portion of the right knee. Full tests
+and production build pass. This is browser emulation, not phone hardware QA.

@@ -164,7 +164,11 @@ export const createHud = (
       controlsHideTimeout = null
     }
 
-    const rect = controlsToggle.getBoundingClientRect()
+    // The intro may peek this card while narrow-screen secondary controls are
+    // collapsed. Anchor to the dock instead of a hidden button's zero rect.
+    const rect = controlsToggle.getClientRects().length
+      ? controlsToggle.getBoundingClientRect()
+      : (root.closest('.dock') ?? root).getBoundingClientRect()
     controlsCard.style.left = `${rect.left}px`
     controlsCard.style.bottom = `${window.innerHeight - rect.top + 8}px`
     controlsCard.hidden = false
@@ -281,10 +285,9 @@ export const createHud = (
       }
     },
     peekControls: () => {
-      // Anchored to the CONTROL chip, so skip while the chip is not laid out
-      // (HUD hidden via debug toggle, dock hidden while presenting in VR) —
-      // the card would position against a zero rect.
-      if (!root.hidden && controlsToggle.offsetParent !== null) {
+      // A collapsed dock still offers the initial hint; a hidden HUD/XR dock
+      // does not. The card uses the dock anchor when CONTROL is folded away.
+      if (!root.hidden && root.closest('.dock')?.getClientRects().length) {
         peekControlsCard()
       }
     },

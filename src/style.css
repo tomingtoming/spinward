@@ -174,6 +174,10 @@ button {
   justify-content: flex-end;
 }
 
+.dock-more {
+  display: none;
+}
+
 /* Only the visible pills are interactive. */
 .dock .hud-chip,
 .dock button {
@@ -644,10 +648,8 @@ body.is-vr-entry #VRButton {
 
 /* ── Touch devices up to landscape-phone width ── */
 
-/* Narrow screens: give each cluster the full width instead of splitting one
-   row between them. Measured on a 390px phone, the shared row forced the dock
-   to four wrapped lines (one of them a single "Photo" pill); stacking plus the
-   collapsed Travel pill brings it back to two. */
+/* Narrow screens keep one row while exploring. Expanding More restores every
+   secondary action, with the two clusters each using the available width. */
 @media (max-width: 720px) {
   .dock {
     flex-direction: column;
@@ -662,6 +664,46 @@ body.is-vr-entry #VRButton {
   .beat-bar .beat-btn {
     padding: 6px 10px;
     font-size: 12px;
+  }
+
+  .dock-more {
+    display: block;
+    align-self: flex-end;
+    min-width: 54px;
+    min-height: 44px;
+    letter-spacing: .02em;
+    text-transform: none;
+  }
+
+  .dock:not(.is-expanded) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .dock:not(.is-expanded) .dock__cluster {
+    display: contents;
+  }
+
+  .dock:not(.is-expanded) .hud > :not(.hud-chip--preset),
+  .dock:not(.is-expanded) .beat-bar > :not(.beat-btn--travel),
+  body:not(.is-vr-entry) .dock:not(.is-expanded) #VRButton {
+    display: none;
+  }
+
+  .dock:not(.is-expanded) .fullscreen-toggle,
+  .dock:not(.is-expanded) .hud-chip--preset,
+  .dock:not(.is-expanded) .beat-btn--travel {
+    min-height: 44px;
+    min-width: 40px;
+    box-sizing: border-box;
+  }
+
+  .dock:not(.is-expanded) .hud-chip--preset {
+    max-width: min(36vw, 180px);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
