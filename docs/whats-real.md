@@ -135,6 +135,13 @@ bug: please open an issue.
   courtyards. Their walls, lintels, ceilings and major furniture share geometry
   with streamed player colliders and analytic ball collision. Detail changes
   do not change contact. [Scope and limits](building-interiors.md).
+- Each city-scale preset also has one small public garden within an existing
+  park parcel, reached from an adjacent road. Its loop, two usable benches and
+  eight nearby trees are an authored amenity. Three supported garden lamps
+  share the existing 2/1 local-light budgets and illuminate the entrance/seats.
+  Benches, posts and these trunks have collision; paving and planted feet
+  follow the curved floor. Other green
+  parcels retain their existing landscape without automatically gaining paths.
 - The spaceport sits on the axis at one end cap because docking is only
   possible where the habitat is not spinning against you. That is a layout
   decision the physics forces, not a physics result the app computes.
@@ -144,8 +151,8 @@ bug: please open an issue.
 
 ## Verification
 
-- The simulation core (frames, units, collisions, rain field, haze integral,
-  earth ghost, city layout) has about 490 unit tests. Several compare a
+- Automated tests cover frames, units, collisions, rain, haze, earth ghosts,
+  city layout and interactions. Several compare a
   closed-form answer against the engine: e.g. the haze integral's CPU twin is
   checked against the analytic 2ρ₀H(1−e^(−R/H)), and the rotating-frame
   pseudo-force estimate is checked against inertial motion.

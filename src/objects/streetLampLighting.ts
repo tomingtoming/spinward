@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export type StreetLampSource = { id: string; position: THREE.Vector3; down: THREE.Vector3 }
+export type StreetLampSource = { id: string; position: THREE.Vector3; down: THREE.Vector3; intensity?: number; distance?: number; angle?: number }
 export const STREET_LIGHT_RANGE = 42
 const LIGHT_INTENSITY = 200
 
@@ -64,12 +64,14 @@ export class StreetLampLighting {
           slot.source = next
           slot.light.position.copy(next.position)
           slot.light.target.position.copy(next.position).add(next.down)
+          slot.light.distance = next.distance ?? 32
+          slot.light.angle = next.angle ?? Math.PI / 3
         } else slot.source = null
       }
       if (!changed && slot.source && this.desired.some(source => source.id === slot.source!.id)) slot.fade = Math.min(1, slot.fade + step)
       const distance = slot.source?.position.distanceTo(focus) ?? STREET_LIGHT_RANGE
       const rangeFade = 1 - THREE.MathUtils.smoothstep(distance, 22, STREET_LIGHT_RANGE)
-      slot.strength = LIGHT_INTENSITY * slot.fade * rangeFade
+      slot.strength = (slot.source?.intensity ?? LIGHT_INTENSITY) * slot.fade * rangeFade
       slot.light.intensity = slot.strength * this.night ** 2
     }
   }

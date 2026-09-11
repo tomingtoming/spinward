@@ -3,15 +3,20 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { getArterialRoadWidth, type CityBuilding, type CityPlan } from './cityLayout'
 import { fitSuburbanHouse } from './buildingAssets'
 import type { RoomSeat } from '../app/roomSeating'
+import { createLandscapeCrown } from './landscapeVegetation'
+import { PARK_PATH_HEIGHT, parkPathTiles, planPublicPark, type PublicPark } from './publicPark'
+import type { StreetLampSource } from './streetLampLighting'
 
-// A small authored layer around the arrival plaza and observation deck. All
+// A small authored layer around the plaza, public garden and observation deck. All
 // pieces merge by material; no lights, textures or per-frame object creation.
-// Plaza benches share their placement with interaction/collision. The remaining
-// details are decorative; the tower bench is not a certified landing floor.
+// Public benches and garden trunks share their placement with collision.
+// The tower bench remains decorative, without a certified landing floor.
 export class CivicDetails {
   readonly group = new THREE.Group()
   readonly seats: RoomSeat[] = []
-  readonly benchColliders: CityBuilding[] = []
+  readonly colliders: CityBuilding[] = []
+  readonly lamps: StreetLampSource[] = []
+  park: PublicPark | null = null
   private readonly materials = [
     new THREE.MeshStandardMaterial({ color: 0xb5b5a4, roughness: 0.86 }),
     new THREE.MeshStandardMaterial({ color: 0x35444a, roughness: 0.55, metalness: 0.4 }),
@@ -23,10 +28,11 @@ export class CivicDetails {
 
   constructor(parent: THREE.Group) { parent.add(this.group) }
 
-  rebuild(plan: CityPlan, radius: number) {
+  rebuild(plan: CityPlan, radius: number, park = planPublicPark(plan, radius)) {
     this.clear()
     // Small physics playgrounds need open space; keep city dressing at city scale.
     if (radius < 800) return
+    this.park = park
     const parts: THREE.BufferGeometry[][] = this.materials.map(() => [])
     const surface = (azimuth: number, axial: number, height = 0) => {
       const c = Math.cos(azimuth), s = Math.sin(azimuth)
@@ -42,7 +48,7 @@ export class CivicDetails {
       geometry.applyMatrix4(frame)
       parts[material].push(geometry)
     }
-    const bench = (frame: THREE.Matrix4, x: number, z: number, solid = false) => {
+    const bench = (frame: THREE.Matrix4, x: number, z: number, solid = false, baseHeight = 0) => {
       const parts = [
         [2, x, .48, z, 1.8, .1, .5],
         [2, x, .86, z + .22, 1.8, .55, .08],
@@ -52,10 +58,56 @@ export class CivicDetails {
         box(frame, material, px, y, pz, width, height, depth)
         if (solid) {
           const centre = new THREE.Vector3(px, 0, pz).applyMatrix4(frame)
-          this.benchColliders.push({ azimuth: Math.atan2(centre.z, centre.x), axial: centre.y,
-            width, depth, height, baseHeight: y - height / 2, collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block' })
+          this.colliders.push({ azimuth: Math.atan2(centre.z, centre.x), axial: centre.y,
+            width, depth, height, baseHeight: baseHeight + y - height / 2, collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block' })
         }
       }
+    }
+
+    if (park) {
+      for (const tile of parkPathTiles(park.paths)) {
+        const geometry = new THREE.PlaneGeometry(tile.width, tile.depth, Math.ceil(tile.width / 4), Math.ceil(tile.depth / 4))
+        const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal')
+        for (let i = 0; i < positions.count; i++) {
+          const azimuth = park.azimuth + (tile.x + positions.getX(i)) / radius
+          const axial = park.axial + tile.y + positions.getY(i)
+          const c = Math.cos(azimuth), s = Math.sin(azimuth)
+          positions.setXYZ(i, c * (radius - PARK_PATH_HEIGHT), axial, s * (radius - PARK_PATH_HEIGHT))
+          normals.setXYZ(i, -c, 0, -s)
+        }
+        parts[0].push(geometry)
+      }
+      for (const [i, b] of park.benches.entries()) {
+        const azimuth = park.azimuth + b.x / radius, axial = park.axial + b.y
+        bench(surface(azimuth, axial, PARK_PATH_HEIGHT), 0, 0, true, PARK_PATH_HEIGHT)
+        this.seats.push({ id: `park-bench-${i}`, label: 'Park bench', radius, azimuth,
+          axialPosition: axial + .18, seatHeight: PARK_PATH_HEIGHT + .53,
+          exit: { azimuth, axialPosition: axial + .95 } })
+      }
+      for (const [i, p] of park.lamps.entries()) {
+        const azimuth = park.azimuth + p.x / radius, axial = park.axial + p.y, frame = surface(azimuth, axial, .1)
+        box(frame, 1, 0, 1.73, 0, .12, 3.46, .12)
+        box(frame, 5, 0, 3.46, 0, .34, .1, .34)
+        box(frame, 1, 0, 3.54, 0, .5, .07, .5)
+        this.lamps.push({ id: `park-${i}`, position: new THREE.Vector3(0, 3.46, 0).applyMatrix4(frame),
+          down: new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth)), intensity: 65, distance: 15, angle: Math.PI / 2.4 })
+        this.colliders.push({ azimuth, axial, width: .12, depth: .12, height: 3.6, baseHeight: .1,
+          collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block' })
+      }
+      const crown = createLandscapeCrown()
+      crown.setIndex(Array.from({ length: crown.getAttribute('position').count }, (_, i) => i))
+      const trunk = new THREE.CylinderGeometry(.06, .085, 1, 6).translate(0, .5, 0)
+      for (const tree of park.trees) {
+        const frame = surface(tree.azimuth, tree.axial, .1), width = tree.height * (.62 + .16 * tree.tone)
+        const foliage = crown.clone().scale(width, tree.height * .78, width * (.9 + .2 * tree.tone))
+          .rotateY(tree.tone * Math.PI * 2).applyMatrix4(frame)
+        const stem = trunk.clone().scale(tree.height * .16, tree.height * .62, tree.height * .16).applyMatrix4(frame)
+        parts[3].push(foliage); parts[2].push(stem)
+        // Trunks have a small physical footprint; the canopy stays overhead.
+        this.colliders.push({ azimuth: tree.azimuth, axial: tree.axial, width: .19, depth: .19,
+          height: tree.height * .62, baseHeight: .1, collisionMargin: 0, groundMargin: 0, tone: tree.tone, kind: 'block' })
+      }
+      crown.dispose(); trunk.dispose()
     }
     const planter = (frame: THREE.Matrix4, x: number, z: number, width = 1.2) => {
       box(frame, 0, x, 0.28, z, width, 0.56, 0.85)
@@ -170,8 +222,10 @@ export class CivicDetails {
   }
 
   clear() {
+    this.park = null
+    this.lamps.length = 0
     this.seats.length = 0
-    this.benchColliders.length = 0
+    this.colliders.length = 0
     for (const mesh of this.group.children as THREE.Mesh[]) mesh.geometry.dispose()
     this.group.clear()
   }

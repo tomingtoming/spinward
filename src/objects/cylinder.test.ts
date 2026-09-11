@@ -1,12 +1,28 @@
 import { expect, test } from 'bun:test'
+import * as THREE from 'three'
 
 import {
   normalizeCylinderAzimuth,
+  nearShellSegmentsPerRadian,
   quantizeCylinderShellFocus,
   resolveCylinderShellUvTransform,
   splitCylinderShellArcs,
   subtractArcIntervals
 } from './cylinder'
+
+test('near ground chords never bury surface details on a large ring', () => {
+  for (const radius of [18, 3200, 10000, 30000]) for (const start of [-Math.PI, -.35, .1, 2.9]) {
+    const arc = THREE.MathUtils.degToRad(140), segments = Math.ceil(nearShellSegmentsPerRadian(radius) * arc)
+    const geometry = new THREE.CylinderGeometry(radius, radius, 100, segments, 1, true, start, arc)
+    try {
+      const p = geometry.getAttribute('position')
+      for (let i = 0; i < segments; i++) {
+        const x = (p.getX(i) + p.getX(i + 1)) / 2, z = (p.getZ(i) + p.getZ(i + 1)) / 2
+        expect(radius - Math.hypot(x, z)).toBeLessThan(.022)
+      }
+    } finally { geometry.dispose() }
+  }
+})
 
 test('splitCylinderShellArcs covers the full circumference with near and far shells', () => {
   const arcs = splitCylinderShellArcs(0, Math.PI * 0.75)

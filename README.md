@@ -49,8 +49,9 @@ through-passages and courtyards across the city; look up from a courtyard to see
 the opposite neighbourhood overhead. Exterior and interior detail stream
 independently, while walls and doorways keep the same collision shape.
 The **Places** menu (inside **Travel** on phones) offers the current city's
-café, courtyard, apartment and market street where available. It arrives at a
+café, courtyard, apartment, market street and park where available. It arrives at a
 real entrance, ready to walk. Travel also leaves a rover or bench before moving.
+The park has a short garden loop and two usable benches among the trees.
 Use Tab to reach the dock, Space/Enter to open a menu, arrows to choose and Esc
 to close. On small screens, **More** reveals preset, weather and sharing controls.
 [Implementation and local preview links](docs/building-interiors.md).
@@ -232,7 +233,7 @@ a_cf = -(Ω × (Ω × r))
 - `Overlook`: プラザ上空(半径の 1/2、8〜60m にクランプ)へ共回転状態で出ます。弱い遠心「重力」でゆっくり落下し、着地すると自動で `grounded` に戻ります。
 - `Axis`: cylinder では宇宙港のある −Y 端(ミラーの根本側)の回転軸上、ring ではリング中心へ戻り、`free-fly` 0g で開始します。
 - `Exterior`: 慣性空間で静止する `free-fly` の視点から、ミラーや宇宙港を含むコロニー全体を眺めます。PC・タッチ操作では、入力しない間もコロニーの回転に視線が引きずられません。ジェットパックでそのまま船外遊泳できます。
-- `Places`: カフェ・中庭・住居・商店街の入口へ。現在の都市に実在する目的地だけを表示します。スマホでは Travel の Street life にまとまっています。
+- `Places`: カフェ・中庭・住居・商店街・公園の入口へ。現在の都市に実在する目的地だけを表示します。公園には短い周回路と座れるベンチがあります。スマホでは Travel の Street life にまとまっています。
 
 移動すると乗車・着席と押しっぱなしの操作を解除し、到着先で歩行や飛行を始められます。小さい画面では More で残りの操作を開けます。キーボードでは Tab でドックへ、Space / Enter でメニューを開き、上下矢印 / Home / End で選び、Escape で閉じて元のボタンへ戻れます。
 

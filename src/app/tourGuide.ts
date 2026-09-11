@@ -124,6 +124,11 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     body: ['Small storefronts bring everyday activity to the foot of the residential buildings.'],
     durationSeconds: 6
   },
+  'visit-park': {
+    title: 'PARK',
+    body: ['Follow the garden path, take a seat, and look up through the trees.'],
+    durationSeconds: 6
+  },
   drive: {
     title: 'GRIP IS GRAVITY',
     body: [

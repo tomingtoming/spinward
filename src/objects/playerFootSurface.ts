@@ -3,6 +3,7 @@ import type { SidewalkSegment } from './sidewalks'
 import { SurfaceIndex } from './streetAccess'
 import { SIDEWALK_LIFT } from './streetProfile'
 import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
+import { PARK_PATH_HEIGHT, type PublicPark } from './publicPark'
 
 type Surface = { azimuth: number; axial: number; tangentWidth: number; axialLength: number; height: number }
 
@@ -12,13 +13,15 @@ export class PlayerFootSurface {
   private surfaces: Surface[] = []
   private index = new SurfaceIndex(3200)
   private radius = 3200
-  setPlan(plan: CityPlan | null, sidewalks: SidewalkSegment[], radius: number) {
+  setPlan(plan: CityPlan | null, sidewalks: SidewalkSegment[], radius: number, park: PublicPark | null = null) {
     this.radius = radius
     this.index = new SurfaceIndex(radius)
     this.surfaces = [
       ...(plan?.roads ?? []).map(r => ({ ...r, height: ROAD_SURFACE_LIFT_METERS + ROAD_SURFACE_MAX_SAGITTA_METERS })),
       ...sidewalks.map(s => ({ ...s, tangentWidth: s.tangentExtent, axialLength: s.axialExtent,
-        height: SIDEWALK_LIFT + (s.isAvenue ? 0 : .01) + .02 }))
+        height: SIDEWALK_LIFT + (s.isAvenue ? 0 : .01) + .02 })),
+      ...(park?.paths ?? []).map(p => ({ azimuth: park!.azimuth + p.x / radius, axial: park!.axial + p.y,
+        tangentWidth: p.width, axialLength: p.depth, height: PARK_PATH_HEIGHT }))
     ]
     this.surfaces.forEach((s, i) => this.index.insert(s, i))
   }

@@ -158,6 +158,11 @@ const defaultNearArcRadians = THREE.MathUtils.degToRad(140)
 const defaultFocusStepRadians = THREE.MathUtils.degToRad(7.5)
 const nearShellSegments = 192
 const farShellSegments = 40
+// A fixed angular mesh lifts a 30 km ring's visible floor by over half a
+// metre between vertices, burying feet, paths and bench legs. Keep the near
+// ground's chord error below 2 cm at every habitat scale.
+export const nearShellSegmentsPerRadian = (radius: number) =>
+  Math.max(nearShellSegments / defaultNearArcRadians, Math.sqrt(Math.max(0, radius) / (8 * .02)))
 
 // Night gain for the baked city-shell emissive. The texel alphas already
 // carry the road/window brightness ratios; this scalar puts the whole field
@@ -725,7 +730,7 @@ export class CylinderHabitat {
 
     const nearGeometry = this.buildShellGeometry(
       nearIntervals,
-      nearShellSegments / defaultNearArcRadians,
+      nearShellSegmentsPerRadian(this.radius),
       surfaceRepeat.circumferential,
       surfaceRepeat.axial
     )

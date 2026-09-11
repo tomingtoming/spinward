@@ -44,7 +44,7 @@ test('city details have bounded draw calls and release geometry when switching h
     expect(disposed).toBe(meshCount)
     expect(details.group.children).toHaveLength(0)
     expect(details.seats).toHaveLength(0)
-    expect(details.benchColliders).toHaveLength(0)
+    expect(details.colliders).toHaveLength(0)
   } finally { details.dispose() }
   expect(parent.children).toHaveLength(0)
 })
@@ -62,10 +62,10 @@ test('public seat anchors are supported by the visible wood and exit into a clea
         expect(hit).toBeDefined()
         // Float32 world vertices have millimetre precision at a 30 km radius.
         expect(Math.abs(radius - Math.hypot(hit.point.x, hit.point.z) - seat.seatHeight!)).toBeLessThan(.003)
-        expect(resolveCitySurfaceCollision({ ...seat.exit }, details.benchColliders, radius)).toBe(false)
-        expect(getCityGroundHeight(details.benchColliders, radius, seat.exit.azimuth, seat.exit.axialPosition, 0)).toBe(0)
-        expect(getCityGroundHeight(details.benchColliders, radius, seat.azimuth, seat.axialPosition - .18 + .45, .4)).toBe(0)
-        expect(getCityGroundHeight(details.benchColliders, radius, seat.azimuth, seat.axialPosition - .18, .8)).toBeCloseTo(.53, 6)
+        expect(resolveCitySurfaceCollision({ ...seat.exit }, details.colliders, radius)).toBe(false)
+        expect(getCityGroundHeight(details.colliders, radius, seat.exit.azimuth, seat.exit.axialPosition, 0)).toBe(0)
+        expect(getCityGroundHeight(details.colliders, radius, seat.azimuth, seat.axialPosition - .18 + .45, .4)).toBe(0)
+        expect(getCityGroundHeight(details.colliders, radius, seat.azimuth, seat.axialPosition - .18, .8)).toBeCloseTo(.53, 6)
         expect(Math.abs(seat.exit.axialPosition)).toBeGreaterThan(getArterialRoadWidth(radius) / 2 + .45)
       }
     }

@@ -1278,7 +1278,8 @@ export const bootstrapApp = async () => {
         cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.roads : [],
         cityPlan?.intersections ?? [],
         habitatConfig.radius,
-        span
+        span,
+        cityscape.getParkLamps()
       )
       const sidewalkSegments = cityPlan !== null && habitatConfig.type !== 'ring'
           ? planSidewalkSegments(
@@ -1290,7 +1291,7 @@ export const bootstrapApp = async () => {
             )
           : []
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
-      playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius)
+      playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
       playerBodyView.motion.reset()
       streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius)
     }

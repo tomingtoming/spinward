@@ -61,3 +61,21 @@ test('indoor shelter, distance, daytime and a plan reset remove local lamp light
   expect(lighting.slots[0].source).toBeNull()
   lighting.dispose()
 })
+
+test('garden fixtures use the same fixed slots with their own short, softer beam', () => {
+  const lighting = new StreetLampLighting(new THREE.Group(), 1)
+  const garden = { ...source('park', 0), position: new THREE.Vector3(0, 3.56, 0), intensity: 65, distance: 15, angle: Math.PI / 2.7 }
+  lighting.setSources([garden, source('street', 70)]); lighting.setDaylight(0)
+  advance(lighting, new THREE.Vector3(0, 1.8, 0))
+  expect(lighting.slots).toHaveLength(1)
+  expect(lighting.slots[0].light.intensity).toBeCloseTo(65)
+  expect(lighting.slots[0].light.distance).toBe(15)
+  expect(lighting.slots[0].light.angle).toBeCloseTo(garden.angle)
+  advance(lighting, new THREE.Vector3(0, 1.8, 70))
+  advance(lighting, new THREE.Vector3(0, 1.8, 70))
+  expect(lighting.slots[0].source?.id).toBe('street')
+  expect(lighting.slots[0].light.distance).toBe(32)
+  expect(lighting.slots[0].light.angle).toBeCloseTo(Math.PI / 3)
+  expect(lighting.slots[0].light.intensity).toBeCloseTo(200)
+  lighting.dispose()
+})

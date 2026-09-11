@@ -531,3 +531,41 @@ Full suite: 779 tests; production build passes. Probes/evidence:
 Next: develop a green public destination that connects ordinary walking and
 resting to the larger colony landscape, while retaining the established city
 layout and architecture.
+
+## Twenty-first increment — a usable public garden (06:08)
+
+Places now includes Park on Izma, Cooper and Elysium. One existing green parcel
+near the plaza gains a short 2.2 m wide loop, an entrance from an adjacent road,
+two usable benches and eight trees. The city plan and its random stream remain
+unchanged. Paths are partitioned into disjoint, curved tiles rather than
+overlapping coplanar strips. Bench anchors, seat heights, exits and foot finish
+levels share that layout; bench parts, new trunks and lamp posts have collision.
+The small Playground offers no absent park destination.
+
+Visual inspection found Elysium's coarse near-floor mesh rising about 0.6 m
+between vertices, covering the new path and bench legs. Near-shell tessellation
+now follows a 2 cm chord-error budget. This fixes nearby finish levels across
+the large ring without changing the physical cylinder, far shell or layout.
+The rendered Float32 chord regression covers four radii and four arc starts.
+
+Night review found the park too dark. Three supported 3.6 m garden fixtures now
+light the entrance and fronts of the seats, sharing the existing desktop two /
+phone-Quest one local-light slots. Their soft beams use a 15 m range and lower
+intensity than road lamps. Independent comparisons confirm clearer entrance
+paving and seated feet, without clipping or excessive glow; the close bench
+image still has a dark wooden face. These are unshadowed local approximations,
+not complete illumination or physical light occlusion. The civic layer grows
+from five to six material draws, adding about 1,462 triangles and 19 colliders.
+
+All preset/budget layout checks pass without modifying roads or buildings.
+Four browser scenes (Izma day desktop/night phone, Cooper day, Elysium day)
+walk about 7 m into the garden and use both benches, restoring physical contact
+after standing. The full place-menu regression completes 32 visits across
+presets and both screen profiles, including exiting a rover/bench for travel.
+Final suite: 785 tests; production build passes. No hardware XR/phone claim.
+Probes: `public-park.mjs`, `place-travel.mjs`; evidence `public-park*`.
+The earliest overview URL was invalid, then a free-flight overview landed;
+the final comparison uses a stable grounded street-corner view instead.
+
+Next: audio interruption and accessible mute controls, followed by a longer
+whole-colony travel/resource pass.

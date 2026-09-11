@@ -171,6 +171,7 @@ export class StreetLamps {
   readonly lighting: StreetLampLighting
 
   private spots: LampSpot[] = []
+  private additionalLights: StreetLampSource[] = []
   private radius = 0
   private lampHeight = 8
   private focusAzimuth = Number.NaN
@@ -222,9 +223,10 @@ export class StreetLamps {
     this.pools.mesh.renderOrder = 20
   }
 
-  setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number) {
+  setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number, additionalLights: readonly StreetLampSource[] = []) {
     this.lighting.reset()
     this.spots = planLampSpots(roads, intersections, radius)
+    this.additionalLights = [...additionalLights]
     this.radius = radius
     // Size supported fixtures to the road scale, capped at 12 metres.
     const cell = Math.max(getArterialRoadWidth(radius, length) * 2, 20)
@@ -242,7 +244,7 @@ export class StreetLamps {
   }
 
   update(focusAzimuth: number, focusAxial: number, altitude = 1.8, deltaSeconds = 1 / 60, sheltered = false) {
-    if (this.radius <= 0 || this.spots.length === 0) return
+    if (this.radius <= 0) return
     const moved =
       Number.isNaN(this.focusAzimuth) ||
       Math.hypot(Math.abs(wrapToPi(focusAzimuth - this.focusAzimuth)) * this.radius, focusAxial - this.focusAxial) >
@@ -262,7 +264,7 @@ export class StreetLamps {
     const h = this.lampHeight
     const armLength = Math.min(4, h * 0.35)
     const poolRadius = Math.max(4, h * 0.9)
-    const sources: StreetLampSource[] = []
+    const sources: StreetLampSource[] = [...this.additionalLights]
     let n = 0
     for (const s of nearby) {
       if (n >= this.posts.capacity) break
