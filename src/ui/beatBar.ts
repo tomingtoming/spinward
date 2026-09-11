@@ -1,4 +1,5 @@
 import { createDropdownChip } from './dropdownLayer'
+import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../app/placeVisits'
 
 // An always-visible, self-driving "beat bar" for non-VR play. The demo's
 // payoff beats (warp to Surface / Overlook / Axis, change the spin) otherwise
@@ -7,6 +8,7 @@ import { createDropdownChip } from './dropdownLayer'
 // drive the whole tour by clicking — on PC and mobile alike.
 
 export type BeatBarAction =
+  | PlaceVisitAction
   | 'respawn-inner-wall'
   | 'respawn-old-town'
   | 'respawn-overlook'
@@ -21,6 +23,7 @@ export type BeatBarSnapshot = {
   axisAvailable: boolean
   oldTownAvailable: boolean
   raining: boolean
+  availablePlaces: ReadonlySet<PlaceVisitAction>
 }
 
 export type BeatBarHandle = {
@@ -99,11 +102,15 @@ export const createBeatBar = (
   // list of places is one tap deeper.
   const travelDropdown = createDropdownChip<BeatBarAction>(
     'beat-btn beat-btn--travel',
-    TRAVEL_DESTINATIONS,
+    [...TRAVEL_DESTINATIONS.map(item => ({ ...item, section: 'Colony' })),
+      ...PLACE_DESTINATIONS.map(item => ({ ...item, section: 'Street life' }))],
     (action) => onAction(action),
     'Travel ▾'
   )
   travelDropdown.chip.hidden = true
+  const placesDropdown = createDropdownChip<PlaceVisitAction>(
+    'beat-btn beat-btn--places', PLACE_DESTINATIONS, onAction, 'Places ▾'
+  )
 
   const travelLabel = makeLabel('Travel')
   const wideTravel = [travelLabel, surface, oldTown, overlook, axis, exterior]
@@ -116,6 +123,7 @@ export const createBeatBar = (
     overlook,
     axis,
     exterior,
+    placesDropdown.chip,
     separator,
     makeLabel('Spin'),
     spinDown,
@@ -127,9 +135,11 @@ export const createBeatBar = (
 
   let compact = false
   let oldTownAvailable = true
+  let placesAvailable = false
 
   const applyArrangement = () => {
     travelDropdown.chip.hidden = !compact
+    placesDropdown.chip.hidden = compact || !placesAvailable
     for (const element of wideTravel) {
       element.hidden = compact
     }
@@ -142,6 +152,7 @@ export const createBeatBar = (
   return {
     destroy: () => {
       travelDropdown.destroy()
+      placesDropdown.destroy()
       root.remove()
     },
     setVisible: (visible: boolean) => {
@@ -157,9 +168,12 @@ export const createBeatBar = (
     update: (snapshot) => {
       axis.disabled = !snapshot.axisAvailable
       oldTownAvailable = snapshot.oldTownAvailable
+      placesAvailable = snapshot.availablePlaces.size > 0
+      for (const item of placesDropdown.menuItems) item.element.hidden = !snapshot.availablePlaces.has(item.id)
       // Same two rules in the menu, so the compact list never offers a
       // destination the wide bar hides or greys out.
       for (const item of travelDropdown.menuItems) {
+        if (item.id.startsWith('visit-')) item.element.hidden = !snapshot.availablePlaces.has(item.id as PlaceVisitAction)
         if (item.id === 'respawn-old-town') {
           item.element.hidden = !snapshot.oldTownAvailable
         }
@@ -167,6 +181,8 @@ export const createBeatBar = (
           item.element.disabled = !snapshot.axisAvailable
         }
       }
+      const streetHeading = travelDropdown.menu.querySelector<HTMLElement>('[data-section="Street life"]')
+      if (streetHeading) streetHeading.hidden = !placesAvailable
       applyArrangement()
       rain.classList.toggle('beat-btn--on', snapshot.raining)
     }

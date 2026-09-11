@@ -1,4 +1,5 @@
 import type { WatchActionId } from '../ui/watch/watchLayout'
+import { PLACE_DESTINATIONS, type PlaceVisitAction } from './placeVisits'
 
 export type RuntimeWatchAction =
   | {
@@ -11,11 +12,13 @@ export type RuntimeWatchAction =
     }
   | { kind: 'rain-toggle' }
   | { kind: 'depth-toggle' }
+  | { kind: 'visit'; action: PlaceVisitAction }
   | null
 
 export const resolveRuntimeWatchAction = (
   action: WatchActionId
 ): RuntimeWatchAction => {
+  if (PLACE_DESTINATIONS.some(place => place.id === action)) return { kind: 'visit', action: action as PlaceVisitAction }
   switch (action) {
     case 'preset-apply-playground':
       return { kind: 'preset', presetId: 'playground' }

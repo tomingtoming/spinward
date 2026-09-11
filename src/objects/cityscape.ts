@@ -2646,7 +2646,7 @@ export class Cityscape {
       return { azimuth, axial: p.y, orientation }
     }
     if (kind !== 'cafe' && kind !== 'passage' && kind !== 'court' && kind !== 'lobby' && kind !== 'nyaan') return null
-    const interior = [...this.interiors.values()].filter(i => kind === 'lobby'
+    const interior = (kind === 'cafe' ? this.coffeeStation?.interior : null) ?? [...this.interiors.values()].filter(i => kind === 'lobby'
       ? matchesAuthoredPilot(i, this.radius, LOBBY_PILOT) : i.kind === (kind === 'nyaan' ? 'apartment' : kind))
       .sort((a, b) => getBuildingSurfaceDistance(this.radius, 0, 0, a.building.azimuth, a.building.axial) -
         getBuildingSurfaceDistance(this.radius, 0, 0, b.building.azimuth, b.building.axial))[0]

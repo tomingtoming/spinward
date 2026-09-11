@@ -156,6 +156,7 @@ import {
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
+import { PLACE_DESTINATIONS, resolvePlaceVisit, type PlaceVisitAction } from './placeVisits'
 import { isCompactDock } from '../ui/viewportLayout'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
@@ -1127,6 +1128,21 @@ export const bootstrapApp = async () => {
     audio.playClick()
   }
 
+  const prepareTravel = () => {
+    // Travel leaves the old attachment before placing the new body. Otherwise
+    // the next driving/seating update can pull the player back to the old spot.
+    if (drive.driving) drive.exit()
+    roomSeating.leave(playerTraversal, seatFrame())
+    roomSeating.stepDeparture(1)
+    coffeeService.reset()
+    desktopLookControls.cancelHeldInput()
+    desktopLookControls.cancelIntroReveal()
+    desktopLookControls.setInertialLook(false)
+    mobileControls?.cancelHeldInput()
+    mobileControls?.resetLook()
+    cancelDesktopIntent()
+  }
+
   function handleWatchAction(action: WatchActionId) {
     if (applyWatchAction(settingsStore, action)) {
       audio.playClick()
@@ -1140,6 +1156,7 @@ export const bootstrapApp = async () => {
 
     switch (runtimeAction?.kind) {
       case 'preset':
+        prepareTravel()
         audio.playClick()
         frameAngle = 0
         lastAppliedPresetId = runtimeAction.presetId
@@ -1160,8 +1177,7 @@ export const bootstrapApp = async () => {
         toggleDepthModeAndReload(depthMode)
         return true
       case 'respawn':
-        desktopLookControls.setInertialLook(false)
-        coffeeService.reset()
+        prepareTravel()
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
           reportTour('surface')
@@ -1183,6 +1199,15 @@ export const bootstrapApp = async () => {
         }
         reportTour('axis')
         return respawnPlayerAxisEnd()
+      case 'visit': {
+        const visit = resolvePlaceVisit(runtimeAction.action, kind => cityscape.getInteriorVisit(kind))
+        if (!visit) return false
+        prepareTravel()
+        applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial, groundHeight: 0 }, visit.orientation)
+        reportTour(runtimeAction.action)
+        audio.playClick()
+        return true
+      }
       default:
         return false
     }
@@ -1313,6 +1338,8 @@ export const bootstrapApp = async () => {
   // to four rows and the bottom UI eats 29% of a 390px-wide screen (measured).
   const syncDockArrangement = () => beatBar.setCompact(isCompactDock(window.innerWidth))
   syncDockArrangement()
+  let placesPlan: ReturnType<typeof cityscape.getCityPlan> | undefined
+  const availablePlaces = new Set<PlaceVisitAction>()
 
   // Fold the current view into a URL: opening it boots at this exact spot,
   // look, hour, spin and weather. The photo burns the wordmark + site in, so
@@ -2523,13 +2550,22 @@ export const bootstrapApp = async () => {
     })
     // The whole dock hides in VR; Travel/Spin stay reachable while driving.
     dock.setVisible(!renderer.xr.isPresenting)
+    const currentPlacePlan = cityscape.getCityPlan()
+    if (currentPlacePlan !== placesPlan) {
+      placesPlan = currentPlacePlan
+      availablePlaces.clear()
+      for (const place of PLACE_DESTINATIONS) {
+        if (resolvePlaceVisit(place.id, kind => cityscape.getInteriorVisit(kind))) availablePlaces.add(place.id)
+      }
+    }
     beatBar.update({
       rpm: habitatConfig.rpm,
       feltGravity,
       axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
       oldTownAvailable:
         getArrivalSquare(habitatConfig.radius, getHabitatSpanMeters()) !== null,
-      raining: weather.raining
+      raining: weather.raining,
+      availablePlaces
     })
     debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)

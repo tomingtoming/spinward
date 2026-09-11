@@ -267,11 +267,15 @@ button {
    the Tab panel's Habitat screen just to switch colonies. ── */
 
 .preset-menu {
+  box-sizing: border-box;
   position: fixed;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 168px;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border-radius: 12px;
   background: rgba(6, 18, 28, 0.94);
@@ -281,6 +285,7 @@ button {
 }
 
 .preset-menu__item {
+  min-height: 44px;
   padding: 7px 10px;
   border-radius: 8px;
   background: transparent;
@@ -292,8 +297,22 @@ button {
   cursor: pointer;
 }
 
+.preset-menu__heading {
+  padding: 7px 10px 3px;
+  color: rgba(170, 202, 213, .75);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
 .preset-menu__item:hover {
   background: rgba(15, 92, 115, 0.6);
+}
+
+.dock button:focus-visible,
+.preset-menu__item:focus-visible {
+  outline: 2px solid #b5e8f2;
+  outline-offset: 2px;
 }
 
 .preset-menu__item.is-active {
@@ -496,7 +515,8 @@ button {
   justify-content: flex-end;
   gap: 10px;
   max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
-  z-index: 1000;
+  /* Gameplay controls sit below dock menus and their dismissal backdrop. */
+  z-index: 49;
   pointer-events: none;
 }
 
@@ -545,7 +565,7 @@ button {
   border: 1.5px solid rgba(103, 232, 249, 0.4);
   background: rgba(6, 18, 30, 0.32);
   backdrop-filter: blur(4px);
-  z-index: 999;
+  z-index: 48;
   pointer-events: none;
   display: none;
 }

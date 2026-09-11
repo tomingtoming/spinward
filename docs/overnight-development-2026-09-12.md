@@ -261,3 +261,36 @@ manually driven; the authored neighbourhood turn keeps its existing yield rules.
 Next: make everyday places reachable from the normal travel controls and repair
 keyboard menus and travel while driving. Dropdown source work is prepared but
 excluded from this traffic commit.
+
+## Thirteenth increment — reachable places and reliable menus (03:44)
+
+Places now exposes the current city's café, courtyard, apartment and market
+street. Compact screens keep them inside Travel's Street life section. The list
+is rebuilt only when the city plan changes and omits unavailable destinations.
+Arrivals use real entrances; Izma prefers the authored café, with room to see
+the doorway rather than starting against the service counter. Brief location
+cards explain the next step, and the initial welcome is shorter.
+
+Travel now detaches the old rover/bench, restores ordinary body contact and
+cancels held movement/jump/throw before placing the new body. A before probe
+confirmed that Exterior previously left driving active and returned to the car.
+Both desktop and phone paths now stay outside, return to Surface, and leave a
+public bench for the café without retaining the sensor/seat attachment.
+
+Dropdowns support native Space/Enter, arrows, Home/End, Escape with focus return,
+visible focus and scrolling in short viewports. Pointer-down dismissal still
+cannot reopen on the finishing click. Independent image review caught Jump
+overlapping a phone menu; a subsequent real click also hit that obstruction.
+Gameplay overlays now sit below the popup/backdrop layer. Repeat image review
+and elementFromPoint checks confirm the fix. All menu items keep 44 px height.
+
+739 tests and the production build pass. Twenty-four desktop/phone visits across
+four presets and in-page preset rebuilds retain contact and their arrival pose;
+entrance walking advances more than 3 m without raising the player or detaching.
+Four viewport sizes pass keyboard, focus, viewport and tap-target checks. The
+existing mobile dock suite passes 320/390/720 px and 1280 px, keeping its compact
+height at 44 px. No page errors were reported. Static image review confirms
+legible entrance views; Cooper's café remains comparatively dark. These are
+browser checks, without phone/Quest hardware validation.
+
+Next: survey continuous street movement, streaming cost and state continuity.

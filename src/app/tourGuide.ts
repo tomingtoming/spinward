@@ -1,6 +1,8 @@
 import { formatModeControlsLine, getControlScheme, type ControlPlatform } from '../xr/controlScheme'
+import type { PlaceVisitAction } from './placeVisits'
 
 export type TourEventId =
+  | PlaceVisitAction
   | 'start'
   | 'throw'
   | 'jump'
@@ -38,11 +40,10 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     title: 'SPINWARD',
     body: [
       'You live inside a spinning cylinder. Look up — the city wraps overhead.',
-      'The floor pushes you in a circle - that push is your "gravity".',
       CONTROLS_TOKEN,
-      'Try the glowing ring ahead: aim a little high and throw. Then jump → ② → ③.'
+      'The floor’s push is your gravity. Choose a destination and explore.'
     ],
-    durationSeconds: 14
+    durationSeconds: 9
   },
   throw: {
     title: 'CORIOLIS CURVE',
@@ -102,6 +103,26 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       'the far side of town hangs overhead, 2R away.'
     ],
     durationSeconds: 8
+  },
+  'visit-cafe': {
+    title: 'CAFÉ',
+    body: ['Step through the entrance and look around the room.'],
+    durationSeconds: 6
+  },
+  'visit-courtyard': {
+    title: 'COURTYARD',
+    body: ['Follow the passage inside. An open courtyard brings the colony sky between the buildings.'],
+    durationSeconds: 6
+  },
+  'visit-apartment': {
+    title: 'APARTMENT',
+    body: ['Walk through the entrance to see a home in the colony.'],
+    durationSeconds: 6
+  },
+  'visit-shops': {
+    title: 'MARKET STREET',
+    body: ['Small storefronts bring everyday activity to the foot of the residential buildings.'],
+    durationSeconds: 6
   },
   drive: {
     title: 'GRIP IS GRAVITY',

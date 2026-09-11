@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { PlaceVisitAction } from '../../app/placeVisits'
 import {
   WATCH_PARAMETER_SPECS,
   type WatchParameterActionId,
@@ -21,6 +22,7 @@ export type WatchNavActionId =
 
 export type WatchActionId =
   | WatchNavActionId
+  | PlaceVisitAction
   | WatchParameterActionId
   | 'preset-apply-playground'
   | 'preset-apply-izma'

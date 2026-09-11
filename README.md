@@ -16,15 +16,18 @@ Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is sim
 
 | | PC | Quest | Phone |
 | --- | --- | --- | --- |
-| Move | WASD | left stick (hold grip to climb) | virtual stick on the left |
+| Move | WASD · Shift to run | left stick (hold grip to climb) | virtual stick on the left |
 | Look | click the view to grab the mouse (Esc frees it) · right-drag · arrow keys | head + right stick snap turn | drag on the right · Gyro button |
 | Throw | left click (fixed speed) | right trigger (hold to charge) | tap on the right (fixed speed) |
 | Jump | Space (hold to keep rising) | A | Jump button (hold to keep rising) |
 | Travel | 1 / 2 / 3 / 4 or the Travel menu | B or the wrist menu | Travel menu |
+| Visit a place | Places menu | — | Travel → Street life |
 | Spin rate | Spin −/+ buttons or `-` / `=` | wrist menu rpm | Spin −/+ buttons |
 | Rain | Rain button or `R` | toggle before entering VR | Rain button |
 | Free-fly | `F` | A | hold Jump |
 | Drive | `E` next to the parked rover | — | Drive button next to the rover |
+| Sit / stand | `E` by a usable bench | — | Sit / Stand up button |
+| Coffee | `C` at the self-service counter or while holding a cup | — | contextual coffee button |
 | Share | Link `L` · Photo `P` | — | Link · Photo |
 
 ![A thrown ball curves to the side; a dashed line shows the same throw on Earth](docs/img/coriolis-ghost.jpg)
@@ -45,6 +48,11 @@ Public buildings with an **OPEN · WALK IN** sign can be entered. Explore cafes,
 through-passages and courtyards across the city; look up from a courtyard to see
 the opposite neighbourhood overhead. Exterior and interior detail stream
 independently, while walls and doorways keep the same collision shape.
+The **Places** menu (inside **Travel** on phones) offers the current city's
+café, courtyard, apartment and market street where available. It arrives at a
+real entrance, ready to walk. Travel also leaves a rover or bench before moving.
+Use Tab to reach the dock, Space/Enter to open a menu, arrows to choose and Esc
+to close. On small screens, **More** reveals preset, weather and sharing controls.
 [Implementation and local preview links](docs/building-interiors.md).
 
 ## 日本語
@@ -72,12 +80,15 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 
 | 操作 | PC | Quest | スマホ |
 | --- | --- | --- | --- |
-| 移動 | WASD | 左スティック(grip で登攀クラッチ) | 画面左の仮想スティック |
+| 移動 | WASD（徒歩 1.8m/s、Shift で走る） | 左スティック(grip で登攀クラッチ) | 画面左の仮想スティック |
 | 視線 | 画面クリックでマウス追従(Esc で解除) / 右ドラッグ / 矢印キー | 頭 + 右スティック snap turn | ドラッグ / Gyro ボタンでジャイロ |
 | 投げる | 左クリック(一定速度・成功後にNormal / Slow選択) | 右トリガー(チャージ可) | 右側タップ(PCと同じ速度選択) |
 | 弾種切替(Ball / Beam / Firework) | Throw メニュー、または X / 右クリック | —(非VR画面で切替) | Throw メニュー |
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
+| 施設を訪ねる | Places メニュー | — | Travel 内の Street life |
+| 座る / 立つ | 利用できるベンチの前で `E` | — | Sit / Stand up ボタン |
+| コーヒー | セルフサービスのカウンター・カップ所持中に `C` | — | 状況に応じたコーヒーボタン |
 | 回転速度 | Spin −/+ ボタン、または `-` / `=` キー | wrist UI の rpm | Spin −/+ ボタン |
 | 雨 | Rain ボタン、`R` キー、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
 | 共有 | Share: Link(この視点のURLをコピー・`L` キー) / Photo(PNG保存・`P` キー) | — | Share: Link(共有シート) / Photo |
@@ -214,12 +225,16 @@ a_cf = -(Ω × (Ω × r))
 - Elysium: 半径 `30000m`, リング厚み `2000m`, 周期 `348s`, `0.1724rpm`, `simScale 0.005`
 - Elysium は現在の traversal と collider を保つため、見た目と接触は「短い axial band を持つ ring 近似」として扱っています。
 
-## Travel(ワープ 4 地点)
+## Travel と街の施設
 
 - `Surface`: 円筒中央の内壁プラザへ戻り、`grounded` で開始します。
+- `Old Town`: 宇宙港側の到着広場へ移動します。地区を持つ大きさの居住区で表示されます。
 - `Overlook`: プラザ上空(半径の 1/2、8〜60m にクランプ)へ共回転状態で出ます。弱い遠心「重力」でゆっくり落下し、着地すると自動で `grounded` に戻ります。
 - `Axis`: cylinder では宇宙港のある −Y 端(ミラーの根本側)の回転軸上、ring ではリング中心へ戻り、`free-fly` 0g で開始します。
-- `Exterior`: コロニー外殻の外(共回転・`free-fly`)へ出て、採光窓とミラーを備えた回転体の全景を眺めます。ジェットパックでそのまま船外遊泳できます。
+- `Exterior`: 慣性空間で静止する `free-fly` の視点から、ミラーや宇宙港を含むコロニー全体を眺めます。PC・タッチ操作では、入力しない間もコロニーの回転に視線が引きずられません。ジェットパックでそのまま船外遊泳できます。
+- `Places`: カフェ・中庭・住居・商店街の入口へ。現在の都市に実在する目的地だけを表示します。スマホでは Travel の Street life にまとまっています。
+
+移動すると乗車・着席と押しっぱなしの操作を解除し、到着先で歩行や飛行を始められます。小さい画面では More で残りの操作を開けます。キーボードでは Tab でドックへ、Space / Enter でメニューを開き、上下矢印 / Home / End で選び、Escape で閉じて元のボタンへ戻れます。
 
 ## Cityscape(円筒都市)
 

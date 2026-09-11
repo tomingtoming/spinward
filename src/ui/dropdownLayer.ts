@@ -7,14 +7,15 @@
 // and closing one would leave the other's registry stale), so the backdrop and
 // the "close everything" registry have to be owned in one place.
 //
-// Everything opens and closes on pointerdown, never on click. While a menu is
+// Pointer input opens and closes on pointerdown. While a menu is
 // open the backdrop covers the chip that opened it, so the closing pointerdown
 // lands on the backdrop — but the click completing that same tap then hits the
 // chip (the backdrop is gone by pointerup) and would instantly reopen the
-// menu. With no click handler on the chips at all, that race cannot happen.
+// menu. Only keyboard/assistive clicks (detail === 0) may open a chip on click.
 
 let backdrop: HTMLElement | null = null
 const closeFns = new Set<() => void>()
+let nextDropdownId = 0
 
 const ensureBackdrop = (): HTMLElement => {
   if (backdrop !== null) {
@@ -58,7 +59,7 @@ export const registerClose = (close: () => void): (() => void) => {
   return () => closeFns.delete(close)
 }
 
-export type DropdownItem<T extends string> = { id: T; label: string }
+export type DropdownItem<T extends string> = { id: T; label: string; section?: string }
 
 export type DropdownHandle<T extends string> = {
   chip: HTMLButtonElement
@@ -81,39 +82,56 @@ export const createDropdownChip = <T extends string>(
   fixedLabel?: string
 ): DropdownHandle<T> => {
   const chip = document.createElement('button')
+  chip.type = 'button'
+  chip.id = `dropdown-chip-${++nextDropdownId}`
   chip.className = className
   if (fixedLabel !== undefined) {
     chip.textContent = fixedLabel
   }
 
   const menu = document.createElement('div')
+  menu.id = `dropdown-menu-${nextDropdownId}`
   menu.className = 'preset-menu'
+  menu.setAttribute('role', 'group')
+  menu.setAttribute('aria-labelledby', chip.id)
   menu.hidden = true
+  chip.setAttribute('aria-controls', menu.id)
+  chip.setAttribute('aria-expanded', 'false')
 
   const close = () => {
     menu.hidden = true
     chip.classList.remove('is-active')
+    chip.setAttribute('aria-expanded', 'false')
   }
   const unregister = registerClose(close)
 
-  const menuItems = items.map(({ id, label }) => {
+  let previousSection: string | undefined
+  const menuItems = items.map(({ id, label, section }) => {
+    if (section && section !== previousSection) {
+      const heading = document.createElement('div')
+      heading.className = 'preset-menu__heading'
+      heading.dataset.section = section
+      heading.textContent = section
+      menu.append(heading)
+    }
+    previousSection = section
     const item = document.createElement('button')
+    item.type = 'button'
     item.className = 'preset-menu__item'
     item.textContent = label
     item.addEventListener('pointerdown', (event) => event.stopPropagation())
     item.addEventListener('click', (event) => {
       event.preventDefault()
       closeEverything()
+      if (event.detail === 0) chip.focus()
       onSelect(id)
     })
     menu.append(item)
     return { id, element: item }
   })
 
-  chip.addEventListener('pointerdown', (event) => {
-    event.stopPropagation()
-    event.preventDefault()
-
+  const availableItems = () => menuItems.filter(({ element }) => !element.hidden && !element.disabled).map(({ element }) => element)
+  const open = (keyboard = false, last = false) => {
     if (!menu.hidden) {
       // Unreachable while the backdrop is up (it covers the chip); kept as a
       // safety net so a stacking regression degrades to a working toggle.
@@ -127,10 +145,51 @@ export const createDropdownChip = <T extends string>(
     const rect = chip.getBoundingClientRect()
     menu.style.left = `${rect.left}px`
     menu.style.bottom = `${window.innerHeight - rect.top + 8}px`
+    menu.style.maxHeight = `${Math.max(80, rect.top - 16)}px`
     menu.hidden = false
+    menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menu.getBoundingClientRect().width - 8))}px`
     chip.classList.add('is-active')
+    chip.setAttribute('aria-expanded', 'true')
     showBackdrop()
+    if (keyboard) {
+      const available = availableItems()
+      ;(last ? available.at(-1) : available[0])?.focus()
+    }
+  }
+  chip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    event.preventDefault()
+    open()
   })
+  chip.addEventListener('click', (event) => {
+    if (event.detail !== 0) return
+    event.preventDefault()
+    open(true)
+  })
+  chip.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    event.preventDefault(); event.stopPropagation()
+    open(true, event.key === 'ArrowUp')
+  })
+  menu.addEventListener('keydown', (event) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    event.preventDefault(); event.stopPropagation()
+    const available = availableItems(), index = available.indexOf(document.activeElement as HTMLButtonElement)
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1
+      : (index + (event.key === 'ArrowUp' ? -1 : 1) + available.length) % available.length
+    available[next]?.focus()
+  })
+  const dismissKey = (event: KeyboardEvent) => {
+    if (menu.hidden || event.key !== 'Escape') return
+    event.preventDefault(); event.stopPropagation()
+    closeEverything(); chip.focus()
+  }
+  const dismissFocus = (event: FocusEvent) => {
+    if (!menu.hidden && event.target !== chip && !menu.contains(event.target as Node)) closeEverything()
+  }
+  document.addEventListener('keydown', dismissKey)
+  document.addEventListener('focusin', dismissFocus)
 
   // Fixed-positioned above the bar (anchored dynamically to its chip), so the
   // menu lives on body rather than inside a display:contents wrapper.
@@ -143,6 +202,8 @@ export const createDropdownChip = <T extends string>(
     close,
     destroy: () => {
       unregister()
+      document.removeEventListener('keydown', dismissKey)
+      document.removeEventListener('focusin', dismissFocus)
       menu.remove()
     }
   }

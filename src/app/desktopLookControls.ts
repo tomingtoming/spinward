@@ -648,7 +648,7 @@ export class DesktopLookControls {
     if (event.pointerId === this.dragPointerId) this.cancelDrag()
   }
 
-  private readonly cancelHeldInput = () => {
+  readonly cancelHeldInput = () => {
     this.pressedKeys.clear()
     this.cancelDrag()
     this.lockClickPending = false

@@ -90,7 +90,7 @@ export class MobileControls {
     private readonly dockRoot: HTMLElement | null = null
   ) {
     this.overlay = document.createElement('div')
-    // Styled via .mobile-controls; sits above three.js's VRButton.
+    // Styled via .mobile-controls, below the dock's popup/dismissal layer.
     this.overlay.className = 'mobile-controls'
 
     const makeButton = (label: string, onTap: () => void) => {
@@ -264,7 +264,7 @@ export class MobileControls {
     }
   }
 
-  private readonly cancelHeldInput = () => {
+  readonly cancelHeldInput = () => {
     this.movePointerId = null
     this.lookPointerId = null
     this.moveInput.forward = 0
