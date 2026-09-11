@@ -105,7 +105,8 @@ import {
   resolveCitySurfaceCollision,
   getSidewalkWidth,
   isInsidePlaza,
-  isInsideArrivalSquare
+  isInsideArrivalSquare,
+  getLandArcs,
 } from '../objects/cityLayout'
 import { Cityscape, setFacadeTextureSize } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
@@ -1235,7 +1236,8 @@ export const bootstrapApp = async () => {
             getHabitatSpanMeters(),
             quality.cityShellBakeWidth,
             // `?grid=<0..2>` scales the baked road-grid glow for on-device A/B.
-            resolveShellRoadGlowScale(bootParams.get('grid'))
+            resolveShellRoadGlowScale(bootParams.get('grid')),
+            getLandArcs(habitatConfig.topology)
           )
         : null
     )

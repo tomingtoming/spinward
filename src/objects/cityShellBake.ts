@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { districtNightGain } from './districtIdentity'
+import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
+import type { LandArc } from '../sim/habitatConfig'
 
 import { kenneyPickForBuilding } from './buildingAssets'
 import type { CityBuilding, CityPlan } from './cityLayout'
@@ -237,9 +238,16 @@ const shellWindowGain = (building: CityBuilding) => {
 // scale 1: the overhead island read as a Tron lattice and the mid-distance
 // arterials bloomed to white — the grid outshone the city it was meant to
 // carry. `?grid=<scale>` restores any value on device (`?grid=1` = old look).
-export const SHELL_ROAD_CORE_ALPHA = { arterial: 0.7, local: 0.26, expressway: 0.95 } as const
-export const SHELL_ROAD_HALO_ALPHA = { arterial: 0.14, local: 0.05, expressway: 0.25 } as const
+// 2026-09-11 (イズマ頭上参照): the light HIERARCHY is the signature — only
+// arterials (and, dimmer, collectors) read as continuous veins; residential
+// locals no longer draw a lattice, so from the bore the far city is speckle
+// threaded by a few veins rather than a Tron grid.
+export const SHELL_ROAD_CORE_ALPHA = { arterial: 0.95, collector: 0.4, local: 0.05, expressway: 0.95 } as const
+export const SHELL_ROAD_HALO_ALPHA = { arterial: 0.22, collector: 0.07, local: 0, expressway: 0.25 } as const
 export const DEFAULT_SHELL_ROAD_GLOW_SCALE = 0.5
+// Veins are teal (the reference frame), a touch greener than the near-road
+// lane glow so the far hierarchy and the near asphalt do not share one hue.
+export const SHELL_VEIN_COLOR = new THREE.Color(0x86efd6)
 
 export const resolveShellRoadGlowScale = (
   urlValue: string | null,
@@ -255,13 +263,18 @@ export const resolveShellRoadGlowScale = (
   return Math.min(2, Math.max(0, parsed))
 }
 
-const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) => {
+const bakeEmissive = (
+  bake: BakeContext,
+  plan: CityPlan,
+  roadGlowScale: number,
+  landArcs: LandArc[] | null
+) => {
   const { ctx } = bake
   const random = createSeededRandom(0x9e11ba25)
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, bake.width, bake.height)
 
-  const roadGlow = cssColor(ROAD_GLOW)
+  const roadGlow = cssColor(SHELL_VEIN_COLOR)
 
   // Soft halo pass then core pass: the mip chain turns this into the diffuse
   // street-grid glow that carries the far city at night. The halo margin is a
@@ -273,10 +286,10 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) 
     if (road.kind === 'alley') {
       continue
     }
+    const veinKind =
+      road.kind === 'arterial' || road.kind === 'collector' ? road.kind : 'local'
     ctx.fillStyle = roadGlow
-    ctx.globalAlpha =
-      (road.kind === 'arterial' ? SHELL_ROAD_HALO_ALPHA.arterial : SHELL_ROAD_HALO_ALPHA.local) *
-      roadGlowScale
+    ctx.globalAlpha = SHELL_ROAD_HALO_ALPHA[veinKind] * roadGlowScale
     bakeRect(
       bake,
       road.azimuth,
@@ -285,9 +298,7 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) 
       road.axialLength + haloMargin,
       2
     )
-    ctx.globalAlpha =
-      (road.kind === 'arterial' ? SHELL_ROAD_CORE_ALPHA.arterial : SHELL_ROAD_CORE_ALPHA.local) *
-      roadGlowScale
+    ctx.globalAlpha = SHELL_ROAD_CORE_ALPHA[veinKind] * roadGlowScale
     bakeRect(bake, road.azimuth, road.axial, road.tangentWidth, road.axialLength, 1)
   }
 
@@ -309,25 +320,45 @@ const bakeEmissive = (bake: BakeContext, plan: CityPlan, roadGlowScale: number) 
 
     const urban = building.urban ?? 0.4
     const oldTown = building.oldTown ?? 0
+    // Night districts (2026-09-11, イズマ頭上参照): secondary cores brighten
+    // and voids dim — a LIGHT-ONLY field over the plan, so the city geometry
+    // (and every authored lot pinned to it) is untouched.
+    const { urbanNight, hollow, gain: districtGain } = nightDistrictGain(
+      urban,
+      building.industrial === true,
+      stripFrameAt(landArcs, bake.length, building.azimuth, building.axial)
+    )
     // Windows cool toward the deep-night palette, warmed by the old town's
     // first-generation district and a per-building roll.
     scratchColor
       .copy(WINDOW_COOL)
       .lerp(WINDOW_WARM, Math.min(1, 0.2 + oldTown * 0.6 + random() * 0.3))
-    const gain = shellWindowGain(building) * districtNightGain(urban, building.industrial)
+    const gain = shellWindowGain(building) * districtGain
     const heightNorm = Math.min(1, building.height / 60)
 
+    // Per-building brightness roll: from the bore a lit district is speckle
+    // (some floors dark, some blazing), not a field of equal blobs.
+    const speckle = nightSpeckle(building.azimuth, building.axial)
     ctx.fillStyle = cssColor(scratchColor)
-    ctx.globalAlpha = gain * (0.38 + heightNorm * 0.55)
+    ctx.globalAlpha = gain * (0.38 + heightNorm * 0.55) * speckle
     bakeRect(bake, building.azimuth, building.axial, building.width, building.depth, 1)
 
     // Street-level commerce: urban non-house blocks carry the shop-band glow,
-    // a beat warmer and brighter than the office windows above them.
-    if (building.kind !== 'house' && building.height >= 8 && urban >= 0.55) {
+    // a beat warmer and brighter than the office windows above them. It ramps
+    // with urbanization so only the dense cores bloom into saturated white
+    // clusters — the overhead reference has a handful of those, strung along
+    // the veins, with dim residential fabric between.
+    if (building.kind !== 'house' && building.height >= 8 && urbanNight >= 0.55) {
+      const coreness = Math.min(1, (urbanNight - 0.55) / 0.45) * (1 - hollow)
       scratchColor.copy(WINDOW_WARM).lerp(ROAD_GLOW, 0.2)
       ctx.fillStyle = cssColor(scratchColor)
-      ctx.globalAlpha = 0.36
+      ctx.globalAlpha = 0.36 * coreness * coreness
       bakeRect(bake, building.azimuth, building.axial, building.width * 1.4, building.depth * 1.4, 1)
+      if (urbanNight >= 0.85) {
+        ctx.fillStyle = cssColor(WINDOW_COOL)
+        ctx.globalAlpha = 0.1 * coreness
+        bakeRect(bake, building.azimuth, building.axial, building.width * 2.6, building.depth * 2.6, 2)
+      }
     }
   }
 
@@ -362,7 +393,8 @@ export const createCityShellTextureSet = (
   radius: number,
   length: number,
   emissiveWidth = 4096,
-  roadGlowScale = DEFAULT_SHELL_ROAD_GLOW_SCALE
+  roadGlowScale = DEFAULT_SHELL_ROAD_GLOW_SCALE,
+  landArcs: LandArc[] | null = null
 ): CityShellTextureSet | null => {
   if (radius < CITY_SHELL_MIN_RADIUS || plan.buildings.length === 0) {
     return null
@@ -372,7 +404,7 @@ export const createCityShellTextureSet = (
   const albedoBake = createBakeContext(emissiveWidth / 2, emissiveWidth / 4, radius, length)
 
   bakeAlbedo(albedoBake, plan)
-  bakeEmissive(emissiveBake, plan, roadGlowScale)
+  bakeEmissive(emissiveBake, plan, roadGlowScale, landArcs)
 
   return {
     albedo: finishCityTexture(albedoBake.ctx.canvas),

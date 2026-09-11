@@ -61,3 +61,27 @@ day/night on Radeon 780M/RADV. Desktop/phone/Quest quality profiles are exercise
 on that desktop GPU; these measurements do not establish physical phone/Quest
 performance. Visual review covers the photographed street views, not all lots.
 This remains a local design study pending the user's visual review.
+
+## Night hierarchy, second pass (2026-09-11): the overhead reference
+
+Reference: an overhead night frame of a land strip from the source colony
+(Izma, GQuuuuuuX). What it shows, and what this pass maps it to:
+
+| Reference | Spinward (far-field bake, `cityShellBake.ts`) |
+| --- | --- |
+| Only the arterials glow as continuous teal veins; residential streets read as building speckle, not lines. | `SHELL_ROAD_*_ALPHA`: arterial 0.95 / collector 0.4 / local 0.05 core (locals were 0.26 and drew a lattice). Veins use `SHELL_VEIN_COLOR` (teal). Near geometry: local road emissive 0.95 → 0.4. |
+| Several saturated white clusters strung along the veins, dim fabric between. | `districtNodeAt` (four secondary cores per strip) raises the bake's night urbanization; `districtNightGain` is steeper (`0.3 + 0.7·u^1.7`); the shop-band bloom ramps with core-ness and adds a soft halo above 0.85. |
+| Irregular dark holes between clusters. | `districtVoidAt` (three light-only voids) dims the window blobs by up to 75 %. |
+| Fine irregular speckle rather than equal blobs. | Per-building brightness roll (0.5–1.0) on the window blob. |
+
+Deliberately light-only: the nodes and voids modulate the emissive bake, not
+the city plan. Changing `urbanizationAt` re-calibrates the keep probability
+for the whole strip and moves every authored lot (café, lobby, neighbourhood
+shops, Nyaan's apartment), so the geometry — and those contracts — stay as
+they are. Not in this pass: the reference's curved/irregular street network
+(the plan's grid is untouched) and the mid-distance far-batch geometry, which
+still renders as lit boxes.
+
+Fixed views for before/after: `spinward-bench/overhead-view.mjs` (AX = from the
+spin axis at the +120° strip, B60/B86 = grounded look-ups), night `t=0.9`.
+`?grid=<0..2>` still scales the vein glow on device.

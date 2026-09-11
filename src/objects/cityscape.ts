@@ -1,3 +1,4 @@
+import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import { planNyaanApartment } from './nyaanApartment'
 import { planCoffeeStation, type CoffeeStation } from '../app/coffeeService'
 import { NeighborhoodFronts, neighborhoodPoint, matchNeighborhoodLot } from './neighborhoodFronts'
@@ -2035,6 +2036,7 @@ export class Cityscape {
     ]) {
       this.installFacadeUvScale(material, this.shopBandMaterials.includes(material))
     }
+    this.installFarNightGain(this.farBuildingSideMaterial)
     // Ordered screen-door transitions preserve depth writes and opaque draw
     // order on phones/Quest while making the two authored LOD boundaries blend.
     for (const material of [
@@ -2213,6 +2215,31 @@ export class Cityscape {
             '#ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv *= facadeRepeat;\n#endif'
         )
     }
+  }
+
+  // Far-batch night districts: each instance scales its emissive (lit
+  // windows) by aNightGain — cores blaze, voids and the fringe dim, and the
+  // per-building speckle roll breaks the equal-blob look. Emissive only, so
+  // daylight facades are untouched.
+  private installFarNightGain(material: THREE.MeshStandardMaterial) {
+    const previousCompile = material.onBeforeCompile
+    material.customProgramCacheKey = () => 'facade-uv-v1-far-night'
+    material.onBeforeCompile = (shader, renderer) => {
+      previousCompile(shader, renderer)
+      shader.vertexShader =
+        'attribute float aNightGain;\nvarying float vNightGain;\n' +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n  vNightGain = aNightGain;'
+        )
+      shader.fragmentShader =
+        'varying float vNightGain;\n' +
+        shader.fragmentShader.replace(
+          '#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vNightGain;'
+        )
+    }
+    material.needsUpdate = true
   }
 
   private installBuildingLodDither(material: THREE.MeshStandardMaterial) {
@@ -2682,10 +2709,11 @@ export class Cityscape {
     ]) {
       material.emissive.copy(this.buildingSideMaterials[0].emissive)
     }
-    // Roads become pale light veins at night; arterials brighter than
-    // residential locals so the far-side city reads like a dense network.
+    // Roads become pale light veins at night; arterials carry the network,
+    // residential locals only hint (2026-09-11: the mid-distance lattice was
+    // reading as a grid over the city — see cityShellBake SHELL_ROAD_*).
     this.roadMaterial.emissiveIntensity = night * 1.55
-    this.localRoadMaterial.emissiveIntensity = night * 0.95
+    this.localRoadMaterial.emissiveIntensity = night * 0.4
     this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.headlightMaterial.color.lerpColors(HEADLIGHT_NIGHT, HEADLIGHT_DAY, daylight)
     this.taillightMaterial.color.lerpColors(TAILLIGHT_NIGHT, TAILLIGHT_DAY, daylight)
@@ -3795,6 +3823,10 @@ export class Cityscape {
       'aRoofColor',
       new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3)
     )
+    geometry.setAttribute(
+      'aNightGain',
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1)
+    )
     this.farBuildings = mesh
     this.group.add(mesh)
   }
@@ -3811,6 +3843,9 @@ export class Cityscape {
       .array as Float32Array
     const roofColors = (mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute)
       .array as Float32Array
+    const nightGains = (mesh.geometry.getAttribute('aNightGain') as THREE.InstancedBufferAttribute)
+      .array as Float32Array
+    const landArcs = getLandArcs(this.topology)
     let count = 0
 
     for (const building of far) {
@@ -3860,6 +3895,15 @@ export class Cityscape {
       roofColors[count * 3] = roof.r
       roofColors[count * 3 + 1] = roof.g
       roofColors[count * 3 + 2] = roof.b
+      // Night districts (2026-09-11, イズマ頭上参照): the far batch is what the
+      // eye sees on the opposite strip, so it carries the same light-only
+      // cores / voids / speckle as the shell bake. Normalized so the mid-city
+      // (urban ≈ 0.7, mean speckle) keeps its previous brightness.
+      nightGains[count] =
+        1.9 *
+        nightDistrictGain(building.urban ?? 0.4, building.industrial === true,
+          stripFrameAt(landArcs, this.length, building.azimuth, building.axial)).gain *
+        nightSpeckle(building.azimuth, building.axial)
       writeFacadeUvScale(
         (building.width + building.depth) * 0.5,
         building.height,
@@ -3874,6 +3918,7 @@ export class Cityscape {
     mesh.instanceMatrix.needsUpdate = true
     ;(mesh.geometry.getAttribute('aUvScale') as THREE.InstancedBufferAttribute).needsUpdate = true
     ;(mesh.geometry.getAttribute('aRoofColor') as THREE.InstancedBufferAttribute).needsUpdate = true
+    ;(mesh.geometry.getAttribute('aNightGain') as THREE.InstancedBufferAttribute).needsUpdate = true
 
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
