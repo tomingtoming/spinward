@@ -81,7 +81,10 @@ export class ColonyBuildings {
  isBuildingVisible(b:CityBuilding){const e=this.entryByBuilding.get(b);return !!e&&(e.visible||(e.interior&&this.nearInteriors.has(b)))}
  getForecourtColliders(){return [...this.forecourts].flatMap(([b,planters])=>planters.map(p=>forecourtCollider(b,p)))}
  getStairColliders(){return [...this.stairwells].filter(([,s])=>s.kind==='external').map(([b,s])=>colonyStairCollider(b,s,this.radius))}
- setNearInteriors(buildings:CityBuilding[]){this.nearInteriors=new Set(buildings);this.invalidate()}
+ setNearInteriors(buildings:CityBuilding[]){
+  if(buildings.length===this.nearInteriors.size&&buildings.every(b=>this.nearInteriors.has(b)))return
+  this.nearInteriors=new Set(buildings);this.invalidate()
+ }
  private batch(key:string,geometry:THREE.BufferGeometry,material:THREE.Material,capacity:number){
   let mesh=this.batches.get(key)
   if(!mesh||mesh.instanceMatrix.count<capacity){if(mesh){if(mesh.geometry.getAttribute('aColonyFacade')||mesh.geometry.getAttribute('aShopSign'))mesh.geometry.dispose();mesh.removeFromParent();mesh.dispose()}

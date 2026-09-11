@@ -1,6 +1,14 @@
 export type TrafficMotion = { progress: number; speed: number }
 export type TrafficLaneMember = { index: number; along: number }
 
+/** New ambient cars need a free body-length slot, including the repeat seam. */
+export function canSpawnTrafficAt(along: number, occupied: readonly number[], period: number) {
+  return occupied.every(other => {
+    const distance = Math.abs(along - other) % period
+    return Math.min(distance, period - distance) >= 6.2
+  })
+}
+
 /** Routes repeat at their endpoint. Keep the last car behind the first car's
  * next lap too, so crossing a span boundary cannot spawn it inside a queue. */
 export function fillLaneLeaderGaps(lane: TrafficLaneMember[], period: number, gaps: Map<number, number>) {
@@ -15,6 +23,7 @@ export function fillLaneLeaderGaps(lane: TrafficLaneMember[], period: number, ga
 /** Comfortable braking to a centre stop, including a fixed bumper allowance. */
 export function advanceTraffic(state: TrafficMotion, dt: number, cruise: number, gap = Infinity) {
   const step = Math.min(.1, Math.max(0, dt))
+  if (step === 0) return { ...state }
   const usable = Math.max(0, gap - 3.2)
   const target = Math.min(cruise, Math.sqrt(2 * 3 * usable))
   const speed = Math.max(0, Math.min(target, state.speed + 1.8 * step))

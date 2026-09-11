@@ -40,7 +40,7 @@ try {
         route.direction=direction; route.speedMetersPerSecond=8
         const along=stop.along-direction*(stop.lineOffset+25)
         route.motion={progress:direction===1?along-route.spanStart:route.spanStart+route.spanLength-along,speed:8}
-        c.neighborhoodTurn=null;c.crossingGate=null;c.trafficRoutes=[route]
+        c.neighborhoodTurn=null;c.crossingGate=null;route.variant=0;c.trafficRoutes=[route]
         c.trafficMeshes.forEach((mesh,i)=>mesh.count=i===0?1:0)
         c.trafficTime=((kind==='avenue'?18:2)-stop.phase+32)%32
         window.signalFixture={route,stop}

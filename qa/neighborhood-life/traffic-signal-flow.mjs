@@ -4,7 +4,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright')
 const base=process.env.SPINWARD_URL??'https://127.0.0.1:5192',out=fileURLToPath(new URL('.',import.meta.url))
 const browser=await chromium.launch({channel:'chrome',headless:true}),errors=[],reports=[]
 try {
-  for(const preset of ['izma','cooper']) {
+  for(const preset of (process.env.PRESET ? [process.env.PRESET] : ['izma','cooper'])) {
     const phone=preset==='cooper',page=await browser.newPage({ignoreHTTPSErrors:true,viewport:phone?{width:390,height:844}:{width:1440,height:1000},hasTouch:phone})
     page.on('pageerror',error=>errors.push(error.message))
     await page.goto(`${base}/?debug&stats&preset=${preset}&tier=${phone?'phone':'desktop'}&t=.42&m=g&a=0&ax=300`)

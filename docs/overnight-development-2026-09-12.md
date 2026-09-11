@@ -294,3 +294,50 @@ legible entrance views; Cooper's café remains comparatively dark. These are
 browser checks, without phone/Quest hardware validation.
 
 Next: survey continuous street movement, streaming cost and state continuity.
+
+## Fourteenth increment — continuous street streaming (04:23)
+
+Walking along the axial avenue exposed a separate state defect: each detail
+refresh stopped every car for a frame (`advanceTraffic(dt=0)` returned speed
+zero), and clipping/reseeding routes moved cars and changed their models.
+A zero-time refresh now preserves motion. Physical roads are compiled before
+visibility clipping, cars use per-road identities and random streams, and their
+world position, velocity, model and fallback paint survive window changes.
+Changing road quotas retires a distant slot before removing a car within 200 m.
+New/recycled cars require 6.2 m of free lane, including the repeating seam.
+The fleet can briefly stay below its cap while such a slot is occupied. It
+still follows bounded repeated road spans, not citywide pathfinding.
+
+Fine focus updates also retain unchanged room plans and their GPU resources,
+and avoid invalidating the whole building layer for the same interior set.
+The per-model car matrix capacity is now the fleet cap, so stable variants no
+longer depend on array order; this adds about 131 KiB of matrix capacity per
+CPU/GPU copy at the 420-car desktop cap without extra draw calls.
+
+Same-route six-minute comparisons on this Mac: before, each of 76 focus
+refreshes produced hundreds of speed resets and many positional jumps. After,
+zero retained-car jumps, speed resets, model changes or disappearances within
+150 m were measured. Near-batch median work fell from 15.4–16.4 ms to 1.8–2.2 ms;
+coarse room changes still cost up to about 21 ms. Median frame time stayed at
+16.7 ms, and a first-leg frame near 167 ms remained. This is not an all-hitches
+fix or a phone/Quest performance claim. Live GPU buffer counts returned to
+727/725 at one endpoint and 765 at the other, before and after; continuous
+walking did not establish a leak. The last spawn-spacing change is additionally
+covered by the focus matrix and a shorter final walk.
+
+Three actual city plans, with changes along both surface axes and a coarse
+320 m focus change, pass continuity and non-overlap checks. Eight controlled
+signal cases stop 2.7 m before the paint and move about 8.1 m after release.
+Natural traffic observed 26 Izma entries in 85 s and 5 Cooper entries in 180 s,
+with zero red entries, overlap or clock disagreement; minimum gaps reach 5.2 m.
+The first 85 s Cooper sample had no stop at a red light and was insufficient,
+so its duration was extended without relaxing the gate. The pedestrian probe
+records zero unsafe overlaps/66 stopped samples, and the turn holds at 90 m
+then resumes past 111 m. Unit suite at this increment: 744 tests pass; build
+passes. Probes: `street-streaming.mjs`, `traffic-streaming.mjs`, existing
+`intersection-signals.mjs`, `traffic-signal-flow.mjs`, `traffic.cjs`, `junction.cjs`.
+
+Next: remove overlapping coplanar facade/windows in the original Blender city
+block asset; add local roof occlusion for rain while preserving open courtyards.
+Both defects are visible in current browser captures. The latter already has
+an isolated, unused planning helper prepared for the next increment.

@@ -1,5 +1,21 @@
 import { test, expect } from 'bun:test'
-import { advanceTraffic, crossingGap, fillLaneLeaderGaps } from './trafficMotion'
+import { advanceTraffic, canSpawnTrafficAt, crossingGap, fillLaneLeaderGaps } from './trafficMotion'
+test('new cars leave room for the full body and the next lap of a repeating lane',()=>{
+ expect(canSpawnTrafficAt(20,[],100)).toBe(true)
+ expect(canSpawnTrafficAt(20,[14],100)).toBe(false)
+ expect(canSpawnTrafficAt(20,[13],100)).toBe(true)
+ expect(canSpawnTrafficAt(98,[2],100)).toBe(false)
+ expect(canSpawnTrafficAt(298,[2],100)).toBe(false)
+ expect(canSpawnTrafficAt(-2,[2],100)).toBe(false)
+ expect(canSpawnTrafficAt(98,[5],100)).toBe(true)
+})
+test('placing traffic for a render refresh without advancing time preserves its speed',()=>{
+ const moving={progress:120,speed:8}
+ expect(advanceTraffic(moving,0,12)).toEqual(moving)
+ expect(advanceTraffic(moving,-1,12)).toEqual(moving)
+ // A regular simulated step still brakes for a newly closed crossing.
+ expect(advanceTraffic(moving,1/60,12,3.2).speed).toBe(0)
+})
 test('traffic stops with a bumper margin and resumes without a time jump',()=>{
  let s={progress:0,speed:12}
  for(let i=0;i<600;i++)s=advanceTraffic(s,1/60,12,35-s.progress)

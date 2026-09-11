@@ -63,6 +63,10 @@ export class BuildingInteriorLayer {
   }
 
   rebuild(interiors: BuildingInterior[], radius: number) {
+    // Fine exterior focus steps often retain exactly the same room plans.
+    // Keep their meshes, LOD transitions and GPU storage until ownership changes.
+    if (radius === this.radius && interiors.length === this.entries.length &&
+      interiors.every((interior, i) => interior === this.entries[i].interior)) return
     this.clear()
     this.radius = radius
     this.pilots.forEach(pilot => pilot.rebuild(interiors, radius))

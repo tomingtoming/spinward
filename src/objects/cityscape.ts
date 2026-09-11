@@ -6,8 +6,8 @@ import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {createLandscapeCrown,createMeadowTexture} from './landscapeVegetation'
 import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
-import { advanceTraffic, crossingGap, fillLaneLeaderGaps, type CrossingGate } from './trafficMotion'
-import { mergeTrafficRoadSpans } from './trafficRoadSpans'
+import { advanceTraffic, canSpawnTrafficAt, crossingGap, fillLaneLeaderGaps, type CrossingGate } from './trafficMotion'
+import { planTrafficRoadSpans, remapTrafficMotion, trafficRoadKey, trafficRoadSeed, type TrafficRoadSpan } from './trafficRoadSpans'
 import { createTrafficSignalIndex, routeTrafficSignals, trafficSignalGap, type TrafficSignalStop } from './intersectionSignals'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import { planNyaanApartment } from './nyaanApartment'
@@ -447,6 +447,9 @@ const buildUtilityPoleGeometry = () => {
 
 // Everything update() needs to place one car, precomputed at assignment time.
 type TrafficRoute = {
+  id: string
+  variant: number
+  color: number
   // 'avenue' runs along the axis at a fixed azimuth; 'street' runs along the
   // arc at a fixed axial position.
   kind: 'avenue' | 'street'
@@ -1936,8 +1939,8 @@ export class Cityscape {
   // Ambient traffic: a persistent capacity-sized batch; focus changes only
   // reassign routes, update() moves the cars every frame.
   // Traffic fleet: one InstancedMesh per car model once the Car Kit pack
-  // arrives; a single procedural box-car mesh before that. Route index maps
-  // to (index % fleet, index / fleet).
+  // arrives; a single procedural box-car mesh before that. Each route keeps
+  // a stable model variant across visibility updates.
   private trafficMeshes: THREE.InstancedMesh[] = []
   private trafficKitBacked = false
   private kenneyCarGeometries: KenneyCarGeometryPack | null = null
@@ -1963,6 +1966,7 @@ export class Cityscape {
     })
   }
   private cityPlanRoads: CityRoad[] = []
+  private trafficRoadSpans: TrafficRoadSpan[] = []
   // The full plan of the current build, for read-only consumers outside the
   // cityscape (the far-field city shell bake). Null until the first build.
   private cityPlan: CityPlan | null = null
@@ -2398,6 +2402,7 @@ export class Cityscape {
       fillLaneLeaderGaps(lane, period, leaderGaps)
     }
 
+    const variantCounts = new Uint16Array(fleet.length)
     for (let index = 0; index < this.trafficRoutes.length; index += 1) {
       const route = this.trafficRoutes[index]
       route.motion ??= { progress: route.phaseMeters, speed: route.speedMetersPerSecond }
@@ -2469,15 +2474,14 @@ export class Cityscape {
       instancePosition.set(cos, 0, sin).multiplyScalar(turn?this.radius-.2:route.surfaceRadius).setY(axial)
       instanceScale.setScalar(route.scale)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      fleet[index % fleet.length].setMatrixAt(
-        Math.floor(index / fleet.length),
-        instanceMatrix
-      )
+      const variant = route.variant % fleet.length
+      fleet[variant].setMatrixAt(variantCounts[variant]++, instanceMatrix)
     }
 
-    for (const mesh of fleet) {
+    fleet.forEach((mesh, variant) => {
+      mesh.count = variantCounts[variant]
       mesh.instanceMatrix.needsUpdate = true
-    }
+    })
   }
 
   // Mix the material's lit colour toward the scene fog colour over a distance
@@ -2569,6 +2573,7 @@ export class Cityscape {
 
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
+    this.trafficRoadSpans = planTrafficRoadSpans(plan.roads, radius)
     this.cityPlan = plan
     this.trafficSignals = createTrafficSignalIndex(this.habitatType === 'ring' ? [] : plan.intersections)
     this.buildBuildings(plan.buildings)
@@ -2967,6 +2972,7 @@ export class Cityscape {
     this.cityPlanBuildings = []
     this.cityNearBuildings = []
     this.cityPlanRoads = []
+    this.trafficRoadSpans = []
     this.cityPlan = null
     this.trafficRoutes = []
     this.trafficSignals = createTrafficSignalIndex([])
@@ -3655,7 +3661,8 @@ export class Cityscape {
     this.trafficMeshes = []
 
     if (pack !== null) {
-      const capacity = Math.ceil(this.maxTraffic / pack.cars.length)
+      // Stable per-car variants no longer depend on the array position.
+      const capacity = this.maxTraffic
       for (const car of pack.cars) {
         const mesh = new THREE.InstancedMesh(
           car.clone(),
@@ -3683,11 +3690,17 @@ export class Cityscape {
 
   // Deal the car fleet onto the arterial roads around the focus arc and the
   // plaza's axial band — beyond that a car is sub-pixel, so the whole budget
-  // stays where it can be seen. Seeded per focus step: deterministic, and a
-  // re-focus reshuffles routes without reallocating the mesh.
+  // stays where it can be seen. Stable road/car identities retain motion and
+  // appearance while the visibility window moves without reallocating meshes.
   private rebuildTraffic() {
-    const routeKey = (r: TrafficRoute) => [r.kind,r.laneAzimuth,r.laneAxial,r.spanStart,r.spanLength,r.direction,r.phaseMeters].join(':')
-    const previousMotion = new Map(this.trafficRoutes.map(r => [routeKey(r),r.motion]))
+    const previousPositions = this.getTrafficPositions()
+    const previousRoutes = new Map(this.trafficRoutes.map(r => [r.id, r]))
+    const previouslyVisible = this.trafficRoutes.flatMap((route, index) => {
+      if (this.neighborhoodTurn && index === this.trafficRoutes.length - 1) return []
+      const position = previousPositions[index]
+      const distance = Math.hypot(wrapAngleToPi(position.azimuth - this.cityFocusAzimuth) * this.radius, position.axial - this.cityFocusAxial)
+      return distance < 200 ? [route] : []
+    })
     this.trafficRoutes = []
 
     if (this.maxTraffic <= 0 || this.radius <= 0 || this.cityPlanRoads.length === 0) {
@@ -3717,15 +3730,11 @@ export class Cityscape {
       spanStart: number
       spanLength: number
     }
-    let candidates: Candidate[] = []
+    const candidates: Candidate[] = []
     let totalSpan = 0
 
-    for (const road of this.cityPlanRoads) {
-      if (road.kind === 'alley') {
-        continue
-      }
-
-      const isAvenue = road.axialLength > road.tangentWidth
+    for (const physical of this.trafficRoadSpans) {
+      const { road, isAvenue } = physical
       const arcDistance = Math.abs(wrapAngleToPi(road.azimuth - this.cityFocusAzimuth))
 
       if (isAvenue) {
@@ -3773,7 +3782,6 @@ export class Cityscape {
       totalSpan += candidates[candidates.length - 1].spanLength
     }
 
-    candidates = mergeTrafficRoadSpans(candidates)
     totalSpan = candidates.reduce((sum, candidate) => sum + candidate.spanLength, 0)
     if (candidates.length === 0 || totalSpan <= 0) {
       for (const mesh of fleet) {
@@ -3782,7 +3790,7 @@ export class Cityscape {
       return
     }
 
-    const random = createSeededRandom(0x7a55c0de ^ Math.round(this.cityFocusAzimuth * 1024))
+    let random = createSeededRandom(0x7a55c0de)
     let count = 0
 
     // The viaduct gets a dedicated slice of the fleet. Its span is the whole
@@ -3798,6 +3806,9 @@ export class Cityscape {
         const direction = random() < 0.5 ? 1 : -1
 
         this.trafficRoutes.push({
+          id: `viaduct:${i}`,
+          variant: i % fleet.length,
+          color: 0,
           kind: 'street',
           laneAzimuth: 0,
           laneAxial: ring.axial + direction * laneOffsets[i % laneOffsets.length],
@@ -3816,12 +3827,7 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        if (!this.trafficKitBacked) {
-          fleet[count % fleet.length].setColorAt(
-            Math.floor(count / fleet.length),
-            instanceColor
-          )
-        }
+        this.trafficRoutes[this.trafficRoutes.length - 1].color = instanceColor.getHex()
         count += 1
       }
     }
@@ -3835,6 +3841,9 @@ export class Cityscape {
         1,
         Math.round((this.maxTraffic * candidate.spanLength) / totalSpan)
       )
+      const roadKey = trafficRoadKey(candidate.road)
+      random = createSeededRandom(trafficRoadSeed(roadKey))
+      const variantOffset = trafficRoadSeed(roadKey) % fleet.length
       const signals = routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength)
 
       for (let i = 0; i < share && count < this.maxTraffic; i += 1) {
@@ -3845,6 +3854,9 @@ export class Cityscape {
           this.radius - 0.2
 
         this.trafficRoutes.push({
+          id: `${roadKey}:${i}`,
+          variant: (variantOffset + i) % fleet.length,
+          color: 0,
           kind: candidate.isAvenue ? 'avenue' : 'street',
           laneAzimuth:
             candidate.road.azimuth +
@@ -3869,26 +3881,71 @@ export class Cityscape {
           paintRoll > 0.9 ? 0.55 : 0.04 + random() * 0.08,
           0.25 + random() * 0.55
         )
-        if (!this.trafficKitBacked) {
-          fleet[count % fleet.length].setColorAt(
-            Math.floor(count / fleet.length),
-            instanceColor
-          )
-        }
+        this.trafficRoutes[this.trafficRoutes.length - 1].color = instanceColor.getHex()
         count += 1
       }
     }
 
-    for (let variant = 0; variant < fleet.length; variant += 1) {
-      const mesh = fleet[variant]
-      mesh.count =
-        count === 0 ? 0 : Math.max(0, Math.floor((count - 1 - variant) / fleet.length) + 1)
-      if (mesh.instanceColor !== null) {
-        mesh.instanceColor.needsUpdate = true
+    // The authored turn owns its final slot; ordinary cars must not inherit
+    // that slot's identity when the surrounding road allocation changes.
+    const pilot = this.neighborhoodTurn ? this.trafficRoutes[this.trafficRoutes.length - 1] : null
+    if (pilot) { pilot.id = 'neighborhood-turn'; pilot.variant = 0 }
+    for (const route of this.trafficRoutes) {
+      const previous = previousRoutes.get(route.id)
+      if (previous) route.motion = remapTrafficMotion(previous, route)
+    }
+    const roadSpans = new Map(candidates.map(candidate => [trafficRoadKey(candidate.road), candidate]))
+    const assigned = new Set(this.trafficRoutes.map(route => route.id))
+    const distanceFromFocus = (route: TrafficRoute) => {
+      const p = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)
+      const along = route.spanStart + (route.direction === 1 ? p : route.spanLength - p)
+      return Math.hypot(
+        wrapAngleToPi(route.laneAzimuth + (route.kind === 'street' ? along / this.radius : 0) - this.cityFocusAzimuth) * this.radius,
+        (route.kind === 'avenue' ? along : route.laneAxial) - this.cityFocusAxial
+      )
+    }
+    // Length-based quotas may change by a car or two. Retire a distant slot
+    // instead of making a car vanish beside the pedestrian.
+    for (const previous of previouslyVisible) {
+      if (assigned.has(previous.id)) continue
+      const candidate = roadSpans.get(previous.id.slice(0, previous.id.lastIndexOf(':')))
+      if (!candidate) continue
+      const restored = { ...previous, spanStart: candidate.spanStart, spanLength: candidate.spanLength,
+        signals: routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength) }
+      restored.motion = remapTrafficMotion(previous, restored)
+      if (!restored.motion) continue
+      let replace = -1, farthest = 200
+      this.trafficRoutes.forEach((route, index) => {
+        if (route === pilot) return
+        const distance = distanceFromFocus(route)
+        if (distance > farthest) { replace = index; farthest = distance }
+      })
+      if (replace >= 0) {
+        assigned.delete(this.trafficRoutes[replace].id)
+        this.trafficRoutes[replace] = restored
+        assigned.add(restored.id)
       }
     }
+    // Keep existing traffic first. A newly visible/recycled car can wait for
+    // another refresh rather than appear inside a moving car or stopped queue.
+    const occupiedLanes = new Map<string, number[]>(), admitted = new Set<TrafficRoute>()
+    const spawnOrder = [...this.trafficRoutes].sort((a, b) => Number(!!b.motion) - Number(!!a.motion))
+    for (const route of spawnOrder) {
+      if (route === pilot) { admitted.add(route); continue }
+      const key = [route.kind, route.laneAzimuth, route.laneAxial, route.surfaceRadius, route.direction, route.spanStart, route.spanLength].join(':')
+      const lane = occupiedLanes.get(key) ?? []
+      const progress = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)
+      const along = route.spanStart + (route.direction === 1 ? progress : route.spanLength - progress)
+      if (route.motion || canSpawnTrafficAt(along, lane, route.spanLength)) {
+        admitted.add(route); lane.push(along); occupiedLanes.set(key, lane)
+      }
+    }
+    this.trafficRoutes = this.trafficRoutes.filter(route => admitted.has(route))
+    if (!this.trafficKitBacked) this.trafficRoutes.forEach((route, index) => {
+      fleet[0].setColorAt(index, instanceColor.setHex(route.color))
+    })
+    for (const mesh of fleet) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
 
-    for (const route of this.trafficRoutes) route.motion = previousMotion.get(routeKey(route))
     // Place everyone immediately so a focus change never shows a frame of
     // stale cars parked on the old roads.
     this.updateTraffic(0)
