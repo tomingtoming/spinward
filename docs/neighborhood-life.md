@@ -211,8 +211,9 @@ Ordinary PC/touch walking is 1.8 m/s; PC Shift retains the previous 6 m/s travel
 speed. VR locomotion retains its original speed and controller visuals for this
 increment. Actual foot contacts now trigger quiet footsteps inside and outside;
 the motion state still runs if the optional body is hidden or unavailable.
-The body currently hides in flight/driving and XR; inferred XR limbs are not
-implemented in this increment. Running uses the same bounded procedural gait,
+This initial increment hid the body in flight/driving and XR; the later
+September 12 increments below add grounded XR and flat-screen flight.
+Running uses the same bounded procedural gait,
 not an authored athletic animation or a full physical body.
 
 All 698 unit tests and the production build passed. New checks cover planted
@@ -259,8 +260,9 @@ the coordinate projection, current-frame sampling and arm reach. Independent
 image review finds the expected side changes and no clear penetration in those
 frames; crouching obscures toes behind knees. The full coffee path still passes.
 These checks do not emulate an XR runtime or validate hardware latency, comfort,
-fit to different people, controller occlusion or continuous retargeting. Free-fly
-and driving body poses, and physical collisions for the inferred body, remain open.
+fit to different people, controller occlusion or continuous retargeting. XR
+free-fly and driving body poses, and physical collisions for the inferred body,
+remain open.
 
 ## Wider street activity (2026-09-12)
 

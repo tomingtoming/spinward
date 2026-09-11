@@ -46,7 +46,7 @@ export class PlayerBodyMotion {
       this.heading = input.heading
       this.speed = 0
       this.active = -1
-      for (let i = 0; i < 2; i++) Object.assign(this.feet[i], this.stance(i), { lift: 0, planted: true })
+      for (let i = 0; i < 2; i++) Object.assign(this.feet[i], this.stance(i), { lift: input.grounded ? 0 : .08, planted: input.grounded })
       return false
     }
     this.tangent += dT
@@ -116,6 +116,25 @@ const direction = new THREE.Vector3(), bend = new THREE.Vector3(), knee = new TH
 const upper = new THREE.Quaternion(), lower = new THREE.Quaternion()
 const seatedAnkle = new THREE.Vector3(), seatedShoe = new THREE.Vector3()
 const seatedRootOrientation = new THREE.Quaternion(), seatedParentInverse = new THREE.Quaternion()
+const airborneUp = new THREE.Vector3(), airborneForward = new THREE.Vector3(), airborneHand = new THREE.Vector3()
+const bodyToView = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+
+/** Floating posture for the existing flat-screen jetpack attitude. The body
+ * follows the eye's translation/roll without changing camera or physics. Its
+ * hands stay below the sightline; unsupported knees never solve to the floor. */
+export function poseAirborneBody(root: THREE.Object3D, eye: THREE.Matrix4) {
+  airborneUp.setFromMatrixColumn(eye, 1).normalize()
+  airborneForward.setFromMatrixColumn(eye, 2).normalize().negate()
+  root.position.setFromMatrixPosition(eye).addScaledVector(airborneUp, -1.55).addScaledVector(airborneForward, -.08)
+  root.quaternion.setFromRotationMatrix(eye).multiply(bodyToView)
+  root.getObjectByName('pelvis')!.position.y = .93
+  for (const [i, side] of ['left', 'right'].entries()) {
+    root.getObjectByName(side + '_hip')!.rotation.x = -.28
+    root.getObjectByName(side + '_knee')!.rotation.x = .55
+    solveBodyArm(root.getObjectByName(side + '_shoulder')!, root.getObjectByName(side + '_elbow')!,
+      airborneHand.set(i === 0 ? -.12 : .12, .34, .5), i === 0 ? -1 : 1)
+  }
+}
 
 /** Two-segment leg, bending the knee toward local +Z. Targets and hip are
  * character-local metres; rotations are written relative to the joint parents. */

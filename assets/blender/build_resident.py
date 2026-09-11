@@ -63,7 +63,17 @@ for side,x in [('left',-.112),('right',.112)]:
     elbow=joint(side+'_elbow',shoulder,(0,-.282,0))
     ellipsoid(side+'_elbow_cuff',elbow,(0,0,0),(.049,.045,.048),cloth)
     ellipsoid(side+'_forearm',elbow,(0,-.108,0),(.042,.135,.043),cloth)
-    ellipsoid(side+'_hand',elbow,(0,-.249,.008),(.041,.073,.027),skin)
+    # Keep the palm origin used by grip retargeting, but give a close hand a
+    # wrist, a relaxed finger block and an opposed thumb. Child transforms
+    # cancel the palm's non-uniform scale to retain metre-sized anatomy.
+    palm_scale=(.037,.044,.023)
+    palm=ellipsoid(side+'_hand',elbow,(0,-.249,.008),palm_scale,skin)
+    def hand_part(suffix,p,scale):
+        return ellipsoid(side+'_hand_'+suffix,palm,
+                         tuple(p[i]/palm_scale[i] for i in range(3)),
+                         tuple(scale[i]/palm_scale[i] for i in range(3)),skin)
+    hand_part('fingers',(0,-.052,.004),(.033,.032,.019))
+    hand_part('thumb',(.038 if side=='left' else -.038,-.008,.012),(.018,.034,.019))
 # Separate first-person sleeve/palm is held relative to the mug; no cloned body
 # attached to the camera, so looking down does not rotate one's legs into view.
 handroot=joint('cup_hand',None,(0,0,0))

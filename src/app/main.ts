@@ -726,6 +726,7 @@ export const bootstrapApp = async () => {
   const streetWalkers = new StreetWalkers(cityscape.group, quality.tier === 'desktop' ? 8 : 4)
   const bodyDirection = new THREE.Vector3()
   const bodyFrameInverse = new THREE.Matrix4()
+  const airborneBodyView = new THREE.Matrix4()
   let bodyHeading = 0
   const coffeeContext = () => ({ station: cityscape.getCoffeeStation(), player: playerTraversal,
     radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
@@ -2849,7 +2850,10 @@ export const bootstrapApp = async () => {
       radius: habitatConfig.radius, azimuth: bodyAzimuth, axial: trackedBody?.axial ?? playerTraversal.surface.axialPosition,
       groundHeight: playerTraversal.groundHeight, heading: bodyHeading, grounded: playerTraversal.mode === 'grounded',
       enabled: !drive.driving && (!renderer.xr.isPresenting || !!trackedBody), visible: bootParams.get('body') !== '0', deltaSeconds,
-      seat: roomSeating.seat, holding: coffeeService.phase === 'holding', indoors: roomEnvironment.shelter > .5, tracked: trackedBody
+      seat: roomSeating.seat, holding: coffeeService.phase === 'holding' && playerTraversal.mode === 'grounded',
+      indoors: roomEnvironment.shelter > .5, tracked: trackedBody,
+      airborneView: playerTraversal.mode === 'free-fly' && !renderer.xr.isPresenting
+        ? airborneBodyView.multiplyMatrices(bodyFrameInverse, camera.matrixWorld) : undefined
     })
     if (stepped) audio.playFootstep(roomEnvironment, playerBodyView.motion.speed)
     if (playerBodyView.hand.parent !== coffeeView.held) coffeeView.held.add(playerBodyView.hand)

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { loadResidentModel, poseResident, placeResident, ResidentBatches } from './residentModel'
 import type { RoomSeat } from '../app/roomSeating'
-import { PlayerBodyMotion, solveBodyLeg, solveBodyArm, fitSeatedBody } from './playerBodyMotion'
+import { PlayerBodyMotion, solveBodyLeg, solveBodyArm, fitSeatedBody, poseAirborneBody } from './playerBodyMotion'
 import { PlayerFootSurface } from './playerFootSurface'
 import type { TrackedBodyPose } from '../xr/trackedBodyPose'
 
@@ -10,6 +10,9 @@ export type PlayerBodyFrame = {
   heading: number; grounded: boolean; enabled: boolean; visible?: boolean; deltaSeconds: number
   seat: RoomSeat | null; holding: boolean; indoors: boolean
   tracked?: TrackedBodyPose | null
+  // Flat-screen flight uses the existing jetpack attitude, which turns the
+  // carrier with the view. This matrix is the eye in colony-local metres.
+  airborneView?: THREE.Matrix4
 }
 
 const point = new THREE.Vector3(), ankle = new THREE.Vector3(), footPosition = new THREE.Vector3()
@@ -38,7 +41,8 @@ export class PlayerBodyView {
 
   update(frame: PlayerBodyFrame) {
     this.time += Math.min(.1, Math.max(0, frame.deltaSeconds))
-    if (frame.enabled && frame.visible !== false && (frame.grounded || frame.seat || frame.holding) && !this.requested) {
+    const airborne = !!frame.airborneView && !frame.grounded && !frame.tracked
+    if (frame.enabled && frame.visible !== false && (frame.grounded || airborne || frame.seat || frame.holding) && !this.requested) {
       this.requested = true
       loadResidentModel().then(asset => {
         if (this.disposed) return
@@ -51,7 +55,7 @@ export class PlayerBodyView {
         const source = asset.getObjectByName('cup_hand'); if (source) this.hand.add(source.clone(true))
       }).catch(() => console.warn('Body detail unavailable.'))
     }
-    this.group.visible = !!this.root && frame.enabled && frame.visible !== false && (frame.grounded || !!frame.seat)
+    this.group.visible = !!this.root && frame.enabled && frame.visible !== false && (frame.grounded || airborne || !!frame.seat)
     this.hand.visible = frame.enabled && frame.visible !== false && !frame.tracked && frame.holding
     if (!!frame.tracked !== this.tracking) { this.motion.reset(); this.tracking = !!frame.tracked }
     if (!frame.enabled) { this.motion.reset(); return false }
@@ -70,6 +74,9 @@ export class PlayerBodyView {
       poseResident(root, 0, false, true)
       fitSeatedBody(root, seat.seatHeight ?? .6,
         this.surfaces.sample(seat.azimuth, seat.axialPosition, 0, frame.indoors))
+    } else if (airborne) {
+      poseResident(root, this.time, false, false)
+      poseAirborneBody(root, frame.airborneView!)
     } else {
       const height = this.surfaces.sample(frame.azimuth, frame.axial, frame.groundHeight, frame.indoors)
       // Eyes sit forward of the chest. Keeping the torso directly under the
@@ -139,13 +146,13 @@ export class PlayerBodyView {
     // Flat-screen coffee keeps its existing grip without a duplicate arm.
     root.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return
-      const part = /^(left|right)_(sleeve|forearm|hand|elbow_cuff)$/.exec(o.name)
+      const part = /^(left|right)_(sleeve|forearm|hand(?:_.*)?|elbow_cuff)$/.exec(o.name)
       if (!part) return
       const i = part[1] === 'left' ? 0 : 1
-      o.visible = frame.tracked ? !!frame.tracked.hands[1 - i] && (part[2] === 'hand' || armReach[i]) : !(i === 0 && frame.holding)
+      o.visible = frame.tracked ? !!frame.tracked.hands[1 - i] && (part[2].startsWith('hand') || armReach[i]) : !(i === 0 && frame.holding)
     })
     this.batches?.update([root])
-    this.group.userData = { ready: true, mode: frame.seat ? 'seated' : 'standing', steps: this.motion.steps,
+    this.group.userData = { ready: true, mode: frame.seat ? 'seated' : airborne ? 'airborne' : 'standing', steps: this.motion.steps,
       heading: this.motion.heading, speed: this.motion.speed, pelvis: root.getObjectByName('pelvis')!.position.y,
       tracked: !!frame.tracked, hands: frame.tracked?.hands.map(Boolean) ?? [], armReach,
       feet: this.motion.feet.map(f => ({ ...f })) }

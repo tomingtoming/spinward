@@ -28,7 +28,9 @@ test('Blender resident has metric adult proportions and batch-compatible shared 
   if(first)expect(positions).toEqual(first);else first=positions
   triangles+=(o.geometry.index?.count??positions.length/3)/3
  })
- expect(triangles).toBeLessThan(5000)
+ // Two extra shared-topology lobes per hand retain a thumb/finger silhouette
+ // in first person: 5,040 body triangles, still the same five material draws.
+ expect(triangles).toBeLessThan(5200)
  const batches=new ResidentBatches(root,3);batches.update([root]);expect(batches.group.children.length).toBeLessThanOrEqual(5)
 })
 test('sitting bends knees toward the aisle and keeps soles at floor level',async()=>{

@@ -404,3 +404,44 @@ full suite passes 752 tests and the production build passes. Probes and evidence
 
 Next: reassess exterior arrival framing/legibility and the transition from the
 inhabited surface to the complete structure, then return to bodily movement.
+
+## Seventeenth increment — airborne body (05:00)
+
+Flat-screen jumps and free flight now retain the original resident body with
+unsupported bent knees and relaxed hands in the lower view. Its pose follows
+the existing jetpack camera/carrier attitude, including roll; it does not change
+camera control, physics, thrust or collision. Landing restores planted feet,
+and air arrivals never manufacture a planted foot/footstep. Driving and XR
+flight keep their previous representation. Grounded XR tracking remains intact.
+
+The first view exposed the distant resident's featureless oval hands. Blender
+MCP added a thumb and relaxed finger block to each palm while preserving the
+grip origin and shared sphere topology. Body geometry rises from 4,368 to
+5,040 triangles (the explicit body budget is now 5,200); with the separate cup
+hand the asset is 6,216 triangles and 166,640 bytes, up from 147,832 bytes. The
+five material batches are unchanged. Hand children obey the same tracking-loss,
+unreachable-arm and coffee visibility rules as their palms. The separate
+coffee-grip asset is unchanged. This is still restrained, mitten-like entourage
+art, not an articulated finger rig or a physical astronaut body.
+
+Desktop and phone-preset jump/land, Axis roll, Exterior and Surface return
+checks retain the appropriate body mode and record no airborne footsteps or
+page errors. Unit tests project the actual GLB hands through multiple pitch,
+roll and portrait/landscape views; both palms stay beneath a clear sightline
+with original arm lengths. Independent images find the hands more readable
+and no clear disconnected parts; guide cards and phone controls cover some
+of their edges. Grounded pose injection confirms tracked palm positions,
+missing hands/details and bind restoration. The full suite passes 754 tests
+and the production build passes. The complete coffee/seat cycle and optional
+resident-asset failure also pass after the hand export. `airborne-body.mjs`, `airborne-body*` before
+hand refinement, and `airborne-hands*` after it hold the browser evidence.
+
+A separate four-preset exterior-side study found that changing arrival to +Y
+reveals the sun-facing cap but leaves the cylinder's parallel side dark; it
+also exposes very bright mirror fronts on Izma. No arrival or lighting change
+was adopted. The reproducible view-only experiment is `exterior-arrival.mjs`
+with `COMPARE=1`, evidence `exterior-side-before*`.
+
+Next: the jump probe shows surprisingly short flights. Ground contact currently
+accepts the ascending body within a 0.9 m gap, so investigate premature landing
+against the real physics trajectory before changing the takeoff impulse.

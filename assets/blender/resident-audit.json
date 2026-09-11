@@ -1,8 +1,8 @@
 {
   "original": true,
   "heightMetres": 1.76,
-  "bytes": 147832,
-  "triangles": 5544,
+  "bytes": 166640,
+  "triangles": 6216,
   "joints": [
     "resident",
     "pelvis",

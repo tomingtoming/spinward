@@ -36,12 +36,13 @@ try {
       const b=window.__spinwardBody
       return {body:b.group.userData,visible:b.group.visible,hands:['right','left'].map(side=>{
         const h=b.root.getObjectByName(side+'_hand'),p=h.getWorldPosition(h.position.clone()),f=b.root.getObjectByName(side+'_forearm')
-        return {visible:h.visible,position:p.toArray(),forearm:f.visible,elbow:b.root.getObjectByName(side+'_elbow').position.toArray()}
+        return {visible:h.visible,position:p.toArray(),forearm:f.visible,details:['fingers','thumb'].map(part=>b.root.getObjectByName(side+'_hand_'+part)?.visible??false),elbow:b.root.getObjectByName(side+'_elbow').position.toArray()}
       })}
     })
     for(let i=0;i<2&&pose.hands;i++){
       const target=pose.hands[i],actual=state.hands[i]
       if(actual.visible!==!!target)throw Error('Tracking visibility mismatch: '+pose.name)
+      if(actual.details.some(visible=>visible!==!!target))throw Error('Hand detail tracking visibility mismatch: '+pose.name)
       if(target&&new T.Vector3().fromArray(actual.position).distanceTo(new T.Vector3().fromArray(target.position))>1e-5)throw Error('Tracked hand moved from grip: '+pose.name)
     }
     if(pose.name==='rest'&&state.hands.some(h=>!h.forearm))throw Error('Ordinary reach lost sleeve')

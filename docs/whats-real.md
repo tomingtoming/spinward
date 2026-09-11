@@ -33,6 +33,11 @@ bug: please open an issue.
 - **Airborne, nothing pulls on you.** Jump and you are a free body in the
   inertial frame; the floor curves up to meet you, slightly to one side, because
   the floor is what is moving. Landing hands you back to the contact model.
+- The visible first-person body is an articulated visual approximation. Planted
+  feet follow the ground while walking; flat-screen flight uses relaxed arms
+  and bent knees aligned with the existing jetpack view attitude. These limbs
+  do not apply forces or replace the player's sphere collider. Grounded XR
+  hands follow current grips; XR flight still uses its existing controllers.
 - **Thrown balls are rigid bodies in the same world.** They fly in straight
   lines in the inertial frame and curve on screen. They bounce off the wall via
   Rapier and off buildings via an analytic sphere-vs-box test done in the
@@ -66,6 +71,9 @@ bug: please open an issue.
   the slant you see, and it grows with altitude.
 - Clouds are placed at the top of the air layer (art-directed altitude) and
   drift; they are not a weather model.
+- Nearby room roofs reject streaks beneath their footprints, preserving open
+  courtyard wells. This bounded vertical roof shadow is a rendering
+  approximation, not rain colliding with every solid or drifting under eaves.
 
 ## Air and haze
 
