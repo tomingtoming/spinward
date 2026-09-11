@@ -1,3 +1,5 @@
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
+import {createLandscapeCrown,createMeadowTexture} from './landscapeVegetation'
 import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
 import { advanceTraffic, crossingGap, type CrossingGate } from './trafficMotion'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
@@ -1745,7 +1747,9 @@ export class Cityscape {
   })
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
-    color: 0x33563b,
+    color: 0x59764b,
+    map: createMeadowTexture(),
+    vertexColors: true,
     roughness: 1,
     metalness: 0,
     side: THREE.BackSide
@@ -2888,6 +2892,7 @@ export class Cityscape {
     this.bridgeMaterial.map?.dispose()
     this.bridgeMaterial.dispose()
     this.bridgeEdgeMaterial.dispose()
+    this.parkMaterial.map?.dispose()
     this.parkMaterial.dispose()
     this.farmMaterial.map?.dispose()
     this.farmMaterial.dispose()
@@ -4790,9 +4795,9 @@ export class Cityscape {
           bandRadius
         )
 
-        if (kind === 'farm') {
-          // Constant world-size crop rows regardless of patch size. Rotate and
-          // phase each field from its position so adjacent blocks do not repeat
+        if (kind === 'farm' || kind === 'park') {
+          // Constant world-size meadow/crop texture regardless of patch size.
+          // Rotate and phase patches so adjacent blocks do not repeat
           // in lockstep. All variation remains in one merged mesh/material.
           const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
           const seed = patch.azimuth * 1729.31 + patch.axial * 0.173
@@ -4815,7 +4820,7 @@ export class Cityscape {
           // Mild per-field tint multiplies the shared albedo in the existing
           // material, making neighbouring crops/fallow plots distinct at no
           // fragment-sampling cost.
-          const tintChoices = [0xe4efd0, 0xf1ddb7, 0xd2e5bd, 0xe5cfaa]
+          const tintChoices = kind==='park' ? [0xf2eed4,0xe0e8ca,0xdce8d5,0xe9e7c7] : [0xe4efd0, 0xf1ddb7, 0xd2e5bd, 0xe5cfaa]
           const tint = new THREE.Color(
             tintChoices[Math.floor(hashUnit(seed + 149.3) * tintChoices.length)]
           )
@@ -4833,7 +4838,7 @@ export class Cityscape {
         geometries.push(geometry)
       }
 
-      const merged = mergeBufferGeometries(geometries)
+      const merged = mergeGeometries(geometries)
 
       for (const geometry of geometries) {
         geometry.dispose()
@@ -4857,12 +4862,9 @@ export class Cityscape {
       return
     }
 
-    // Broadleaf trees (2026-09-03, 緻密さ⑤): a trunk and a faceted crown
-    // instead of the old single cone — the cone read as a conifer forest at
-    // every distance and as a tent up close. Crown = low-poly icosahedron
-    // squashed a little, per-tree hue from `tone`; trunk = slim cylinder.
-    const crownGeometry = new THREE.IcosahedronGeometry(0.5, 1)
-    crownGeometry.translate(0, 0.72, 0)
+    // Original broadleaf silhouettes: a trunk and three asymmetric crown
+    // lobes, sharing one 120-triangle geometry and the existing two batches.
+    const crownGeometry = createLandscapeCrown()
     const trunkGeometry = new THREE.CylinderGeometry(0.06, 0.085, 1, 6)
     trunkGeometry.translate(0, 0.5, 0)
     const mesh = new THREE.InstancedMesh(crownGeometry, this.treeMaterial, treePlan.length)

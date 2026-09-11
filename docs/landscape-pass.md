@@ -85,3 +85,36 @@ still renders as lit boxes.
 Fixed views for before/after: `spinward-bench/overhead-view.mjs` (AX = from the
 spin axis at the +120° strip, B60/B86 = grounded look-ups), night `t=0.9`.
 `?grid=<0..2>` still scales the vein glow on device.
+
+## Outdoor vegetation and ground colour (2026-09-11)
+
+The next outdoor pass starts with the green spaces. The previous 1,500-tree
+cap was consumed in city-plan traversal order: the desktop plan's three land
+strips received 1,500 / 0 / 0 trees. Position-ranked selection now distributes
+the same budget as 496 / 477 / 527. Ranking uses no layout RNG draws. The hash
+of all buildings, roads and patches matches the pre-change plan exactly;
+a regression test protects the established authored lots.
+
+Trees use three asymmetric crown lobes, smooth normals and varied lower rims.
+The final crown is 120 triangles (previously 80); a 60-triangle prototype was
+rejected after its near-view silhouette looked too angular. At 1,500 trees the
+net crown increase is 60,000 triangles, with the same two tree draw batches.
+This is a simplified landscape tree, not a close-up botanical model.
+
+Parks now have a shared 128-pixel seamless meadow texture and restrained
+per-parcel tint. Patch merging now preserves vertex colours: the old custom
+merge dropped them, also losing the pre-existing farm tints. The initial park
+prototype exposed this as black ground. Switching the patch merge to the
+attribute-preserving Three.js merger fixed the ground and restored crop colours.
+The meadow uses periodic value noise rather than visible sine-wave stripes.
+No new lights, image downloads, roads or collision surfaces were added.
+
+Validation: 656 tests and TypeScript/Vite build passed (existing bundle-size
+warning remains). The sampled park's vertex-colour count matches its position
+count in the browser. Day/night park images, matching Surface/Overlook views,
+and desktop/phone preset captures are under `qa/neighborhood-life/outdoor-*`;
+`park.mjs` and `landscape.mjs` reproduce them. Independent image review found
+the repaired ground readable and the trunk attached, with no blocking visual
+fault; simplified crown masses remain visible up close. Phone preset results
+are desktop browser measurements, not physical phone or Quest certification.
+This remains local and is not a production deployment.

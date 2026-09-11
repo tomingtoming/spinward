@@ -1,3 +1,4 @@
+import { selectLandscapeTrees } from './landscapeVegetation'
 import { isDistrictPark } from './districtIdentity'
 import { fitSuburbanHouse } from './buildingAssets'
 import { certifyStreetAccess, roadId, type StreetAccess, type StreetAccessRejection } from './streetAccess'
@@ -1272,9 +1273,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               [roll.along - 0.5, roll.depth - 0.5, roll.height],
               [roll.tone - 0.5, roll.kind - 0.5, roll.along]
             ] as const) {
-              if (trees.length >= MAX_TREES) {
-                break
-              }
               const treeAlong = slotCenter + alongRoll * greenAlong * 0.7
               const treeDepth = greenDepthCenter + depthRoll * greenDepth * 0.7
               trees.push({
@@ -1644,9 +1642,6 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
               const heightRoll = random()
               const toneRoll = random()
 
-              if (trees.length >= MAX_TREES) {
-                continue
-              }
 
               const treeAzimuth =
                 stripCenter +
@@ -1717,7 +1712,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     accessRejected: access.rejected,
     intersections,
     patches,
-    trees,
+    trees: selectLandscapeTrees(trees, MAX_TREES),
     tower: getOverlookTower(radius),
     expressway
   }
