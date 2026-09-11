@@ -1,13 +1,17 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { getArterialRoadWidth, type CityPlan } from './cityLayout'
+import { getArterialRoadWidth, type CityBuilding, type CityPlan } from './cityLayout'
 import { fitSuburbanHouse } from './buildingAssets'
+import type { RoomSeat } from '../app/roomSeating'
 
 // A small authored layer around the arrival plaza and observation deck. All
 // pieces merge by material; no lights, textures or per-frame object creation.
-// These are decorative details, not additional walkable floors or colliders.
+// Plaza benches share their placement with interaction/collision. The remaining
+// details are decorative; the tower bench is not a certified landing floor.
 export class CivicDetails {
   readonly group = new THREE.Group()
+  readonly seats: RoomSeat[] = []
+  readonly benchColliders: CityBuilding[] = []
   private readonly materials = [
     new THREE.MeshStandardMaterial({ color: 0xb5b5a4, roughness: 0.86 }),
     new THREE.MeshStandardMaterial({ color: 0x35444a, roughness: 0.55, metalness: 0.4 }),
@@ -38,10 +42,20 @@ export class CivicDetails {
       geometry.applyMatrix4(frame)
       parts[material].push(geometry)
     }
-    const bench = (frame: THREE.Matrix4, x: number, z: number) => {
-      box(frame, 2, x, 0.48, z, 1.8, 0.1, 0.5)
-      box(frame, 2, x, 0.86, z + 0.22, 1.8, 0.55, 0.08)
-      for (const side of [-0.65, 0.65]) box(frame, 1, x + side, 0.23, z, 0.08, 0.46, 0.42)
+    const bench = (frame: THREE.Matrix4, x: number, z: number, solid = false) => {
+      const parts = [
+        [2, x, .48, z, 1.8, .1, .5],
+        [2, x, .86, z + .22, 1.8, .55, .08],
+        ...[-.65, .65].map(side => [1, x + side, .23, z, .08, .46, .42])
+      ]
+      for (const [material, px, y, pz, width, height, depth] of parts) {
+        box(frame, material, px, y, pz, width, height, depth)
+        if (solid) {
+          const centre = new THREE.Vector3(px, 0, pz).applyMatrix4(frame)
+          this.benchColliders.push({ azimuth: Math.atan2(centre.z, centre.x), axial: centre.y,
+            width, depth, height, baseHeight: y - height / 2, collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block' })
+        }
+      }
     }
     const planter = (frame: THREE.Matrix4, x: number, z: number, width = 1.2) => {
       box(frame, 0, x, 0.28, z, width, 0.56, 0.85)
@@ -51,7 +65,13 @@ export class CivicDetails {
     const plaza = surface(0, 0)
     const corner = getArterialRoadWidth(radius) * 0.5 + 1.5
     for (const side of [-1, 1]) {
-      bench(plaza, side * (corner + 0.4), corner)
+      const azimuth = side * (corner + .4) / radius, axial = -corner
+      // Give each bench its own radial frame; a shared tangent plane would
+      // bury its feet slightly below the curved floor away from the origin.
+      bench(surface(azimuth, axial), 0, 0, true)
+      this.seats.push({ id: `plaza-bench-${side}`, label: 'Plaza bench', radius,
+        azimuth, axialPosition: axial + .18, seatHeight: .53,
+        exit: { azimuth, axialPosition: axial + .95 } })
       planter(plaza, side * (corner + 0.4), -corner)
       box(plaza, 1, side * (corner + 1.5), 0.7, corner, 0.12, 1.4, 0.12)
       box(plaza, 0, side * (corner + 1.5), 1.4, corner, 0.7, 0.42, 0.1)
@@ -150,6 +170,8 @@ export class CivicDetails {
   }
 
   clear() {
+    this.seats.length = 0
+    this.benchColliders.length = 0
     for (const mesh of this.group.children as THREE.Mesh[]) mesh.geometry.dispose()
     this.group.clear()
   }

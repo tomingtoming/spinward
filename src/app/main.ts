@@ -700,9 +700,9 @@ export const bootstrapApp = async () => {
   const toggleRoomSeat = () => {
     if (drive.driving || renderer.xr.isPresenting) return false
     audio.unlock()
-    roomSeating.update(playerTraversal, seatFrame(), cityscape.getRoomSeats())
+    roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
     if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
-    const seat = nearestRoomSeat(cityscape.getRoomSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius)
+    const seat = nearestRoomSeat(cityscape.getSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius)
     if (!seat || !roomSeating.enter(seat, playerTraversal, seatFrame())) return false
     // Face the bench's clear aisle rather than retaining an approach heading
     // that can put the backrest in front of the seated player.
@@ -2119,7 +2119,7 @@ export const bootstrapApp = async () => {
         : 0
     audio.setJetpackThrottle(jetpackAcousticThrottle)
 
-    roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getRoomSeats())
+    roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getSeats())
     let jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
     if (roomSeating.seat && (renderer.xr.isPresenting || jumpRequested || locomotionIntent.detachRequested ||
         Math.hypot(locomotionIntent.groundedAxis, locomotionIntent.groundedTangent) > .1)) {
@@ -2191,7 +2191,7 @@ export const bootstrapApp = async () => {
     if (roomSeating.seat) {
       // Stay attached at the end-of-step angle; dismounts use the start angle
       // before normal walking advances the body through this frame.
-      roomSeating.update(playerTraversal, seatFrame(), cityscape.getRoomSeats())
+      roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
     } else if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
       detachPlayerToFreeFly(playerTraversal, {
         launchVelocity: locomotionIntent.detachLaunchVelocity,
@@ -2388,7 +2388,7 @@ export const bootstrapApp = async () => {
     landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
     landingSettle *= Math.exp(-Math.max(0, deltaSeconds) / LANDING_SETTLE_TAU)
     viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
-      (!renderer.xr.isPresenting ? (1.3 - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
+      (!renderer.xr.isPresenting ? (roomSeating.eyeHeight - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
 
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
@@ -2420,7 +2420,7 @@ export const bootstrapApp = async () => {
         2
       )
       viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
-      (!renderer.xr.isPresenting ? (1.3 - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
+      (!renderer.xr.isPresenting ? (roomSeating.eyeHeight - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
     }
     camera.getWorldPosition(eyeWorldPrev)
     hasEyePrev = true
@@ -2753,7 +2753,7 @@ export const bootstrapApp = async () => {
       tour: tourGuide.activeEvent,
       mode: playerTraversal.mode,
       room: { ...roomEnvironment, coffee: { phase: coffeeService.phase, servings: coffeeService.servings, sipRemaining: coffeeService.sipRemaining }, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
-        seats: cityscape.getRoomSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),
+        seats: cityscape.getSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),
         sensor: playerTraversal.physics?.freeFlyBody.collider(0).isSensor() },
       neighborhood: neighborhoodLife.group.userData,
       pixelRatio: renderer.getPixelRatio(),
@@ -2780,7 +2780,7 @@ export const bootstrapApp = async () => {
       }
     }
 
-    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getRoomSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
+    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
     roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice())
     const coffeeCtx = coffeeContext()
     coffeeService.update(deltaSeconds, coffeeCtx)

@@ -114,6 +114,8 @@ export class PlayerBodyMotion {
 const down = new THREE.Vector3(0, -1, 0)
 const direction = new THREE.Vector3(), bend = new THREE.Vector3(), knee = new THREE.Vector3()
 const upper = new THREE.Quaternion(), lower = new THREE.Quaternion()
+const seatedAnkle = new THREE.Vector3(), seatedShoe = new THREE.Vector3()
+const seatedRootOrientation = new THREE.Quaternion(), seatedParentInverse = new THREE.Quaternion()
 
 /** Two-segment leg, bending the knee toward local +Z. Targets and hip are
  * character-local metres; rotations are written relative to the joint parents. */
@@ -130,6 +132,28 @@ export function solveBodyLeg(hip: THREE.Object3D, kneeJoint: THREE.Object3D, ank
   lower.setFromUnitVectors(down, ankle.clone().sub(knee).normalize())
   hip.quaternion.copy(upper)
   kneeJoint.quaternion.copy(upper).invert().multiply(lower)
+}
+
+/** Fit the authored seated pose to its real support and visible floor. The
+ * hips follow the seat; the legs solve independently so lower benches do not
+ * drag the shoes underground or leave the soles hanging above the paving. */
+export function fitSeatedBody(root: THREE.Object3D, seatHeight: number, floorHeight: number) {
+  const pelvis = root.getObjectByName('pelvis')!
+  pelvis.position.y += seatHeight - .6
+  root.updateMatrixWorld(true)
+  root.getWorldQuaternion(seatedRootOrientation)
+  for (const [i, side] of ['left', 'right'].entries()) {
+    seatedAnkle.set(i === 0 ? -.112 : .112, floorHeight + .055, .43)
+    const hip = root.getObjectByName(side + '_hip')!, knee = root.getObjectByName(side + '_knee')!
+    solveBodyLeg(hip, knee, seatedAnkle)
+    root.updateMatrixWorld(true)
+    const shoe = root.getObjectByName(side + '_shoe')!
+    seatedShoe.copy(seatedAnkle); seatedShoe.z += .046
+    root.localToWorld(seatedShoe)
+    shoe.position.copy(shoe.parent!.worldToLocal(seatedShoe))
+    shoe.parent!.getWorldQuaternion(seatedParentInverse).invert()
+    shoe.quaternion.copy(seatedParentInverse).multiply(seatedRootOrientation)
+  }
 }
 
 /** Retarget the authored arm to a tracked grip centre. A small proportional

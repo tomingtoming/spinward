@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { loadResidentModel, poseResident, placeResident, ResidentBatches } from './residentModel'
 import type { RoomSeat } from '../app/roomSeating'
-import { PlayerBodyMotion, solveBodyLeg, solveBodyArm } from './playerBodyMotion'
+import { PlayerBodyMotion, solveBodyLeg, solveBodyArm, fitSeatedBody } from './playerBodyMotion'
 import { PlayerFootSurface } from './playerFootSurface'
 import type { TrackedBodyPose } from '../xr/trackedBodyPose'
 
@@ -68,6 +68,8 @@ export class PlayerBodyView {
       placeResident(root, seat.azimuth - Math.sin(heading) * .18 / seat.radius,
         seat.axialPosition - Math.cos(heading) * .18, seat.radius, heading, 0)
       poseResident(root, 0, false, true)
+      fitSeatedBody(root, seat.seatHeight ?? .6,
+        this.surfaces.sample(seat.azimuth, seat.axialPosition, 0, frame.indoors))
     } else {
       const height = this.surfaces.sample(frame.azimuth, frame.axial, frame.groundHeight, frame.indoors)
       // Eyes sit forward of the chest. Keeping the torso directly under the

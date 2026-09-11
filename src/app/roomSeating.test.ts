@@ -100,3 +100,15 @@ test('repeated sitting restores real floor contacts, not just the enabled flag',
   }
  }finally{disposePlayerTraversalState(state);world.free()}
 })
+
+test('seat height drives the eye and remains available during standing recovery',()=>{
+ const seat={...seats[0],seatHeight:.53}
+ const state=createPlayerTraversalState(seat.exit,radius,1,.03),seating=new RoomSeating()
+ expect(seating.enter(seat,state,frame)).toBe(true)
+ expect(seating.eyeHeight).toBeCloseTo(1.23,6)
+ seating.leave(state,frame)
+ expect(seating.eyeHeight).toBeCloseTo(1.23,6)
+ expect(seating.stepDeparture(.15)).toBe(true)
+ expect(seating.standingProgress).toBeCloseTo(.5,6)
+ expect(seating.stepDeparture(.2)).toBe(false)
+})

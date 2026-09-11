@@ -190,3 +190,21 @@ of the user's earlier transient slowdown. The reproducible probe is
 
 Public-bench work was prepared in source while the fixed dist build ran the
 comparison; it is a separate uncommitted increment at this checkpoint.
+
+## Tenth increment — usable public benches (02:46)
+
+Both existing plaza benches now support the shared Sit/Stand up interaction,
+correct lower seat/eye height and planted shoes. Their four physical parts
+share the visible placement, and narrow furniture has an exact support margin
+so walking beside it does not float the body. The indoor population continues
+using only indoor seats; both public seats remain available. No render batches
+were added, and the decorative deck bench remains outside this increment.
+
+724 unit tests and production build pass. The browser probe passes all eight
+seat/exit/collision cases over Izma, Cooper, Elysium and portrait/night. Existing
+indoor seating and the full coffee route also pass with zero page errors.
+Independent image review confirms readable Sit/Stand up controls and no clear
+penetration; knees obscure much of the shoes, particularly at night. On a direct
+bench-link boot, the temporary introduction also obscures part of the seat.
+These visual limits remain documented rather than expanding into a character
+art overhaul. Next: cross-cutting input interruption and navigation reliability.

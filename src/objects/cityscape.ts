@@ -1458,6 +1458,7 @@ export class Cityscape {
   private readonly neighborhoodFronts = new NeighborhoodFronts(this.group)
   private coffeeStation: CoffeeStation | null = null
   private roomSeats: RoomSeat[] = []
+  private seats: RoomSeat[] = []
   private interiors = new Map<CityBuilding, BuildingInterior>()
   private interiorFocus = { azimuth: 0, axial: 0, altitude: 1.8 }
   private readonly streetAccessLayer = new StreetAccessLayer(this.group,
@@ -2535,7 +2536,9 @@ export class Cityscape {
     if (apartment) this.interiors.set(apartment.building, apartment)
     this.authoredBlock.rebuild(plan.buildings,radius)
     this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors,plan.roads)
+    this.civicDetails.rebuild({ ...plan, buildings: [] }, radius) // Preserve plaza/deck furniture; retire old building facade overlays.
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
+    this.seats = [...this.roomSeats, ...this.civicDetails.seats]
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
       const authored=cityBlockSpec(building,radius)
@@ -2547,6 +2550,7 @@ export class Cityscape {
 
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
+    this.collisionBuildings.push(...this.civicDetails.benchColliders)
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
@@ -2554,7 +2558,6 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
-    this.civicDetails.rebuild({ ...plan, buildings: [] }, radius) // Preserve plaza/deck furniture; retire old building facade overlays.
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2599,6 +2602,7 @@ export class Cityscape {
   }
 
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
+  getSeats(): readonly RoomSeat[] { return this.seats }
   getCoffeeStation() { return this.coffeeStation }
 
   getInteriorVisit(kind: string | null) {
@@ -2941,6 +2945,7 @@ export class Cityscape {
     this.neighborhoodFronts.clear()
     this.interiors.clear()
     this.roomSeats = []
+    this.seats = []
     this.coffeeStation = null
     this.streetAccessLayer.clear()
     this.clearRoadTiles()

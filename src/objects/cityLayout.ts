@@ -25,6 +25,9 @@ export type CityBuilding = {
   baseHeight?: number
   // Exact interior openings may opt out of the vehicle-oriented box inflation.
   collisionMargin?: number
+  // Broad roofs tolerate edge contact; thin furniture supports feet only over
+  // its actual surface, otherwise walking beside it falsely raises the view.
+  groundMargin?: number
   tone: number
   kind: BuildingKind
   // 0..1 urbanization at this lot (downtown = 1). Drives the facade palette;
@@ -845,8 +848,8 @@ export const getCityGroundHeight = (
       continue
     }
 
-    const halfWidth = building.width * 0.5 + 0.3
-    const halfDepth = building.depth * 0.5 + 0.3
+    const halfWidth = building.width * 0.5 + (building.groundMargin ?? .3)
+    const halfDepth = building.depth * 0.5 + (building.groundMargin ?? .3)
 
     if (
       Math.abs(wrapToPi(azimuth - building.azimuth) * radius) < halfWidth &&

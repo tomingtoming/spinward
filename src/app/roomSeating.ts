@@ -6,6 +6,8 @@ import { resetPlayerToGrounded, type PlayerTraversalState } from './playerTraver
 export type RoomSeat = {
   id: string; label: string; radius: number
   azimuth: number; axialPosition: number
+  // Seat support above the physical ground; authored room benches use 0.6 m.
+  seatHeight?: number
   exit: { azimuth: number; axialPosition: number }
 }
 type SeatFrame = { radius: number; frameAngle: number; omega: number }
@@ -43,12 +45,15 @@ export function nearestRoomSeat(seats: readonly RoomSeat[], state: PlayerTravers
 
 export class RoomSeating {
   private departure = 0
+  private supportHeight = .6
+  get eyeHeight() { return this.supportHeight + .7 }
   get standingProgress(){return 1-this.departure/.3}
   stepDeparture(dt:number){this.departure=Math.max(0,this.departure-dt);return this.departure>0}
   private active: {seat:RoomSeat;state:PlayerTraversalState}|null=null
   get seat(){return this.active?.seat??null}
   enter(seat:RoomSeat,state:PlayerTraversalState,frame:SeatFrame){
     if(this.active||nearestRoomSeat([seat],state,frame.radius)!==seat)return false
+    this.supportHeight=seat.seatHeight??.6
     this.departure=0;this.active={seat,state};this.setSensor(state,true);this.pin(state,frame);return true
   }
   // Keep the anchor in the rotating habitat, not in inertial world space.

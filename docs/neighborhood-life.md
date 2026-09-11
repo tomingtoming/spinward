@@ -295,3 +295,27 @@ draws: 143–144 without versus 149–150 with the street layer. Both held a
 16.7 ms median; p95 changed from 16.7 to 16.8 ms. These vsync-limited samples
 show no observed frame-rate regression there, not spare GPU capacity or phone
 hardware performance.
+
+## Public bench seating (2026-09-12)
+
+The two existing plaza benches in Izma, Cooper and Elysium now offer E / the
+touch Sit action. They use the same seating attachment and clear-front exit
+as indoor chairs, with an actual 0.53 m seat support and 1.23 m eye height.
+Seated leg IK keeps the shoes on the visible pavement while the pelvis follows
+the support; the indoor bench's existing 0.6 m support remains unchanged.
+
+Each plaza bench has its own radial frame and shares its four mesh parts with
+four precise collision boxes. Thin supports opt out of the broad roof contact
+margin, which otherwise raised the player while walking beside the seat. Seat
+and back remain separate so throws can pass through the real gaps. No extra
+draw batches, lights or textures were added. The decorative tower-deck bench
+remains unavailable because that landing floor is not certified for seating.
+Public seats are separate from the indoor population's occupied-seat list.
+
+`public-seats.mjs` exercises both seats in all three inhabited presets plus
+Izma portrait/night, including real touch Sit/Stand up, eye height, body state,
+sensor restoration, clear exit and normal walking into the solid bench. All
+eight paths pass; the ground height beside the bench remains zero. Unit checks
+compare mesh support, collision/exit and actual shoe vertices across seat/floor
+heights and cylinder orientations. These are browser and geometry checks, not
+phone/headset hardware certification.

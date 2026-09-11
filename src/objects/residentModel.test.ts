@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs'
 import * as THREE from 'three'
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js'
 import {poseResident,placeResident,ResidentBatches} from './residentModel'
+import {fitSeatedBody} from './playerBodyMotion'
 const load=async()=>{
  const d=readFileSync(new URL('../../public/assets/people/resident.glb',import.meta.url))
  return (await new GLTFLoader().parseAsync(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength),'')).scene
@@ -58,4 +59,26 @@ test('batched clothing variants reset when people or appearances change',async()
   cloth.getColorAt(i,colour);expect(colour.toArray()).toEqual([1,1,1])
  }
  batches.dispose()
+})
+
+test('seated body fits low outdoor and raised indoor benches without floating soles', async () => {
+ const root=(await load()).getObjectByName('resident')!
+ for(const [seatHeight,floor] of [[.53,.1],[.6,.25],[.7,.2]])for(const azimuth of [0,1.2,Math.PI-.01]){
+  placeResident(root,azimuth,15,3200,.7,0)
+  poseResident(root,0,false,true)
+  fitSeatedBody(root,seatHeight,floor)
+  root.updateMatrixWorld(true)
+  const inverse=root.matrixWorld.clone().invert()
+  for(const side of ['left','right']){
+   const shoe=root.getObjectByName(side+'_shoe') as THREE.Mesh
+   const matrix=inverse.clone().multiply(shoe.matrixWorld),p=new THREE.Vector3()
+   const vertices=shoe.geometry.getAttribute('position')
+   let bottom=Infinity
+   for(let i=0;i<vertices.count;i++)bottom=Math.min(bottom,p.fromBufferAttribute(vertices,i).applyMatrix4(matrix).y)
+   expect(bottom).toBeCloseTo(floor,6)
+   const hip=root.getObjectByName(side+'_hip')!,knee=root.getObjectByName(side+'_knee')!
+   expect(hip.getWorldPosition(p).distanceTo(knee.getWorldPosition(new THREE.Vector3()))).toBeCloseTo(.43,6)
+  }
+  expect(root.getObjectByName('pelvis')!.position.y-.145-seatHeight).toBeCloseTo(.015,6)
+ }
 })
