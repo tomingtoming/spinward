@@ -46,6 +46,25 @@ Independent images confirm the improved view of the legs. Jump/Gyro still
 overlap a small part of the right knee; this is a bounded remaining overlay,
 not a reason to spend the whole night on HUD polish. 698 tests/build passed.
 
-Next: connect the VR head/controller frame carefully, then improve activity
-and movement through the wider colony. Avoid unbounded character-art polish,
+## Third increment — XR pose adapter (01:13)
+
+Grounded XR uses the current local-floor viewer and grip poses projected into
+the rotating colony. The camera, controller spaces and physics stay unchanged.
+The head projection drives the inferred body/feet; crouching lowers only the
+pelvis. Left/right palms stay on grip centres, with bounded arm IK; missing
+tracking hides the affected limb, and extreme reach retains the true hand
+position without stretching a sleeve across the view. XR entry/exit resets gait
+anchors. The authored model's +Z-forward naming needs a side swap at the XR
+boundary; the same correction hides the correct arm behind the coffee grip.
+
+Deterministic pose injection confirms both palms within 0.01 mm of targets,
+standing/crouching, one missing hand, extreme reach and restoration of authored
+bone lengths on flat-screen return. Independent images show the expected sides
+and no clear penetration. The crouched view hides the toes behind the knees;
+actual XR framing, latency, body proportions and comfort still need hardware.
+The full coffee regression also passes. This is a grounded body prototype;
+free-fly/driving body poses and inferred physical body collisions remain open.
+
+Next: broaden street activity beyond the two pilot rooms, and assess outdoor
+scene quality and performance together. Avoid unbounded character-art polish,
 new UI systems or a full ragdoll rewrite.

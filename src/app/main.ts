@@ -1,5 +1,6 @@
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
+import { sampleTrackedBodyPose } from '../xr/trackedBodyPose'
 import { CoffeeService } from './coffeeService'
 import { CoffeeServiceView } from '../objects/coffeeServiceView'
 import { createCoffeeAction } from '../ui/coffeeAction'
@@ -2745,14 +2746,17 @@ export const bootstrapApp = async () => {
     cityscape.group.updateWorldMatrix(true, false)
     bodyFrameInverse.copy(cityscape.group.matrixWorld).invert()
     camera.getWorldDirection(bodyDirection).transformDirection(bodyFrameInverse)
-    const bodyAzimuth = playerTraversal.surface.azimuth
+    const trackedBody = renderer.xr.isPresenting
+      ? sampleTrackedBodyPose(renderer, viewRig, cityscape.group, habitatConfig.radius, bodyHeading) : null
+    const bodyAzimuth = trackedBody?.azimuth ?? playerTraversal.surface.azimuth
     const facingTangent = -Math.sin(bodyAzimuth) * bodyDirection.x + Math.cos(bodyAzimuth) * bodyDirection.z
     if (Math.hypot(facingTangent, bodyDirection.y) > .02) bodyHeading = Math.atan2(facingTangent, bodyDirection.y)
+    if (trackedBody) bodyHeading = trackedBody.heading
     const stepped = playerBodyView.update({
-      radius: habitatConfig.radius, azimuth: bodyAzimuth, axial: playerTraversal.surface.axialPosition,
+      radius: habitatConfig.radius, azimuth: bodyAzimuth, axial: trackedBody?.axial ?? playerTraversal.surface.axialPosition,
       groundHeight: playerTraversal.groundHeight, heading: bodyHeading, grounded: playerTraversal.mode === 'grounded',
-      enabled: !drive.driving, visible: !renderer.xr.isPresenting && bootParams.get('body') !== '0', deltaSeconds,
-      seat: roomSeating.seat, holding: coffeeService.phase === 'holding', indoors: roomEnvironment.shelter > .5
+      enabled: !drive.driving && (!renderer.xr.isPresenting || !!trackedBody), visible: bootParams.get('body') !== '0', deltaSeconds,
+      seat: roomSeating.seat, holding: coffeeService.phase === 'holding', indoors: roomEnvironment.shelter > .5, tracked: trackedBody
     })
     if (stepped) audio.playFootstep(roomEnvironment, playerBodyView.motion.speed)
     if (playerBodyView.hand.parent !== coffeeView.held) coffeeView.held.add(playerBodyView.hand)

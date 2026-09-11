@@ -1,18 +1,21 @@
 import * as THREE from 'three'
 import { loadResidentModel, poseResident, placeResident, ResidentBatches } from './residentModel'
 import type { RoomSeat } from '../app/roomSeating'
-import { PlayerBodyMotion, solveBodyLeg } from './playerBodyMotion'
+import { PlayerBodyMotion, solveBodyLeg, solveBodyArm } from './playerBodyMotion'
 import { PlayerFootSurface } from './playerFootSurface'
+import type { TrackedBodyPose } from '../xr/trackedBodyPose'
 
 export type PlayerBodyFrame = {
   radius: number; azimuth: number; axial: number; groundHeight: number
   heading: number; grounded: boolean; enabled: boolean; visible?: boolean; deltaSeconds: number
   seat: RoomSeat | null; holding: boolean; indoors: boolean
+  tracked?: TrackedBodyPose | null
 }
 
 const point = new THREE.Vector3(), ankle = new THREE.Vector3(), footPosition = new THREE.Vector3()
 const parentRotation = new THREE.Quaternion(), footRotation = new THREE.Quaternion()
 const forward = new THREE.Vector3(), up = new THREE.Vector3(), right = new THREE.Vector3(), basis = new THREE.Matrix4()
+const handToGrip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
 
 /** Body and planted feet live in the colony frame, independently of head
  * pitch. The head is omitted in first person; seating keeps its proven pose. */
@@ -26,7 +29,8 @@ export class PlayerBodyView {
   private requested = false
   private disposed = false
   private time = 0
-  private readonly shoeBinds: Array<{ object: THREE.Object3D; position: THREE.Vector3; quaternion: THREE.Quaternion }> = []
+  private tracking = false
+  private readonly binds: Array<{ object: THREE.Object3D; position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }> = []
   constructor(parent: THREE.Group) {
     this.group.name = 'player-body'; parent.add(this.group); this.hand.name = 'coffee-grip'
   }
@@ -34,15 +38,12 @@ export class PlayerBodyView {
 
   update(frame: PlayerBodyFrame) {
     this.time += Math.min(.1, Math.max(0, frame.deltaSeconds))
-    if (frame.enabled && frame.visible !== false && !this.requested) {
+    if (frame.enabled && frame.visible !== false && (frame.grounded || frame.seat || frame.holding) && !this.requested) {
       this.requested = true
       loadResidentModel().then(asset => {
         if (this.disposed) return
         this.root = asset.getObjectByName('resident')!.clone(true)
-        for (const side of ['left', 'right']) {
-          const object = this.root.getObjectByName(side + '_shoe')!
-          this.shoeBinds.push({ object, position: object.position.clone(), quaternion: object.quaternion.clone() })
-        }
+        this.root.traverse(object => this.binds.push({ object, position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone() }))
         this.root.traverse(o => { if (o instanceof THREE.Mesh && /face|hair|nose|neck|collar/.test(o.name)) o.visible = false })
         this.batches = new ResidentBatches(this.root, 1, false)
         this.group.add(this.batches.group)
@@ -50,13 +51,15 @@ export class PlayerBodyView {
       }).catch(() => console.warn('Body detail unavailable.'))
     }
     this.group.visible = !!this.root && frame.enabled && frame.visible !== false && (frame.grounded || !!frame.seat)
-    this.hand.visible = frame.enabled && frame.visible !== false && frame.holding
+    this.hand.visible = frame.enabled && frame.visible !== false && !frame.tracked && frame.holding
+    if (!!frame.tracked !== this.tracking) { this.motion.reset(); this.tracking = !!frame.tracked }
     if (!frame.enabled) { this.motion.reset(); return false }
     const stepped = this.motion.update({ ...frame, grounded: frame.grounded && !frame.seat })
     if (!this.root || !this.group.visible) return stepped
     const root = this.root
-    for (const bind of this.shoeBinds) { bind.object.position.copy(bind.position); bind.object.quaternion.copy(bind.quaternion) }
-    for (const side of ['left', 'right']) for (const joint of ['hip', 'knee']) root.getObjectByName(side + '_' + joint)!.quaternion.identity()
+    for (const bind of this.binds) {
+      bind.object.position.copy(bind.position); bind.object.quaternion.copy(bind.quaternion); bind.object.scale.copy(bind.scale)
+    }
     if (frame.seat) {
       const seat = frame.seat
       const heading = Math.atan2(Math.atan2(Math.sin(seat.exit.azimuth - seat.azimuth), Math.cos(seat.exit.azimuth - seat.azimuth)) * seat.radius,
@@ -73,7 +76,9 @@ export class PlayerBodyView {
         frame.axial - Math.cos(this.motion.heading) * back, frame.radius, this.motion.heading, height)
       poseResident(root, this.time, false, false)
       const pelvis = root.getObjectByName('pelvis')!
-      pelvis.position.y = .93
+      // Only the inferred pelvis follows crouching. Never add head bob or
+      // standing-height corrections to the actual XR camera.
+      pelvis.position.y = frame.tracked ? THREE.MathUtils.clamp(frame.tracked.eyeHeight - height - .72, .22, .93) : .93
       // Lower the hips enough to reach both planted feet without stretching
       // the leg segments. The camera does not inherit this animation.
       root.updateMatrixWorld(true)
@@ -110,14 +115,36 @@ export class PlayerBodyView {
       root.getObjectByName('left_shoulder')!.rotation.x = -swing
       root.getObjectByName('right_shoulder')!.rotation.x = swing
     }
-    // Keep the existing coffee grip; avoid a second right arm behind it.
+    const armReach = [true, true]
+    if (frame.tracked) for (const [i, side] of ['left', 'right'].entries()) {
+      // The authored +Z-forward hierarchy names its negative-X side "left".
+      // A -Z-forward XR viewer sees that side on the right: swap the named
+      // sides at this boundary so physical hands never cross the torso.
+      const grip = frame.tracked.hands[1 - i]
+      if (!grip) continue
+      root.updateMatrixWorld(true)
+      const torso = root.getObjectByName('torso')!, shoulder = root.getObjectByName(side + '_shoulder')!, elbow = root.getObjectByName(side + '_elbow')!
+      torso.worldToLocal(point.fromArray(grip.position))
+      armReach[i] = solveBodyArm(shoulder, elbow, point, i === 0 ? -1 : 1)
+      root.updateMatrixWorld(true)
+      const hand = root.getObjectByName(side + '_hand')!
+      hand.position.copy(hand.parent!.worldToLocal(point.fromArray(grip.position)))
+      hand.parent!.getWorldQuaternion(parentRotation)
+      hand.quaternion.copy(parentRotation.invert()).multiply(footRotation.fromArray(grip.orientation)).multiply(handToGrip)
+    }
+    // Missing tracking never leaves an inferred arm frozen in the last pose.
+    // Flat-screen coffee keeps its existing grip without a duplicate arm.
     root.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return
-      if (/right_(sleeve|forearm|hand)/.test(o.name)) o.visible = !frame.holding
+      const part = /^(left|right)_(sleeve|forearm|hand)$/.exec(o.name)
+      if (!part) return
+      const i = part[1] === 'left' ? 0 : 1
+      o.visible = frame.tracked ? !!frame.tracked.hands[1 - i] && (part[2] === 'hand' || armReach[i]) : !(i === 0 && frame.holding)
     })
     this.batches?.update([root])
     this.group.userData = { ready: true, mode: frame.seat ? 'seated' : 'standing', steps: this.motion.steps,
       heading: this.motion.heading, speed: this.motion.speed, pelvis: root.getObjectByName('pelvis')!.position.y,
+      tracked: !!frame.tracked, hands: frame.tracked?.hands.map(Boolean) ?? [], armReach,
       feet: this.motion.feet.map(f => ({ ...f })) }
     return stepped
   }

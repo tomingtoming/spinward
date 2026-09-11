@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { PlayerBodyMotion, solveBodyLeg } from './playerBodyMotion'
+import { PlayerBodyMotion, solveBodyLeg, solveBodyArm } from './playerBodyMotion'
 
 test('standing and modest head turns keep both feet planted without footsteps', () => {
   const motion = new PlayerBodyMotion()
@@ -65,5 +65,20 @@ test('leg solver preserves both segment lengths and places reachable ankle targe
     pelvis.updateMatrixWorld(true)
     expect(ankle.getWorldPosition(new THREE.Vector3()).distanceTo(target)).toBeLessThan(1e-6)
     expect(knee.getWorldPosition(new THREE.Vector3()).distanceTo(hip.getWorldPosition(new THREE.Vector3()))).toBeCloseTo(.43, 7)
+  }
+})
+
+test('tracked arms reach ordinary and extended grips while rejecting extreme targets', () => {
+  for (const side of [-1, 1] as const) for (const target of [new THREE.Vector3(side * .2, .05, .3), new THREE.Vector3(side * .32, .2, .56)]) {
+    const torso = new THREE.Group(), shoulder = new THREE.Group(), elbow = new THREE.Group(), palm = new THREE.Group()
+    shoulder.position.set(side * .207, .376, 0); elbow.position.y = -.282; palm.position.y = -.249
+    torso.add(shoulder); shoulder.add(elbow); elbow.add(palm)
+    expect(solveBodyArm(shoulder, elbow, target, side)).toBe(true)
+    const ratio = elbow.position.y / -.282
+    palm.position.y = -.249 * ratio
+    torso.updateMatrixWorld(true)
+    expect(palm.getWorldPosition(new THREE.Vector3()).distanceTo(target)).toBeLessThan(1e-6)
+    expect(ratio).toBeLessThanOrEqual(1.16)
+    expect(solveBodyArm(shoulder, elbow, new THREE.Vector3(side * 1.5, 1, 1), side)).toBe(false)
   }
 })

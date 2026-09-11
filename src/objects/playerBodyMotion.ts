@@ -131,3 +131,30 @@ export function solveBodyLeg(hip: THREE.Object3D, kneeJoint: THREE.Object3D, ank
   hip.quaternion.copy(upper)
   kneeJoint.quaternion.copy(upper).invert().multiply(lower)
 }
+
+/** Retarget the authored arm to a tracked grip centre. A small proportional
+ * adjustment accommodates user arm lengths; extreme targets keep only the
+ * tracked hand rather than pulling the sleeve apart or moving the controller. */
+export function solveBodyArm(shoulder: THREE.Object3D, elbow: THREE.Object3D, target: THREE.Vector3, side: -1 | 1) {
+  direction.copy(target).sub(shoulder.position)
+  const distance = direction.length()
+  if (!Number.isFinite(distance) || distance < .06 || distance > .61) return false
+  const ratio = Math.max(1, distance / .529)
+  const upperLength = .282 * ratio, lowerLength = .249 * ratio
+  direction.normalize()
+  bend.set(side * .7, -.5, -.3).addScaledVector(direction, -bend.dot(direction))
+  if (bend.lengthSq() < 1e-6) bend.set(0, 0, 1).addScaledVector(direction, -direction.z)
+  bend.normalize()
+  const along = (upperLength ** 2 - lowerLength ** 2 + distance ** 2) / (2 * distance)
+  knee.copy(shoulder.position).addScaledVector(direction, along)
+    .addScaledVector(bend, Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2)))
+  upper.setFromUnitVectors(down, knee.clone().sub(shoulder.position).normalize())
+  lower.setFromUnitVectors(down, target.clone().sub(knee).normalize())
+  shoulder.quaternion.copy(upper); elbow.quaternion.copy(upper).invert().multiply(lower)
+  elbow.position.y = -upperLength
+  for (const name of ['sleeve', 'forearm']) {
+    const mesh = shoulder.getObjectByName((side < 0 ? 'left_' : 'right_') + name)
+    if (mesh) { mesh.position.y *= ratio; mesh.scale.y *= ratio }
+  }
+  return true
+}

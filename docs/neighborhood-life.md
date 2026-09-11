@@ -233,3 +233,31 @@ plus the full desktop arrangement. The collapsed dock measures 44 px at all
 three widths. Independent visual review confirms clearer feet and legs; the
 Jump/Gyro overlay still covers a small portion of the right knee. Full tests
 and production build pass. This is browser emulation, not phone hardware QA.
+
+## Grounded XR body prototype — 2026-09-12
+
+The body now also reads the current WebXR viewer and grip poses in local-floor
+space. Projection into the rotating colony is read-only: it does not modify
+the tracked camera, controller spaces, locomotion rig or player collider.
+Grip origins follow the [WebXR grip-space contract](https://www.w3.org/TR/webxr/#dom-xrinputsource-gripspace).
+Room-scale head movement drives inferred footsteps; crouching lowers the pelvis
+while foot anchors stay on the surface. The legs remain inferred, not tracked.
+
+The original +Z-forward model has opposite side names to the -Z-forward XR
+viewer. The adapter maps physical left/right explicitly, including the arm
+hidden behind the flat-screen coffee grip. Palms stay at the real grip centres;
+arm IK permits at most about 15% length adaptation. Out-of-reach poses keep the
+tracked palm and hide the disconnected sleeve. Missing/emulated grip tracking
+hides that arm; missing/emulated head tracking hides the body. All authored
+transforms restore each frame and gait resets on XR/flat-screen transitions.
+Existing controller models, grabbing, wrist controls and camera motion remain.
+
+`tracked-body.mjs` injects deterministic poses into the ordinary renderer and
+checks both palm positions (within 0.01 mm), physical side mapping, crouching,
+tracking loss, unreachable hands and bind-length restoration. Unit tests cover
+the coordinate projection, current-frame sampling and arm reach. Independent
+image review finds the expected side changes and no clear penetration in those
+frames; crouching obscures toes behind knees. The full coffee path still passes.
+These checks do not emulate an XR runtime or validate hardware latency, comfort,
+fit to different people, controller occlusion or continuous retargeting. Free-fly
+and driving body poses, and physical collisions for the inferred body, remain open.
