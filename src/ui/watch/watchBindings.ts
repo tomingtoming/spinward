@@ -2,6 +2,7 @@ import type { DepthMode } from '../../app/depthMode'
 import type { ObserverMode, TrailMode } from '../../app/observerMode'
 import type { PerfStats } from '../../app/perfMeter'
 import type { PlayerTraversalMode } from '../../app/playerTraversal'
+import type { PlaceVisitAction } from '../../app/placeVisits'
 import { getArrivalSquare } from '../../objects/cityLayout'
 import { canRespawnOnAxisEnd, getPresetName } from '../../presets/presetManager'
 import { getHabitatSpan } from '../../sim/habitatConfig'
@@ -46,6 +47,8 @@ export type WatchRenderSnapshot = {
   oldTownRespawnEnabled: boolean
   // Latched weather state, so the Rain toggle can render its on-state.
   raining: boolean
+  muted: boolean
+  availablePlaces: ReadonlySet<PlaceVisitAction>
   // Live perf readouts (windowed fps, last-frame renderer counters) and the
   // active depth-buffer mode, for the wrist perf line and the RENDER card.
   fps: number
@@ -80,6 +83,8 @@ export const createWatchRenderSnapshot = (
     feltGravity: number
     feltSpeed: number
     raining: boolean
+    muted: boolean
+    availablePlaces: ReadonlySet<PlaceVisitAction>
     perf: PerfStats
     depthMode: DepthMode
     absoluteVelocity: {
@@ -113,6 +118,8 @@ export const createWatchRenderSnapshot = (
   feltGravity: runtime.feltGravity,
   feltSpeed: runtime.feltSpeed,
   raining: runtime.raining,
+  muted: runtime.muted,
+  availablePlaces: runtime.availablePlaces,
   fps: runtime.perf.fps,
   drawCalls: runtime.perf.drawCalls,
   triangles: runtime.perf.triangles,
@@ -155,6 +162,8 @@ export const isWatchActionDisabled = (
   if (action === 'respawn-old-town') {
     return !snapshot.oldTownRespawnEnabled
   }
+
+  if (action.startsWith('visit-')) return !snapshot.availablePlaces.has(action as PlaceVisitAction)
 
   return false
 }

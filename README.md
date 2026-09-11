@@ -21,9 +21,10 @@ Default habitat is *Izma Colony* (3.2 km radius, 40 km long, 1 g). **What is sim
 | Throw | left click (fixed speed) | right trigger (hold to charge) | tap on the right (fixed speed) |
 | Jump | Space (hold to keep rising) | A | Jump button (hold to keep rising) |
 | Travel | 1 / 2 / 3 / 4 or the Travel menu | B or the wrist menu | Travel menu |
-| Visit a place | Places menu | — | Travel → Street life |
+| Visit a place | Places menu | wrist menu → Places | Travel → Street life |
 | Spin rate | Spin −/+ buttons or `-` / `=` | wrist menu rpm | Spin −/+ buttons |
-| Rain | Rain button or `R` | toggle before entering VR | Rain button |
+| Rain | Rain button or `R` | wrist menu → Rain | Rain button |
+| Sound | Sound on/off or `M` | wrist menu → Sound on/off | More → Sound on/off |
 | Free-fly | `F` | A | hold Jump |
 | Drive | `E` next to the parked rover | — | Drive button next to the rover |
 | Sit / stand | `E` by a usable bench | — | Sit / Stand up button |
@@ -54,6 +55,9 @@ real entrance, ready to walk. Travel also leaves a rover or bench before moving.
 The park has a short garden loop and two usable benches among the trees.
 **Sound on/off** (inside **More** on phones) or **M** toggles audio. Hidden
 pages pause their audio context; returning keeps the current mute choice.
+The VR wrist menu offers Places and Sound on/off too. Dimmed destinations
+are absent from the current colony; place arrivals align horizontal gaze with
+the entrance while preserving the tracked head pose.
 Use Tab to reach the dock, Space/Enter to open a menu, arrows to choose and Esc
 to close. On small screens, **More** reveals preset, weather and sharing controls.
 [Implementation and local preview links](docs/building-interiors.md).
@@ -89,11 +93,12 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 | 弾種切替(Ball / Beam / Firework) | Throw メニュー、または X / 右クリック | —(非VR画面で切替) | Throw メニュー |
 | ジャンプ | Space(押しっぱなしで上昇継続) | A ボタン(左右どちらでも) | Jump ボタン(長押しで上昇継続) |
 | ワープ | 1 / 2 / 3 / 4(地表 / 展望 / 軸 / コロニー外)、または Travel ボタン | 右手 B / wrist UI の Travel | Travel ボタン(Surface / Overlook / Axis / Exterior) |
-| 施設を訪ねる | Places メニュー | — | Travel 内の Street life |
+| 施設を訪ねる | Places メニュー | 手首メニューの Places | Travel 内の Street life |
 | 座る / 立つ | 利用できるベンチの前で `E` | — | Sit / Stand up ボタン |
 | コーヒー | セルフサービスのカウンター・カップ所持中に `C` | — | 状況に応じたコーヒーボタン |
 | 回転速度 | Spin −/+ ボタン、または `-` / `=` キー | wrist UI の rpm | Spin −/+ ボタン |
-| 雨 | Rain ボタン、`R` キー、または URL に `?rain` | —(VR 入場前に非VR画面で切替) | Rain ボタン |
+| 雨 | Rain ボタン、`R` キー、または URL に `?rain` | 手首メニューの Rain | Rain ボタン |
+| 消音 | Sound on/off、または `M` | 手首メニューの Sound on/off | More 内の Sound on/off |
 | 共有 | Share: Link(この視点のURLをコピー・`L` キー) / Photo(PNG保存・`P` キー) | — | Share: Link(共有シート) / Photo |
 | 操作ガイド | CONTROL チップにホバー / クリック | 左手首の watch UI(左 B でリセンター) | CONTROL チップをタップ |
 | 離陸(free-fly) | F | A(ジャンプ) | Jump 長押し |

@@ -570,7 +570,7 @@ the final comparison uses a stable grounded street-corner view instead.
 Next: audio interruption and accessible mute controls, followed by a longer
 whole-colony travel/resource pass.
 
-## Twenty-second increment — audio interruption and mute access (06:23)
+## Twenty-second increment — audio interruption and mute access (06:20)
 
 Sound on/off is now a visible desktop action and lives inside More on phones,
 sharing the existing M shortcut and the same mute state. Page visibility,
@@ -593,3 +593,43 @@ Evidence: `audio-activity.mjs`, `audio-activity-{before,after}*`, `dock-audio*`.
 
 Next: a longer all-preset resource/travel run, and access to everyday places
 through the wrist menu as well as desktop/phone controls.
+
+## Twenty-third increment — wrist access to the inhabited city (06:38)
+
+The wrist HOME Travel card now opens Places, with the same five destinations
+as PC/phone. Buttons for absent facilities are dimmed and cannot be activated;
+the small Playground explains why the whole set is unavailable. HOME also
+offers Sound on/off, sharing the existing audio preference. Target rectangles
+are disjoint and stay inside the canvas; labels fit their target widths.
+Independent canvas review confirmed availability and sound-state legibility,
+and identified two old overlaps: the RPM label approached the spin explanation,
+and the 1g marker text could sit over the filled gauge. The formula now sits
+beside the card title and the 1g label below the bar. A first attempt to lower
+the RPM row collided with the gravity number; that approach was replaced.
+Final canvas checks use 0, 9.80665 and 14 m/s² display inputs, not physics claims.
+
+VR place arrival turns only the yaw rig to face the entrance, accounting for
+the current head heading. It preserves tracked head position, pitch and roll.
+Twenty-seven pose combinations across cylinder positions, arrival directions
+and head yaw pass, including a rotated world parent; vertical directions also
+have a finite fallback. No inferred body motion is fed into the actual camera.
+
+Ordinary Chrome exercised the real wrist canvas and UV hit/click path across
+all four presets: 11 real entrance visits, 9 rejected absent destinations,
+sound toggling and Back/Surface navigation passed. Synthetic UVs replace the
+laser in this probe; this does not certify a headset runtime, visual angle,
+comfort or controller tracking. Full suite: 796 tests; build passes.
+Evidence: `wrist-places.mjs`, `wrist-places-reviewed*`, `wrist-places-layout*`,
+`vrPlaceFacing.test.ts`.
+
+The longer resource run on increment 22 completed 120 Surface/Exterior visits
+and 40 preset applications in 842 s. Comparing warmed cycle 2 with cycle 9,
+all four presets retain exactly the same live buffer, texture, program,
+framebuffer, renderbuffer, shader and vertex-array counts. Retained JS heap
+does not grow in that comparison; there are no page errors or context losses.
+Explicit GC pauses and concurrent QA make this a resource-balance probe,
+not a frame-rate or GPU-byte benchmark. Evidence: `travel-soak-overnight-final`.
+
+Next: fix an actual browser-history return failure. With WebXR absent and
+back-forward caching enabled, beforeunload tears down a page that is then
+restored from cache: its dock is gone and movement no longer runs.

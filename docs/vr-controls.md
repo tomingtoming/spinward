@@ -92,7 +92,12 @@ grounded ではヨーリグを、free-fly では姿勢クォータニオン自�
   右手チック（`audio.playClick()`）。
 - **手首の常設凡例**：左手首 watch UI の **Controls** ページに上記バインド表が出る
   （受動表示・`controlScheme` から描画）。home 画面の `Controls` ボタンから開く。
-- **watch UI からの世界操作**：home 画面の下段に **Rain** トグル（降雨中は点灯）。
+- **watch UI からの世界操作**：home 画面の下段に **Rain** と **Sound on/off**。
+  雨と音の有効状態を点灯で表示する。
+- **街の施設へ移動**：Travel 欄の **Places** から Café / Courtyard / Apartment /
+  Market street / Park を選ぶ。現在のコロニーにない施設は薄く表示し、選択を受け付けない。
+  入口へ到着したときは水平の向きを合わせ、実際の頭の傾き・位置は保持する。
+  **Back** でhomeへ戻り、**Surface** で広場へ戻れる。
 
 ## 実装の所在（開発者向け）
 

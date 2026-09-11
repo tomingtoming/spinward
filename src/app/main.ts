@@ -1463,6 +1463,11 @@ export const bootstrapApp = async () => {
     }
 
     shareQuaternionScratch.set(orientation.x, orientation.y, orientation.z, orientation.w)
+    if (renderer.xr.isPresenting && pose.mode === 'grounded') {
+      // Aim the arrival through the yaw rig, preserving the real head pose.
+      vrLocomotion.faceGroundedDirection(new THREE.Vector3(0, 0, -1).applyQuaternion(shareQuaternionScratch))
+      return
+    }
     // The camera's parent chain must be in its steady state (spawn view yaw on
     // the viewRig) before the shared world orientation is folded into a local.
     vrLocomotion.applySpawnView()
@@ -1557,6 +1562,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
+    ;(window as unknown as Record<string, unknown>).__spinwardWatch = watchPanel
     ;(window as unknown as Record<string, unknown>).__spinwardWalkers = streetWalkers
     ;(window as unknown as Record<string, unknown>).__spinwardStreetLamps = streetLamps
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
@@ -2527,6 +2533,14 @@ export const bootstrapApp = async () => {
     )
     const feltSpeed = drive.driving ? drive.lastSpeed : -1
 
+    const currentPlacePlan = cityscape.getCityPlan()
+    if (currentPlacePlan !== placesPlan) {
+      placesPlan = currentPlacePlan
+      availablePlaces.clear()
+      for (const place of PLACE_DESTINATIONS) {
+        if (resolvePlaceVisit(place.id, kind => cityscape.getInteriorVisit(kind))) availablePlaces.add(place.id)
+      }
+    }
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
       playerMode: playerTraversal.mode,
       platform: currentControlPlatform(),
@@ -2537,6 +2551,8 @@ export const bootstrapApp = async () => {
       feltGravity,
       feltSpeed,
       raining: weather.raining,
+      muted: audio.isMuted,
+      availablePlaces,
       perf: perfMeter.stats(),
       depthMode,
       absoluteVelocity: {
@@ -2571,14 +2587,6 @@ export const bootstrapApp = async () => {
     })
     // The whole dock hides in VR; Travel/Spin stay reachable while driving.
     dock.setVisible(!renderer.xr.isPresenting)
-    const currentPlacePlan = cityscape.getCityPlan()
-    if (currentPlacePlan !== placesPlan) {
-      placesPlan = currentPlacePlan
-      availablePlaces.clear()
-      for (const place of PLACE_DESTINATIONS) {
-        if (resolvePlaceVisit(place.id, kind => cityscape.getInteriorVisit(kind))) availablePlaces.add(place.id)
-      }
-    }
     beatBar.update({
       rpm: habitatConfig.rpm,
       feltGravity,

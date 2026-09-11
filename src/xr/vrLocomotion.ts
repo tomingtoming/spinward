@@ -116,6 +116,21 @@ export class VRLocomotion {
     this.applyGroundedView()
   }
 
+  // A place arrival aligns horizontal gaze with its entrance. Move only the
+  // yaw rig: tracked pitch, roll, position and controller spaces stay intact.
+  faceGroundedDirection(worldDirection: THREE.Vector3) {
+    this.playerRig.updateWorldMatrix(true, false)
+    this.playerRig.getWorldQuaternion(playerRigWorldQuaternion).invert()
+    viewForward.copy(worldDirection).applyQuaternion(playerRigWorldQuaternion)
+    if (Math.hypot(viewForward.x, viewForward.z) < .05) return
+    const targetYaw = Math.atan2(-viewForward.x, -viewForward.z)
+    viewForward.set(0, 0, -1).applyQuaternion(this.camera.quaternion)
+    const headYaw = Math.hypot(viewForward.x, viewForward.z) >= .05
+      ? Math.atan2(-viewForward.x, -viewForward.z) : 0
+    this.snapYaw = targetYaw - headYaw
+    this.applyGroundedView()
+  }
+
   // Seat the standing view yaw on the rig NOW. A boot-time share restore
   // computes the camera-local orientation against its parent, which normally
   // only picks up the spawn yaw on the first update() — computing against the

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { PlaceVisitAction } from '../../app/placeVisits'
+import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../../app/placeVisits'
 import {
   WATCH_PARAMETER_SPECS,
   type WatchParameterActionId,
@@ -7,15 +7,14 @@ import {
   type WatchParameterRowKey
 } from './watchSchema'
 
-// The shared settings surface (VR wrist · PC Tab panel · mobile ⚙) is split
-// into a shallow hierarchy: a HOME screen keeps the demo-critical controls
-// (Travel + Spin/gravity) one tap away, and the tinkering lives behind two
-// category screens reached from HOME, each with a Back button. This keeps any
-// single screen short enough to aim a laser at comfortably.
-export type WatchScreen = 'home' | 'habitat' | 'tweaks' | 'legend'
+// The wrist keeps travel and spin on HOME, with everyday places, settings and
+// controls one page away. Each page has a Back target and uses the same canvas
+// bounds for drawing and laser hit-testing.
+export type WatchScreen = 'home' | 'places' | 'habitat' | 'tweaks' | 'legend'
 
 export type WatchNavActionId =
   | 'nav-home'
+  | 'nav-places'
   | 'nav-habitat'
   | 'nav-tweaks'
   | 'nav-legend'
@@ -72,10 +71,14 @@ export type WatchScreenLayout = {
   // HOME.
   travelSection?: WatchSection
   travelButtons?: WatchButton[]
+  placesButton?: WatchButton
   spinSection?: WatchSection
   spinRow?: WatchRow
   gravityGaugeY?: number
   categoryButtons?: WatchButton[]
+  // PLACES.
+  placesSection?: WatchSection
+  placeButtons?: WatchButton[]
   // HABITAT.
   presetSection?: WatchSection
   presetButtons?: WatchButton[]
@@ -157,6 +160,8 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
   switch (id) {
     case 'nav-home':
       return 'home'
+    case 'nav-places':
+      return 'places'
     case 'nav-habitat':
       return 'habitat'
     case 'nav-tweaks':
@@ -182,22 +187,23 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
     makeActionButton('respawn-axis-end', 'Axis', CONTENT_LEFT + travelButtonStep * 3, travelButtonY, travelButtonWidth, 64),
     makeActionButton('respawn-exterior', 'Exterior', CONTENT_LEFT + travelButtonStep * 4, travelButtonY, travelButtonWidth, 64)
   ]
+  const placesButton = makeActionButton('nav-places', 'Places ›', 500, travelSection.top + 8, 170, 58)
 
   const spinSection: WatchSection = { top: 322, height: 232, title: 'SPIN & GRAVITY' }
   const spinRow = makeParameterRow('rpm', spinSection.top + 40, width)
   const gravityGaugeY = spinSection.top + 180
 
-  // Rain (a world action, latched while raining) shares the bottom row with
-  // the three category screens — four-up, same span as the old three-up row.
-  const categoryWidth = 151
-  const categoryGap = 12
+  // Match the travel targets' size: weather, sound and three category screens.
+  const categoryWidth = 115
+  const categoryGap = 10
   const categoryY = 576
   const categoryStep = categoryWidth + categoryGap
   const categoryButtons = [
     makeActionButton('weather-rain-toggle', 'Rain', CONTENT_LEFT, categoryY, categoryWidth, 64),
-    makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
-    makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64),
-    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 3, categoryY, categoryWidth, 64)
+    makeActionButton('audio-mute-toggle', 'Sound on', CONTENT_LEFT + categoryStep, categoryY, categoryWidth, 64),
+    makeActionButton('nav-habitat', 'Habitat', CONTENT_LEFT + categoryStep * 2, categoryY, categoryWidth, 64),
+    makeActionButton('nav-tweaks', 'Tweaks', CONTENT_LEFT + categoryStep * 3, categoryY, categoryWidth, 64),
+    makeActionButton('nav-legend', 'Controls', CONTENT_LEFT + categoryStep * 4, categoryY, categoryWidth, 64)
   ]
 
   return {
@@ -206,12 +212,24 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
     height,
     travelSection,
     travelButtons,
+    placesButton,
     spinSection,
     spinRow,
     gravityGaugeY,
     categoryButtons,
-    buttons: [...travelButtons, ...spinRow.buttons, ...categoryButtons]
+    buttons: [placesButton, ...travelButtons, ...spinRow.buttons, ...categoryButtons]
   }
+}
+
+const createPlacesLayout = (width: number, height: number): WatchScreenLayout => {
+  const backButton = makeBackButton()
+  const placesSection: WatchSection = { top: 108, height: 424, title: 'STREET LIFE' }
+  const placeButtons = PLACE_DESTINATIONS.map((place, i) => makeActionButton(
+    place.id, place.label, CONTENT_LEFT + (i % 2) * 310,
+    placesSection.top + 84 + Math.floor(i / 2) * 104, 290, 80
+  ))
+  return { screen: 'places', width, height, backButton, title: 'PLACES',
+    placesSection, placeButtons, buttons: [backButton, ...placeButtons] }
 }
 
 const createHabitatLayout = (width: number, height: number): WatchScreenLayout => {
@@ -313,6 +331,8 @@ export const createWatchLayout = (
   switch (screen) {
     case 'home':
       return createHomeLayout(width, height)
+    case 'places':
+      return createPlacesLayout(width, height)
     case 'habitat':
       return createHabitatLayout(width, height)
     case 'tweaks':
@@ -331,6 +351,7 @@ export const createAllWatchLayouts = (
   height = WATCH_CANVAS_SIZE.height
 ): Record<WatchScreen, WatchScreenLayout> => ({
   home: createWatchLayout('home', width, height),
+  places: createWatchLayout('places', width, height),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),
   legend: createWatchLayout('legend', width, height)

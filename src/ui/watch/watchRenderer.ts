@@ -76,6 +76,7 @@ type ButtonStyle = {
   disabled?: boolean
   active?: boolean
   accent?: boolean
+  label?: string
 }
 
 const drawButton = (
@@ -121,10 +122,17 @@ const drawButton = (
   ctx.stroke()
 
   ctx.fillStyle = text
-  ctx.font = `600 ${button.height >= 66 ? 30 : 26}px "Avenir Next", sans-serif`
+  const label = style.label ?? button.label
+  let fontSize = button.height >= 66 ? 30 : 26
+  ctx.font = `600 ${fontSize}px "Avenir Next", sans-serif`
+  const textWidth = ctx.measureText(label).width
+  if (textWidth > button.width - 20) {
+    fontSize *= (button.width - 20) / textWidth
+    ctx.font = `600 ${fontSize}px "Avenir Next", sans-serif`
+  }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(button.label, button.x + button.width * 0.5, button.y + button.height * 0.54)
+  ctx.fillText(label, button.x + button.width * 0.5, button.y + button.height * 0.54)
 }
 
 const drawStepperRow = (
@@ -290,7 +298,7 @@ const drawGravityGauge = (
   ctx.stroke()
   ctx.fillStyle = TEXT_FAINT
   ctx.font = '600 13px "Avenir Next", sans-serif'
-  ctx.fillText('1g', markerX + 6, gaugeY + 8)
+  ctx.fillText('1g', markerX + 6, gaugeY + 32)
 }
 
 const formatTriangles = (triangles: number) =>
@@ -404,7 +412,7 @@ export const renderWatch = (
         ctx,
         layout.width,
         layout.travelSection,
-        'Surface = street · Overlook = above the plaza · Axis = zero-g'
+        'Street · skyline · zero-g · outside'
       )
       for (const button of layout.travelButtons) {
         drawButton(ctx, button, hoveredAction, {
@@ -412,10 +420,15 @@ export const renderWatch = (
           disabled: isWatchActionDisabled(snapshot, button.id)
         })
       }
+      if (layout.placesButton) drawButton(ctx, layout.placesButton, hoveredAction, { accent: true })
     }
 
     if (layout.spinSection !== undefined && layout.spinRow !== undefined) {
-      drawSectionCard(ctx, layout.width, layout.spinSection, 'g = ω² R — slow the spin, lighten the world')
+      drawSectionCard(ctx, layout.width, layout.spinSection)
+      ctx.fillStyle = TEXT_DIM
+      ctx.font = '500 16px "Avenir Next", sans-serif'
+      ctx.textAlign = 'right'
+      ctx.fillText('g = ω² R', layout.width - SECTION_PADDING.right - 20, layout.spinSection.top + 16)
       drawStepperRow(ctx, layout.spinRow, `${formatWatchParameterValue('rpm', snapshot)} rpm`, hoveredAction)
       drawGravityGauge(ctx, layout, snapshot)
     }
@@ -424,7 +437,8 @@ export const renderWatch = (
       drawButton(ctx, button, hoveredAction, {
         accent: true,
         // The Rain toggle latches: show its on-state like an active preset.
-        active: button.id === 'weather-rain-toggle' && snapshot.raining
+        active: button.id === 'weather-rain-toggle' && snapshot.raining || button.id === 'audio-mute-toggle' && !snapshot.muted,
+        label: button.id === 'audio-mute-toggle' ? snapshot.muted ? 'Sound off' : 'Sound on' : undefined
       })
     }
 
@@ -432,6 +446,20 @@ export const renderWatch = (
   }
 
   drawSubHeader(ctx, layout, snapshot, hoveredAction)
+
+  if (layout.screen === 'places' && layout.placesSection) {
+    drawSectionCard(ctx, layout.width, layout.placesSection, 'Arrive at the entrance, ready to explore')
+    for (const button of layout.placeButtons ?? []) drawButton(ctx, button, hoveredAction, {
+      accent: true, disabled: isWatchActionDisabled(snapshot, button.id)
+    })
+    ctx.fillStyle = TEXT_DIM
+    ctx.font = '500 19px "Avenir Next", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, 568)
+    ctx.fillText('Surface returns to the open plaza.', 50, 604)
+    return
+  }
 
   if (layout.screen === 'legend') {
     drawLegend(ctx, layout, snapshot)

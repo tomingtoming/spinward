@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
+import { PLACE_DESTINATIONS } from '../../app/placeVisits'
 
 import {
   createAllWatchLayouts,
@@ -29,12 +30,14 @@ test('home screen keeps travel, spin and the category nav one tap away', () => {
   ])
   expect(layout.categoryButtons?.map((button) => button.id)).toEqual([
     'weather-rain-toggle',
+    'audio-mute-toggle',
     'nav-habitat',
     'nav-tweaks',
     'nav-legend'
   ])
   // The tinkering parameters are no longer on home.
   expect(layout.rows).toBeUndefined()
+  expect(layout.placesButton?.id).toBe('nav-places')
 })
 
 test('getWatchButtonAtUv resolves a UV hit on the home rpm stepper', () => {
@@ -106,6 +109,7 @@ test('tweaks screen nests the tinkering parameters behind a Back button', () => 
 
 test('navTargetForAction maps nav buttons to screens and ignores actions', () => {
   expect(navTargetForAction('nav-home')).toBe('home')
+  expect(navTargetForAction('nav-places')).toBe('places')
   expect(navTargetForAction('nav-habitat')).toBe('habitat')
   expect(navTargetForAction('nav-tweaks')).toBe('tweaks')
   expect(navTargetForAction('nav-legend')).toBe('legend')
@@ -120,9 +124,35 @@ test('createAllWatchLayouts returns one layout per screen', () => {
     'habitat',
     'home',
     'legend',
+    'places',
     'tweaks'
   ])
   expect(layouts.home.screen).toBe('home')
   expect(layouts.tweaks.screen).toBe('tweaks')
   expect(layouts.legend.screen).toBe('legend')
+})
+
+test('wrist places offer the same destinations as the ordinary travel menus', () => {
+  const layout = createWatchLayout('places')
+  expect(layout.placeButtons?.map(button => button.id)).toEqual(PLACE_DESTINATIONS.map(place => place.id))
+  expect(layout.backButton?.id).toBe('nav-home')
+  for (const button of layout.placeButtons!) {
+    expect(button.width).toBeGreaterThanOrEqual(280)
+    expect(button.height).toBeGreaterThanOrEqual(80)
+  }
+})
+
+test('every wrist target is inside the canvas, disjoint and reachable through its UV centre', () => {
+  for (const layout of Object.values(createAllWatchLayouts())) for (const [i, button] of layout.buttons.entries()) {
+    expect(button.x).toBeGreaterThanOrEqual(0)
+    expect(button.y).toBeGreaterThanOrEqual(0)
+    expect(button.x + button.width).toBeLessThanOrEqual(layout.width)
+    expect(button.y + button.height).toBeLessThanOrEqual(layout.height)
+    expect(getWatchButtonAtUv(layout, centerUv(layout, button))?.id).toBe(button.id)
+    for (const other of layout.buttons.slice(i + 1)) {
+      const overlap = Math.min(button.x + button.width, other.x + other.width) > Math.max(button.x, other.x) &&
+        Math.min(button.y + button.height, other.y + other.height) > Math.max(button.y, other.y)
+      expect(overlap).toBe(false)
+    }
+  }
 })

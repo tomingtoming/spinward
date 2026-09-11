@@ -31,13 +31,16 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
 
   const snapshot = createWatchRenderSnapshot(store, {
     playerMode: 'free-fly',
+    platform: 'vr',
     region: 'outside',
-    watchMenuOpen: true,
     observerMode: 'inertial-fixed',
     trailMode: 'both',
     ballCount: 3,
     feltGravity: 9.80665,
     feltSpeed: -1,
+    raining: false,
+    muted: true,
+    availablePlaces: new Set(['visit-park']),
     perf: { fps: 71.8, drawCalls: 210, triangles: 1800000 },
     depthMode: 'plain',
     absoluteVelocity: {
@@ -63,6 +66,9 @@ test('createWatchRenderSnapshot reflects derived watch values from the shared st
   expect(snapshot.drawCalls).toBe(210)
   expect(snapshot.triangles).toBe(1800000)
   expect(snapshot.depthMode).toBe('plain')
+  expect(snapshot.muted).toBe(true)
+  expect(isWatchActionDisabled(snapshot, 'visit-park')).toBe(false)
+  expect(isWatchActionDisabled(snapshot, 'visit-cafe')).toBe(true)
   expect(snapshot.absoluteVelocityX).toBeCloseTo(1.25, 6)
   expect(snapshot.absoluteVelocityY).toBeCloseTo(-2.5, 6)
   expect(snapshot.absoluteVelocityZ).toBeCloseTo(3.75, 6)
@@ -90,17 +96,20 @@ test('applyWatchAction routes parameter and mode actions through the shared stor
   expect(store.reattach.maxSurfaceSpeed).toBeCloseTo(1.45, 6)
 })
 
-test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says so', () => {
+test('wrist destinations follow the current habitat availability', () => {
   const store = createSettingsStore()
   const snapshot = createWatchRenderSnapshot(store, {
     playerMode: 'grounded',
+    platform: 'vr',
     region: 'inside',
-    watchMenuOpen: true,
     observerMode: 'colony-fixed',
     trailMode: 'rotating',
     ballCount: 0,
     feltGravity: 0,
     feltSpeed: -1,
+    raining: false,
+    muted: false,
+    availablePlaces: new Set(),
     perf: { fps: 0, drawCalls: 0, triangles: 0 },
     depthMode: 'log',
     absoluteVelocity: {
@@ -115,4 +124,7 @@ test('isWatchActionDisabled only blocks axis-end respawn when the snapshot says 
   expect(isWatchActionDisabled({ ...snapshot, axisEndRespawnEnabled: false }, 'respawn-axis-end')).toBe(true)
   expect(isWatchActionDisabled({ ...snapshot, oldTownRespawnEnabled: false }, 'respawn-old-town')).toBe(true)
   expect(isWatchActionDisabled(snapshot, 'rpm-fine-increment')).toBe(false)
+  expect(isWatchActionDisabled(snapshot, 'visit-park')).toBe(true)
+  expect(isWatchActionDisabled(snapshot, 'nav-places')).toBe(false)
+  expect(isWatchActionDisabled(snapshot, 'audio-mute-toggle')).toBe(false)
 })
