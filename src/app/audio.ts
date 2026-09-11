@@ -41,7 +41,6 @@ export class GameAudio {
   private roomSteamGain: GainNode | null = null
   private roomStepGain: GainNode | null = null
   private roomStepBuffer: AudioBuffer | null = null
-  private roomStepTime = 0
   private roomSteps = 0
   // Sustained jetpack voice (built lazily, modulated each frame by throttle).
   // The looping noise source stays alive via its graph connection to master.
@@ -353,7 +352,7 @@ export class GameAudio {
     const ctx=this.context,world=this.worldBus
     if(!ctx||!world||this.roomCafeGain)return
     const gain=()=>{const node=ctx.createGain();node.gain.value=0;node.connect(world);return node}
-    this.roomCafeGain=gain();this.roomLobbyGain=gain();this.roomSteamGain=gain();this.roomStepGain=gain()
+    this.roomCafeGain=gain();this.roomLobbyGain=gain();this.roomSteamGain=gain()
     for(const [frequency,level] of [[90,.7],[180,.2]]) {
       const oscillator=ctx.createOscillator(),volume=ctx.createGain()
       oscillator.frequency.value=frequency;volume.gain.value=level
@@ -362,12 +361,19 @@ export class GameAudio {
     const ventilation=this.makeLoopingNoise(5,'brown'),steam=this.makeLoopingNoise(4,'pink')
     if(ventilation){const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;ventilation.connect(filter);filter.connect(this.roomLobbyGain);ventilation.start()}
     if(steam){const filter=ctx.createBiquadFilter();filter.type='bandpass';filter.frequency.value=1400;filter.Q.value=.6;steam.connect(filter);filter.connect(this.roomSteamGain);steam.start()}
+    this.startFootstepVoice()
+  }
+
+  private startFootstepVoice() {
+    const ctx=this.context,world=this.worldBus
+    if(!ctx||!world||this.roomStepGain)return
+    this.roomStepGain=ctx.createGain();this.roomStepGain.gain.value=1;this.roomStepGain.connect(world)
     this.roomStepBuffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.10),ctx.sampleRate)
     const data=this.roomStepBuffer.getChannelData(0)
     for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/data.length*9)
   }
 
-  setRoomEnvironment(room: RoomEnvironment, speed: number, walking: boolean, deltaSeconds: number) {
+  setRoomEnvironment(room: RoomEnvironment) {
     const ctx=this.context
     if(!ctx)return
     if(room.shelter>0)this.startRoomVoices()
@@ -377,15 +383,19 @@ export class GameAudio {
     const phase=now%14
     const rise=Math.max(0,Math.min(1,(phase-10.5)/.5)),fall=Math.max(0,Math.min(1,(13.2-phase)/.8))
     this.roomSteamGain?.gain.setTargetAtTime(cafe*.07*rise*fall,now,.15)
-    this.roomStepGain?.gain.setTargetAtTime(room.shelter*.08,now,.18)
-    if(!walking||speed<.6||room.shelter<.05){this.roomStepTime=0;return}
-    this.roomStepTime+=Math.min(.1,Math.max(0,deltaSeconds))
-    const interval=Math.max(.28,.53-Math.min(speed,10)*.025)
-    if(this.roomStepTime<interval||!this.roomStepBuffer||!this.roomStepGain)return
-    this.roomStepTime%=interval;this.roomSteps++
+  }
+
+  // Contact events from the visible feet own the cadence indoors and outdoors.
+  playFootstep(room: RoomEnvironment, speed: number) {
+    const ctx=this.context
+    if(!ctx)return
+    this.startFootstepVoice()
+    if(!this.roomStepBuffer||!this.roomStepGain)return
+    const now=ctx.currentTime,cafe=room.cafe,lobby=room.lobby
+    this.roomSteps++
     const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),volume=ctx.createGain()
-    source.buffer=this.roomStepBuffer;filter.type='lowpass';filter.frequency.value=lobby>cafe?1700:1100
-    volume.gain.setValueAtTime(.7,now);volume.gain.exponentialRampToValueAtTime(.001,now+.12)
+    source.buffer=this.roomStepBuffer;filter.type='lowpass';filter.frequency.value=room.shelter<.5?850:lobby>cafe?1700:1100
+    volume.gain.setValueAtTime((room.shelter>.5?.055:.035)*Math.min(1.4,.7+speed*.15),now);volume.gain.exponentialRampToValueAtTime(.001,now+.12)
     source.connect(filter);filter.connect(volume);volume.connect(this.roomStepGain);source.start(now);source.stop(now+.13)
     source.onended=()=>{source.disconnect();filter.disconnect();volume.disconnect()}
   }

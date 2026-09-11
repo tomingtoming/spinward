@@ -97,6 +97,7 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
     title: 'ON FOOT',
     bindings: [
       { input: 'WASD', action: 'Walk' },
+      { input: 'Shift + WASD', action: 'Run' },
       { input: 'Click view', action: 'Mouse look (Esc frees) · or right-drag / arrows' },
       { input: 'Space', action: 'Jump → fly' },
       { input: 'Click', action: 'Throw at a fixed speed' },

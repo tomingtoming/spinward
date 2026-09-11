@@ -99,6 +99,7 @@ export class DesktopLookControls {
   // True while easing the inherited free-fly pitch back to level after a landing.
   private standingUp = false
   private readonly pressedKeys = new Set<string>()
+  get fastWalkHeld() { return this.pressedKeys.has('ShiftLeft') || this.pressedKeys.has('ShiftRight') }
   // One-shot boot "look up" reveal; null when idle or cancelled.
   private introElapsed: number | null = null
   // Tracks the current right-button press so handlePointerUp can tell a tap

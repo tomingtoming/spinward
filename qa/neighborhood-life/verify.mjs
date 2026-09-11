@@ -14,7 +14,8 @@ report.crossing=await page.evaluate(()=>window.__spinward.neighborhood);
 await page.setViewportSize({width:390,height:844});await page.goto(`${base}/?debug&visit=cafe&tier=phone`);await page.waitForFunction(()=>window.__spinward?.neighborhood?.asset);await clean();await page.screenshot({path:`${out}/phone-default-final.png`});report.phone=await page.evaluate(()=>window.__spinward);
 // Failure exercises authored chairs/coffee independent of the optional person asset.
 await page.route('**/assets/people/resident.glb',route=>route.abort());
-await page.goto(url(.11945310290992955,-300.843252130732,.1202,-300.843252130732,-.3));await page.waitForFunction(()=>window.__spinward?.room?.seats?.length);await page.keyboard.press('e');await page.waitForFunction(()=>window.__spinward.room.seat);await page.keyboard.press('e');await page.waitForTimeout(400);report.fallback=await page.evaluate(()=>({room:window.__spinward.room,body:window.__spinwardScene.getObjectByName('seated-player-body').visible}));
+await page.goto(url(.11945310290992955,-300.843252130732,.1202,-300.843252130732,-.3));await page.waitForFunction(()=>window.__spinward?.room?.seats?.length);await page.keyboard.press('e');await page.waitForFunction(()=>window.__spinward.room.seat);await page.keyboard.press('e');await page.waitForTimeout(400);report.fallback=await page.evaluate(()=>({room:window.__spinward.room,body:window.__spinwardScene.getObjectByName('player-body').visible}));
+if(report.fallback.body)throw Error('Unavailable body asset must stay hidden');
 await page.unroute('**/assets/people/resident.glb');
 // Real user path: make coffee, carry it down the clear central aisle, sidestep to
 // the left bench. Controlled keyboard increments use measured world coordinates.
@@ -30,6 +31,11 @@ const forward=camera.getWorldDirection(camera.position.clone());const upQuat=cit
 const a=window.__spinward.room.seats[0].azimuth;const expected=camera.position.clone().set(-Math.sin(a),0,Math.cos(a)).applyQuaternion(upQuat);return forward.dot(expected)});
 if(report.seatDirection<.99)throw Error('Seat does not face clear aisle: '+report.seatDirection);
 await page.screenshot({path:`${out}/coffee-seated-final.png`});
+await page.keyboard.down('ArrowDown');await page.waitForTimeout(850);await page.keyboard.up('ArrowDown');
+await page.screenshot({path:`${out}/coffee-seated-body-final.png`});
+report.seatedBody=await page.evaluate(()=>window.__spinwardBody.group.userData);
+if(report.seatedBody.mode!=='seated')throw Error('Seated body pose missing');
+await page.keyboard.down('ArrowUp');await page.waitForTimeout(850);await page.keyboard.up('ArrowUp');
 await page.keyboard.press('c');await page.waitForTimeout(500);await page.screenshot({path:`${out}/coffee-sip-final.png`});await page.waitForFunction(()=>window.__spinward.room.coffee.servings===2);
 for(const count of [1,0]){await page.keyboard.press('c');await page.waitForFunction(n=>window.__spinward.room.coffee.servings===n,count)}
 report.drunk=await page.evaluate(()=>window.__spinward.room);await page.keyboard.press('e');await page.waitForTimeout(400);

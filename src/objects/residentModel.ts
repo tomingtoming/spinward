@@ -35,8 +35,8 @@ export class ResidentBatches {
   private matrix=new THREE.Matrix4()
   private shadows:THREE.InstancedMesh|null=null
   private shadowTexture:THREE.CanvasTexture|null=null
-  constructor(source:THREE.Object3D,capacity:number){
-    if(typeof document !== 'undefined'){
+  constructor(source:THREE.Object3D,capacity:number,contactShadows=true){
+    if(contactShadows && typeof document !== 'undefined'){
       const canvas=document.createElement('canvas');canvas.width=canvas.height=64
       const ctx=canvas.getContext('2d')!
       const gradient=ctx.createRadialGradient(32,32,3,32,32,32)

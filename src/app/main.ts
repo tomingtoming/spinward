@@ -718,6 +718,9 @@ export const bootstrapApp = async () => {
   const coffeeView = new CoffeeServiceView(cityscape.group, camera)
   const neighborhoodLife = new NeighborhoodLife(cityscape.group, cityscape)
   const playerBodyView = new PlayerBodyView(cityscape.group)
+  const bodyDirection = new THREE.Vector3()
+  const bodyFrameInverse = new THREE.Matrix4()
+  let bodyHeading = 0
   const coffeeContext = () => ({ station: cityscape.getCoffeeStation(), player: playerTraversal,
     radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
   const activateCoffee = () => {
@@ -1226,8 +1229,7 @@ export const bootstrapApp = async () => {
         habitatConfig.radius,
         span
       )
-      sidewalks.setPlan(
-        cityPlan !== null && habitatConfig.type !== 'ring'
+      const sidewalkSegments = cityPlan !== null && habitatConfig.type !== 'ring'
           ? planSidewalkSegments(
               cityPlan.roads,
               cityPlan.intersections,
@@ -1235,9 +1237,10 @@ export const bootstrapApp = async () => {
               getSidewalkWidth(habitatConfig.radius, span),
               isOpenSquare
             )
-          : [],
-        habitatConfig.radius
-      )
+          : []
+      sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
+      playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius)
+      playerBodyView.motion.reset()
     }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
@@ -1476,6 +1479,7 @@ export const bootstrapApp = async () => {
     // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
+    ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
@@ -2170,9 +2174,12 @@ export const bootstrapApp = async () => {
         frameAngle
       })
     } else if (playerTraversal.mode === 'grounded' && !drive.driving) {
+      // Human walking pace makes nearby furniture and foot contact readable;
+      // PC Shift keeps the previous fast traversal speed available.
+      const walkSpeed = renderer.xr.isPresenting || desktopLookControls.fastWalkHeld ? 6 : 1.8
       stepGroundedPlayer(playerTraversal, {
-        axisDistanceDelta: locomotionIntent.groundedAxis * 6 * deltaSeconds,
-        tangentDistanceDelta: locomotionIntent.groundedTangent * 6 * deltaSeconds,
+        axisDistanceDelta: locomotionIntent.groundedAxis * walkSpeed * deltaSeconds,
+        tangentDistanceDelta: locomotionIntent.groundedTangent * walkSpeed * deltaSeconds,
         radius: habitatConfig.radius,
         length: habitatSpan,
         deltaSeconds,
@@ -2609,8 +2616,7 @@ export const bootstrapApp = async () => {
       })
     )
 
-    audio.setRoomEnvironment(roomEnvironment, carrierRotatingVelocity.length(),
-      playerTraversal.mode === 'grounded' && !drive.driving && !roomSeating.seat, deltaSeconds)
+    audio.setRoomEnvironment(roomEnvironment)
 
     light.intensity = 0.22 + daylight * 0.9
 
@@ -2735,7 +2741,20 @@ export const bootstrapApp = async () => {
     coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
     coffeeView.update(coffeeService, coffeeCtx.station, !coffeeCtx.blocked && playerTraversal.mode === 'grounded', roomEnvironment.cafe > 0, coffeeAction.getReservedBottomHeight())
 
-    playerBodyView.update(roomSeating.seat, !renderer.xr.isPresenting && !drive.driving, coffeeService.phase === 'holding')
+    camera.updateWorldMatrix(true, false)
+    cityscape.group.updateWorldMatrix(true, false)
+    bodyFrameInverse.copy(cityscape.group.matrixWorld).invert()
+    camera.getWorldDirection(bodyDirection).transformDirection(bodyFrameInverse)
+    const bodyAzimuth = playerTraversal.surface.azimuth
+    const facingTangent = -Math.sin(bodyAzimuth) * bodyDirection.x + Math.cos(bodyAzimuth) * bodyDirection.z
+    if (Math.hypot(facingTangent, bodyDirection.y) > .02) bodyHeading = Math.atan2(facingTangent, bodyDirection.y)
+    const stepped = playerBodyView.update({
+      radius: habitatConfig.radius, azimuth: bodyAzimuth, axial: playerTraversal.surface.axialPosition,
+      groundHeight: playerTraversal.groundHeight, heading: bodyHeading, grounded: playerTraversal.mode === 'grounded',
+      enabled: !drive.driving, visible: !renderer.xr.isPresenting && bootParams.get('body') !== '0', deltaSeconds,
+      seat: roomSeating.seat, holding: coffeeService.phase === 'holding', indoors: roomEnvironment.shelter > .5
+    })
+    if (stepped) audio.playFootstep(roomEnvironment, playerBodyView.motion.speed)
     if (playerBodyView.hand.parent !== coffeeView.held) coffeeView.held.add(playerBodyView.hand)
 
     if (mobileControls !== null) {

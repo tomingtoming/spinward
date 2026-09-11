@@ -26,7 +26,7 @@ and a hand holding the coffee cup. It is a local development branch based on
 - Seated legs remain anchored to the bench in the rotating habitat, independently
   of camera pitch. Entering a seat faces its clear aisle, compensating for the
   camera parent rotation. A Blender hand follows the held cup. Both are hidden in XR and
-  while driving. No body tracking is inferred from a headset or two controllers.
+  while driving. The September 12 increment below extends the same model to standing.
 - During seating/coffee actions the generic welcome card is suppressed, keeping
   the cup and room visible, especially on portrait screens. Contextual E/C
   instructions remain available. Low-cost contact shadows support grounding.
@@ -194,3 +194,33 @@ These are browser samples, not an exhaustive temporal or hardware XR check.
 A thin distant lamp post against lit windows shows horizontal aliasing-like
 marks in one moving view; the cause and whether it predates this change remain
 unresolved. The requested crosswalk defect is absent in those samples.
+
+## Standing presence — 2026-09-12
+
+The same original resident now supplies a headless first-person torso, arms,
+legs and shoes while standing. A separate surface-space gait keeps each support
+foot in place, alternates swings, and takes small steps after a large head turn.
+Two-link leg IK preserves bone lengths; shoes follow their own local ground
+normal. Carriageways, kerbs, indoor floors and roof heights have distinct finish
+levels. Teleports, plan changes and landing reset anchors without false steps.
+The torso sits 18 cm behind the eye, including while seated, so looking down
+reveals the legs rather than the inside of the chest. Coffee keeps its existing
+grip and hides the duplicate right arm. The camera does not inherit gait motion.
+
+Ordinary PC/touch walking is 1.8 m/s; PC Shift retains the previous 6 m/s travel
+speed. VR locomotion retains its original speed and controller visuals for this
+increment. Actual foot contacts now trigger quiet footsteps inside and outside;
+the motion state still runs if the optional body is hidden or unavailable.
+The body currently hides in flight/driving and XR; inferred XR limbs are not
+implemented in this increment. Running uses the same bounded procedural gait,
+not an authored athletic animation or a full physical body.
+
+All 698 unit tests and the production build passed. New checks cover planted
+anchors, stopping, seam/teleport transitions, IK reach and finish-level selection.
+`player-body.mjs` covers desktop day, phone-preset night and Shift movement;
+`seated-body.mjs` captures the seated/standing downward view. The full coffee
+sequence and optional-asset failure path passed without runtime errors.
+Independent image review found no clear leg penetration in these samples,
+but the existing phone HUD obscures much of the lower body and shoes have low
+contrast on an unlit road at night. These remain follow-up items; phone/Quest
+hardware comfort and continuous-motion fidelity have not been verified.
