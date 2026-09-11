@@ -152,6 +152,28 @@ test('getOverlookAltitude is clamped for tiny and giant habitats', () => {
   expect(getOverlookAltitude(3200)).toBeCloseTo(60)
 })
 
+test('exterior framing includes full-length mirror tips throughout a rotation', () => {
+  const radius = 3200, length = 40000, mirrorReach = length * 1.02
+  for (const aspect of [390 / 844, 1440 / 1000, 2.4]) {
+    const camera = new THREE.PerspectiveCamera(70, aspect, .1, 1e6)
+    camera.position.copy(getExteriorVantage({ type: 'cylinder', radius, length, mirrorReach, aspect }))
+    camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true)
+    for (let i = 0; i < 96; i++) for (const tip of [false, true]) for (const side of [-1, 1]) {
+      const angle = i / 96 * Math.PI * 2
+      const reach = radius + (tip ? mirrorReach : 0)
+      const halfWidth = radius * 1.05 / 2 * side
+      const point = new THREE.Vector3(
+        Math.cos(angle) * reach - Math.sin(angle) * halfWidth,
+        -length / 2 + (tip ? mirrorReach : 0),
+        Math.sin(angle) * reach + Math.cos(angle) * halfWidth
+      ).project(camera)
+      expect(Math.abs(point.x)).toBeLessThan(.94)
+      expect(Math.abs(point.y)).toBeLessThan(.94)
+      expect(point.z).toBeGreaterThan(-1); expect(point.z).toBeLessThan(1)
+    }
+  }
+})
+
 test('respawnAxisEnd places the player on the axis near the cylinder end', () => {
   const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, 10, 0.3, 1)
 

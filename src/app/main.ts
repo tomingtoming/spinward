@@ -111,6 +111,7 @@ import {
   isInsidePlaza,
   isInsideArrivalSquare,
   getLandArcs,
+  getWindowArcs,
 } from '../objects/cityLayout'
 import { Cityscape, setFacadeTextureSize } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
@@ -816,6 +817,7 @@ export const bootstrapApp = async () => {
   let throwDebugTimer = 0
   const THROW_DEBUG_DURATION = 1.5
   let desktopUiCamera: THREE.PerspectiveCamera = camera
+  const skyObserverPosition = new THREE.Vector3()
   const buildPlayerTraversal = () =>
     createPlayerTraversalState(initialSurfaceState, habitatConfig.radius, frameAngle, rpmToOmega(habitatConfig.rpm), {
       rapier,
@@ -1002,6 +1004,7 @@ export const bootstrapApp = async () => {
         type: habitatConfig.type,
         aspect: renderer.xr.isPresenting ? 1 : camera.aspect,
         verticalFovDegrees: camera.fov,
+        mirrorReach: getWindowArcs(habitatConfig.topology).length ? getHabitatSpanMeters() * 1.02 : 0,
         length: getHabitatSpanMeters(),
         radius: habitatConfig.radius,
         frameAngle,
@@ -1014,6 +1017,7 @@ export const bootstrapApp = async () => {
       exteriorFacing.copy(playerRig.position).negate()
       mobileControls?.resetLook()
       desktopLookControls.faceDirection(exteriorFacing)
+      desktopLookControls.setInertialLook(true)
     }
     return didRespawn
   }
@@ -1155,6 +1159,7 @@ export const bootstrapApp = async () => {
         toggleDepthModeAndReload(depthMode)
         return true
       case 'respawn':
+        desktopLookControls.setInertialLook(false)
         coffeeService.reset()
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
@@ -2098,6 +2103,7 @@ export const bootstrapApp = async () => {
 
     // Update order: input -> grab state -> simulation -> render.
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + omega * deltaSeconds, Math.PI * 2)
+    if (!renderer.xr.isPresenting) desktopLookControls.advanceReferenceFrame(omega * deltaSeconds)
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
     // The jetpack hiss follows EVERY thrust source, not just the VR trigger:
@@ -2538,6 +2544,22 @@ export const bootstrapApp = async () => {
       inertialObserverCamera.quaternion.copy(observerPose.orientation)
       inertialObserverCamera.updateMatrixWorld(true)
       desktopUiCamera = inertialObserverCamera
+    }
+    // Only the distant sky follows the eye. The air glow stays attached to the
+    // habitat. Work in skyLayer's frame for both rotating/inertial observers.
+    const skyCamera = renderer.xr.isPresenting ? renderer.xr.getCamera() : desktopUiCamera
+    skyCamera.getWorldPosition(skyObserverPosition)
+    skyLayer.worldToLocal(skyObserverPosition)
+    starfield.setObserverPosition(skyObserverPosition)
+    sun.setObserverPosition(skyObserverPosition)
+    const skyFar = Math.max(4000, starfield.getSuggestedCameraFar())
+    // Retain a little headroom to avoid changing the projection every step.
+    // Habitat changes reset the far plane through syncHabitatRuntime.
+    if (skyFar > camera.far) {
+      camera.far = skyFar * 1.1
+      camera.updateProjectionMatrix()
+      inertialObserverCamera.far = camera.far
+      inertialObserverCamera.updateProjectionMatrix()
     }
     watchPanel.update(
       watchSnapshot,

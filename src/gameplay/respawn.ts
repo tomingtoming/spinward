@@ -4,22 +4,24 @@ import type { PlayerTraversalState } from '../app/playerTraversal'
 import { resetPlayerToGrounded, resetPlayerToFreeFly } from '../app/playerTraversal'
 import { getArrivalSquare, getOverlookAltitude } from '../objects/cityLayout'
 import type { HabitatType } from '../sim/habitatConfig'
+import { getSpaceportEnvelopeRadius } from '../objects/spaceport'
 
 const axisEndRotatingPosition = new THREE.Vector3()
 const overlookRotatingPosition = new THREE.Vector3()
 const exteriorRotatingPosition = new THREE.Vector3()
 const exteriorRotatingVelocity = new THREE.Vector3()
 
-export type ExteriorView = { aspect?: number; verticalFovDegrees?: number }
+export type ExteriorView = { aspect?: number; verticalFovDegrees?: number; mirrorReach?: number }
 
-/** Fit the hull in the smaller viewport dimension. A fixed multiple of radius
- * clips long cylinders and shows an edge-on ring. Mirror wings can extend
- * beyond this framing; the inhabited hull is the visual anchor. */
+/** Fit the complete rotating assembly in the smaller viewport dimension.
+ * mirrorReach is the radial extension beyond the shell of a 45-degree panel. */
 export const getExteriorVantage = (config: { type: HabitatType; radius: number; length: number } & ExteriorView) => {
   const halfVertical = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(config.verticalFovDegrees ?? 70, 25, 110) / 2)
   const aspect = THREE.MathUtils.clamp(config.aspect ?? 1, .3, 4)
   const halfHorizontal = Math.atan(Math.tan(halfVertical) * aspect)
-  const envelope = Math.hypot(config.radius * 1.12, config.length * .5)
+  const mirrorReach = Math.max(0, config.mirrorReach ?? 0)
+  const envelope = Math.max(getSpaceportEnvelopeRadius(config.radius, config.length),
+    Math.hypot(config.radius * 1.12 + mirrorReach, Math.max(config.length * .5, mirrorReach - config.length * .5)))
   const distance = envelope * 1.08 / Math.sin(Math.min(halfVertical, halfHorizontal))
   return new THREE.Vector3(1, config.type === 'ring' ? -.8 : -.7, .32).normalize().multiplyScalar(distance)
 }

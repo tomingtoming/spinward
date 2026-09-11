@@ -34,6 +34,14 @@ export const getSpaceportDimensions = (
 // offset (arms, approach path, docked noses) mirrors through this.
 const getEndSign = (dims: SpaceportDimensions) => Math.sign(dims.hubCenterY) || 1
 
+// Includes the human-sized shuttles and their short final-approach path. On
+// the small Playground this extends much farther than the inhabited hull.
+export const getSpaceportEnvelopeRadius = (radius: number, length: number) => {
+  const dims = getSpaceportDimensions(radius, length)
+  return Math.hypot(dims.hubRadius + dims.armLength + SHIP_RADIUS * 2,
+    length * .5 + dims.hubLength * .7 + dims.approachSpan + SHIP_LENGTH)
+}
+
 // Low-poly shuttle: body + nose + engine bell, pointing along +Y.
 const buildShipGeometry = () => {
   const parts: THREE.BufferGeometry[] = []

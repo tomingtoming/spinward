@@ -24,17 +24,19 @@ try{
   for(const stop of config.stops){
    if(phone)await page.getByRole('button',{name:'Travel ▾',exact:true}).click()
    await page.getByRole('button',{name:stop,exact:true}).click()
-   await page.waitForTimeout(1800)
+   await page.waitForTimeout(Number(process.env.SETTLE_MS??1800))
    await page.evaluate(()=>{document.querySelector('.lil-gui')?.remove()})
    const name=`${process.env.PREFIX??'tour'}-${config.preset}-${config.time==='.42'?'day':'night'}-${config.tier}-${stop.toLowerCase().replaceAll(' ','-')}`
    const data=await page.evaluate(()=>({state:window.__spinward,body:{visible:window.__spinwardBody.group.visible,...window.__spinwardBody.group.userData},walkers:{visible:window.__spinwardWalkers.group.visible,...window.__spinwardWalkers.group.userData},stats:document.querySelector('.stats-overlay')?.textContent}))
    if(stop==='Exterior')data.view=await page.evaluate(()=>{
     const c=window.__spinwardScene.getObjectByName('coffee-held').parent
     const p=c.getWorldPosition(c.position.clone()),d=c.getWorldDirection(c.position.clone())
-    return {camera:p.toArray(),forward:d.toArray(),centre:c.position.clone().set(0,0,0).project(c).toArray(),alignment:d.dot(p.clone().negate().normalize())}
+    const sky=window.__spinwardScene.getObjectByName('starfield'),sun=window.__spinwardScene.getObjectByName('sun')
+    return {camera:p.toArray(),forward:d.toArray(),centre:c.position.clone().set(0,0,0).project(c).toArray(),alignment:d.dot(p.clone().negate().normalize()),far:c.far,skyCentre:sky.getWorldPosition(p.clone()).toArray(),sun: sun.getWorldPosition(p.clone()).toArray()}
    })
+   if(data.view&&Math.hypot(...data.view.centre.slice(0,2))>.04)throw Error(`Exterior view drifts away from the colony: ${JSON.stringify(data.view)}`)
    const event={'Surface':'surface','Old Town':'old-town','Overlook':'overlook','Axis':'axis','Exterior':'exterior'}[stop]
-   if(data.state.tour!==event)throw Error(`Stale destination card at ${stop}: ${data.state.tour}`)
+   if(Number(process.env.SETTLE_MS??1800)<8000&&data.state.tour!==event)throw Error(`Stale destination card at ${stop}: ${data.state.tour}`)
    await page.screenshot({path:out+name+'.png'})
    reports.push({name,...data});console.log(JSON.stringify({name,stats:data.stats,mode:data.state.mode,altitude:data.state.altitude,bodyVisible:data.body.visible}))
   }

@@ -1,8 +1,29 @@
 import { describe, expect, test } from 'bun:test'
+import * as THREE from 'three'
 
-import { getSpaceportDimensions } from './spaceport'
+import { getSpaceportDimensions, getSpaceportEnvelopeRadius, Spaceport } from './spaceport'
 
 describe('getSpaceportDimensions', () => {
+  test('the exterior envelope contains authored port meshes and the moving shuttle', () => {
+    for (const [radius, length] of [[18, 120], [3200, 40000], [30000, 2000]]) {
+      const port = new Spaceport({ radius, length })
+      const envelope = getSpaceportEnvelopeRadius(radius, length)
+      try {
+        for (const dt of [0, 20, 30, 24, 2]) {
+          port.update(dt); port.group.updateMatrixWorld(true)
+          port.group.traverse(object => {
+            if (!(object instanceof THREE.Mesh)) return
+            object.geometry.computeBoundingBox()
+            const bounds = object.geometry.boundingBox!
+            for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+              expect(object.localToWorld(new THREE.Vector3(x, y, z)).length()).toBeLessThan(envelope)
+            }
+          })
+        }
+      } finally { port.dispose() }
+    }
+  })
+
   test('small habitats get a compact hub at the mirror-hinge (-Y) end', () => {
     const dims = getSpaceportDimensions(18, 120)
     expect(dims.hubCenterY).toBeCloseTo(-60, 6)

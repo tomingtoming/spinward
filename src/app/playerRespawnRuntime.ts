@@ -157,6 +157,7 @@ export const respawnPlayerExteriorRuntime = <TPlayerRig, TPlayerTraversal>(
   const didRespawn = dependencies.respawnExterior(config.playerTraversal, {
     aspect: config.aspect,
     verticalFovDegrees: config.verticalFovDegrees,
+    mirrorReach: config.mirrorReach,
     type: config.type,
     radius: config.radius,
     length: config.length,

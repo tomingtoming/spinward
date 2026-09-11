@@ -5,12 +5,17 @@ type StarfieldDimensions = {
   length: number
 }
 
-// Radius of the inertial star shell. Big habitats would otherwise push the
-// shell inside the camera, so it is sized off whichever spans the scene: a
-// floor of 250, four habitat radii, or 2.5 lengths. The sun shares this so it
-// parks among the far stars rather than drifting off on its own scale.
+// Base radius of the inertial sky, large enough to sit behind the habitat.
+// Observer translation expands it further without changing angular positions.
+// The sun shares this scale so both remain a distant background.
 export const computeStarShellRadius = (radius: number, length: number) =>
   Math.max(250, radius * 4, length * 2.5)
+
+// Keep a viewer-centred sky behind the whole colony even when the observer is
+// farther away than the original shell. Scaling both position and sprite size
+// preserves angular size; translating the shell removes artificial parallax.
+export const computeDistantSkyScale = (shellRadius: number, observerDistance: number) =>
+  1 + 2 * observerDistance / shellRadius
 
 const shellDirection = new THREE.Vector3()
 const STAR_OPACITY_NIGHT = 0.9
@@ -35,11 +40,14 @@ export class Starfield {
   private radius = 250
 
   constructor(dimensions: StarfieldDimensions) {
+    this.group.name = 'starfield'
     this.setDimensions(dimensions)
   }
 
   setDimensions({ radius, length }: StarfieldDimensions) {
     this.radius = computeStarShellRadius(radius, length)
+    this.group.scale.setScalar(1)
+    this.group.position.set(0, 0, 0)
 
     if (this.stars !== null) {
       this.stars.geometry.dispose()
@@ -65,8 +73,13 @@ export class Starfield {
     this.group.rotation.y = -frameAngle
   }
 
+  setObserverPosition(position: THREE.Vector3) {
+    this.group.position.copy(position)
+    this.group.scale.setScalar(computeDistantSkyScale(this.radius, position.length()))
+  }
+
   getSuggestedCameraFar() {
-    return this.radius * 1.25
+    return this.radius * this.group.scale.x * 1.25
   }
 
   getShellRadius() {

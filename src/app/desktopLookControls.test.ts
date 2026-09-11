@@ -91,3 +91,43 @@ test('travel look changes cancel the boot reveal and survive subsequent frames',
     if(savedDocument)Object.defineProperty(globalThis,'document',savedDocument);else Reflect.deleteProperty(globalThis,'document')
   }
 })
+
+test('an exterior heading survives frame rotation while manual look remains free', () => {
+  const savedWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const savedDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const events = new EventTarget()
+  Object.defineProperty(globalThis, 'window', { value: events, configurable: true })
+  Object.defineProperty(globalThis, 'document', { value: new EventTarget(), configurable: true })
+  const rig = new THREE.Group(), view = new THREE.Group(), camera = new THREE.PerspectiveCamera()
+  rig.add(view); view.add(camera); view.rotation.y = Math.PI / 2
+  const controls = new DesktopLookControls(rig, camera, new EventTarget() as unknown as HTMLElement)
+  const axis = new THREE.Vector3(0, 1, 0), turn = new THREE.Quaternion()
+  let frame = 0
+  const step = () => {
+    controls.update(.1, false, undefined, true)
+    controls.advanceReferenceFrame(.14)
+    frame = (frame + .14) % (Math.PI * 2)
+    rig.updateMatrixWorld(true)
+    return camera.getWorldQuaternion(new THREE.Quaternion()).premultiply(turn.setFromAxisAngle(axis, frame))
+  }
+  const key = (type: string) => {
+    const event = new Event(type)
+    Object.defineProperty(event, 'code', { value: 'ArrowLeft' })
+    events.dispatchEvent(event)
+  }
+  try {
+    controls.faceDirection(new THREE.Vector3(-1, .7, -.32))
+    controls.setInertialLook(true)
+    const initial = camera.getWorldQuaternion(new THREE.Quaternion())
+    for (let i = 0; i < 600; i++) expect(step().angleTo(initial)).toBeLessThan(1e-6)
+    key('keydown'); const moved = step(); key('keyup')
+    expect(moved.angleTo(initial)).toBeCloseTo(.14, 5)
+    for (let i = 0; i < 30; i++) expect(step().angleTo(moved)).toBeLessThan(1e-6)
+    controls.setInertialLook(false)
+    expect(step().angleTo(moved)).toBeCloseTo(.14, 5)
+  } finally {
+    controls.dispose()
+    if (savedWindow) Object.defineProperty(globalThis, 'window', savedWindow); else Reflect.deleteProperty(globalThis, 'window')
+    if (savedDocument) Object.defineProperty(globalThis, 'document', savedDocument); else Reflect.deleteProperty(globalThis, 'document')
+  }
+})

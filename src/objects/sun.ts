@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { computeStarShellRadius } from './starfield'
+import { computeDistantSkyScale, computeStarShellRadius } from './starfield'
 
 // The colony's spin (and length) axis is world +Y. The spaceport hub always
 // sits on the -Y end (getSpaceportDimensions: hubCenterY = -length / 2), so the
@@ -96,6 +96,7 @@ export class Sun {
   private glowScale = 1
 
   constructor(dimensions: SunDimensions) {
+    this.group.name = 'sun'
     this.glowSprite = this.buildSprite(
       buildSunTexture(0.35, 'rgba(255, 234, 214, 0.55)'),
       0xffe8d4,
@@ -144,8 +145,15 @@ export class Sun {
 
   setDimensions({ radius, length }: SunDimensions) {
     this.distance = getSunDistance(radius, length)
+    this.group.scale.setScalar(1)
     this.group.position.set(0, this.distance, 0)
     this.applySpriteSizes()
+  }
+
+  setObserverPosition(position: THREE.Vector3) {
+    const scale = computeDistantSkyScale(this.distance / SUN_SHELL_FRACTION, position.length())
+    this.group.position.copy(position).addScaledVector(SUN_DIRECTION, this.distance * scale)
+    this.group.scale.setScalar(scale)
   }
 
   private applySpriteSizes() {

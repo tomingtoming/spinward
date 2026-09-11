@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
+import * as THREE from 'three'
 
 import { getSpaceportDimensions } from './spaceport'
-import { computeStarShellRadius } from './starfield'
-import { SUN_DIRECTION, getSunDistance, getSunPosition } from './sun'
+import { computeStarShellRadius, Starfield } from './starfield'
+import { SUN_DIRECTION, getSunDistance, getSunPosition, Sun } from './sun'
 
 // Mirror of habitatRuntime's camera-far floor, so the far-plane guard exercises
 // the real expression rather than a tautological multiple of the star shell.
@@ -11,6 +12,32 @@ const cameraFarFor = (radius: number, length: number) =>
   Math.max(MIN_CAMERA_FAR, computeStarShellRadius(radius, length) * 1.25)
 
 describe('sun placement', () => {
+  test('distant sky retains angular directions and stays behind the colony from far observers', () => {
+    const radius = 3200, length = 40000
+    const stars = new Starfield({ radius, length }), sun = new Sun({ radius, length })
+    const parent = new THREE.Group()
+    parent.add(stars.group, sun.group)
+    // Exercise both display-root rotation and the counter-rotating star frame.
+    parent.rotation.y = .7; stars.setFrameAngle(.7)
+    const star = new THREE.Vector3().fromBufferAttribute((stars.group.children[0] as THREE.Points).geometry.getAttribute('position'), 12)
+    let firstDirection: THREE.Vector3 | null = null
+    for (const position of [new THREE.Vector3(), new THREE.Vector3(200000, -100000, 64000), new THREE.Vector3(-1e6, 4e5, 1e6)]) {
+      stars.setObserverPosition(position); sun.setObserverPosition(position)
+      parent.updateMatrixWorld(true)
+      const worldEye = parent.localToWorld(position.clone())
+      const direction = stars.group.localToWorld(star.clone()).sub(worldEye).normalize()
+      if (firstDirection) expect(direction.distanceTo(firstDirection)).toBeLessThan(1e-12)
+      firstDirection = direction
+      const sunDelta = sun.group.getWorldPosition(new THREE.Vector3()).sub(worldEye)
+      expect(sunDelta.clone().normalize().distanceTo(SUN_DIRECTION)).toBeLessThan(1e-12)
+      expect(sunDelta.length() / sun.group.scale.x).toBeCloseTo(getSunDistance(radius, length), 5)
+      // A sphere of radius 50 km covers the hull, port and the 45-degree wings.
+      expect(sunDelta.length()).toBeGreaterThan(position.length() + 50000)
+      expect(stars.getSuggestedCameraFar()).toBeGreaterThan(star.length() * stars.group.scale.x)
+    }
+    sun.dispose()
+  })
+
   test('the sun points up the +Y axis (the spaceport-free end)', () => {
     expect(SUN_DIRECTION.x).toBe(0)
     expect(SUN_DIRECTION.y).toBe(1)

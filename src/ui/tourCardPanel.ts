@@ -257,7 +257,7 @@ export class TourCardPanel {
 
     ctx.clearRect(0, 0, width, height)
 
-    ctx.fillStyle = 'rgba(4, 12, 20, 0.82)'
+    ctx.fillStyle = 'rgba(4, 12, 20, 0.97)'
     ctx.beginPath()
     ctx.roundRect(8, 8, width - 16, height - 16, 18)
     ctx.fill()
@@ -307,10 +307,8 @@ export class TourCardPanel {
     this.mesh.scale.set(panelWidth, (panelWidth * this.canvas.height) / this.canvas.width, 1)
   }
 
-  // Converts the touch controls' reserved screen height into a world-space Y
-  // offset at the panel's fixed distance, so it clears the on-screen buttons
-  // in landscape (where vertical room is short) instead of rendering behind
-  // them.
+  // Lift only the overlap with the touch controls, preserving the low position
+  // on portrait screens where the panel already has plenty of bottom margin.
   private clearanceLift(camera: THREE.Camera, clearancePx: number): number {
     const perspectiveCamera = camera as THREE.PerspectiveCamera & {
       isPerspectiveCamera?: boolean
@@ -325,6 +323,9 @@ export class TourCardPanel {
       return 0
     }
 
-    return (clearancePx / window.innerHeight) * visibleHeightAt(perspectiveCamera)
+    const visibleHeight = visibleHeightAt(perspectiveCamera)
+    const requiredBottom = -visibleHeight / 2 + ((clearancePx + 12) / window.innerHeight) * visibleHeight
+    const panelBottom = PANEL_POSITION.y - this.mesh.scale.y / 2
+    return Math.max(0, requiredBottom - panelBottom)
   }
 }

@@ -95,6 +95,7 @@ export class DesktopLookControls {
   private readonly rollAttitude = createJetpackAttitudeState()
   private freeFlyActive = false
   private wasFreeFly = false
+  private inertialLook = false
   private dragging = false
   // True while easing the inherited free-fly pitch back to level after a landing.
   private standingUp = false
@@ -201,6 +202,7 @@ export class DesktopLookControls {
 
     if (xrActive) {
       this.introElapsed = null
+      this.inertialLook = false
       return intent
     }
 
@@ -231,6 +233,7 @@ export class DesktopLookControls {
     // Seed/recover the free-fly attitude across mode changes so the view never
     // jumps. Cached for the async drag handler too.
     this.freeFlyActive = freeFlyActive
+    if (!freeFlyActive) this.inertialLook = false
     if (freeFlyActive && !this.wasFreeFly) {
       // Grounded → free-fly: hand the orientation to the RIG so the whole
       // jetpack/body rolls, pitches and yaws (not just the eye). Seed it from
@@ -428,6 +431,7 @@ export class DesktopLookControls {
   // camera aligned with the hood instead of whatever way you last looked.
   resetLook() {
     this.introElapsed = null
+    this.inertialLook = false
     this.yaw = 0
     this.pitch = 0
     this.roll = 0
@@ -441,6 +445,7 @@ export class DesktopLookControls {
   // always free-fly, so there is no grounded path to disturb.
   faceDirection(worldDirection: THREE.Vector3, worldUp?: THREE.Vector3) {
     this.introElapsed = null
+    this.inertialLook = false
     faceLookDir.copy(worldDirection)
     if (faceLookDir.lengthSq() < 1e-9) {
       return
@@ -458,6 +463,19 @@ export class DesktopLookControls {
     resetJetpackAttitude(this.rollAttitude)
     this.freeFlyActive = true
     this.wasFreeFly = true
+  }
+
+  // Exterior arrivals have zero inertial angular velocity as well as zero
+  // translational velocity. This preserves a heading, not a look-at target:
+  // mouse/keys and coasting roll still move the camera freely.
+  setInertialLook(enabled: boolean) {
+    this.inertialLook = enabled
+  }
+
+  advanceReferenceFrame(angleDelta: number) {
+    if (!this.inertialLook || !this.freeFlyActive) return
+    this.attitude.premultiply(freeFlyDelta.setFromAxisAngle(Y_AXIS, -angleDelta)).normalize()
+    this.applyAttitudeToRig()
   }
 
   // Land facing the way you flew in: decompose the free-fly world attitude into

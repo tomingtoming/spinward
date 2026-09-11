@@ -138,3 +138,31 @@ Independent tour review flags Izma's long mirror wings outside the hull-based
 framing and bright objects behind the translucent guide text. Next: include
 the complete mirror envelope in Exterior and protect guide readability. Keep
 the wider scene/movement survey moving after those bounded repairs.
+
+## Eighth increment — complete exterior and stable sky (02:13)
+
+Exterior distance now includes the entire 45-degree mirror envelope and uses
+the narrower viewport angle. The star shell and sun follow the active eye in
+the sky's coordinate frame, expanding behind the complete scene and extending
+the camera far plane as needed. Their apparent direction and size remain fixed;
+the habitat air glow stays anchored to the colony. Guide backgrounds are more
+opaque and touch clearance lifts only actual overlap, keeping portrait cards
+below the colony rather than across it.
+
+A 12-second hold exposed a separate orientation defect: the observer was at
+inertial rest but the desktop/touch view rotated with the colony, drifting well
+outside the portrait screen. Exterior now counter-rotates the view's reference
+frame. Mouse/key look and accumulated roll still work; this is a retained
+heading, not continuous target tracking. Other travel targets and grounding
+restore the original view behavior; XR head-look is unchanged.
+
+720 tests/build pass. Tests cover mirror-tip projection over a rotation at
+three aspects, sky directions/occlusion distance at remote positions, repeated
+frame wraps and manual look while holding an inertial heading. All four preset
+exteriors and Izma day/night/portrait pass the real-camera centre check; Izma
+also passes after 12 seconds. Independent image review passed Izma framing and
+guidance but caught the small Playground's port beyond the hull frame. The
+envelope now also includes the actual port dimensions and human-sized shuttles;
+authored mesh bounds are checked through their approach cycle. Next: broader
+travel/streaming soak and everyday
+street interactions, without turning this into an exterior-only redesign.
