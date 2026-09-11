@@ -2,14 +2,14 @@ import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {COLONY_WINDOW_GLSL} from './colonyWindowAppearance'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-export type ColonyModuleName='structure'|'window_frame'|'canopy'|'door'|'balcony'|'balcony_rail'|'shop_awning'|'planter'|'planting'
+export type ColonyModuleName='structure'|'window_frame'|'canopy'|'door'|'balcony'|'balcony_rail'|'shop_awning'|'planter'|'planting'|'stair_flight'
 export type ColonyModules=Record<ColonyModuleName,THREE.BufferGeometry>
 let pending:Promise<ColonyModules>|undefined
 // Shared immutable source geometry: rebuilds and interior layers never duplicate it.
 export function loadColonyModules(){
   return pending??=new GLTFLoader().loadAsync('/assets/buildings/colony-modules.glb').then(g=>{
     const result={} as ColonyModules
-    for(const name of ['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting'] as const){
+    for(const name of ['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting','stair_flight'] as const){
       const node=g.scene.getObjectByName(name)
       if(!(node instanceof THREE.Mesh))throw Error('Missing colony module '+name)
       node.updateWorldMatrix(true,false)

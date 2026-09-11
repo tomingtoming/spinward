@@ -2555,6 +2555,7 @@ export class Cityscape {
     })
 
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
+    this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }

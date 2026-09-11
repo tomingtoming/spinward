@@ -1,5 +1,6 @@
 import {probeForecourts} from './forecourt-probe.mjs';
 import {probeBalconies} from './balcony-probe.mjs';
+import {probeStairs} from './stair-probe.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
 import fs from 'node:fs';import {fileURLToPath} from 'node:url';import * as T from 'three';
 const out=fileURLToPath(new URL('.',import.meta.url)),base=process.env.SPINWARD_URL??'https://127.0.0.1:5192';
@@ -27,6 +28,7 @@ for(const scene of (process.env.SCENES??'overview,street,old-town,industrial,hou
  if(data.pilot+data.colony.buildings!==data.plan||data.legacyNear||data.legacyFar||requests.some(u=>u.includes('spinward-buildings.glb'))||errors.length)throw Error(JSON.stringify({scene,data,requests,errors}));
  data.forecourts=await page.evaluate(probeForecourts);
  data.balconyAlignment=await page.evaluate(probeBalconies);
+ data.stairAlignment=await page.evaluate(probeStairs);
  await page.evaluate(()=>{document.querySelector('.lil-gui')?.remove();const panels=[];window.__spinwardScene.traverse(o=>{if(o.renderOrder===30)panels.push(o)});panels.forEach(o=>o.removeFromParent())});await page.screenshot({path:out+'colony-replacement-'+scene+'.png'});if(scene==='street'){data.structuralUpdates=await page.evaluate(()=>{const c=window.__spinwardCity.colonyBuildings,times=[],writes=[];for(let i=0;i<8;i++){const t=performance.now();c.update(.05,100+i*16,1.8);times.push(performance.now()-t);writes.push(c.group.userData.structuralWrites)}
 const membership=c.entries.map(e=>e.visible);c.clearBatches();c.invalidate();c.update(.05,212,1.8);
 const reloadPreserved=c.entries.every((e,i)=>e.visible===membership[i]);if(!reloadPreserved)throw Error('Asset rebuild changed visibility hysteresis');

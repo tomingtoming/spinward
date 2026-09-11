@@ -42,6 +42,10 @@ rail=cube('balcony_rail',[(0,-.06,.48,1,.12,.96),(0,1.04,.94,1,.06,.055),(0,.18,
     *[(x,.6,.94,.012,.82,.035) for x in [-.48,-.32,-.16,0,.16,.32,.48]],
     (-.49,.51,.48,.02,1.02,.92),(.49,.51,.48,.02,1.02,.92)])
 for uv in list(rail.data.uv_layers):rail.data.uv_layers.remove(uv)
+# Unit-rise flight, twelve individual treads; stringers and metric-height guards
+# are composed at runtime so handrail height does not stretch with storey height.
+flight=cube('stair_flight',[((i+.5)/12-.5,(i+1)/12-.025,0,1/12,.05,1) for i in range(12)])
+for uv in list(flight.data.uv_layers):flight.data.uv_layers.remove(uv)
 # Sloping fabric awning, with a front valance; x=width, z=projection in runtime.
 awning=cube('shop_awning',[(0,0,.5,1,.055,1),(0,-.14,.98,1,.23,.035)])
 # Lower the front edge, preserving the back attachment at y=0.
@@ -80,4 +84,4 @@ path=ROOT/'public/assets/buildings/colony-modules.glb'
 bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT')
 bpy.data.libraries.write(str(ROOT/'assets/blender/colony-modules.blend'),{scene},fake_user=True,compress=True)
 bpy.context.window.scene=previous
-result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting']}
+result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting','stair_flight']}

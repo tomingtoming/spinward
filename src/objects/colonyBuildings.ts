@@ -3,6 +3,7 @@ import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {colonyBalconies,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
+import {planColonyStairs,colonyStairParts,colonyStairCollider,STAIR_BUILDING_LIMIT,STAIR_CORE_LIMIT,type ColonyStair} from './colonyStairs'
 import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
 import * as THREE from 'three'
 import type { CityBuilding,CityRoad } from './cityLayout'
@@ -19,6 +20,7 @@ export class ColonyBuildings {
  readonly group=new THREE.Group()
  private entries:Entry[]=[]
  private forecourts=new Map<CityBuilding,ForecourtPlanter[]>()
+ private stairwells=new Map<CityBuilding,ColonyStair>()
  private capacities={shell:1,entrance:1,mixed:1}
  private entryByBuilding=new Map<CityBuilding,Entry>()
  private radius=1
@@ -67,11 +69,13 @@ export class ColonyBuildings {
   }
   this.entryByBuilding=new Map(this.entries.map(e=>[e.spec.building,e]))
   this.forecourts=planColonyForecourts(this.entries,buildings,roads,radius)
+  this.stairwells=planColonyStairs(this.entries,buildings,roads,radius)
   this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
   this.invalidate()
  }
  isBuildingVisible(b:CityBuilding){const e=this.entryByBuilding.get(b);return !!e&&(e.visible||(e.interior&&this.nearInteriors.has(b)))}
  getForecourtColliders(){return [...this.forecourts].flatMap(([b,planters])=>planters.map(p=>forecourtCollider(b,p)))}
+ getStairColliders(){return [...this.stairwells].filter(([,s])=>s.kind==='external').map(([b,s])=>colonyStairCollider(b,s,this.radius))}
  setNearInteriors(buildings:CityBuilding[]){this.nearInteriors=new Set(buildings);this.invalidate()}
  private batch(key:string,geometry:THREE.BufferGeometry,material:THREE.Material,capacity:number){
   let mesh=this.batches.get(key)
@@ -101,22 +105,24 @@ export class ColonyBuildings {
   const frames=this.modules?this.batch('window-frames',this.modules.window_frame,this.frame,8192):null
   const balconies=this.modules?this.batch('balconies',this.modules.balcony,this.frame,BALCONY_BUILDING_LIMIT*BALCONY_SECTION_LIMIT):null
   const railBalconies=this.modules?this.batch('balconies-rail',this.modules.balcony_rail,this.frame,BALCONY_BUILDING_LIMIT*BALCONY_SECTION_LIMIT):null
+  const stairFlights=this.modules?this.batch('stair-flights',this.modules.stair_flight,this.frame,96):null
+  const stairMetal=this.batch('stair-metal',this.modules?.canopy??this.fallback,this.frame,4096)
   const awnings=this.modules?this.batch('awnings',this.modules.shop_awning,this.frame,512):null
   const signs=this.batch('signs',this.signGeometry,this.signs,1024)
   const pots=this.batch('planters',this.modules?.planter??this.fallback,this.frame,320)
   const plants=this.batch('planting',this.modules?.planting??this.fallback,this.frame,320)
-  const up=new THREE.Vector3(0,1,0),local=new THREE.Matrix4(),world=new THREE.Matrix4(),q=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3()
+  const up=new THREE.Vector3(0,1,0),roll=new THREE.Vector3(0,0,1),local=new THREE.Matrix4(),world=new THREE.Matrix4(),q=new THREE.Quaternion(),tiltQ=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3()
   const mount=new THREE.Matrix4(),mx=new THREE.Vector3(),my=new THREE.Vector3(),mz=new THREE.Vector3()
-  const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0,tint=e.trim,frame=e.matrix)=>{
+  const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0,tint=e.trim,frame=e.matrix,tilt=0)=>{
    if(batch.count>=batch.instanceMatrix.count)return
-   q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(frame,local);batch.setMatrixAt(batch.count,world);if(batch!==doors&&batch!==signs)batch.setColorAt(batch.count,tint)
+   q.setFromAxisAngle(up,rotation);if(tilt)q.multiply(tiltQ.setFromAxisAngle(roll,tilt));local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(frame,local);batch.setMatrixAt(batch.count,world);if(batch!==doors&&batch!==signs)batch.setColorAt(batch.count,tint)
    batch.count++
   }
   const label=(e:Entry,v:BlockVolume,id:number)=>{
    const index=signs.count;if(index>=signs.instanceMatrix.count)return
    add(signs,e,v);(signs.geometry.getAttribute('aShopSign') as THREE.InstancedBufferAttribute).setX(index,id)
   }
-  let visible=0,near=0,framed=0,balconyBuildings=0,retailBuildings=0
+  let visible=0,near=0,framed=0,balconyBuildings=0,retailBuildings=0,stairBuildings=0,enclosedStairs=0
   const close:Array<{e:Entry;distance:number}>=[]
   for(const e of this.entries){
    const interiorOwned=e.interior&&this.nearInteriors.has(e.spec.building)
@@ -146,6 +152,18 @@ export class ColonyBuildings {
   for(const {e,distance} of close.slice(0,160)){
    near++
    const detailed=distance<30&&framed++<6
+   const stair=this.stairwells.get(e.spec.building)
+   if(stair&&(stair.kind==='external'?stairBuildings<STAIR_BUILDING_LIMIT:enclosedStairs<STAIR_CORE_LIMIT)){
+    const wallTint=e.color.clone().lerp(e.trim,.3)
+    if(stair.kind==='external')stairBuildings++;else enclosedStairs++
+    if(stair.kind==='external'&&!stairFlights){
+     // An opaque proxy retains the permanent envelope if the optional asset fails.
+     add(stairMetal,e,{x:stair.x-2.45,y:(stair.levels.at(-1)!+1.1)/2,z:stair.z-1.36,w:6.4,h:stair.levels.at(-1)!+1.1,d:2.8},0,wallTint)
+    }else for(const part of colonyStairParts(stair)){
+     const batch=part.kind==='flight'?stairFlights!:stairMetal
+     add(batch,e,part,part.yaw,part.kind==='wall'?wallTint:part.kind==='door'?this.door.color:e.trim,e.matrix,part.tilt)
+    }
+   }
    for(const planter of this.forecourts.get(e.spec.building)??[]){
     const a=planter.azimuth,side=e.spec.building.front!.side,tangent=e.spec.building.front!.axis==='tangent'
     mx.set(tangent?0:side*Math.sin(a),tangent?side:0,tangent?0:-side*Math.cos(a))
@@ -249,7 +267,7 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}

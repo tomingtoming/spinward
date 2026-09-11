@@ -1418,3 +1418,63 @@ parapet colour reduces depth contrast, and adjacent metal-bay side returns read
 as paired fins; these remain aesthetic refinement points. Hidden backs and
 motion shimmer are outside this static review. Local implementation only;
 not published.
+
+## Rear stairwells and exterior stairs (2026-09-11)
+
+Selected multi-storey buildings now show rear stairwells. A narrow opaque strip
+replaces the ordinary window bay, with a ground door and small windows at the
+intermediate landings. Low/mid-rise residential and commercial candidates can
+instead receive an open switchback stair. The default 64k plan selects 4,665
+stairwells, of which 175 have enough space for the exterior version. Towers
+without a continuous rear wall are left to their internal circulation rather
+than receiving a disconnected shaft across setbacks.
+
+Exterior eligibility uses the actual parcel, all roads, neighbouring footprints,
+certified entrance approaches and previously reserved stairs/routes. The whole
+6.4m × 2.8m assembly and a 1.2m ground route along the building side must fit in
+the parcel, joining the existing street frontage. Dense lots therefore tend to
+retain enclosed stairs. Small habitats below 800m radius use the enclosed
+representation. The exterior variant is capped at 34m building height and uses
+the floor grid of its continuous main wall, including 4.2m retail levels.
+
+The connected Blender generator adds a twelve-tread `stair_flight` module with
+144 triangles. Flights scale in rise while separate stringers, landing rails
+and posts retain metric dimensions; sloping handrails stay 1.05m above a flight.
+Two opposing flights meet an intermediate landing and each upper floor landing
+meets its rear door. The plinth covers the local ground curvature. The top of
+each support column terminates at its own landing rail; independent image
+review caught intermediate-landing columns initially extending too far up, and
+this has a regression test.
+
+This is exterior architecture for currently non-enterable buildings. The ground
+gate is closed, and a permanent conservative collision envelope reserves each
+exterior stair assembly. It is not a playable route into upper-floor rooms or
+an evacuation simulation. The optional-asset failure path draws an opaque proxy
+at that same envelope, so an invisible collision volume is not left behind.
+
+Rendering stays within the existing 144m near-detail selection: at most four
+exterior stairs and six enclosed stairwells, with 96 flight instances and 4,096
+simple parts across two shared batches. Stair doors/windows share the stair-parts
+batch rather than consuming the storefront-door buffer. The complete ten-node
+GLB is 38,808 bytes (previously 31,444); its explicit asset budget is now 48,000
+bytes. No new textures or lights are added, and far geometry is unchanged.
+
+Validation: all 688 tests pass (114 files), and the production build passes.
+Stair tests cover both frontage axes and signs, the cylindrical seam, 800m/3,200m
+fixtures, and generated 64k plans at 250m/3,200m radius. They check parcel/road
+clearance, flight-to-landing transforms, tread rise, permanent collision envelopes,
+support heights and complete instance budgets. Live renderer probes found two
+exterior stairs and one enclosed stairwell at the exterior viewpoint, with all
+16 flights and 16 landings present. The reverse view exposes the ground gate;
+independent image review confirmed the corrected column ends and found no clear
+defect in the visible plinth, enclosure or gate. The asset-failure view has no
+flights and retains two visible opaque proxies and their collision envelopes.
+
+Desktop, phone-profile, night and asset-failure street checks also pass, including
+the existing balcony, forecourt and structural-visibility probes, with no reported
+JavaScript/shader errors. The standard street view adds one draw (143 to 144);
+the distant night overview draws no stairs. Settled exterior captures report
+60fps and 16.7–16.8ms p95 frame intervals on desktop Chrome/Metal (Apple M1 Pro).
+An earlier transient slow capture prevents treating these as a speedup claim.
+The phone check is an emulated profile, not a physical phone or Quest result.
+Local implementation only; not published.
