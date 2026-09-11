@@ -180,8 +180,9 @@ export class StreetLamps {
   private readonly headMaterial = new THREE.MeshBasicMaterial({ color: 0xffe2b0, toneMapped: false })
   private readonly poolMaterial = new THREE.MeshBasicMaterial({
     map: createLampPoolTexture(),
-    // HDR warm: must beat the tone-mapped asphalt and feed the desktop bloom.
-    color: new THREE.Color(2.3, 1.9, 1.35),
+    // Reflected road light stays below the bloom threshold; the lamp head is
+    // the luminous source. HDR pools would erase the road markings at night.
+    color: new THREE.Color(0.276, 0.228, 0.162),
     transparent: true,
     opacity: 0,
     blending: THREE.AdditiveBlending,

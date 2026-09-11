@@ -1487,7 +1487,7 @@ three to five; industrial roofs mix exhaust hoods and HVAC in four to six
 positions. Placement uses the highest/largest actual roof, the same selection
 as the beacon anchor. It keeps at least 1m inside the roof edge, 0.8m between
 units and a clear central beacon/maintenance area. Narrow roofs may fit fewer
-units or none. Courtyards, pitched-house lots, public rooms and authored pilot
+units or none. Courtyards, house lots, public rooms and authored pilot
 buildings retain their existing treatment. These are visual services, without
 new interactions or physical equipment colliders.
 
@@ -1524,3 +1524,27 @@ stair, forecourt and structural churn checks. The standard street view is
 145 draws (previously 144), the phone profile 123 (previously 122), and the far
 night view still 146 with zero roof units. Desktop Chrome/Metal captures report
 60fps and 16.7–16.8ms p95; these are not physical phone/Quest measurements.
+
+## Night street-light reflection (2026-09-11)
+
+Roof-level inspection exposed saturated pools below street lamps. The near
+lamp road decal used linear HDR colour (2.3, 1.9, 1.35), exceeding the desktop
+bloom threshold and turning both road and nearby pavement into broad white
+patches. The reflected-light colour is now (0.276, 0.228, 0.162), 12% of the
+previous value. Lamp heads, windows, beacon emission, global exposure, bloom
+settings, light spacing, pool geometry and time-of-day opacity are unchanged.
+This adds no draw calls, textures or runtime lights.
+
+The comparison script selects an actual nearby lamp and faces down its road;
+the earlier default entrance view did not expose the problem. Same-camera
+desktop comparisons show the lane lines, vehicles and pavement through the
+former saturated area. A fixed 320×300 road crop at (640,580) changes from
+53.3% near-white pixels (all sRGB channels above 0.9) to zero in the final build.
+Independent street/industrial image review confirms the reduced bloom, intact
+windows/heads and readable route outlines. The dark intervals between lamps
+remain high-contrast; moving/physical XR readability has not been verified.
+The phone profile without bloom retains a warm pool and readable road edges.
+Final desktop/phone captures have no reported JavaScript/shader errors, and
+all 178 street and 158 industrial pool transforms match the pre-change data.
+The daytime check retains the existing approximately 0.0025 pool opacity.
+All 691 tests and the production build pass. Local only; not published.
