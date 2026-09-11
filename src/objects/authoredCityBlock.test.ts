@@ -7,7 +7,7 @@ import { collideSphereWithBuildings } from '../sim/cityCollision';
 for (const maxBuildings of [64000, 16000])
     test(`authored block keeps all certified lots in tier ${maxBuildings}`, () => {
         const p = planCity({ radius: 3200, length: 40000, maxBuildings });
-        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(maxBuildings===64000?11:8);
+        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(maxBuildings===64000?58:40);
     });
 for (const s of CITY_BLOCK.blocks)
     test(`${s.id}: GLB contains only four decreasing LODs within the lot`, () => {

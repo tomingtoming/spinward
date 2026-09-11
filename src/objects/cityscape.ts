@@ -2646,7 +2646,7 @@ export class Cityscape {
 
   getInteriorVisit(kind: string | null) {
     if (kind === 'city-block') {
-      const b = this.cityPlanBuildings.find(b => cityBlockSpec(b, this.radius)?.id === 'office' && b.axial > 0 && b.axial < 50)
+      const b = this.cityPlanBuildings.find(b => cityBlockSpec(b, this.radius)?.id === 'office' && Math.abs(b.azimuth-0.05333934543525725)<1e-9 && b.axial > 0 && b.axial < 50)
       if (!b?.access) return null
       const { azimuth, axial } = b.access.roadEdge
       const up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))

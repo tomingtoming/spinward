@@ -4,6 +4,7 @@ import type { CityBuilding } from './cityLayout';
 export type BlockVolume = typeof contract.blocks[number]['volumes'][number];
 export type BlockSpec = { id: string; building: CityBuilding; volumes: BlockVolume[]; wall: string; roof: string; offsetZ?: number };
 export const CITY_BLOCK_PLACEMENTS: BlockSpec[] = [...contract.blocks.map(s=>({...s,building:s.building as CityBuilding})), ...expansion.map(p=>{const source=contract.blocks.find(s=>s.id===p.model)!;return {...source,building:p.building as CityBuilding,offsetZ:p.offsetZ,volumes:source.volumes.map(v=>({...v,z:v.z+p.offsetZ}))}})];
+const bounds={minAz:Math.min(...CITY_BLOCK_PLACEMENTS.map(s=>s.building.azimuth)),maxAz:Math.max(...CITY_BLOCK_PLACEMENTS.map(s=>s.building.azimuth)),minAx:Math.min(...CITY_BLOCK_PLACEMENTS.map(s=>s.building.axial)),maxAx:Math.max(...CITY_BLOCK_PLACEMENTS.map(s=>s.building.axial))};
 export const CITY_BLOCK = contract;
 const key = (b: {
     azimuth: number;
@@ -17,7 +18,7 @@ export function cityBlockSpec(b: CityBuilding, radius: number) {
         return null;
     // Most city lots are outside the bounded pilot area: avoid string allocation
     // while scanning the far-city buffers. Exact matching still guards the rest.
-    if (Math.abs(b.azimuth-.05)*radius>450 || Math.abs(b.axial)>400) return null;
+    if (b.azimuth<bounds.minAz-1e-9 || b.azimuth>bounds.maxAz+1e-9 || b.axial<bounds.minAx-1e-6 || b.axial>bounds.maxAx+1e-6) return null;
     const s = specs.get(key(b));
     return s && Math.abs(s.building.width - b.width) < 1e-5 && Math.abs(s.building.depth - b.depth) < 1e-5 && Math.abs(s.building.height - b.height) < 1e-5 ? s : null;
 }

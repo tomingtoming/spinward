@@ -918,3 +918,24 @@ Full tests: 664 pass, zero fail; build passes with the existing chunk warning.
 The current expansion is deliberately bounded. Whole-city placement, spatially
 partitioned instance batches and physical Quest/phone frame-time measurements
 remain future work.
+
+## 58-building district (2026-09-11)
+
+Expanded from 11 to 58 exact desktop lots within an approximately 3.6km square
+search area; 40 exist in the phone plan. All previous placements and model
+choices remain unchanged. `bun assets/blender/expand_city_block.ts` regenerates
+the manifest, preserving existing family choices and excluding planned
+enterable interiors. Every new model fits without scaling, and the tests check
+bounds and front alignment. Lookup rejection bounds now derive from the
+manifest. The visit link remains pinned to the original office.
+
+The same 48 geometries and three serialized asset requests serve the district.
+At the existing 400m-high comparison view, 3 versus 58 buildings measured
+202 versus 208 total draws; at 2200m, both measured 227. Each six-second sample
+held approximately 60fps with p95 frame time 16.7–16.8ms on this desktop browser.
+The expanded scene uses 18 primitive batches across LOD2/3 at 400m and nine
+LOD3 batches at 2200m, containing 174 primitive instances. These capped desktop
+samples do not establish hardware headroom or physical mobile/XR performance.
+The desktop and phone-profile visit checks pass with no JavaScript errors.
+Full suite remains 664 passed / zero failed; build passes with the existing
+chunk-size warning. Local changes only; no publishing.
