@@ -1,9 +1,12 @@
 """Original metric city-block architecture. Author massing once, retain it at all LODs.
 Run via Blender MCP with __file__ set. Only tagged SWCB scenes are replaced.
 """
-import bpy, json, math
+import bpy, json, math, sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
+sys.dont_write_bytecode=True
+sys.path.insert(0,str(ROOT/'assets/blender'))
+from facade_visibility import visible_wall_rectangles, full_window_exposed, clipped_uv
 C=json.loads((ROOT/'assets/blender/city-block.json').read_text())
 previous=bpy.context.window.scene
 PREFIX='SWCB_'
@@ -56,7 +59,14 @@ for spec in C['blocks']:
             if side==1:return(v['x']-u,y,v['z']-n)
             if side==2:return(v['x']+n,y,v['z']-u)
             return(v['x']-n,y,v['z']+u)
-        def wall(v,side,u0,u1,y0,y1,n,material,uv=None):quad([surf(v,u0,y0,n,side),surf(v,u1,y0,n,side),surf(v,u1,y1,n,side),surf(v,u0,y1,n,side)],material,uv)
+        def wall(v,side,u0,u1,y0,y1,n,material,uv=None):
+            original=(u0,u1,y0,y1)
+            own=next((i for i,mass in enumerate(spec['volumes']) if mass is v),None)
+            pieces=visible_wall_rectangles(spec['volumes'],own,side,original) if own is not None else [original]
+            coords=uv or [(0,0),(1,0),(1,1),(0,1)]
+            for rect in pieces:
+                a,b,c,d=rect
+                quad([surf(v,a,c,n,side),surf(v,b,c,n,side),surf(v,b,d,n,side),surf(v,a,d,n,side)],material,clipped_uv(coords,original,rect))
         def box(v,material=0,facades=False):
             x,y,z,w,h,d=[v[k] for k in ['x','y','z','w','h','d']];bottom=y-h/2;top=y+h/2
             for side in range(4):
@@ -67,10 +77,7 @@ for spec in C['blocks']:
             quad([(x-w/2,roof_y,z-d/2),(x-w/2,roof_y,z+d/2),(x+w/2,roof_y,z+d/2),(x+w/2,roof_y,z-d/2)],1)
             quad([(x-w/2,bottom,z+d/2),(x-w/2,bottom,z-d/2),(x+w/2,bottom,z-d/2),(x+w/2,bottom,z+d/2)],material)
         def b(x,y,z,w,h,d,material=2):box(dict(x=x,y=y,z=z,w=w,h=h,d=d),material)
-        def buried(point,own):
-            x,y,z=point
-            return any(v is not own and abs(x-v['x'])<v['w']/2-.02 and abs(z-v['z'])<v['d']/2-.02 and abs(y-v['y'])<v['h']/2-.02 for v in spec['volumes'])
-        for v in spec['volumes']:
+        for mass_index,v in enumerate(spec['volumes']):
             box(v,facades=lod>=2)
             if lod>=2:
                 if lod==2:
@@ -84,15 +91,20 @@ for spec in C['blocks']:
                 for row in range(rows):
                     for col in range(cols):
                         u=-span/2+(col+.5)*cw;y=v['y']-v['h']/2+(row+.5)*ch
-                        if buried(surf(v,u,y,n+.03,side),v):continue
                         bottom,top=(.32,.77) if id=='residential' else (.04,.88) if id=='office' else (.2,.82)
                         l=u-cw*.34;r=u+cw*.34;lo=y+(bottom-.5)*ch;hi=y+(top-.5)*ch
+                        # Match the far atlas: retain the visible part of a
+                        # shared-edge pane, but never lay it over its neighbour.
+                        pane=(l,r,lo,hi)
+                        if not visible_wall_rectangles(spec['volumes'],mass_index,side,pane):continue
                         if side==0 and v is spec['volumes'][0] and lo<3.45 and hi>0 and v['x']+l<1.85 and v['x']+r>-1.85:continue
                         # The same atlas texel supplies each lit room's colour at
                         # near and far LOD, keeping one shared glazing primitive.
                         lit=(col+row*3)%4==1;uv=[((col%4+.5)/4,(row%4+(bottom+top)/2)/4)]*4
                         wall(v,side,l,r,lo,hi,n+.015,5 if lit else 3,uv if lit else None)
-                        if lod==0:
+                        if lod==0 and full_window_exposed(spec['volumes'],mass_index,side,pane):
+                            # Partial shared-edge panes stay flush; protruding
+                            # jambs there would cross into the adjacent facade.
                             # Raised stone surround and deep jambs around the dark glazing.
                             edge=.10;depth=.16
                             for a,c,bottom,top in [(l-edge,l,lo-edge,hi+edge),(r,r+edge,lo-edge,hi+edge),(l,r,lo-edge,lo),(l,r,hi,hi+edge)]:wall(v,side,a,c,bottom,top,n+depth,0)

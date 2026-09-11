@@ -1,16 +1,16 @@
 [
   {
     "id": "residential",
-    "bytes": 728996,
+    "bytes": 639240,
     "levels": [
       {
         "lod": 0,
-        "triangles": 8600,
+        "triangles": 7380,
         "materials": 5
       },
       {
         "lod": 1,
-        "triangles": 1398,
+        "triangles": 1330,
         "materials": 5
       },
       {
@@ -27,33 +27,33 @@
   },
   {
     "id": "office",
-    "bytes": 475764,
+    "bytes": 475140,
     "levels": [
       {
         "lod": 0,
-        "triangles": 5496,
+        "triangles": 5492,
         "materials": 5
       },
       {
         "lod": 1,
-        "triangles": 830,
+        "triangles": 834,
         "materials": 5
       },
       {
         "lod": 2,
-        "triangles": 246,
+        "triangles": 242,
         "materials": 3
       },
       {
         "lod": 3,
-        "triangles": 48,
+        "triangles": 44,
         "materials": 3
       }
     ]
   },
   {
     "id": "commercial",
-    "bytes": 468240,
+    "bytes": 468224,
     "levels": [
       {
         "lod": 0,

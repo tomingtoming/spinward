@@ -341,3 +341,37 @@ Next: remove overlapping coplanar facade/windows in the original Blender city
 block asset; add local roof occlusion for rain while preserving open courtyards.
 Both defects are visible in current browser captures. The latter already has
 an isolated, unused planning helper prepared for the next increment.
+
+## Fifteenth increment — Blender facade ownership (04:30)
+
+The jagged black marks in a nearby residential tower's lit windows remained
+when stair/trim batches were hidden. A fixed-view ray found the original
+Blender residential mass and its wing at the identical surface distance.
+The exported GLB also failed a new coplanar-face test: two outer walls occupied
+the same sample point, with independent window layouts in front of them.
+
+The city-block generator now clips hidden facade rectangles and gives each
+shared outward plane one owner. Atlas UVs retain their original metre density;
+partially buried windows keep their exposed panes, with raised jambs omitted
+only on those partial bays. An initial whole-bay omission produced a blank
+strip at LOD0/1 that was absent at LOD2/3; independent visual review caught it
+and the final export restores the exposed portion. Blender MCP regenerated the three original building
+assets in an isolated background process. Each source blend contains its own
+asset scene. Collision recipes, placements and approach paving are unchanged.
+
+Residential LOD0 drops from 8,600 to 7,380 triangles, LOD1 from 1,398 to 1,330;
+LOD2/3 remain 246/48. Its GLB falls from 728,996 to 639,240 bytes. Office loses
+a few hidden faces; commercial geometry counts are unchanged. No extra material
+or runtime draw is introduced. The exported geometry test covers shared outer
+faces/glazing across all four LODs, with the residential test failing on the old
+asset and passing on the regenerated one. Existing lot, decreasing-LOD,
+courtyard, approach and collision checks pass, as do the full unit suite and
+TypeScript/Vite build.
+
+Current fixed-view night captures show the torn windows replaced by clean panes;
+forced LOD0–3 captures preserve the massing. They are visual checks, not a frame
+rate comparison. Evidence: `window-before-export*`, the intermediate
+`window-after-export*`, the final `window-final-export*` and
+`qa/neighborhood-life/window-occlusion.mjs`. The source clipping math is in
+`assets/blender/facade_visibility.py`; the GLB regression is in
+`src/objects/authoredCityBlockFaces.test.ts`.
