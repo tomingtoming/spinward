@@ -2,6 +2,7 @@ import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
 import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {colonyBalconies,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
 import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
 import * as THREE from 'three'
 import type { CityBuilding,CityRoad } from './cityLayout'
@@ -98,7 +99,8 @@ export class ColonyBuildings {
   const trim=this.batch('trim',this.modules?.canopy??this.fallback,this.frame,4096)
   const doors=this.batch('doors',this.modules?.door??this.fallback,this.door,2048)
   const frames=this.modules?this.batch('window-frames',this.modules.window_frame,this.frame,8192):null
-  const balconies=this.modules?this.batch('balconies',this.modules.balcony,this.frame,1024):null
+  const balconies=this.modules?this.batch('balconies',this.modules.balcony,this.frame,BALCONY_BUILDING_LIMIT*BALCONY_SECTION_LIMIT):null
+  const railBalconies=this.modules?this.batch('balconies-rail',this.modules.balcony_rail,this.frame,BALCONY_BUILDING_LIMIT*BALCONY_SECTION_LIMIT):null
   const awnings=this.modules?this.batch('awnings',this.modules.shop_awning,this.frame,512):null
   const signs=this.batch('signs',this.signGeometry,this.signs,1024)
   const pots=this.batch('planters',this.modules?.planter??this.fallback,this.frame,320)
@@ -213,27 +215,11 @@ export class ColonyBuildings {
       add(frames,e,{x:bay.x,y:floor*4.2+1.9,z:face+.016,w:bay.width,h:2.9,d:1})
     }
    }
-   // Apartment balconies repeat by dwelling bay, and start above shops/lobbies.
-   // Only the closest eight residential facades carry this geometry.
-   if(balconies&&e.design.use.primary==='apartments'&&distance<65&&balconyBuildings++<8){
-    let count=0
-    for(const volume of [...e.spec.volumes].sort((a,b)=>(b.z+b.d/2)-(a.z+a.d/2))){
-     const ground=colonyGroundHeight(volume,e.design),upper=volume.h-ground
-     const grid=colonyWindowGrid({...volume,h:upper},e.design.profile),floorHeight=upper/grid.floors
-     const face=volume.z+volume.d/2
-     for(let row=0;row<grid.floors&&count<96;row++){
-      const y=volume.y-volume.h/2+ground+row*floorHeight
-      if(y<2.8)continue
-      // Inset rear volumes may be hidden by the U-shaped wings.
-      const width=volume.w*.94
-      if(e.spec.volumes.some(o=>o!==volume&&Math.abs(volume.x-o.x)<o.w/2&&face<o.z+o.d/2+.05&&face>o.z-o.d/2&&Math.abs(y+.5-o.y)<o.h/2))continue
-      add(balconies,e,{x:volume.x,y,z:face+.02,w:width,h:1,d:.85});count++
-      if(detailed&&count<24)for(let col=1;col<grid.columnsX;col++){
-       const x=volume.x+(col/grid.columnsX-.5)*width
-       add(trim,e,{x,y:y+.48,z:face+.44,w:.04,h:.96,d:.8})
-      }
-     }
-    }
+   // Complete dwelling bays or continuous parapets; both follow the glazing grid.
+   if(balconies&&railBalconies&&e.design.use.primary==='apartments'&&distance<65&&balconyBuildings++<BALCONY_BUILDING_LIMIT){
+    const plan=colonyBalconies(e.spec,e.design),batch=plan.style==='rail'?railBalconies:balconies,parapet=e.color.clone().lerp(e.trim,.25),tint=plan.style==='rail'?e.trim:parapet
+    for(const section of plan.sections)add(batch,e,{x:section.x,y:section.y,z:section.z,w:section.width,h:1,d:section.depth},0,tint)
+    if(detailed)for(const divider of plan.dividers)add(trim,e,divider,0,parapet)
    }
 
    for(const volume of e.spec.volumes){
@@ -263,7 +249,7 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:balconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}

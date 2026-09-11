@@ -1356,3 +1356,65 @@ two draws for the two shared batches; frame intervals remain variable and these
 checks do not demonstrate an overall frame-rate improvement. Browser captures
 use Metal on an M1 Pro; the phone tier is a desktop profile check, not physical
 phone or Quest performance validation. Local implementation only; not published.
+
+## Residential balcony grammar (2026-09-11)
+
+Upper residential facades now use two stable balcony treatments: continuous
+solid parapets for broad/tall slabs, or separate open metal guards at individual
+window bays. Solid parapets take their colour mostly from the wall, reducing
+the previous dark bands. The metal version retains the building's trim colour.
+Projection varies by building from 0.95 to 1.15m. Nearby continuous balconies
+have 1.3m privacy dividers at every second window-bay boundary.
+
+The pure layout uses the same upper-window grid as the facade shader, after
+subtracting any retail/lobby floors. Decks remain at those floor levels and
+attach 4cm into the facade. A whole-section overlap test removes balconies
+embedded in a podium roof or hidden by a projecting wing, while preserving
+exposed bays beside it. The first deck is above the 3.4m entrance clearance.
+Office/commercial/industrial buildings, houses and authored/public interiors
+are excluded. These are facade details; usable balcony rooms and new balcony
+collision surfaces are not introduced.
+
+Blender adds one `balcony_rail` module: slab, open pickets, rails and solid side
+returns, 144 triangles. Its height stays metric (deck bottom -0.12m, guard top
+1.07m); only the bay width and shallow projection adapt to the building.
+The nine-node module pack is 31,444 bytes, within the existing 32,000-byte cap.
+Only the owned SWCM scene was regenerated and the previous active Scene restored.
+
+The existing 65m/eight-building detail selection remains in place. There are at
+most 144 sections per building and 1,152 across both balcony batches. A building
+whose individual bays exceed that cap receives continuous parapets instead;
+rows are admitted whole, without truncating a railing halfway along a floor.
+The module-geometry ceiling is 165,888 triangles, with bounded privacy dividers
+reusing the existing trim batch. Planning and colour mixing happen only for
+selected near buildings, without storing a balcony layout/colour on every lot.
+Far geometry, structural membership, shop fronts and the planted pots are intact.
+
+Validation: 685 tests and the production TypeScript/Vite build pass. Generated
+16k layouts at 250m and 3200m radii check window/floor alignment, clear masses,
+both treatments and budgets. Synthetic wing and podium fixtures verify that
+exposed bays survive while roof-embedded decks disappear. Export tests verify
+metric bounds and the 144-triangle ceiling. The browser's independent
+`balcony-probe.mjs` infers attachment, scale and window-grid alignment from live
+instance matrices rather than calling the placement helper.
+
+Same-position before/after captures are `balcony-{before,after}-{apartments,mixed}.png`
+in the ignored local QA directory. Visible membership and structural counts
+are identical in each pair; draw totals remain 165 and 172 respectively.
+Both before and after record 50ms median / 66.7ms p95 frame intervals on M1 Pro
+Metal. These measurements do not demonstrate a frame-rate improvement.
+Broader street, phone-profile, night overview and failed-module fallback checks
+pass, including existing planter-collision and structural-buffer churn checks.
+The ordinary street view stays at 143 draws; the far overview contains zero
+balconies. Phone-profile checks run on desktop, not physical phone/Quest hardware.
+
+The final close metal-balcony views check 177 rendered sections across six
+buildings (54 metal, 123 solid) against their facade frames in both daylight
+and night. They report no JavaScript/shader errors. Independent visual review
+of the two before/after pairs and the close day/night views found no mandatory
+correction: open guards attach visibly to their decks, boundaries follow window
+bays, the mixed-use podium is clear and guards do not glow at night. Wall-like
+parapet colour reduces depth contrast, and adjacent metal-bay side returns read
+as paired fins; these remain aesthetic refinement points. Hidden backs and
+motion shimmer are outside this static review. Local implementation only;
+not published.
