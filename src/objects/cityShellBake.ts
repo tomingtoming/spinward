@@ -245,7 +245,7 @@ const shellWindowGain = (building: CityBuilding) => {
 
 // Texel alpha of the baked road glow at scale 1, relative to the lit-window
 // blobs (shellWindowGain ≤ 1). These are the pre-2026-09-02 values; the
-// default `roadGlowScale` below halves them. 定点 B60_night / A_night at
+// default `roadGlowScale` below attenuates them. 定点 B60_night / A_night at
 // scale 1: the overhead island read as a Tron lattice and the mid-distance
 // arterials bloomed to white — the grid outshone the city it was meant to
 // carry. `?grid=<scale>` restores any value on device (`?grid=1` = old look).
@@ -255,7 +255,9 @@ const shellWindowGain = (building: CityBuilding) => {
 // threaded by a few veins rather than a Tron grid.
 export const SHELL_ROAD_CORE_ALPHA = { arterial: 0.95, collector: 0.4, local: 0.05, expressway: 0.95 } as const
 export const SHELL_ROAD_HALO_ALPHA = { arterial: 0.22, collector: 0.07, local: 0, expressway: 0.25 } as const
-export const DEFAULT_SHELL_ROAD_GLOW_SCALE = 0.5
+// Keep the distant road network below window clusters; broad bright veins
+// otherwise read as a luminous map laid over the city. Only roads are scaled.
+export const DEFAULT_SHELL_ROAD_GLOW_SCALE = 0.2
 // Veins are teal (the reference frame), a touch greener than the near-road
 // lane glow so the far hierarchy and the near asphalt do not share one hue.
 export const SHELL_VEIN_COLOR = new THREE.Color(0x86efd6)
