@@ -122,6 +122,11 @@ bug: please open an issue.
   core at the centre, farmland toward the frontier end), parked cars, street
   lamps, crossings. Vehicle and road models are [Kenney](https://www.kenney.nl/)
   CC0 assets; buildings are generated.
+- Nearby street lamps contribute soft downward illumination to people and
+  pavement using two local lights on desktop and one on phone/Quest profiles.
+  The sources remain attached to visible fixtures and fade between selections.
+  They cast no dynamic shadows; this is a bounded local-light approximation,
+  not a full city lighting or occlusion simulation.
 - **Gravity decreases with height.** Because g(h) = g₀(1 − h/R),
   high floors are lighter than the surface. Building massing and height caps
   are art-directed, not a structural simulation or evidence that taller

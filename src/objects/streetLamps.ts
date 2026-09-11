@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArterialRoadWidth, getLocalRoadWidth } from './cityLayout'
+import { StreetLampLighting, type StreetLampSource } from './streetLampLighting'
 
 // Near-field street lamps (2026-09-03, toming「街路灯の間隔」): posts with an
 // arm, a warm head and a light pool on the road, on EVERY grid road at real
@@ -167,6 +168,7 @@ type Part = { mesh: THREE.InstancedMesh; capacity: number }
 
 export class StreetLamps {
   readonly group = new THREE.Group()
+  readonly lighting: StreetLampLighting
 
   private spots: LampSpot[] = []
   private radius = 0
@@ -193,8 +195,11 @@ export class StreetLamps {
   private readonly arms: Part
   private readonly heads: Part
   private readonly pools: Part
+  private readonly lightFocus = new THREE.Vector3()
 
-  constructor() {
+  constructor(localLightCount = 2) {
+    this.group.name = 'street-lamps'
+    this.lighting = new StreetLampLighting(this.group, localLightCount)
     const make = (geometry: THREE.BufferGeometry, material: THREE.Material, capacity: number): Part => {
       const mesh = new THREE.InstancedMesh(geometry, material, capacity)
       mesh.count = 0
@@ -218,6 +223,7 @@ export class StreetLamps {
   }
 
   setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number) {
+    this.lighting.reset()
     this.spots = planLampSpots(roads, intersections, radius)
     this.radius = radius
     // Size supported fixtures to the road scale, capped at 12 metres.
@@ -232,18 +238,22 @@ export class StreetLamps {
     const night = 1 - THREE.MathUtils.clamp(daylight, 0, 1)
     this.headMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.poolMaterial.opacity = night * night
+    this.lighting.setDaylight(daylight)
   }
 
-  update(focusAzimuth: number, focusAxial: number) {
+  update(focusAzimuth: number, focusAxial: number, altitude = 1.8, deltaSeconds = 1 / 60, sheltered = false) {
     if (this.radius <= 0 || this.spots.length === 0) return
     const moved =
       Number.isNaN(this.focusAzimuth) ||
       Math.hypot(Math.abs(wrapToPi(focusAzimuth - this.focusAzimuth)) * this.radius, focusAxial - this.focusAxial) >
         LAMP_REFOCUS_METERS
-    if (!moved) return
-    this.focusAzimuth = focusAzimuth
-    this.focusAxial = focusAxial
-    this.relayout()
+    if (moved) {
+      this.focusAzimuth = focusAzimuth
+      this.focusAxial = focusAxial
+      this.relayout()
+    }
+    this.lightFocus.set(Math.cos(focusAzimuth) * (this.radius - altitude), focusAxial, Math.sin(focusAzimuth) * (this.radius - altitude))
+    this.lighting.update(this.lightFocus, deltaSeconds, !sheltered && this.group.visible)
   }
 
   private relayout() {
@@ -252,6 +262,7 @@ export class StreetLamps {
     const h = this.lampHeight
     const armLength = Math.min(4, h * 0.35)
     const poolRadius = Math.max(4, h * 0.9)
+    const sources: StreetLampSource[] = []
     let n = 0
     for (const s of nearby) {
       if (n >= this.posts.capacity) break
@@ -296,6 +307,7 @@ export class StreetLamps {
       scale.set(1, 1, 1)
       matrix.compose(position, postQuaternion, scale)
       this.heads.mesh.setMatrixAt(n, matrix)
+      sources.push({ id: `${s.isAvenue}:${s.azimuth}:${s.axial}:${s.side}`, position: position.clone(), down: new THREE.Vector3(cos, 0, sin) })
       // Pool on the road under the head (disc normal = inward: basis X =
       // tangent, Y = axial, Z = inward is right-handed).
       basis.makeBasis(tangent, unitY, inward)
@@ -314,9 +326,11 @@ export class StreetLamps {
       part.mesh.count = n
       part.mesh.instanceMatrix.needsUpdate = true
     }
+    this.lighting.setSources(sources)
   }
 
   dispose() {
+    this.lighting.dispose()
     for (const part of [this.posts, this.arms, this.heads, this.pools]) {
       part.mesh.geometry.dispose()
       part.mesh.dispose()

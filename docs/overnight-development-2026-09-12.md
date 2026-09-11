@@ -500,3 +500,34 @@ after loading and is a warmed-contact comparison.
 
 Next: return to the outdoor experience, focusing on local night illumination
 and how nearby people and architecture receive the existing street lamps.
+
+## Twentieth increment — local street-light response (05:36)
+
+Nearby lamps now cast a soft, warm downward light onto people, pavement and
+nearby surfaces. The spots sit on the same computed lamp-head positions as the
+visible fixtures, with two slots on desktop and one on phone/Quest profiles.
+They have a 32 m light range, a 22–42 m observer fade, no shadow maps and no
+additional luminous meshes. Slots prefer their current fixture slightly and
+fade through zero before changing location. They fade out in a room's shelter
+and beyond street range, including Axis travel. This is a bounded, unshadowed
+local-light approximation, not photometric street-lighting or wall occlusion.
+
+Same-view night comparisons show clearer faces, clothes and pavement detail;
+independent review found strong but unclipped local illumination and no clear
+change in the distant buildings/windows/sky. Existing contact shadows remain
+subtle. Reversed off/on/on/off warm browser samples retain 140 desktop and 131
+phone-profile draws, 16.7 ms median frame intervals and about 16.7–16.8 ms p95.
+Those are vsync-limited M1 Pro browser samples, not mobile hardware headroom.
+
+Actual 35-second runs cover about 205 m on each profile. Across 5 desktop and
+4 phone fixture changes, no source slides between lamps or changes while lit;
+active lights stay within the 2/1 budgets. Both cafe entry checks fade local
+street lighting to zero inside the measured shelter, and Axis travel clears it.
+The first timed cafe check ran before entry was complete; the final probe waits
+for the actual shelter boundary rather than assuming a wall-clock walk time.
+Full suite: 779 tests; production build passes. Probes/evidence:
+`street-light-response.mjs`, `street-light-walk.mjs`, `street-light-*`.
+
+Next: develop a green public destination that connects ordinary walking and
+resting to the larger colony landscape, while retaining the established city
+layout and architecture.

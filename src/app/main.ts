@@ -692,8 +692,9 @@ export const bootstrapApp = async () => {
   nearLayer.add(sidewalks.group)
   // Near-field street lamps on every grid road (objects/streetLamps.ts):
   // posts, arms, heads and night light pools around the player. The far city
-  // keeps cityscape's sparse glow dots. `?lamps=0` hides the near set.
-  const streetLamps = new StreetLamps()
+  // uses the supported fixtures and baked city hierarchy. `?lamps=0` hides
+  // the near set; local illumination uses two desktop slots and one elsewhere.
+  const streetLamps = new StreetLamps(quality.tier === 'desktop' ? 2 : 1)
   streetLamps.group.visible = bootParams.get('lamps') !== '0'
   nearLayer.add(streetLamps.group)
   const drive = new DriveRuntime()
@@ -1534,6 +1535,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardWalkers = streetWalkers
+    ;(window as unknown as Record<string, unknown>).__spinwardStreetLamps = streetLamps
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
     ;(window as unknown as Record<string, unknown>).__spinwardIntersections = intersectionFurniture
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
@@ -2295,11 +2297,6 @@ export const bootstrapApp = async () => {
       drive.driving ? drive.surface.azimuth : playerAzimuth,
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
     )
-    streetLamps.update(
-      drive.driving ? drive.surface.azimuth : playerAzimuth,
-      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
-    )
-
     // Stream the building colliders to whatever we're controlling — the car
     // while driving, otherwise the walker — before stepping.
     cityColliders.update(
@@ -2764,6 +2761,11 @@ export const bootstrapApp = async () => {
     starfield.setDaylight(daylight)
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
+    streetLamps.update(
+      Math.atan2(carrierRotatingPosition.z, carrierRotatingPosition.x), carrierRotatingPosition.y,
+      habitatConfig.radius - carrierRadial,
+      deltaSeconds, roomEnvironment.shelter > .5
+    )
     neighborhoodLife.setRadius(habitatConfig.radius)
     neighborhoodLife.setPlayerSeat(roomSeating.seat?.id ?? null)
     neighborhoodLife.update(deltaSeconds, { azimuth: Math.atan2(rotatingCameraPosition.z,rotatingCameraPosition.x), axial: rotatingCameraPosition.y,
