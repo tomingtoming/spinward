@@ -434,6 +434,7 @@ export const bootstrapApp = async () => {
   // Whether the one-time boot flash of the CONTROL card has fired — armed by
   // the game loop the first time no tour card is on screen.
   let controlsBootFlashDone = false
+  let gameplayStarted = false
   const tourCardPanel = new TourCardPanel()
   const tourOverlayScene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(
@@ -553,11 +554,12 @@ export const bootstrapApp = async () => {
         {
           onThrow: () => requestDesktopThrow(),
           onJump: () => {
+            gameplayStarted = true
             desktopJumpQueued = true
           },
-          onToggleDrive: () => tryToggleDrive(),
+          onToggleDrive: () => { gameplayStarted = true; tryToggleDrive() },
           isUiPointerBlocked: () => false,
-          onUserInput: () => desktopLookControls.cancelIntroReveal()
+          onUserInput: () => { gameplayStarted = true; desktopLookControls.cancelIntroReveal() }
         },
         dock.root
       )
@@ -618,6 +620,7 @@ export const bootstrapApp = async () => {
       .catch(() => {})
   }
   renderer.xr.addEventListener('sessionstart', () => {
+    gameplayStarted = true
     audioSession = renderer.xr.getSession()
     audioSession?.addEventListener('visibilitychange', syncAudioActivity)
     syncAudioActivity()
@@ -712,6 +715,7 @@ export const bootstrapApp = async () => {
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
   const toggleRoomSeat = () => {
     if (drive.driving || renderer.xr.isPresenting) return false
+    gameplayStarted = true
     audio.unlock()
     roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
     if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
@@ -743,6 +747,7 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
   const activateCoffee = () => {
     if (!coffeeService.activate(coffeeContext())) return
+    gameplayStarted = true
     audio.unlock(); audio.playClick()
   }
   const coffeeAction = createCoffeeAction(activateCoffee, () => Math.max(
@@ -1836,6 +1841,8 @@ export const bootstrapApp = async () => {
 
   window.addEventListener('keydown', (event) => {
     if (!isGameplayKeyboardEvent(event)) return
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyC', 'KeyQ', 'KeyF', 'KeyB', 'KeyX',
+      'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(event.code)) gameplayStarted = true
     audio.unlock()
 
     if (event.code === 'KeyM' && !event.repeat) {
@@ -1958,6 +1965,7 @@ export const bootstrapApp = async () => {
   renderer.xr.addEventListener('sessionstart', cancelDesktopIntent)
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
+    gameplayStarted = true
     audio.unlock()
 
     if (event.button !== 0) {
@@ -2903,7 +2911,11 @@ export const bootstrapApp = async () => {
     // Keyed off the tour state (game time), not a wall-clock timer: on a slow
     // device the card outlives its nominal duration and a timer would fire
     // straight into the overlap this exists to avoid.
-    if (!controlsBootFlashDone && activeTourCard === null &&
+    // Once someone is walking, looking, or using a room, a delayed generic
+    // hint interrupts the activity it was meant to introduce. Manual CONTROL
+    // peeks remain available and are never dismissed by gameplay input.
+    if (gameplayStarted) hud.dismissAutomaticControls()
+    if (!gameplayStarted && !controlsBootFlashDone && activeTourCard === null &&
       coffeeService.prompt(coffeeCtx) === null && nearSeat === null && !roomSeating.seat) {
       controlsBootFlashDone = true
       hud.peekControls()

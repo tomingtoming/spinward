@@ -44,6 +44,7 @@ export type HudHandle = {
   // overlap and both become unreadable), which matters on touch — no hover
   // means it is the only unprompted look at the bindings.
   peekControls: () => void
+  dismissAutomaticControls: () => void
 }
 
 const makeChip = (className: string) => {
@@ -118,6 +119,7 @@ export const createHud = (
   controlsCard.append(controlsCardSummary, controlsCardColumns)
 
   let controlsPlatform: ControlPlatform = 'pc'
+  let controlsAutomatic = false
   let controlsFadeTimeout: ReturnType<typeof setTimeout> | null = null
   let controlsHideTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -150,12 +152,14 @@ export const createHud = (
       controlsHideTimeout = null
     }
     controlsCard.hidden = true
+    controlsAutomatic = false
     controlsCard.classList.remove('is-fading')
     suppressHoverPeekUntil = performance.now() + 500
   }
   const unregisterControlsClose = registerClose(hideControlsCardNow)
 
-  const peekControlsCard = () => {
+  const peekControlsCard = (automatic = false) => {
+    controlsAutomatic = automatic
     if (controlsFadeTimeout !== null) {
       clearTimeout(controlsFadeTimeout)
     }
@@ -288,8 +292,11 @@ export const createHud = (
       // A collapsed dock still offers the initial hint; a hidden HUD/XR dock
       // does not. The card uses the dock anchor when CONTROL is folded away.
       if (!root.hidden && root.closest('.dock')?.getClientRects().length) {
-        peekControlsCard()
+        peekControlsCard(true)
       }
+    },
+    dismissAutomaticControls: () => {
+      if (controlsAutomatic) hideControlsCardNow()
     },
     update: (snapshot) => {
       if (snapshot.platform !== controlsPlatform) {

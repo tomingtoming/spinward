@@ -778,3 +778,33 @@ exterior stars remain visible by artificial day, the square halos are gone,
 the structure is not obscured and the day Surface view retains suppression.
 The dark exterior side remains an existing lighting limitation, not resolved
 by changing stars or the instruction overlay.
+
+
+## Twenty-ninth increment — let the initial controls hint finish (07:30)
+
+The morning walkthrough exposed a delayed onboarding interruption. A new page
+near a usable park bench defers its automatic CONTROL card while seated; the
+large card then appears when the player stands and walks away. It introduces
+movement after the user is already moving and covers the garden view.
+
+The first deliberate movement/look/interaction now ends that pending automatic
+hint. An already-visible automatic card also closes on gameplay input. Manual
+CONTROL hover/tap remains available and stays readable during movement. Touch
+movement/actions, seated and coffee actions, and XR entry share the same flag.
+Keyboard text entry and native button activation retain their existing filter.
+This does not alter destination tour cards or change any movement physics.
+
+The full 803-test suite and production build pass. Browser verification covers
+automatic dismissal and manual retention on desktop and touch profiles, plus
+the delayed cafe case; final results are recorded in `controls-introduction`.
+The first harness attempt hovered inside the existing 500 ms compatibility-event
+guard after dismissal and correctly received no new card; the probe now waits
+for that guard before testing a fresh manual hover.
+
+The final rendering soak, before this UI-only change, completed 60 journeys
+and 20 preset applications in 423 seconds. Across all four presets, warmed
+cycle 2 to cycle 4 shows zero growth in live buffers, textures, programs,
+shaders, framebuffers, renderbuffers and vertex arrays. GC-retained JavaScript
+heap growth is 0.31–0.83 MiB per preset. No page errors or context loss occurred.
+This is bounded resource-balance evidence, not a GPU-byte or frame-rate result.
+Evidence: `travel-soak-final-render`.
