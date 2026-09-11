@@ -689,3 +689,38 @@ roads, street furniture or sky structures in those views. Full suite: 796 tests;
 production build passes. Browser comparison evidence:
 `retired-building-assets-{before,after}`. No device-memory saving or stutter
 elimination is inferred from canvas dimensions alone.
+
+
+## Twenty-sixth increment — remove the first-input audio stall (07:06)
+
+A clean 15-second walk reproduced a 200 ms first frame: constructing the native
+AudioContext inside keydown took 188.6 ms, and that input handler took 202.2 ms.
+With the audio capability removed in the probe, the same initial walk peaked
+at 16.8 ms. WebGL call tracing found no long blocking call at that input.
+The heavier CPU timeline also introduced a separate 554 ms profiler-startup
+pause; it is a measurement artifact, not a GUI defect or production frame time.
+The probe now starts profiling before the measured interval.
+
+Audio device construction and the standing voices are now prepared behind the
+loading screen. The context stays suspended and the master gain stays zero
+until a real user gesture resumes it. Visibility changes alone cannot unlock
+it, even where the browser would otherwise permit autoplay. The work has moved
+out of the first walking input; native device startup itself is not faster.
+An unavailable audio device can fail without breaking visual startup and can
+retry on a later gesture. No external audio assets or new runtime dependency.
+
+On the updated build, the native construction took 179.3 ms during loading.
+A subsequent 60-second forward plus 60-second reverse walk had median 16.7 ms,
+p95 16.7/16.8 ms and maxima 50.1/50.0 ms. The initial 0.2-second stall is absent;
+this does not claim that every later frame is smooth. Retained cars keep their
+positions, speeds and model variants at every streaming rebuild; live buffers
+remain 727 at both ends. No page errors or context loss occurred.
+
+Real WebAudio in desktop and phone-profile Chrome stays at clock zero before
+the gesture, then resumes the same context. Mute, hidden-page suspension and
+return still pass; these are state tests, not device listening or hardware
+suspension certification. Three unit cases cover gated preparation, visibility
+and mute, single construction/disposal, and an unavailable device. Full suite:
+799 tests across 134 files; production build passes. Evidence:
+`street-audio-startup-{before,control,after}`, `audio-prepared`, and the optional
+GPU/CPU timing modes in `street-streaming.mjs`.

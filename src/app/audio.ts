@@ -29,6 +29,8 @@ export type EnvironmentMix = {
 export class GameAudio {
   private readonly activity = new AudioActivity()
   private disposed = false
+  private active = true
+  private unlocked = false
   private context: AudioContext | null = null
   private master: GainNode | null = null
   private world: GainNode | null = null
@@ -54,26 +56,23 @@ export class GameAudio {
   private rainFilter: BiquadFilterNode | null = null
   private rainGain: GainNode | null = null
 
-  // Call from a user-gesture handler; safe to call repeatedly.
-  unlock() {
-    if (this.disposed) return
-    if (this.context !== null) {
-      this.activity.sync()
-      return
-    }
-
+  // Construct the device and standing voices while the loading screen is up.
+  // Both suspension and a zero master gain prevent sound before a gesture,
+  // including browsers that already permit autoplay for this origin.
+  prepare() {
+    if (this.disposed || this.context !== null) return
     const AudioContextClass =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (AudioContextClass === undefined) return
 
-    if (AudioContextClass === undefined) {
-      return
-    }
-
-    this.context = new AudioContextClass()
+    // Device startup can fail independently of the visual experience. Leave
+    // the context absent so a later user gesture can retry the device.
+    try { this.context = new AudioContextClass() } catch { return }
+    this.activity.setActive(this.active && this.unlocked)
     this.activity.attach(this.context)
     this.master = this.context.createGain()
-    this.master.gain.value = this.muted ? 0 : MASTER_GAIN
+    this.master.gain.value = this.unlocked && !this.muted ? MASTER_GAIN : 0
     this.master.connect(this.context.destination)
     this.world = this.context.createGain()
     this.world.gain.value = 1
@@ -81,7 +80,22 @@ export class GameAudio {
     this.startAmbience()
   }
 
-  setActive(active: boolean) { this.activity.setActive(active) }
+  // Resume stays inside the actual gesture handler for autoplay policies.
+  unlock() {
+    if (this.disposed) return
+    const firstGesture = !this.unlocked
+    this.unlocked = true
+    this.prepare()
+    this.activity.setActive(this.active)
+    if (firstGesture && this.context && this.master) {
+      this.master.gain.setTargetAtTime(this.muted ? 0 : MASTER_GAIN, this.context.currentTime, 0.015)
+    }
+  }
+
+  setActive(active: boolean) {
+    this.active = active
+    this.activity.setActive(active && this.unlocked)
+  }
 
   dispose() {
     if (this.disposed) return
@@ -104,7 +118,7 @@ export class GameAudio {
 
     if (this.context !== null && this.master !== null) {
       this.master.gain.linearRampToValueAtTime(
-        muted ? 0 : MASTER_GAIN,
+        muted || !this.unlocked ? 0 : MASTER_GAIN,
         this.context.currentTime + 0.1
       )
     }
@@ -413,7 +427,7 @@ export class GameAudio {
   }
 
   get roomAudioState() {
-    return {state:this.context?.state??'locked',muted:this.muted,cafe:this.roomCafeGain?.gain.value??0,
+    return {state:this.unlocked ? this.context?.state??'locked' : 'locked',muted:this.muted,cafe:this.roomCafeGain?.gain.value??0,
       lobby:this.roomLobbyGain?.gain.value??0,steam:this.roomSteamGain?.gain.value??0,steps:this.roomSteps}
   }
 

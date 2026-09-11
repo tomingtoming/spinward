@@ -2941,6 +2941,8 @@ export const bootstrapApp = async () => {
   } else if (!renderer.xr.isPresenting) {
     desktopLookControls.startIntroReveal()
   }
+  // Avoid paying native audio-device startup on the first walking input.
+  audio.prepare()
   gameLoop.start()
 
   const splash = document.getElementById('splash')

@@ -15,7 +15,9 @@ try {
   })
   await page.goto(`${base}/?debug&lock=0&t=.42&tier=${phone ? 'phone' : 'desktop'}`)
   await page.waitForSelector('#splash', { state: 'detached' })
-  const initial = await page.evaluate(() => window.audioContexts.length)
+  const initial = await page.evaluate(() => ({ count: window.audioContexts.length, state: window.audioContexts[0]?.state, time: window.audioContexts[0]?.currentTime, publicState: window.__spinward.room.audio.state }))
+  await page.waitForTimeout(300)
+  const idleClockAdvance = await page.evaluate(time => window.audioContexts[0]?.currentTime - time, initial.time)
   await page.keyboard.press('m'); await page.keyboard.press('m')
   await page.waitForTimeout(200)
   const state = () => page.evaluate(() => ({ count: window.audioContexts.length, state: window.audioContexts[0]?.state, time: window.audioContexts[0]?.currentTime, muted: window.__spinward.room.audio.muted }))
@@ -32,7 +34,7 @@ try {
   const hidden = await state(); await page.waitForTimeout(300); const hiddenLater = await state()
   await visibility(false); await page.waitForTimeout(250); const resumed = await state()
   if (process.env.EXPECT_PAUSED) {
-   if (initial !== 0 || visible.state !== 'running' || hidden.state !== 'suspended' || hiddenLater.time - hidden.time > .03 || resumed.state !== 'running' || resumed.count !== 1) throw Error('Audio activity failed')
+   if (initial.count !== 1 || initial.state !== 'suspended' || initial.publicState !== 'locked' || idleClockAdvance > .03 || visible.state !== 'running' || hidden.state !== 'suspended' || hiddenLater.time - hidden.time > .03 || resumed.state !== 'running' || resumed.count !== 1) throw Error('Audio activity failed')
    if (phone) await page.locator('.dock-more').tap()
    await page.getByRole('button', { name: 'Sound on', exact: true }).click()
    await page.waitForFunction(() => window.__spinward.room.audio.muted)
@@ -48,7 +50,7 @@ try {
    await page.keyboard.press('m'); await page.waitForTimeout(150)
    if (await page.getByRole('button', { name: 'Sound off', exact: true }).count() !== 1) throw Error('Keyboard and sound button disagree')
   }
-  const report = { phone, initial, visible, hidden, hiddenLater, resumed, hiddenClockAdvance: hiddenLater.time - hidden.time, errors }
+  const report = { phone, initial, idleClockAdvance, visible, hidden, hiddenLater, resumed, hiddenClockAdvance: hiddenLater.time - hidden.time, errors }
   reports.push(report); console.log(JSON.stringify(report)); await page.close()
  }
  fs.writeFileSync(out + prefix + '.json', JSON.stringify({ errors, reports }, null, 2))
