@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as THREE from 'three'
 import {
   crossingQuaternionFor,
+  IntersectionFurniture,
   layoutIntersection,
   selectNearbyIntersections,
   signalAspect,
@@ -9,6 +10,8 @@ import {
   SIGNAL_CYCLE_SECONDS
 } from './intersectionFurniture'
 import type { CityIntersection } from './cityLayout'
+import { compileRoadNetwork } from './roadNetwork'
+import { buildRoadSurfaceGeometry } from './roadSurfaceGeometry'
 
 const R = 3200
 const arterialCross: CityIntersection = { azimuth: 0.1, axial: 500, avenueKind: 'arterial', streetKind: 'local', avenueWidth: 18, streetWidth: 10 }
@@ -93,4 +96,45 @@ describe('crossingQuaternionFor', () => {
       expect(y.y).toBeCloseTo(0, 6)
     }
   })
+})
+
+test('every crosswalk top clears the actual curved road triangles on both axes', () => {
+  // Exercise the rendered Float32 instance transforms, including bar ends,
+  // off-centre azimuths, small drums and long axial coordinates. A centre-only
+  // height check misses the corners that used to sink into the pavement.
+  for (const radius of [18, 180, 3200, 10000]) for (const azimuth of [0, 0.7, Math.PI - 0.001]) {
+    const crossing = { ...arterialCross, azimuth, axial: radius > 1000 ? -19000 : 0 }
+    const network = compileRoadNetwork([
+      { azimuth, axial: crossing.axial, tangentWidth: crossing.avenueWidth, axialLength: 80, kind: crossing.avenueKind },
+      { azimuth, axial: crossing.axial, tangentWidth: 60, axialLength: crossing.streetWidth, kind: crossing.streetKind }
+    ], radius)
+    const roadGeometry = buildRoadSurfaceGeometry(network.surfaces, radius, 16)!
+    const roadMaterial = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+    const road = new THREE.Mesh(roadGeometry, roadMaterial)
+    road.updateMatrixWorld(true)
+    const furniture = new IntersectionFurniture()
+    furniture.setPlan([crossing], radius)
+    furniture.update(azimuth, crossing.axial, 0)
+    const stripes = furniture.group.getObjectByName('crosswalk-stripes') as THREE.InstancedMesh
+    expect(stripes.count).toBeGreaterThan(0)
+    const instance = new THREE.Matrix4(), point = new THREE.Vector3(), outward = new THREE.Vector3()
+    const ray = new THREE.Raycaster()
+    for (let i = 0; i < stripes.count; i++) {
+      stripes.getMatrixAt(i, instance)
+      for (const x of [-0.5, 0, 0.5]) for (const z of [-0.5, 0, 0.5]) {
+        point.set(x, 0.02, z).applyMatrix4(instance)
+        outward.set(point.x, 0, point.z).normalize()
+        // Begin one metre inward; a buried stripe then has distance < 1.
+        ray.set(point.clone().addScaledVector(outward, -1), outward)
+        const hit = ray.intersectObject(road)[0]
+        expect(hit).toBeDefined()
+        const clearance = hit.distance - 1
+        expect(clearance).toBeGreaterThan(0.02)
+        expect(clearance).toBeLessThan(0.11)
+      }
+    }
+    furniture.dispose()
+    roadGeometry.dispose()
+    roadMaterial.dispose()
+  }
 })

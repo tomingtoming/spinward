@@ -489,7 +489,6 @@ const getSpineRadius = (radius: number) => Math.max(0.35, radius * 0.012)
 // Arc tessellation by sagitta budget: a fixed angular step chords meters on
 // kilometer-radius habitats (4 deg at izma sagged road bands ~2m above the
 // ground every 223m). 2cm keeps surface bands flush at every scale.
-// Avenue deck lift over the street level (see buildRoads).
 
 export const getArcSegments = (arcRadians: number, radius: number, tolerance = 0.02) => {
   const maxArc = Math.sqrt((8 * tolerance) / Math.max(radius, 0.001))
@@ -535,8 +534,6 @@ const wrapAngleToPi = (angle: number) => {
 
 const MIRROR_DAY = new THREE.Color(0xffffff)
 const MIRROR_NIGHT = new THREE.Color(0x55657a)
-const LAMP_DAY = new THREE.Color(0x6b5a40)
-const LAMP_NIGHT = new THREE.Color(0xffe2b0)
 const HEADLIGHT_DAY = new THREE.Color(0x9aa0a8)
 const HEADLIGHT_NIGHT = new THREE.Color(0xfff3cf)
 const TAILLIGHT_DAY = new THREE.Color(0x7a2622)
@@ -1784,11 +1781,6 @@ export class Cityscape {
   })
 
 
-  private readonly lampMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffe2b0,
-    toneMapped: false
-  })
-
   private readonly towerMaterial = new THREE.MeshStandardMaterial({
     color: 0x8ea2b6,
     roughness: 0.5,
@@ -1987,7 +1979,6 @@ export class Cityscape {
   private patchMeshes: THREE.Mesh[] = []
   private trees: THREE.InstancedMesh | null = null
   private treeTrunks: THREE.InstancedMesh | null = null
-  private lamps: THREE.InstancedMesh | null = null
   private utilityPoles: THREE.InstancedMesh | null = null
   private utilityWires: THREE.LineSegments | null = null
   private beaconStems: THREE.InstancedMesh | null = null
@@ -2569,7 +2560,6 @@ export class Cityscape {
     this.buildRoads(plan.roads, radius)
     this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
-    this.buildLamps(plan.roads, radius, length)
     this.buildHeroUtilities(plan.roads, radius)
     this.buildBeacons(plan.buildings, radius)
     this.buildWindowStrips(radius, length)
@@ -2783,7 +2773,6 @@ export class Cityscape {
     // reading as a grid over the city — see cityShellBake SHELL_ROAD_*).
     this.roadMaterial.emissiveIntensity = night * 1.55
     this.localRoadMaterial.emissiveIntensity = night * 0.4
-    this.lampMaterial.color.lerpColors(LAMP_NIGHT, LAMP_DAY, daylight)
     this.headlightMaterial.color.lerpColors(HEADLIGHT_NIGHT, HEADLIGHT_DAY, daylight)
     this.taillightMaterial.color.lerpColors(TAILLIGHT_NIGHT, TAILLIGHT_DAY, daylight)
     this.axisSpineMaterial.color.lerpColors(SPINE_NIGHT, SPINE_DAY, daylight)
@@ -2886,7 +2875,6 @@ export class Cityscape {
     this.farmMaterial.dispose()
     this.treeMaterial.dispose()
     this.trunkMaterial.dispose()
-    this.lampMaterial.dispose()
     this.beaconMaterial.dispose()
     this.towerMaterial.dispose()
     this.towerAccentMaterial.dispose()
@@ -2990,7 +2978,6 @@ export class Cityscape {
     for (const single of [
       this.trees,
       this.treeTrunks,
-      this.lamps,
       this.utilityPoles,
       this.utilityWires,
       this.beacons,
@@ -3010,7 +2997,6 @@ export class Cityscape {
 
     this.trees = null
     this.treeTrunks = null
-    this.lamps = null
     this.utilityPoles = null
     this.utilityWires = null
     this.beacons = null
@@ -4909,63 +4895,6 @@ export class Cityscape {
     this.treeTrunks = trunks
     this.group.add(mesh)
     this.group.add(trunks)
-  }
-
-  // Warm dots floating above the avenues: enough to read as street lighting.
-  private buildLamps(roads: CityRoad[], radius: number, length: number) {
-    const cell = getCityCellSize(radius, length)
-    const spacing = cell * 2.2
-    const lampHeight = THREE.MathUtils.clamp(cell * 0.55, 3, 12)
-    const lampRadius = THREE.MathUtils.clamp(cell * 0.02, 0.12, 0.5)
-    const positions: Array<{ azimuth: number; axial: number }> = []
-
-    for (const road of roads) {
-      // Street lighting follows the arterial avenues (long axial roads).
-      if (road.kind !== 'arterial' || road.axialLength <= road.tangentWidth) {
-        continue
-      }
-
-      const count = Math.floor(road.axialLength / spacing)
-
-      for (let index = 0; index < count; index += 1) {
-        positions.push({
-          azimuth: road.azimuth,
-          axial: road.axial - road.axialLength * 0.5 + (index + 0.5) * spacing
-        })
-      }
-    }
-
-    const stride = Math.max(1, Math.ceil(positions.length / 1200))
-    const kept = positions.filter((_, index) => index % stride === 0)
-
-    if (kept.length === 0) {
-      return
-    }
-
-    const mesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(1, 6, 4),
-      this.lampMaterial,
-      kept.length
-    )
-    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    mesh.frustumCulled = false
-    instanceQuaternion.identity()
-    instanceScale.setScalar(lampRadius)
-
-    for (let index = 0; index < kept.length; index += 1) {
-      const lamp = kept[index]
-      instancePosition
-        .set(Math.cos(lamp.azimuth), 0, Math.sin(lamp.azimuth))
-        .multiplyScalar(radius - lampHeight)
-        .setY(lamp.axial)
-      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
-    }
-
-    mesh.instanceMatrix.needsUpdate = true
-    this.lamps = mesh
-    this.group.add(mesh)
-
   }
 
   // A compact Japanese utility network around the spawn crossroads. Full-city

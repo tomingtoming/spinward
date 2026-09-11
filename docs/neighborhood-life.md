@@ -155,3 +155,42 @@ unsafe central-crossing overlaps. Its console records the existing local
 Cloudflare RUM CORS rejection and favicon 404 separately from application
 behavior. `shared-seat.mjs` replays the player's full coffee cycle while waiting
 for the resident to arrive at the other bench.
+
+## Road lighting and crosswalk clearance (2026-09-11)
+
+The regular warm spheres above arterial centre lines came from Cityscape's
+old global lamp proxy. It had no poles and remained visible beside the actual
+near-field kerb lamps. That batch and its material have been removed; supported
+StreetLamps fixtures and the distant surface-shell lighting retain their roles.
+
+Axial crosswalk bars still used an obsolete negative junction-height offset,
+although the current road mesh gives both road orientations the same elevation.
+Their positions also used the intersection's tangent plane, causing the outer
+bars to sink into the cylinder. Each stripe now follows its own cylindrical
+position and normal. Paint clearance accounts for the road mesh's inward chord
+and each flat bar's outward corners, using shared road elevation/tessellation
+constants. Signal assemblies keep their common frame so their parts stay joined.
+This changes instance transforms without adding geometry or draw calls.
+
+The regression test raycasts actual road triangles under the rendered Float32
+stripe matrices, sampling centres and corners on both axes at four radii
+(18, 180, 3,200 and 10,000 m), three azimuths and distant axial coordinates.
+Every sampled paint top clears the road by more than 2 cm. All 693 tests and
+the TypeScript/Vite production build pass.
+
+`qa/neighborhood-life/crosswalk-clearance.mjs` checks the first arterial/local
+junction south of spawn (the spawn plaza intentionally has no crosswalks).
+It captures three approach positions on both axes and the arterial light chain;
+`MOTION=1` adds forward-motion frames, `TIME=.42` selects day, `TIER=phone`
+uses the phone preset, and `EXPECT_FIXED=1` checks that the old spheres are absent
+while supported lamps and crosswalks remain. Set `PLAYWRIGHT_MODULE` as above.
+
+Desktop day/night and phone-preset night captures passed without JavaScript or
+shader errors. The old sphere count changed from 678 to zero; at the same
+arterial approach, supported lamp pools remained 186 and crosswalk bars 378.
+Independent image review found continuous stripes in both directions and in
+three forward-motion samples, with signals and supported fixtures retained.
+These are browser samples, not an exhaustive temporal or hardware XR check.
+A thin distant lamp post against lit windows shows horizontal aliasing-like
+marks in one moving view; the cause and whether it predates this change remain
+unresolved. The requested crosswalk defect is absent in those samples.

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import type { CityIntersection } from './cityLayout'
+import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
 
 // Street furniture at road crossings (2026-09-03, 緻密さ③): zebra crosswalks
 // on every leg, signal poles with lit heads at arterial junctions, name-plate
@@ -11,9 +12,9 @@ import type { CityIntersection } from './cityLayout'
 // Frame conventions (rotating frame, habitat axis = world +Y): a crossing at
 // (azimuth, axial) sits on the inner wall; its avenue runs axially (±Y), its
 // street runs tangentially. Local basis at the crossing: tangent = (−sin, 0,
-// cos), inward = (−cos, 0, −sin), axial = +Y. Surfaces: streets at R − 0.2
-// (avenues a junction gap lower, cityscape buildRoads); furniture is lifted
-// a few cm above that so log depth resolves the seam.
+// cos), inward = (−cos, 0, −sin), axial = +Y. All road arms share one
+// elevation. Paint must also clear the road's inward chord sagitta; a log
+// depth shader writes gl_FragDepth, so polygonOffset cannot repair burial.
 
 export const FURNITURE_RANGE_METERS = 420
 export const REFOCUS_DISTANCE_METERS = 60
@@ -53,8 +54,6 @@ export type FurnitureLayout = {
   signalled: boolean
 }
 
-const junctionGapFor = (radius: number) => Math.max(0.03, radius * 1.5e-5)
-
 // Pure: the part transforms for ONE crossing, in its local frame.
 export const layoutIntersection = (
   x: CityIntersection,
@@ -63,9 +62,13 @@ export const layoutIntersection = (
   const layout: FurnitureLayout = { stripes: [], poles: [], arms: [], heads: [], plates: [], signalled: false }
   const halfAvenue = x.avenueWidth * 0.5
   const halfStreet = x.streetWidth * 0.5
-  const gap = junctionGapFor(radius)
-  const avenueLift = -gap + 0.03 // avenue surface is a junction gap lower
-  const streetLift = 0.03
+  // Each bar follows its own position on the cylinder. Reserve clearance
+  // for both the road's inward chord and the flat bar's outward corners.
+  const roadRadius = radius - ROAD_SURFACE_LIFT_METERS
+  const paintLift = (halfTangentSpan: number) => ROAD_SURFACE_MAX_SAGITTA_METERS + 0.01 +
+    Math.hypot(roadRadius, halfTangentSpan) - roadRadius
+  const avenueLift = paintLift(STRIPE_WIDTH * 0.5)
+  const streetLift = paintLift(STRIPE_LENGTH * 0.5)
 
   // Crosswalks. Legs along the avenue (±axial) cross the AVENUE: bars run
   // axially, repeated across the avenue width. Legs along the street (±tangent)
@@ -194,8 +197,6 @@ type Part = {
   capacity: number
 }
 
-const ROAD_SURFACE_DROP = 0.2
-
 export class IntersectionFurniture {
   readonly group = new THREE.Group()
 
@@ -265,6 +266,7 @@ export class IntersectionFurniture {
     lamp.translate(0, 0, 0.16)
     const plate = new THREE.BoxGeometry(0.7, 0.24, 0.03)
     this.stripes = make(stripe, this.stripeMaterial, 4096)
+    this.stripes.mesh.name = 'crosswalk-stripes'
     this.poles = make(pole, this.poleMaterial, 512)
     this.arms = make(arm, this.poleMaterial, 512)
     this.heads = make(head, this.headMaterial, 512)
@@ -308,17 +310,21 @@ export class IntersectionFurniture {
   }
 
   private place(part: Part, index: number, x: CityIntersection, transform: FurnitureTransform, surfaceDrop: number) {
-    const cos = Math.cos(x.azimuth)
-    const sin = Math.sin(x.azimuth)
+    // Crosswalks hug the cylinder instead of the crossing's tangent plane.
+    // Signals retain one shared frame so their poles, arms and heads join.
+    const curved = part === this.stripes
+    const azimuth = x.azimuth + (curved ? transform.t / this.radius : 0)
+    const cos = Math.cos(azimuth)
+    const sin = Math.sin(azimuth)
     tangentDir.set(-sin, 0, cos)
-    crossingQuaternionFor(x.azimuth, crossingQuaternion)
+    crossingQuaternionFor(azimuth, crossingQuaternion)
     yawQuaternion.setFromAxisAngle(localUp, transform.yaw)
     partQuaternion.copy(crossingQuaternion).multiply(yawQuaternion)
     // Position: wall point at the crossing, then local offsets (t along the
     // tangent, a along the axis, h inward).
     const radial = this.radius - surfaceDrop - transform.h
     position.set(cos * radial, x.axial, sin * radial)
-    position.addScaledVector(tangentDir, transform.t)
+    if (!curved) position.addScaledVector(tangentDir, transform.t)
     position.y += transform.a
     scale.set(transform.sx, transform.sy, transform.sz)
     matrix.compose(position, partQuaternion, scale)
@@ -337,28 +343,28 @@ export class IntersectionFurniture {
       const layout = layoutIntersection(x, this.radius)
       for (const s of layout.stripes) {
         if (nStripe >= this.stripes.capacity) break
-        this.place(this.stripes, nStripe++, x, s, ROAD_SURFACE_DROP)
+        this.place(this.stripes, nStripe++, x, s, ROAD_SURFACE_LIFT_METERS)
       }
       for (const p of layout.poles) {
         if (nPole >= this.poles.capacity) break
-        this.place(this.poles, nPole++, x, p, ROAD_SURFACE_DROP - 0.06)
+        this.place(this.poles, nPole++, x, p, ROAD_SURFACE_LIFT_METERS - 0.06)
       }
       for (const a of layout.arms) {
         if (nArm >= this.arms.capacity) break
-        this.place(this.arms, nArm++, x, a, ROAD_SURFACE_DROP - 0.06)
+        this.place(this.arms, nArm++, x, a, ROAD_SURFACE_LIFT_METERS - 0.06)
       }
       // A stable per-crossing phase from its grid position.
       const phase = ((x.azimuth * 1000 + x.axial * 0.37) % SIGNAL_CYCLE_SECONDS + SIGNAL_CYCLE_SECONDS) % SIGNAL_CYCLE_SECONDS
       for (const h of layout.heads) {
         if (nHead >= this.heads.capacity) break
-        this.place(this.heads, nHead, x, h, ROAD_SURFACE_DROP - 0.06)
-        this.place(this.lamps, nHead, x, h, ROAD_SURFACE_DROP - 0.06)
+        this.place(this.heads, nHead, x, h, ROAD_SURFACE_LIFT_METERS - 0.06)
+        this.place(this.lamps, nHead, x, h, ROAD_SURFACE_LIFT_METERS - 0.06)
         this.headPhases.push(phase)
         nHead++
       }
       for (const p of layout.plates) {
         if (nPlate >= this.plates.capacity) break
-        this.place(this.plates, nPlate++, x, p, ROAD_SURFACE_DROP - 0.06)
+        this.place(this.plates, nPlate++, x, p, ROAD_SURFACE_LIFT_METERS - 0.06)
       }
     }
     for (const [part, count] of [

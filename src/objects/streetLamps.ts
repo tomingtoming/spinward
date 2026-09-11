@@ -6,11 +6,9 @@ import { getArterialRoadWidth, getLocalRoadWidth } from './cityLayout'
 // Near-field street lamps (2026-09-03, toming「街路灯の間隔」): posts with an
 // arm, a warm head and a light pool on the road, on EVERY grid road at real
 // street-lighting spacing, laid out only around the player (same scheme as
-// intersectionFurniture / parkedCars). The far city keeps cityscape's sparse
-// global dots (one every 2.2 cells on the arterial avenues) for the glow
-// network seen from across the cylinder; up close those are too far apart
-// (176 m) to read as street lighting, and posts/pools for all ~40k spots
-// would not fit a phone.
+// intersectionFurniture / parkedCars). The far city uses the surface shell
+// bake; unsupported centreline dots have been retired. Posts/pools for all
+// ~40k spots would not fit a phone.
 //
 // Frame: rotating, axis = +Y. A lamp sits at the kerb of its road, alternating
 // sides; the arm reaches over the road; the pool is centred under the head.
@@ -222,8 +220,7 @@ export class StreetLamps {
   setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number) {
     this.spots = planLampSpots(roads, intersections, radius)
     this.radius = radius
-    // Same height rule as the far dots (cityscape buildLamps) so near and far
-    // lamps agree where the light is.
+    // Size supported fixtures to the road scale, capped at 12 metres.
     const cell = Math.max(getArterialRoadWidth(radius, length) * 2, 20)
     this.lampHeight = THREE.MathUtils.clamp(cell * 0.55, 3, 12)
     void getLocalRoadWidth

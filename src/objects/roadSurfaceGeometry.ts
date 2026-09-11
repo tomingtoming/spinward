@@ -1,11 +1,14 @@
 import * as THREE from 'three'
 import type { RoadSurface } from './roadNetwork'
 
+export const ROAD_SURFACE_LIFT_METERS = 0.2
+export const ROAD_SURFACE_MAX_SAGITTA_METERS = 0.02
+
 // Write one batch directly rather than creating and merging tens of thousands
 // of tiny CylinderGeometry objects. All arms and junctions share one elevation.
 export const buildRoadSurfaceGeometry = (surfaces: RoadSurface[], radius: number, texturePeriod: number) => {
   if (!surfaces.length) return null
-  const maxArc = Math.sqrt(8 * 0.02 / radius)
+  const maxArc = Math.sqrt(8 * ROAD_SURFACE_MAX_SAGITTA_METERS / radius)
   const counts = surfaces.map(s => Math.max(1, Math.min(720, Math.ceil(s.tangentWidth / radius / maxArc))))
   const vertexCount = counts.reduce((sum, n) => sum + 2 * (n + 1), 0)
   const positions = new Float32Array(vertexCount * 3), normals = new Float32Array(vertexCount * 3)
@@ -19,7 +22,7 @@ export const buildRoadSurfaceGeometry = (surfaces: RoadSurface[], radius: number
       const cos = Math.cos(angle), sin = Math.sin(angle)
       for (const side of [-1, 1]) {
         const y = s.axial + side * s.axialLength / 2
-        positions.set([cos * (radius - 0.2), y, sin * (radius - 0.2)], cursor * 3)
+        positions.set([cos * (radius - ROAD_SURFACE_LIFT_METERS), y, sin * (radius - ROAD_SURFACE_LIFT_METERS)], cursor * 3)
         normals.set([cos, 0, sin], cursor * 3)
         const delta = Math.atan2(Math.sin(angle - source.azimuth), Math.cos(angle - source.azimuth)) * radius
         uv.set(s.axis === 'axial'
