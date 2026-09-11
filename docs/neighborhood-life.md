@@ -92,3 +92,66 @@ changed 202 to 208 draw calls; both readings rounded to 3.2M triangles.
 The 180-frame samples had median frame intervals 16.7/16.8 ms and p95
 33.4/33.4 ms (off/on). This compares the optional people layer, not the whole
 branch against main, and does not establish mobile or XR headroom.
+
+## Cafe journey increment (2026-09-11)
+
+The cafe's right bench now belongs to the pedestrian arriving from across the
+street. The left bench stays available to the player. The resident walks along
+the opposite pavement, waits at the zebra crossing, enters through the middle
+of the doorway, passes behind the tables and approaches the bench from its
+clear aisle. Sitting and standing blend over 1.2 seconds. After a 24-second
+coffee pause the same person returns along the route. The optional resident
+asset does not own collision or the player chair contract.
+
+Two warm, unshadowed local lights make the cafe's interior and people legible
+at night. The resident uses the existing Blender coffee mug; its wrist animation
+raises it periodically while seated. Hand and mouth positions were measured
+from the exported hierarchy. The first-person grip remains the existing
+continuous sleeve asset; its complete player coffee cycle was rechecked.
+
+At the collector junction about 59 metres along the cafe street, one member of
+the existing traffic fleet takes a curved right turn into the street. Minor
+approaches yield to nearby major-road traffic; the turning vehicle waits for
+major-road and merge clearance, follows vehicles ahead and obeys the pedestrian
+crossing. The stop-line equality case has a regression test: reaching the line
+must not authorize departure on the next frame. This is a single local junction
+and bounded demonstration route, not citywide pathfinding or intersection AI.
+Ambient traffic still uses its existing repeated spans beyond this pilot.
+
+Validation for this increment:
+
+- `bun test`: 653 passed; production TypeScript/Vite build passed. Existing large
+  bundle warning remains.
+- Geometry tests sample the doorway/aisle route against solid room furniture in
+  both 64,000 and 16,000 building plans; turn geometry is continuous at the curve.
+- Real-browser journey: 953 samples, all outbound and return stages reached,
+  zero JavaScript errors and zero sampled cars overlapping the central crossing
+  while the resident crossed. Sampling is not a proof for every traffic state.
+- Controlled main-road obstruction: turn held at progress 90 m / speed 0, then
+  resumed to 113.7 m / 4 m/s after clearance. The probe waits for car asset loading
+  before placing the obstacle, so a route rebuild cannot erase the test setup.
+- Player coffee cycle: all three drinks consumed, then cup returned to idle;
+  seat facing remained correct, zero JavaScript errors.
+- Independent image review: no definite body/bench penetration or floating,
+  and night visibility improved. Exact sole contact remains image-limited.
+- Browser scripts and local PNG/JSON evidence are in `qa/neighborhood-life/`.
+  Screenshots and measurements are ignored by Git. Quest hardware was not
+  available; desktop browser tier emulation must not be called a Quest test.
+
+Useful probes: `journey.mjs`, `junction.cjs`, `traffic.cjs`, `room-light.mjs`,
+`tiers.cjs`. Set `PLAYWRIGHT_MODULE` to the installed Playwright module if it is
+not resolvable locally. The new probes default to a fixed local Vite preview at
+port 5192, avoiding development hot reload during long animation captures.
+
+Measured on this Mac/Chrome (DPR 1, 180 frames each, not hardware mobile/XR):
+phone preset at 390×844 reached seated state, median/p95 16.7/16.7 ms; Quest
+preset at 1440×1000 was 16.7/33.4 ms; desktop preset was 33.3/33.4 ms. Draw counts
+were 167/188/208. These are current-scene readings, not a controlled before/after
+speedup claim. All three reported no immersive VR session support and no
+JavaScript errors.
+
+Controlled crossing probe: 320 samples including 67 with a stopped car, zero
+unsafe central-crossing overlaps. Its console records the existing local
+Cloudflare RUM CORS rejection and favicon 404 separately from application
+behavior. `shared-seat.mjs` replays the player's full coffee cycle while waiting
+for the resident to arrive at the other bench.

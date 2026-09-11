@@ -1,0 +1,8 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');const fs=require('fs');
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{const page=await browser.newPage({ignoreHTTPSErrors:true});let errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('https://127.0.0.1:5192/?debug&visit=cafe');await page.waitForFunction(()=>window.__spinward?.neighborhood?.asset);
+ await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardCity.trafficKitBacked);await page.waitForTimeout(1500);
+ const setup=await page.evaluate(()=>{const city=window.__spinwardCity,j=city.neighborhoodTurn;if(!j)throw Error('No junction');const r=city.trafficRoutes.find(r=>r.kind==='avenue'&&r.surfaceRadius>3199);if(!r)throw Error('No major-road car');r.laneAzimuth=j.azimuth+1.5/3200;r.spanStart=j.axial-100;r.spanLength=200;r.direction=-1;r.speedMetersPerSecond=0;r.motion={progress:95,speed:0};city.turnMotion={progress:85,speed:6};window.testMajor=r;return j});
+ await page.waitForTimeout(4000);const held=await page.evaluate(()=>({...window.__spinwardCity.turnMotion}));if(held.progress>90.001||held.speed>.1)throw Error('Turn failed to yield '+JSON.stringify(held));
+ await page.evaluate(()=>window.testMajor.motion.progress=0);await page.waitForTimeout(7500);const released=await page.evaluate(()=>({...window.__spinwardCity.turnMotion}));if(released.progress<96)throw Error('Turn failed to resume '+JSON.stringify(released));
+ const report={setup,held,released,errors};fs.writeFileSync(__dirname+'/junction-runtime.json',JSON.stringify(report));console.log(report)
+}finally{await browser.close()}})();

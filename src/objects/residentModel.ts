@@ -5,18 +5,20 @@ let loading: Promise<THREE.Group> | null = null
 export function loadResidentModel() {
   return loading ??= new GLTFLoader().loadAsync('/assets/people/resident.glb').then(g=>g.scene)
 }
-export function poseResident(root:THREE.Object3D,time:number,walking:boolean,seated:boolean,phase=0) {
+export function poseResident(root:THREE.Object3D,time:number,walking:boolean,seated:boolean|number,phase=0,drinking=false) {
   const set=(name:string,x:number)=>{const node=root.getObjectByName(name);if(node)node.rotation.x=x}
+  const sit=Number(seated),sip=drinking?Math.pow(Math.max(0,Math.sin((time%10)/10*Math.PI*2)),4):0
   const gait=Math.sin(time*7.5+phase), pelvis=root.getObjectByName('pelvis')
-  if(pelvis)pelvis.position.y=seated?.76:.96+(walking?Math.abs(gait)*.012:0)
+  if(pelvis)pelvis.position.y=.96-.20*sit+(walking?Math.abs(gait)*.012:0)
   for(const [side,sign] of [['left',1],['right',-1]] as const){
-    set(`${side}_hip`,seated?-Math.PI/2:gait*.5*sign*(walking?1:0))
-    set(`${side}_knee`,seated?Math.PI/2:Math.max(0,-gait*sign)*.65*(walking?1:0))
-    set(`${side}_shoulder`,seated?-.15:-gait*.24*sign*(walking?1:0))
-    set(`${side}_elbow`,seated?-1.0:-.12)
+    set(`${side}_hip`,-Math.PI/2*sit+gait*.5*sign*(walking?1:0)*(1-sit))
+    set(`${side}_knee`,Math.PI/2*sit+Math.max(0,-gait*sign)*.65*(walking?1:0)*(1-sit))
+    set(`${side}_shoulder`,-.15*sit-gait*.24*sign*(walking?1:0)*(1-sit)-(side==='right'?sip*1.2:0))
+    set(`${side}_elbow`,-.12-.88*sit-(side==='right'?sip*1.05:0))
   }
+  const shoulder=root.getObjectByName('right_shoulder');if(shoulder)shoulder.rotation.z=-sip
   const head=root.getObjectByName('head');if(head)head.rotation.y=Math.sin(time*.32+phase)*.09
-  const torso=root.getObjectByName('torso');if(torso)torso.rotation.x=seated?.04:Math.sin(time*1.6+phase)*.008
+  const torso=root.getObjectByName('torso');if(torso)torso.rotation.x=.04*sit+Math.sin(time*1.6+phase)*.008*(1-sit)
 }
 /** Metric Y-up character anchored to the rotating surface, +Z along its heading. */
 export function placeResident(root:THREE.Object3D,azimuth:number,axial:number,radius:number,heading:number,height=.25) {

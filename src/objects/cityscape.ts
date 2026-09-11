@@ -1,3 +1,4 @@
+import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
 import { advanceTraffic, crossingGap, type CrossingGate } from './trafficMotion'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import { planNyaanApartment } from './nyaanApartment'
@@ -1934,10 +1935,17 @@ export class Cityscape {
   private kenneyCarGeometries: KenneyCarGeometryPack | null = null
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
+  private neighborhoodTurn:NeighborhoodTurn|null=null
+  private turnMotion={progress:0,speed:0}
+  setNeighborhoodTurn(j:NeighborhoodTurn|null){
+    if(j?.azimuth!==this.neighborhoodTurn?.azimuth||j?.axial!==this.neighborhoodTurn?.axial)this.turnMotion={progress:0,speed:0}
+    this.neighborhoodTurn=j
+  }
   private crossingGate: CrossingGate | null = null
   setCrossingGate(gate: CrossingGate | null) { this.crossingGate = gate }
   getTrafficPositions() {
-    return this.trafficRoutes.map(route => {
+    return this.trafficRoutes.map((route,index) => {
+      if(this.neighborhoodTurn&&index===this.trafficRoutes.length-1)return {...sampleNeighborhoodTurn(this.neighborhoodTurn,this.turnMotion.progress),speed:this.turnMotion.speed}
       const progress = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)
       const along = route.direction === 1 ? route.spanStart + progress : route.spanStart + route.spanLength - progress
       return { azimuth: route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth + along / this.radius,
@@ -2367,11 +2375,32 @@ export class Cityscape {
     }
 
     this.trafficTime += deltaSeconds
+    const junction=this.neighborhoodTurn
+    const snapshot=this.getTrafficPositions()
+    const ordinary=junction?snapshot.slice(0,-1):snapshot
+    const majorBusy=junction?junctionMajorBusy(junction,ordinary):false
+    if(junction){
+      const own=sampleNeighborhoodTurn(junction,this.turnMotion.progress)
+      let gap=turnYieldGap(this.turnMotion.progress,majorBusy)
+      // Merge clearance and following use the same world positions as pedestrians.
+      for(const v of ordinary){
+        if(v.height>=1)continue
+        const x=wrapAngleToPi(v.azimuth-own.azimuth)*this.radius,z=v.axial-own.axial
+        const along=x*Math.sin(own.heading)+z*Math.cos(own.heading),across=x*Math.cos(own.heading)-z*Math.sin(own.heading)
+        if(along>0&&Math.abs(across)<2.3)gap=Math.min(gap,along-2)
+        if(this.turnMotion.progress<=TURN_APPROACH&&Math.abs(wrapAngleToPi(v.azimuth-junction.azimuth)*this.radius)<junction.halfWidth+2&&Math.abs(v.axial-junction.axial)<4)gap=Math.min(gap,TURN_APPROACH-this.turnMotion.progress+3.2)
+      }
+      if(this.crossingGate&&this.turnMotion.progress>=TURN_APPROACH)
+        gap=Math.min(gap,crossingGap(this.crossingGate,this.radius,'street',own.azimuth,own.axial,-1))
+      this.turnMotion=advanceTraffic(this.turnMotion,deltaSeconds,this.turnMotion.progress<TURN_APPROACH?6:4,gap)
+      if(this.turnMotion.progress>=TURN_LENGTH)this.turnMotion={progress:0,speed:0}
+    }
     // Snapshot lane order before moving any car, so update order cannot let
     // the follower overlap a stopped leader. Group/sort is O(n log n).
     const lanes = new Map<string, { index:number; along:number }[]>()
     const leaderGaps = new Map<number,number>()
     this.trafficRoutes.forEach((r,index) => {
+      if(junction&&index===this.trafficRoutes.length-1)return
       const key=[r.kind,r.laneAzimuth,r.laneAxial,r.surfaceRadius,r.direction].join(':')
       const progress=THREE.MathUtils.euclideanModulo(r.motion?.progress??r.phaseMeters,r.spanLength)
       const along=(r.direction===1?r.spanStart+progress:r.spanStart+r.spanLength-progress)*r.direction
@@ -2388,6 +2417,20 @@ export class Cityscape {
       const previous = THREE.MathUtils.euclideanModulo(route.motion.progress, route.spanLength)
       const previousAlong = route.direction === 1 ? route.spanStart + previous : route.spanStart + route.spanLength - previous
       let gap = leaderGaps.get(index) ?? Infinity
+      const isTurn=!!junction&&index===this.trafficRoutes.length-1
+      if(junction&&!isTurn&&this.radius-route.surfaceRadius<1){
+        const own=snapshot[index],turn=sampleNeighborhoodTurn(junction,this.turnMotion.progress)
+        const dx=wrapAngleToPi(turn.azimuth-own.azimuth)*this.radius,dz=turn.axial-own.axial
+        const along=(route.kind==='avenue'?dz:dx)*route.direction,across=route.kind==='avenue'?dx:dz
+        if(along>0&&Math.abs(across)<2.3)gap=Math.min(gap,along-2)
+        if(route.kind==='street'&&Math.abs(route.laneAxial-junction.axial)<3){
+          const ahead=wrapAngleToPi(junction.azimuth-own.azimuth)*this.radius*route.direction
+          const turnInJunction=this.turnMotion.progress>=TURN_APPROACH-1&&this.turnMotion.progress<TURN_APPROACH+20
+          // Minor-road approaches yield before the conflict area. Cars already
+          // inside clear it, preventing a new priority grant from trapping them.
+          if(ahead>junction.halfWidth+3.2&&(majorBusy||turnInJunction))gap=Math.min(gap,ahead-junction.halfWidth)
+        }
+      }
       if (this.crossingGate && this.radius-route.surfaceRadius < 1) {
         gap = Math.min(gap, crossingGap(this.crossingGate, this.radius, route.kind,
           route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth+previousAlong/this.radius,
@@ -2413,6 +2456,8 @@ export class Cityscape {
         axial = route.laneAxial
       }
 
+      const turn=isTurn?sampleNeighborhoodTurn(junction!,this.turnMotion.progress):null
+      if(turn){azimuth=turn.azimuth;axial=turn.axial}
       const cos = Math.cos(azimuth)
       const sin = Math.sin(azimuth)
       inward.set(-cos, 0, -sin)
@@ -2423,12 +2468,13 @@ export class Cityscape {
         trafficForward.set(-sin, 0, cos).multiplyScalar(route.direction)
       }
 
+      if(turn)trafficForward.set(-sin*Math.sin(turn.heading),Math.cos(turn.heading),cos*Math.sin(turn.heading))
       // Right-handed car frame: X = up × forward, Y = up (toward the axis),
       // Z = travel direction (the kit's nose).
       trafficRight.copy(inward).cross(trafficForward)
       basis.makeBasis(trafficRight, inward, trafficForward)
       instanceQuaternion.setFromRotationMatrix(basis)
-      instancePosition.set(cos, 0, sin).multiplyScalar(route.surfaceRadius).setY(axial)
+      instancePosition.set(cos, 0, sin).multiplyScalar(turn?this.radius-.2:route.surfaceRadius).setY(axial)
       instanceScale.setScalar(route.scale)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       fleet[index % fleet.length].setMatrixAt(
