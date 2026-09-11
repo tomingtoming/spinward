@@ -1,8 +1,28 @@
 import { describe, expect, test } from 'bun:test'
-import { isSlotOccupied, parkingSlotFor, parkingSlotsFor, selectNearbyBuildings, slotHash } from './parkedCars'
+import * as THREE from 'three'
+import { isSlotOccupied, parkingSlotFor, parkingSlotsFor, selectNearbyBuildings, slotHash, ParkedCars } from './parkedCars'
 import type { CityBuilding, CityRoad } from './cityLayout'
 
 const R = 3200
+test('parked cars draw only the authored body and own their geometry copies',()=>{
+  const source=new THREE.BoxGeometry(1,1,1)
+  source.clearGroups();source.addGroup(0,24,0);source.addGroup(24,6,1);source.addGroup(30,6,2)
+  const material=new THREE.MeshStandardMaterial(),pack={cars:[source],material}
+  let sourceDisposed=false,copyDisposed=false,materialDisposed=false
+  source.addEventListener('dispose',()=>sourceDisposed=true)
+  material.addEventListener('dispose',()=>materialDisposed=true)
+  const cars=new ParkedCars();cars.setPack(pack)
+  const mesh=cars.group.children[0] as THREE.InstancedMesh
+  mesh.geometry.addEventListener('dispose',()=>copyDisposed=true)
+  expect(mesh.geometry).not.toBe(source)
+  expect(mesh.geometry.drawRange).toEqual({start:0,count:24})
+  expect(mesh.geometry.groups).toHaveLength(0)
+  expect(source.groups).toHaveLength(3)
+  expect(source.drawRange.count).toBe(Infinity)
+  cars.dispose()
+  expect(copyDisposed).toBe(true);expect(sourceDisposed).toBe(false);expect(materialDisposed).toBe(false)
+  source.dispose();material.dispose()
+})
 const sidewalk = 5
 const avenue: CityRoad = { azimuth: 0.02, axial: 0, tangentWidth: 8, axialLength: 40000, kind: 'local' }
 const street: CityRoad = { azimuth: 0, axial: 500, tangentWidth: 3000, axialLength: 24, kind: 'arterial' }

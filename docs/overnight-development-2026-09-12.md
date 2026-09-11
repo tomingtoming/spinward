@@ -65,7 +65,7 @@ actual XR framing, latency, body proportions and comfort still need hardware.
 The full coffee regression also passes. This is a grounded body prototype;
 free-fly/driving body poses and inferred physical body collisions remain open.
 
-## Fourth increment — nearby street residents (01:42)
+## Fourth increment — nearby street residents (01:37)
 
 The wider street network now gets a small persistent nearby population: eight
 on desktop and four on phone/Quest presets, in six clothing palettes and modest
@@ -90,6 +90,17 @@ the increased stop distance. Night silhouettes remain dark, and the simplified
 character art/foot planting are not a finished animation system. Hardware phone
 and XR performance remain unverified.
 
-Next: fix the parked-car light strips sampling the colour atlas, then continue
-the wider outdoor scene and movement survey. Avoid unbounded character-art
-polish, new UI systems or a full ragdoll rewrite.
+## Fifth increment — parked vehicle lamps (01:43)
+
+Street inspection exposed a coloured checker strip across parked cars. Their
+shared traffic geometry includes extra head/tail-light boxes; parking applied
+the single car-palette material to those boxes as well. Parking now owns a
+geometry copy restricted to the original body group, keeping authored unlit
+lamps and leaving moving traffic's emissive lights intact. The source pack and
+shared material survive disposal; owned copies are released. Same-view day/night
+comparisons remove the atlas pattern without additional draws. This is a small
+scene-wide repair, not a vehicle redesign.
+
+Next: continue the wider outdoor scene and movement survey across travel stops
+and presets. Avoid unbounded character-art polish, new UI systems or a full
+ragdoll rewrite.

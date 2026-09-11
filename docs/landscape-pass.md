@@ -118,3 +118,13 @@ the repaired ground readable and the trunk attached, with no blocking visual
 fault; simplified crown masses remain visible up close. Phone preset results
 are desktop browser measurements, not physical phone or Quest certification.
 This remains local and is not a production deployment.
+
+## Parked lamps (2026-09-12)
+
+Parked vehicles drew the traffic pack's added light-bar boxes with a single
+palette material, displaying the whole colour atlas on each bar. Parking now
+owns a geometry copy whose draw range contains only the original vehicle body.
+Its authored lamps remain unlit, while moving traffic keeps the separate
+emissive groups. Day/night same-view comparisons in `parked-lamps.mjs` show the
+checker strips removed with no added draw calls. The ownership test protects
+the shared traffic geometry/material and checks disposal of the parked copy.

@@ -222,11 +222,19 @@ export class ParkedCars {
     for (const mesh of this.meshes) {
       this.group.remove(mesh);
       mesh.dispose();
+      mesh.geometry.dispose();
     }
     this.pack = pack;
     this.meshes = pack.cars.map((geometry) => {
+      // The fleet adds emissive head/tail boxes in groups 1/2. Parked cars
+      // use only the original textured body: drawing those boxes with the
+      // palette material maps the entire colour chart across each lamp.
+      const parkedGeometry = geometry.clone();
+      const body = geometry.groups.find((group) => group.materialIndex === 0);
+      if (body) parkedGeometry.setDrawRange(body.start, body.count);
+      parkedGeometry.clearGroups();
       const mesh = new THREE.InstancedMesh(
-        geometry,
+        parkedGeometry,
         pack.material,
         ParkedCars.CAPACITY,
       );
@@ -336,6 +344,7 @@ export class ParkedCars {
     for (const mesh of this.meshes) {
       this.group.remove(mesh);
       mesh.dispose();
+      mesh.geometry.dispose();
     }
     this.meshes = [];
   }
