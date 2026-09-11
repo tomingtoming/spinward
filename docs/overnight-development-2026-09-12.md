@@ -661,3 +661,31 @@ passes. Evidence: `history-return.mjs`, `history-return-no-xr-{before,after}`,
 `history-return-xr-after`.
 
 Next: sample street movement and wider travel for remaining large frame stalls.
+
+
+## Twenty-fifth increment — retire unused building allocations (07:00)
+
+All exterior lots already belonged to ColonyBuildings, but Cityscape still
+created 25 legacy materials and 38 canvas images. Across all four presets,
+none had a live nonzero mesh owner; only a zero-instance far-building mesh
+retained six material slots. Those images total 98 MiB of RGBA-equivalent
+pixel storage at the desktop setting. This is a CPU image-size estimate,
+not measured GPU bytes, resident-process memory or proof of a frame-stall cause.
+
+The unused facade, shop, roof, sign, suburban-boundary and older near/far
+building paths have now been removed, including their shader patches and
+per-frame daylight work. About 2,600 source lines are retired. Active Blender
+exteriors, fallback structures, interiors, street access, vehicles, roads,
+roof fixtures and the distant city-shell bake retain their current owners.
+Obsolete quality knobs are removed; the former detail-distance input only
+controlled focus refresh spacing, now named directly. Desktop/phone/Quest
+spacing remains exactly 32/30/24 m, with the former 20 m constructor default.
+
+The same four-preset audit afterward finds zero retired materials, images
+or dormant meshes. Every recorded ColonyBuildings count matches its own
+before state exactly, including windows, balconies, shop fronts and roofs.
+Independent review of all eight before/after images finds no missing buildings,
+roads, street furniture or sky structures in those views. Full suite: 796 tests;
+production build passes. Browser comparison evidence:
+`retired-building-assets-{before,after}`. No device-memory saving or stutter
+elimination is inferred from canvas dimensions alone.

@@ -115,7 +115,7 @@ import {
   getLandArcs,
   getWindowArcs,
 } from '../objects/cityLayout'
-import { Cityscape, setFacadeTextureSize } from '../objects/cityscape'
+import { Cityscape } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
 import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
@@ -310,9 +310,6 @@ export const bootstrapApp = async () => {
     topology: habitatConfig.topology,
     type: habitatConfig.type
   })
-  // Desktop can afford 1024 px facade skins (frames, mullions, balcony rails
-  // at street distance); phones and Quest keep 512.
-  setFacadeTextureSize(quality.tier === 'desktop' ? 1024 : 512)
   const cityscape = new Cityscape(
     {
       radius: habitatConfig.radius,
@@ -322,15 +319,9 @@ export const bootstrapApp = async () => {
     },
     {
       maxBuildings: quality.maxBuildings,
-      farMinAngularSize: quality.farMinAngularSize,
       maxTraffic: quality.maxTraffic,
-      detailedLod0Distance: quality.detailedLod0Distance,
-      detailedLod1Distance: quality.detailedLod1Distance,
-      maxDetailedLod0: quality.maxDetailedLod0,
-      maxDetailedLod1: quality.maxDetailedLod1,
-      lod1FullKitGeometry: quality.lod1FullKitGeometry,
-      roadTileDistance: quality.roadTileDistance,
-      maxRoofClutter: quality.maxRoofClutter
+      focusStepMeters: quality.cityFocusStepMeters,
+      roadTileDistance: quality.roadTileDistance
     }
   )
   const spaceport = new Spaceport({

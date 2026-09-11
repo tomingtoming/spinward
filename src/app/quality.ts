@@ -29,35 +29,13 @@ export type QualityProfile = {
   tier: QualityTier
   pixelRatioCap: number
   maxBuildings: number | undefined
-  // Angular size (radians) below which far-batch buildings are culled. This
-  // knob trades far-side instance count against near-arc plan density:
-  // raising it pays for a denser plan without touching the arc you stand in.
-  farMinAngularSize: number
-  // Ambient traffic budget (cars simulated+drawn around the focus arc).
+  // Ambient traffic budget around the current surface focus.
   maxTraffic: number
-  // Blender-authored building shells are restricted to a surface-space disk
-  // around the active player/car. LOD0 carries fins/balconies; LOD1 keeps only
-  // the stepped silhouette. Hard caps bound triangles even in dense blocks.
-  detailedLod0Distance: number
-  detailedLod1Distance: number
-  maxDetailedLod0: number
-  maxDetailedLod1: number
-  // Whether sets WITHOUT an authored low-detail model (suburban, skyscraper,
-  // industrial) may keep their full kit geometry in the LOD1 band. Off on
-  // mobile GPUs: full geometry at LOD1 range is what melted Quest to 20 fps —
-  // there the harmonized boxes take over directly beyond LOD0.
-  lod1FullKitGeometry: boolean
-  // Kenney road-tile overlay (curbs/sidewalks/junction pieces) range around
-  // the player. 0 everywhere since the Kenney strip (toming, 2026-07-22):
-  // painted roads carry every distance until the procedural facade skin
-  // brings its own street furniture. The machinery stays for that follow-up.
+  // Refresh spacing for street access, nearby interiors and traffic routes.
+  // Exterior detail and roof budgets belong to ColonyBuildings.
+  cityFocusStepMeters: number
+  // Optional street-tile overlay range; zero keeps the continuous road surface.
   roadTileDistance: number
-  // Rooftop clutter kits (water tanks, AC yards, masts) on the near-disk flat
-  // roofs, tallest first. Roofs are what you see from Overlook, from a jump
-  // and from across the cylinder, and a bare roof is the biggest tell of a
-  // box city. A kit is a few hundred triangles, so the mobile tiers get the
-  // tallest few hundred roofs and desktop most of the near disk.
-  maxRoofClutter: number
   // Bloom (EffectComposer) glow for the night city. Off on phones (fragment
   // budget) and in the Quest browser — EffectComposer does not compose with
   // WebXR's multi-view rendering anyway, so bloom is a desktop/flat-screen treat.
@@ -82,33 +60,15 @@ export const getQualityProfile = (): QualityProfile => {
     { touch: isTouchDevice(), quest: isQuestBrowser() }
   )
 
-  // Budgets assume surface-space LOD: only the disk around the active player
-  // or car carries authored detail, while the rest are procedural silhouettes.
+  // Plan density varies by device; ColonyBuildings owns exterior visibility.
   if (tier === 'phone') {
-    // Phones spend their building budget on the near surface, not spread thin: a
-    // uniform maxBuildings cut dilutes the arc you stand in — the only place
-    // a small screen reads archetype variety — while most of what it saves
-    // is far-side boxes that are sub-pixel at 1.75 DPR anyway. So the plan is
-    // denser than the original mobile plan and the far cull threshold stays
-    // aggressive. The hard near-LOD caps, rather than an empty spawn radius,
-    // now carry the phone GPU budget.
     return {
       tier,
       pixelRatioCap: 1.75,
       maxBuildings: 16000,
-      farMinAngularSize: 0.01,
       maxTraffic: 120,
-      // The Izma spawn is an arterial crossroads: even after core infill, the
-      // first facade centres sit tens of metres beyond the road and sidewalk.
-      // The current phone path still has headroom: spend it on visible street
-      // walls, while the aggressive far cull and 1.75 DPR cap stay unchanged.
-      detailedLod0Distance: 150,
-      detailedLod1Distance: 340,
-      maxDetailedLod0: 180,
-      maxDetailedLod1: 700,
-      lod1FullKitGeometry: false,
+      cityFocusStepMeters: 30,
       roadTileDistance: 0,
-      maxRoofClutter: 300,
       bloom: false,
       rainStreaks: 2600,
       // 16km blessed on-device (toming, 2026-07-22, staging A/B vs 39km/26km/8km).
@@ -122,15 +82,9 @@ export const getQualityProfile = (): QualityProfile => {
       tier,
       pixelRatioCap: Number.POSITIVE_INFINITY,
       maxBuildings: 18000,
-      farMinAngularSize: 0.004,
       maxTraffic: 160,
-      detailedLod0Distance: 120,
-      detailedLod1Distance: 420,
-      maxDetailedLod0: 220,
-      maxDetailedLod1: 900,
-      lod1FullKitGeometry: false,
+      cityFocusStepMeters: 24,
       roadTileDistance: 0,
-      maxRoofClutter: 400,
       bloom: false,
       rainStreaks: 4200,
       fogVisibilityMeters: 16_000,
@@ -139,20 +93,14 @@ export const getQualityProfile = (): QualityProfile => {
   }
 
   return {
-      tier,
+    tier,
     pixelRatioCap: Number.POSITIVE_INFINITY,
     // 48k → 64k (2026-09-03, 厚み): the denser core plans ~60k candidates
     // at full keep; the far cull still discards most of them per frame.
     maxBuildings: 64000,
-    farMinAngularSize: 0.004,
     maxTraffic: 420,
-    detailedLod0Distance: 280,
-    detailedLod1Distance: 900,
-    maxDetailedLod0: 800,
-    maxDetailedLod1: 2800,
-    lod1FullKitGeometry: true,
+    cityFocusStepMeters: 32,
     roadTileDistance: 0,
-    maxRoofClutter: 1600,
     bloom: true,
     rainStreaks: 7000,
     // 16km blessed on the desktop monitor too (toming, 2026-07-22, production
