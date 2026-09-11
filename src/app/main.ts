@@ -960,6 +960,14 @@ export const bootstrapApp = async () => {
         omega: rpmToOmega(habitatConfig.rpm)
       }
     )
+    if (didRespawn && !renderer.xr.isPresenting) {
+      // A travel destination should reveal the streets below, even when the
+      // previous view was the sky. Natural jumps still retain their gaze.
+      const ahead = Math.max(8, Math.min(220, habitatConfig.radius * .08, getHabitatSpanMeters() * .2))
+      const direction = new THREE.Vector3(habitatConfig.radius, ahead, 0).sub(playerRig.position)
+      mobileControls?.resetLook()
+      desktopLookControls.faceDirection(direction, new THREE.Vector3(-1, 0, 0))
+    }
     return didRespawn
   }
 
@@ -992,6 +1000,8 @@ export const bootstrapApp = async () => {
         playerTraversal,
         playerRig,
         type: habitatConfig.type,
+        aspect: renderer.xr.isPresenting ? 1 : camera.aspect,
+        verticalFovDegrees: camera.fov,
         length: getHabitatSpanMeters(),
         radius: habitatConfig.radius,
         frameAngle,
@@ -1002,6 +1012,7 @@ export const bootstrapApp = async () => {
     // world origin, so face the negated rig position. (VR keeps head-look.)
     if (didRespawn && !renderer.xr.isPresenting) {
       exteriorFacing.copy(playerRig.position).negate()
+      mobileControls?.resetLook()
       desktopLookControls.faceDirection(exteriorFacing)
     }
     return didRespawn
@@ -1151,14 +1162,18 @@ export const bootstrapApp = async () => {
           return respawnPlayerInnerWall()
         }
         if (runtimeAction.mode === 'old-town') {
-          return respawnPlayerOldTown()
+          const moved = respawnPlayerOldTown()
+          if (moved) reportTour('old-town')
+          return moved
         }
         if (runtimeAction.mode === 'overlook') {
           reportTour('overlook')
           return respawnPlayerOverlook()
         }
         if (runtimeAction.mode === 'exterior') {
-          return respawnPlayerExterior()
+          const moved = respawnPlayerExterior()
+          if (moved) reportTour('exterior')
+          return moved
         }
         reportTour('axis')
         return respawnPlayerAxisEnd()
@@ -2713,6 +2728,7 @@ export const bootstrapApp = async () => {
     // Lightweight state probe for headless debugging.
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
+      tour: tourGuide.activeEvent,
       mode: playerTraversal.mode,
       room: { ...roomEnvironment, coffee: { phase: coffeeService.phase, servings: coffeeService.servings, sipRemaining: coffeeService.sipRemaining }, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
         seats: cityscape.getRoomSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),

@@ -5,6 +5,7 @@ import { createPlayerTraversalState, getPlayerBodyRadius } from '../app/playerTr
 import { initRapier } from '../physics/rapierContext'
 import {
   getOverlookAltitude,
+  getExteriorVantage,
   respawnAxisEnd,
   respawnExterior,
   respawnInnerWall,
@@ -116,16 +117,33 @@ test('respawnExterior hangs the player at inertial rest, letting the colony spin
 
   expect(didRespawn).toBe(true)
   expect(state.mode).toBe('free-fly')
-  expect(rotatingPosition.x).toBeCloseTo(radius * 1.6, 6)
-  expect(rotatingPosition.y).toBeCloseTo(-120 * 0.3, 6)
-  expect(rotatingPosition.z).toBeCloseTo(0, 6)
+  const vantage=getExteriorVantage({type:'cylinder',radius,length:120})
+  expect(rotatingPosition.distanceTo(vantage)).toBeLessThan(1e-6)
+  expect(Math.hypot(rotatingPosition.x,rotatingPosition.z)).toBeGreaterThan(radius)
   // The point: at rest in the INERTIAL frame, hanging in space while the
   // colony rotates past. (This flip-flopped once: co-rotating kept the colony
   // still in view but hid the spin — the reason the vantage exists — and a
   // free body can't orbit anyway.) Inertial rest = rotating-frame velocity
   // of magnitude omega * r, sweeping backwards.
   expect(state.inertialVelocity.length()).toBeCloseTo(0, 6)
-  expect(rotatingVelocity.length()).toBeCloseTo(omega * radius * 1.6, 6)
+  expect(rotatingVelocity.length()).toBeCloseTo(omega * Math.hypot(vantage.x,vantage.z), 6)
+})
+
+test('exterior views frame each inhabited hull on landscape and portrait screens',()=>{
+  for(const [type,radius,length] of [['cylinder',18,120],['cylinder',3200,40000],['ring',30000,2000]] as const){
+    for(const aspect of [390/844,1440/1000,2.4]){
+      const camera=new THREE.PerspectiveCamera(70,aspect,.1,1e6)
+      camera.position.copy(getExteriorVantage({type,radius,length,aspect,verticalFovDegrees:70}))
+      camera.lookAt(0,0,0);camera.updateMatrixWorld(true)
+      for(const y of [-length/2,length/2])for(let i=0;i<64;i++){
+        const angle=i/64*Math.PI*2
+        const point=new THREE.Vector3(Math.cos(angle)*radius,y,Math.sin(angle)*radius).project(camera)
+        expect(Math.abs(point.x)).toBeLessThan(.94)
+        expect(Math.abs(point.y)).toBeLessThan(.94)
+        expect(point.z).toBeGreaterThan(-1);expect(point.z).toBeLessThan(1)
+      }
+    }
+  }
 })
 
 test('getOverlookAltitude is clamped for tiny and giant habitats', () => {

@@ -10,10 +10,19 @@ const overlookRotatingPosition = new THREE.Vector3()
 const exteriorRotatingPosition = new THREE.Vector3()
 const exteriorRotatingVelocity = new THREE.Vector3()
 
-// How far outside the hull the exterior vantage sits, as a multiple of the hull
-// radius — far enough to read the whole cylinder and the mirror end, close
-// enough that the colony still fills the view.
-const EXTERIOR_RADIUS_FACTOR = 1.6
+export type ExteriorView = { aspect?: number; verticalFovDegrees?: number }
+
+/** Fit the hull in the smaller viewport dimension. A fixed multiple of radius
+ * clips long cylinders and shows an edge-on ring. Mirror wings can extend
+ * beyond this framing; the inhabited hull is the visual anchor. */
+export const getExteriorVantage = (config: { type: HabitatType; radius: number; length: number } & ExteriorView) => {
+  const halfVertical = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(config.verticalFovDegrees ?? 70, 25, 110) / 2)
+  const aspect = THREE.MathUtils.clamp(config.aspect ?? 1, .3, 4)
+  const halfHorizontal = Math.atan(Math.tan(halfVertical) * aspect)
+  const envelope = Math.hypot(config.radius * 1.12, config.length * .5)
+  const distance = envelope * 1.08 / Math.sin(Math.min(halfVertical, halfHorizontal))
+  return new THREE.Vector3(1, config.type === 'ring' ? -.8 : -.7, .32).normalize().multiplyScalar(distance)
+}
 
 const getAxisEndMargin = (length: number, explicitMargin?: number) => {
   if (explicitMargin !== undefined) {
@@ -128,11 +137,10 @@ export const respawnAxisEnd = (
 }
 
 // Drop the player into space OUTSIDE the hull to admire the colony. Free-fly,
-// radially clear of the wall and (for a cylinder) hung off the -Y mirror end so
-// the petals and the long hull read at a glance.
+// radially clear of the wall, with an oblique view sized for the whole hull.
 export const respawnExterior = (
   state: PlayerTraversalState,
-  config: {
+  config: ExteriorView & {
     type: HabitatType
     radius: number
     length: number
@@ -140,9 +148,7 @@ export const respawnExterior = (
     omega: number
   }
 ) => {
-  const outward = config.radius * EXTERIOR_RADIUS_FACTOR
-  const axial = config.type === 'cylinder' ? -config.length * 0.3 : 0
-  exteriorRotatingPosition.set(outward, axial, 0)
+  exteriorRotatingPosition.copy(getExteriorVantage(config))
   // INERTIAL rest: the rotating-frame velocity -(omega x r) cancels the spin,
   // so the observer hangs still in space and the colony visibly rotates past.
   // This has flip-flopped once, so both options for the record:

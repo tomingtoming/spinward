@@ -70,7 +70,7 @@ export class StreetWalkers {
   }
   update(dt: number, focus: Focus, rover: { azimuth: number; axial: number } | null) {
     this.clock += Math.min(.1, Math.max(0, dt))
-    this.group.visible = this.enabled && this.segments.length > 0 && focus.altitude < 8
+    this.group.visible = this.enabled && this.segments.length > 0 && focus.altitude >= 0 && focus.altitude < 8
     if (!this.group.visible) return
     if (!this.source) {
       if (!this.requested) {

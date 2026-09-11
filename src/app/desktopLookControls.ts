@@ -206,6 +206,7 @@ export class DesktopLookControls {
 
     if (this.introElapsed !== null) {
       const userTookControl =
+        freeFlyActive ||
         this.dragging ||
         this.movedWhileLocked ||
         this.pressedKeys.size > 0 ||
@@ -426,6 +427,7 @@ export class DesktopLookControls {
   // Snap the view to the rig's forward (yaw 0): entering the car keeps the
   // camera aligned with the hood instead of whatever way you last looked.
   resetLook() {
+    this.introElapsed = null
     this.yaw = 0
     this.pitch = 0
     this.roll = 0
@@ -437,7 +439,8 @@ export class DesktopLookControls {
   // controller as already free-fly, so the next update() keeps this heading
   // instead of re-seeding from the stale (pre-respawn) camera. Exterior spawn is
   // always free-fly, so there is no grounded path to disturb.
-  faceDirection(worldDirection: THREE.Vector3) {
+  faceDirection(worldDirection: THREE.Vector3, worldUp?: THREE.Vector3) {
+    this.introElapsed = null
     faceLookDir.copy(worldDirection)
     if (faceLookDir.lengthSq() < 1e-9) {
       return
@@ -445,7 +448,8 @@ export class DesktopLookControls {
     faceLookDir.normalize()
     // Pick an up that is not near-parallel to the look, so lookAt does not
     // degenerate when we gaze along the spin axis (Y).
-    const up = Math.abs(faceLookDir.y) > 0.7 ? Z_AXIS : Y_AXIS
+    const fallbackUp = Math.abs(faceLookDir.y) > 0.7 ? Z_AXIS : Y_AXIS
+    const up = worldUp && Math.abs(faceLookDir.dot(worldUp)) < .999 ? worldUp : fallbackUp
     faceLookMatrix.lookAt(ORIGIN, faceLookDir, up)
     this.attitude.setFromRotationMatrix(faceLookMatrix)
     this.attitude.normalize()

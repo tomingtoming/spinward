@@ -38,6 +38,13 @@ describe('notifyTourEvent', () => {
     notifyTourEvent(state, 'jump')
     expect(stepTourGuide(state, 0.016)).toBe(TOUR_CARDS.jump)
   })
+  test('exterior and old-town arrivals replace the previous location card',()=>{
+    const state=createTourGuideState()
+    notifyTourEvent(state,'axis');notifyTourEvent(state,'exterior')
+    expect(stepTourGuide(state,.016)).toBe(TOUR_CARDS.exterior)
+    notifyTourEvent(state,'surface');notifyTourEvent(state,'old-town')
+    expect(stepTourGuide(state,.016)).toBe(TOUR_CARDS['old-town'])
+  })
 })
 
 describe('stepTourGuide', () => {

@@ -6,6 +6,8 @@ export type TourEventId =
   | 'jump'
   | 'overlook'
   | 'axis'
+  | 'old-town'
+  | 'exterior'
   | 'surface'
   | 'spin-change'
   | 'drive'
@@ -75,6 +77,23 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
       'Look around - the city wraps the sky.'
     ],
     durationSeconds: 12
+  },
+  'old-town': {
+    title: 'PORT DISTRICT',
+    body: [
+      'At the port end, smaller streets open into an arrival square.',
+      'Walk the neighbourhood, or look up toward the hub on the spin axis.'
+    ],
+    durationSeconds: 8
+  },
+  exterior: {
+    title: 'OUTSIDE THE COLONY',
+    body: [
+      'You float freely while the habitat turns.',
+      'The spinning floor supplies the push that residents feel as gravity.',
+      'Travel → Surface takes you back inside.'
+    ],
+    durationSeconds: 10
   },
   surface: {
     title: 'STREET LEVEL',

@@ -90,7 +90,7 @@ the increased stop distance. Night silhouettes remain dark, and the simplified
 character art/foot planting are not a finished animation system. Hardware phone
 and XR performance remain unverified.
 
-## Fifth increment — parked vehicle lamps (01:43)
+## Fifth increment — parked vehicle lamps (01:40)
 
 Street inspection exposed a coloured checker strip across parked cars. Their
 shared traffic geometry includes extra head/tail-light boxes; parking applied
@@ -101,6 +101,24 @@ shared material survive disposal; owned copies are released. Same-view day/night
 comparisons remove the atlas pattern without additional draws. This is a small
 scene-wide repair, not a vehicle redesign.
 
-Next: continue the wider outdoor scene and movement survey across travel stops
-and presets. Avoid unbounded character-art polish, new UI systems or a full
-ragdoll rewrite.
+## Sixth increment — destination framing and arrival guidance (01:53)
+
+The whole-colony tour exposed stale cards at Old Town/Exterior and boot-reveal
+pitch overwriting travel orientation. Both destinations now replace the previous
+location card; explicit look changes and entry to flight cancel the reveal.
+Overlook arrives looking down the avenue with local vertical, while natural
+jumps preserve gaze. Exterior uses an oblique viewpoint sized to the hull's
+radius/length and the smaller viewport angle; rings now show their opening.
+Mirror wings can extend beyond the hull framing. Inertial-rest positioning is
+preserved. Street walkers no longer refresh outside the hull.
+
+713 tests/build pass, including hull projection across three sizes and three
+aspects, inertial rest, and reveal cancellation through real control updates.
+`colony-tour.mjs` records the main travel stops in all four presets plus Izma
+day/night and portrait phone; it asserts the current location card. This is
+browser/profile coverage, not headset or mobile hardware validation.
+
+Next: exterior inspection revealed haze continuing outside the pressurized
+cylinder, washing the hull into a flat sky-coloured shape. Clip atmospheric
+integration to the finite habitat while preserving interior sightlines, then
+continue the broad scene/movement survey.

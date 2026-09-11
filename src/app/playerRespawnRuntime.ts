@@ -1,4 +1,5 @@
 import type { HabitatType } from '../sim/habitatConfig'
+import type { ExteriorView } from '../gameplay/respawn'
 
 type ApplyPlayerTraversalState<TPlayerRig, TPlayerTraversal> = (
   playerRig: TPlayerRig,
@@ -141,7 +142,7 @@ export const respawnPlayerExteriorRuntime = <TPlayerRig, TPlayerTraversal>(
   dependencies: {
     respawnExterior: (
       playerTraversal: TPlayerTraversal,
-      config: {
+      config: ExteriorView & {
         type: HabitatType
         radius: number
         length: number
@@ -151,9 +152,11 @@ export const respawnPlayerExteriorRuntime = <TPlayerRig, TPlayerTraversal>(
     ) => boolean
     applyPlayerTraversalState: ApplyPlayerTraversalState<TPlayerRig, TPlayerTraversal>
   },
-  config: RespawnPlayerAxisEndRuntimeConfig<TPlayerRig, TPlayerTraversal>
+  config: RespawnPlayerAxisEndRuntimeConfig<TPlayerRig, TPlayerTraversal> & ExteriorView
 ) => {
   const didRespawn = dependencies.respawnExterior(config.playerTraversal, {
+    aspect: config.aspect,
+    verticalFovDegrees: config.verticalFovDegrees,
     type: config.type,
     radius: config.radius,
     length: config.length,
