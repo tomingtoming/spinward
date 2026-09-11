@@ -1,4 +1,5 @@
-import {loadColonyModules,colonyFacadeMaterial} from './colonyBuildingModules'
+import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {loadColonyModules,colonyFacadeMaterial,prepareColonyGeometry,writeColonyFacade,dirtyColonyFacade} from './colonyBuildingModules'
 import { NYAAN_PILOT, apartmentShelter } from './nyaanApartment'
 import * as THREE from 'three'
 import { AuthoredBuildingPilot, CAFE_PILOT, LOBBY_PILOT } from './cafePilot'
@@ -49,14 +50,14 @@ export class BuildingInteriorLayer {
     this.sign = new THREE.CanvasTexture(signCanvas)
     this.sign.colorSpace = THREE.SRGBColorSpace
     this.materials = [
-      new THREE.MeshStandardMaterial({ color: 0xb9b5a5, roughness: 0.85 }),
-      colonyFacadeMaterial(),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }),
+      colonyFacadeMaterial(false,true),
       new THREE.MeshStandardMaterial({ color: 0x816047, roughness: 0.85 }),
       new THREE.MeshStandardMaterial({ color: 0x557342, roughness: 1 }),
       new THREE.MeshStandardMaterial({ color: 0xffddb0, emissive: 0xffc880, emissiveIntensity: 0.8 }),
       new THREE.MeshStandardMaterial({ map: this.sign, emissiveMap: this.sign, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.8 })
     ]
-    loadColonyModules().then(modules=>{if(this.disposed)return;this.structure=modules.structure;for(const mesh of this.meshes)mesh.geometry=this.structure}).catch(()=>{})
+    loadColonyModules().then(modules=>{if(this.disposed)return;this.structure=modules.structure;for(const [index,mesh] of this.meshes.entries()){if(index===1){mesh.geometry.dispose();mesh.geometry=prepareColonyGeometry(this.structure,mesh.instanceMatrix.count)}else mesh.geometry=this.structure;mesh.count=0};this.focus.set(Infinity,Infinity,Infinity)}).catch(()=>{})
     // Upper floors keep metre-sized windows even on differently sized lots.
 
   }
@@ -96,8 +97,8 @@ export class BuildingInteriorLayer {
       if (geometry) { this.floor = new THREE.Mesh(geometry, this.floorMaterial); this.floor.receiveShadow = true; this.group.add(this.floor) }
     }
     const capacity = Math.max(1, this.entries.reduce((sum, entry) => sum + entry.parts.length, 0))
-    this.meshes = this.materials.map(material => {
-      const mesh = new THREE.InstancedMesh(this.structure, material, capacity)
+    this.meshes = this.materials.map((material,index) => {
+      const mesh = new THREE.InstancedMesh(index===1?prepareColonyGeometry(this.structure,capacity):this.structure, material, capacity)
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
       mesh.count = 0
       mesh.castShadow = true; mesh.receiveShadow = true
@@ -124,11 +125,14 @@ export class BuildingInteriorLayer {
       if (this.pilots.some(pilot => pilot.replaces(entry.interior, part))) continue
       if (part.detail < 3 && entry.lod > part.detail) continue
       const index = MATERIALS.indexOf(part.material)
-      this.meshes[index].setMatrixAt(counts[index]++, matrix)
+      this.meshes[index].setMatrixAt(counts[index], matrix)
+      if(index<=1){const design=colonyBuildingDesign(entry.interior.building);this.meshes[index].setColorAt(counts[index],new THREE.Color('#'+design.wall));if(index===1)writeColonyFacade(this.meshes[index],counts[index],design)}
+      counts[index]++
     }
     this.meshes.forEach((mesh, index) => {
       mesh.count = counts[index]
       mesh.instanceMatrix.needsUpdate = true
+      dirtyColonyFacade(mesh);if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true
       mesh.computeBoundingSphere()
     })
   }
@@ -155,7 +159,7 @@ export class BuildingInteriorLayer {
   clear() {
     this.roomDressing.clear()
     this.pilots.forEach(pilot => pilot.rebuild([], this.radius))
-    for (const mesh of this.meshes) { mesh.dispose(); mesh.removeFromParent() }
+    for (const mesh of this.meshes) { if(mesh.geometry.getAttribute('aColonyFacade'))mesh.geometry.dispose();mesh.dispose(); mesh.removeFromParent() }
     if (this.floor) { this.floor.geometry.dispose(); this.floor.removeFromParent(); this.floor = null }
     this.meshes = []; this.entries = []
     this.focus.set(Infinity, Infinity, Infinity)

@@ -1,21 +1,23 @@
+import {colonyBuildingDesign} from './colonyBuildingDesign'
 import * as THREE from 'three'
 import type { CityBuilding } from './cityLayout'
 import type { BuildingInterior } from './buildingInteriors'
 import { cityBlockSpec, cityBlockDistance, type BlockSpec, type BlockVolume } from './authoredCityBlockPlan'
 import { colonyBuildingSpec, colonyWindowGrid } from './colonyBuildingPlan'
-import { colonyFacadeMaterial, loadColonyModules, type ColonyModules } from './colonyBuildingModules'
+import { colonyFacadeMaterial, prepareColonyGeometry,writeColonyFacade,dirtyColonyFacade, loadColonyModules, type ColonyModules } from './colonyBuildingModules'
 
-type Entry={spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean}
+type Entry={design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean}
 /** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
 export class ColonyBuildings {
  readonly group=new THREE.Group()
  private entries:Entry[]=[]
+ private entryByBuilding=new Map<CityBuilding,Entry>()
  private radius=1
  private modules:ColonyModules|null=null
  private fallback=new THREE.BoxGeometry(1,1,1)
- private facade=colonyFacadeMaterial()
- private entranceFacade=colonyFacadeMaterial(true)
- private frame=new THREE.MeshStandardMaterial({color:0x65716b,roughness:.7})
+ private facade=colonyFacadeMaterial(false,true)
+ private entranceFacade=colonyFacadeMaterial(true,true)
+ private frame=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7})
  private door=new THREE.MeshStandardMaterial({color:0x28434c,roughness:.55})
  private batches=new Map<string,THREE.InstancedMesh>()
  private nearInteriors=new Set<CityBuilding>()
@@ -36,16 +38,19 @@ export class ColonyBuildings {
    const x=tangent?new THREE.Vector3(0,side,0):new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a))
    const z=tangent?new THREE.Vector3(-side*Math.sin(a),0,side*Math.cos(a)):new THREE.Vector3(0,side,0)
    const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*radius,b.axial,Math.sin(a)*radius)
-   return {spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height)}
+   const design=colonyBuildingDesign(b)
+   return {design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height)}
   })
+  this.entryByBuilding=new Map(this.entries.map(e=>[e.spec.building,e]))
   this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
   this.invalidate()
  }
+ isBuildingVisible(b:CityBuilding){const e=this.entryByBuilding.get(b);return !!e&&(e.visible||(e.interior&&this.nearInteriors.has(b)))}
  setNearInteriors(buildings:CityBuilding[]){this.nearInteriors=new Set(buildings);this.invalidate()}
  private batch(key:string,geometry:THREE.BufferGeometry,material:THREE.Material,capacity:number){
   let mesh=this.batches.get(key)
-  if(!mesh||mesh.instanceMatrix.count<capacity){if(mesh){mesh.removeFromParent();mesh.dispose()}
-   mesh=new THREE.InstancedMesh(geometry,material,Math.max(capacity,1));mesh.name='colony-'+key;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.castShadow=true;mesh.receiveShadow=true;this.group.add(mesh);this.batches.set(key,mesh)
+  if(!mesh||mesh.instanceMatrix.count<capacity){if(mesh){if(mesh.geometry.getAttribute('aColonyFacade'))mesh.geometry.dispose();mesh.removeFromParent();mesh.dispose()}
+   mesh=new THREE.InstancedMesh(key==='structure'||key==='entrance-structure'?prepareColonyGeometry(geometry,Math.max(capacity,1)):geometry,material,Math.max(capacity,1));mesh.name='colony-'+key;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.castShadow=true;mesh.receiveShadow=true;this.group.add(mesh);this.batches.set(key,mesh)
   }mesh.count=0;return mesh
  }
  update(azimuth:number,axial:number,altitude:number){
@@ -66,9 +71,9 @@ export class ColonyBuildings {
      data[i+row]=m[row]*v.w;data[i+4+row]=m[4+row]*v.h;data[i+8+row]=m[8+row]*v.d
      data[i+12+row]=m[row]*v.x+m[4+row]*v.y+m[8+row]*v.z+m[12+row]
     }
-    data[i+3]=data[i+7]=data[i+11]=0;data[i+15]=1;batch.setColorAt(batch.count,e.color)
+    data[i+3]=data[i+7]=data[i+11]=0;data[i+15]=1;batch.setColorAt(batch.count,e.color);writeColonyFacade(batch,batch.count,e.design)
    }else{
-    q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(e.matrix,local);batch.setMatrixAt(batch.count,world)
+    q.setFromAxisAngle(up,rotation);local.compose(p.set(v.x,v.y,v.z),q,s.set(v.w,v.h,v.d));world.multiplyMatrices(e.matrix,local);batch.setMatrixAt(batch.count,world);if(batch!==doors)batch.setColorAt(batch.count,e.trim)
    }
    batch.count++
   }
@@ -102,24 +107,24 @@ export class ColonyBuildings {
     // Insets and roof edge are metric trims, never stretched complete buildings.
     for(const sign of [-1,1])add(trim,e,{x:volume.x,y:top-.12,z:volume.z+sign*(volume.d/2-.1),w:volume.w,h:.24,d:.18})
     if(!detailed||!frames)continue
-    const grid=colonyWindowGrid(volume)
+    const profile=e.design.profile,grid=colonyWindowGrid(volume,profile)
     for(const axis of ['x','z'] as const)for(const sign of [-1,1]){
      const columns=axis==='z'?grid.columnsX:grid.columnsZ,width=axis==='z'?volume.w:volume.d
      if(width<1.5||volume.h<2)continue
      for(let row=0;row<grid.floors;row++)for(let col=0;col<columns;col++){
-      const along=(col+.5)*width/columns-width/2,y=volume.y-volume.h/2+(row+.5)*volume.h/grid.floors
+      const along=(col+.5)*width/columns-width/2,y=volume.y-volume.h/2+(row+profile.paneBottom+profile.paneHeight/2)*volume.h/grid.floors
       const x=volume.x+(axis==='z'?along:sign*(volume.w/2+.012)),z=volume.z+(axis==='z'?sign*(volume.d/2+.012):along)
-      if(volume===v&&axis==='z'&&sign===1&&Math.abs(x-v.x)<Math.min(2.2,v.w*.6)/2+width/columns*.32&&y<height+volume.h/grid.floors*.3)continue
+      if(volume===v&&axis==='z'&&sign===1&&Math.abs(x-v.x)<Math.min(2.2,v.w*.6)/2+width/columns*profile.paneWidth*.5&&y<height+volume.h/grid.floors*profile.paneHeight*.5)continue
       if(e.spec.volumes.some(o=>o!==volume&&Math.abs(x-o.x)<o.w/2+.01&&Math.abs(z-o.z)<o.d/2+.01&&Math.abs(y-o.y)<o.h/2))continue
-      add(frames,e,{x,y,z,w:width/columns*.64,h:volume.h/grid.floors*.6,d:1},axis==='z'?(sign===1?0:Math.PI):sign*Math.PI/2)
+      add(frames,e,{x,y,z,w:width/columns*profile.paneWidth,h:volume.h/grid.floors*profile.paneHeight,d:1},axis==='z'?(sign===1?0:Math.PI):sign*Math.PI/2)
      }
     }
    }
   }
-  for(const batch of this.batches.values()){batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;if(batch===shell||batch===frontShell)batch.boundingSphere=new THREE.Sphere(new THREE.Vector3(),this.extent);else batch.computeBoundingSphere()}
+  for(const batch of this.batches.values()){batch.instanceMatrix.needsUpdate=true;dirtyColonyFacade(batch);if(batch.instanceColor)batch.instanceColor.needsUpdate=true;if(batch===shell||batch===frontShell)batch.boundingSphere=new THREE.Sphere(new THREE.Vector3(),this.extent);else batch.computeBoundingSphere()}
   this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.count+frontShell.count,windowFrames:frames?.count??0}
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=.015+(1-daylight)*.5}
- private clearBatches(){for(const m of this.batches.values()){m.removeFromParent();m.dispose()}this.batches.clear()}
+ private clearBatches(){for(const m of this.batches.values()){if(m.geometry.getAttribute('aColonyFacade'))m.geometry.dispose();m.removeFromParent();m.dispose()}this.batches.clear()}
  dispose(){this.disposed=true;this.clearBatches();this.fallback.dispose();this.facade.dispose();this.entranceFacade.dispose();this.frame.dispose();this.door.dispose();this.group.removeFromParent()}
 }

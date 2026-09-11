@@ -1083,3 +1083,41 @@ upper window; both were corrected with whole-window exclusion and aligned
 geometry frames. A later access regression caught the garden-house setback
 contract. Final house imagery shows the retained garden path meeting the new
 door; structural/collision tests pass for the corrected placement.
+
+
+## Facade variety and roof-mounted beacons (2026-09-11)
+
+The requested variety is paint and window rhythm. Each generic colony building
+now has a stable, seeded wall/trim palette and a coherent window profile:
+bay spacing, storey height, pane width/height and sill position. Residential,
+office, industrial and old-town profiles retain their own character. Geometry
+frames and facade glass use the same profile, including whole-window exclusion
+at entrances. Public-room upper floors use the same design as their exterior.
+The shared Blender kit and existing massing remain in use; no extra full-building
+assets are downloaded. Facade grids are computed per vertex rather than per
+fragment, with compact varyings to limit the cost of the added variation.
+
+Beacons now use the highest actual replacement roof volume and its tangent
+transform, instead of the old parcel height/centre. A 35cm support reaches the
+roof, the light body is 24cm in diameter, and both disappear with their building
+LOD. The authored recessed roof receives its matching 32cm inset. All 700
+runtime support positions match the roof anchors in the browser probe.
+
+Validation: 673 tests pass and the production build passes (existing chunk-size
+warning). Tests cover roof attachment across four frontage directions and stable
+neighbourhood paint/window variation. Independent review of residential,
+old-town and industrial images confirms readable differences in wall colour
+and window dimensions/spacing, with no observed frame/glass gaps in those views.
+The nearby trim-colour differences are less legible at the captured distance.
+These are sampled views, not an exhaustive city traversal or physical XR test.
+
+Final browser samples: overview/night 60fps (145 draws), phone profile 60fps
+(117 draws), desktop street 54fps (137 draws). Overview/night/phone p95 frame
+intervals are 16.7–16.8ms; street p95 is 33.3ms, worse than the previous 16.8ms
+sample despite similar rolling fps. Ground-level frame consistency remains an
+open performance issue. Eight direct structural updates measured 6.6–31.6ms.
+No retired building pack, legacy near/far instances or shader/JavaScript errors
+were observed. Roof image review confirms a continuous light/support and a
+reasonable nearby light size; exact roof contact is supported by the coordinate
+checks, since the untextured roof makes image-only contact judgement uncertain.
+Local changes only; not published.

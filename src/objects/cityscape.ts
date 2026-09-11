@@ -1,3 +1,4 @@
+import {buildingRoofAttachment} from './buildingRoofAttachment'
 import {ColonyBuildings} from './colonyBuildings'
 import {colonyBuildingSpec} from './colonyBuildingPlan'
 import {AuthoredCityBlock} from './authoredCityBlock'
@@ -550,7 +551,7 @@ const BEACON_COLOR = new THREE.Color(0xff2e2a)
 // what you should see; far away the vertex shader grows the sphere so it never
 // drops below a pixel or so (setBeaconScreenScale), the way a real point light
 // stays visible long after its housing is sub-pixel.
-const BEACON_PHYSICAL_RADIUS = 0.45
+const BEACON_PHYSICAL_RADIUS = 0.12
 const BEACON_MAX_GROW = 60
 export const WINDOW_WARM = new THREE.Color(0xffe2b8)
 export const WINDOW_COOL = new THREE.Color(0xdfeaff)
@@ -1989,6 +1990,7 @@ export class Cityscape {
   private lamps: THREE.InstancedMesh | null = null
   private utilityPoles: THREE.InstancedMesh | null = null
   private utilityWires: THREE.LineSegments | null = null
+  private beaconStems: THREE.InstancedMesh | null = null
   private beacons: THREE.InstancedMesh | null = null
   private towerGroup: THREE.Group | null = null
   private cables: THREE.Mesh | null = null
@@ -2990,6 +2992,7 @@ export class Cityscape {
       this.utilityPoles,
       this.utilityWires,
       this.beacons,
+      this.beaconStems,
       this.cables,
       this.spineRings,
       this.bridges,
@@ -3009,6 +3012,7 @@ export class Cityscape {
     this.utilityPoles = null
     this.utilityWires = null
     this.beacons = null
+    this.beaconStems = null
     this.cables = null
     this.spineRings = null
     this.bridges = null
@@ -3085,6 +3089,7 @@ export class Cityscape {
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.authoredBlock.update(azimuth,axial,altitude)
     this.colonyBuildings.update(azimuth,axial,altitude)
+    this.updateBeaconVisibility()
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)
     this.neighborhoodFronts.update(azimuth, axial, altitude)
@@ -5126,18 +5131,14 @@ export class Cityscape {
       return
     }
 
-    let maxHeight = 0
-    for (const building of buildings) {
-      if (building.height > maxHeight) {
-        maxHeight = building.height
-      }
-    }
-
-    const minHeight = Math.max(18, maxHeight * 0.55)
-    const tall = buildings
-      .filter((building) => building.height >= minHeight)
-      .sort((a, b) => b.height - a.height)
-      .slice(0, 700)
+    const rooftops=buildings.map(building=>{
+      const authored=cityBlockSpec(building,radius)
+      const spec=authored??colonyBuildingSpec(building,this.interiors.get(building))
+      return {building,roof:buildingRoofAttachment(spec,radius,authored?.32:0)}
+    })
+    const maxHeight=rooftops.reduce((h,p)=>Math.max(h,p.roof.height),0)
+    const minHeight=Math.max(18,maxHeight*.55)
+    const tall=rooftops.filter(p=>p.roof.height>=minHeight).sort((a,b)=>b.roof.height-a.roof.height).slice(0,700)
 
     if (tall.length === 0) {
       return
@@ -5157,22 +5158,56 @@ export class Cityscape {
     // out of step (see installBeaconBlink). Seeded for a stable layout.
     const random = createSeededRandom(0x51c0bea0)
     const phases = new Float32Array(tall.length)
+    const stemHeight=.35
+    const stems=new THREE.InstancedMesh(new THREE.CylinderGeometry(.035,.035,stemHeight,5),this.towerMaterial,tall.length)
+    stems.name='roof-beacon-stems'
+    const mounts:ReturnType<typeof buildingRoofAttachment>[]=[]
+
 
     for (let index = 0; index < tall.length; index += 1) {
-      const building = tall[index]
-      instancePosition
-        .set(Math.cos(building.azimuth), 0, Math.sin(building.azimuth))
-        .multiplyScalar(radius - building.height - beaconRadius)
-        .setY(building.axial)
-      instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
-      mesh.setMatrixAt(index, instanceMatrix)
+      const {roof}=tall[index]
+      const up=new THREE.Vector3(roof.up.x,roof.up.y,roof.up.z)
+      instanceQuaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),up)
+      instancePosition.set(roof.x,roof.y,roof.z).addScaledVector(up,stemHeight/2)
+      instanceScale.setScalar(1)
+      instanceMatrix.compose(instancePosition,instanceQuaternion,instanceScale)
+      stems.setMatrixAt(index,instanceMatrix)
+      instancePosition.set(roof.x,roof.y,roof.z).addScaledVector(up,stemHeight+beaconRadius)
+      instanceScale.setScalar(beaconRadius)
+      instanceMatrix.compose(instancePosition,instanceQuaternion,instanceScale)
+      mesh.setMatrixAt(index,instanceMatrix)
+      mounts.push(roof)
       phases[index] = random()
     }
 
+    stems.instanceMatrix.needsUpdate=true;stems.computeBoundingSphere()
+    this.beaconStems=stems;this.group.add(stems)
+    mesh.name='roof-beacons';mesh.userData.mounts=mounts
+    mesh.userData.buildings=tall.map(p=>p.building);mesh.userData.authored=tall.map(p=>!!cityBlockSpec(p.building,radius));mesh.userData.baseMatrices=mesh.instanceMatrix.array.slice();mesh.userData.visible=new Array(tall.length).fill(true)
+    stems.userData.baseMatrices=stems.instanceMatrix.array.slice()
     geometry.setAttribute('aBlinkPhase', new THREE.InstancedBufferAttribute(phases, 1))
     mesh.instanceMatrix.needsUpdate = true
     this.beacons = mesh
     this.group.add(mesh)
+  }
+
+  private updateBeaconVisibility(){
+    const lights=this.beacons,stems=this.beaconStems
+    if(!lights||!stems)return
+    let changed=false
+    const buildings=lights.userData.buildings as CityBuilding[]
+    for(let i=0;i<buildings.length;i++){
+      const b=buildings[i]
+      const visible=lights.userData.authored[i]?this.authoredBlock.isBuildingVisible(b):this.colonyBuildings.isBuildingVisible(b)
+      if(visible===lights.userData.visible[i])continue
+      lights.userData.visible[i]=visible;changed=true
+      for(const mesh of [lights,stems]){
+        instanceMatrix.fromArray(mesh.userData.baseMatrices,i*16)
+        if(!visible)instanceMatrix.scale(instanceScale.setScalar(0))
+        mesh.setMatrixAt(i,instanceMatrix)
+      }
+    }
+    if(changed){lights.instanceMatrix.needsUpdate=true;stems.instanceMatrix.needsUpdate=true}
   }
 
   private buildTower(tower: CityTower, radius: number) {

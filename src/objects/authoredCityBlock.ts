@@ -35,6 +35,7 @@ export class AuthoredCityBlock {
     private nextLoadAt = 0;
     private focus={azimuth:0,axial:0,altitude:3200};
     constructor(parent: THREE.Group) { this.group.name = 'blender-city-block'; parent.add(this.group); }
+    isBuildingVisible(b:CityBuilding){return this.entries.some(e=>e.spec.building.azimuth===b.azimuth&&e.spec.building.axial===b.axial&&e.lod<4)}
     setProjection(pixelsPerRadian: number) { this.projection = Math.max(1, pixelsPerRadian); }
     rebuild(buildings: CityBuilding[], radius: number) {
         this.clear();

@@ -1,0 +1,20 @@
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
+import fs from 'node:fs';import {fileURLToPath} from 'node:url';import * as T from 'three';
+const out=fileURLToPath(new URL('.',import.meta.url)),base=process.env.SPINWARD_URL??'https://127.0.0.1:5192';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+try{const reports=[];for(const scene of (process.env.SCENES??'neighbourhood,old-town,industrial,roof').split(',')){
+ const page=await browser.newPage({ignoreHTTPSErrors:true,viewport:{width:1600,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/shader|WebGLProgram/.test(m.text()))errors.push(m.text())});
+ await page.goto(base+'/?debug&visit=city-block&rpm=0&t=.42');await page.waitForSelector('#splash',{state:'detached'});
+ const target=await page.evaluate(scene=>{
+  const c=window.__spinwardCity;
+  if(scene==='roof'){const roofs=c.beacons.userData.mounts;return {roof:roofs[Math.floor(roofs.length/3)]}}
+  const entries=c.colonyBuildings.entries.filter(e=>scene==='old-town'?(e.spec.building.oldTown??0)>.6:scene==='industrial'?e.spec.building.industrial:!e.interior&&!e.spec.building.industrial);
+  entries.sort((e,f)=>Math.hypot((e.spec.building.azimuth-.05)*3200,e.spec.building.axial)-Math.hypot((f.spec.building.azimuth-.05)*3200,f.spec.building.axial));return {b:entries[0].spec.building}
+ },scene);
+ let pos,aim,up;
+ if(target.roof){const r=target.roof;up=new T.Vector3(r.up.x,r.up.y,r.up.z);const across=new T.Vector3(-up.z,0,up.x);pos=new T.Vector3(r.x,r.y,r.z).addScaledVector(up,4).addScaledVector(across,7);aim=new T.Vector3(r.x,r.y,r.z).addScaledVector(up,.3)}
+ else{const b=target.b,a=b.access.roadEdge.azimuth+(b.front.axis==='axial'?35/3200:b.front.side*10/3200),ax=b.access.roadEdge.axial+(b.front.axis==='tangent'?35:b.front.side*10);up=new T.Vector3(-Math.cos(a),0,-Math.sin(a));pos=new T.Vector3(Math.cos(a)*3185,ax,Math.sin(a)*3185);aim=new T.Vector3(Math.cos(b.azimuth)*3192,b.axial,Math.sin(b.azimuth)*3192)}
+ const q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().lookAt(pos,aim,up));await page.goto(base+`/?debug&stats&m=f&p=${pos.toArray()}&q=${q.toArray()}&rpm=0&t=.42&dpr=1`);await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardCity.colonyBuildings.group.userData.asset&&window.__spinwardCity.authoredBlock.group.userData.buildings.every(b=>b.asset));await page.waitForTimeout(800);
+ const data=await page.evaluate(()=>{const c=window.__spinwardCity,lights=c.beacons,stems=c.beaconStems;const near=c.colonyBuildings.entries.filter(e=>e.visible).slice(0,1000);return {stats:document.querySelector('.stats-overlay')?.textContent,paintCount:new Set(near.map(e=>e.design.wall)).size,profileCount:new Set(near.map(e=>JSON.stringify(e.design.profile))).size,lights:lights.count,stems:stems.count,visibleLights:lights.userData.visible.filter(Boolean).length,attachmentMismatch:lights.userData.mounts.some((r,i)=>{const a=stems.userData.baseMatrices;return Math.hypot(a[i*16+12]-(r.x+r.up.x*.175),a[i*16+13]-(r.y+r.up.y*.175),a[i*16+14]-(r.z+r.up.z*.175))>.005})}});
+ if(data.attachmentMismatch||data.lights!==data.stems||errors.length)throw Error(JSON.stringify({data,errors}));await page.evaluate(()=>{document.querySelector('.lil-gui')?.remove();const panels=[];window.__spinwardScene.traverse(o=>{if(o.renderOrder===30)panels.push(o)});panels.forEach(o=>o.removeFromParent())});await page.screenshot({path:out+'colony-variety-'+scene+'.png'});reports.push({scene,...data,errors});console.log(JSON.stringify(reports.at(-1)));await page.close();
+}fs.writeFileSync(out+'colony-variety.json',JSON.stringify(reports,null,2));}finally{await browser.close()}

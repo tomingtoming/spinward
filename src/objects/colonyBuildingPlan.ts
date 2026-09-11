@@ -1,3 +1,4 @@
+import {colonyBuildingDesign,COLONY_FACADES,type ColonyFacade} from './colonyBuildingDesign'
 import type { CityBuilding } from './cityLayout'
 import { fitSuburbanHouse } from './buildingAssets'
 import type { BuildingInterior } from './buildingInteriors'
@@ -43,8 +44,8 @@ export function colonyBuildingSpec(b: CityBuilding, interior?: BuildingInterior)
     box(0,h*.45,0,w,h*.9,d)
     box(0,h*.95,-d*.04,w*.84,h*.1,d*.84)
   }
-  const wall=b.industrial?'9da7a4':(b.oldTown??0)>.5?'c4ad94':b.kind==='house'?'d0c7b5':b.kind==='tower'?'adbec4':'c4c2b4'
+  const wall=colonyBuildingDesign(b).wall
   return {id,building,volumes,wall,roof:b.industrial?'596768':'727b70'}
 }
 
-export function colonyWindowGrid(v:BlockVolume){return {columnsX:Math.max(1,Math.round(v.w/2.8)),columnsZ:Math.max(1,Math.round(v.d/2.8)),floors:Math.max(1,Math.round(v.h/3.2))}}
+export function colonyWindowGrid(v:BlockVolume,profile:ColonyFacade=COLONY_FACADES[0]){return {columnsX:Math.max(1,Math.round(v.w/profile.bay)),columnsZ:Math.max(1,Math.round(v.d/profile.bay)),floors:Math.max(1,Math.round(v.h/profile.storey))}}
