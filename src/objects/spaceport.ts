@@ -180,6 +180,7 @@ export class Spaceport {
       this.approachShip
     ]) {
       if (mesh !== null) {
+        if (mesh instanceof THREE.InstancedMesh) mesh.dispose()
         mesh.geometry.dispose()
         this.group.remove(mesh)
       }

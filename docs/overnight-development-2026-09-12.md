@@ -166,3 +166,27 @@ envelope now also includes the actual port dimensions and human-sized shuttles;
 authored mesh bounds are checked through their approach cycle. Next: broader
 travel/streaming soak and everyday
 street interactions, without turning this into an exterior-only redesign.
+
+## Ninth increment — repeated-travel resource release (02:34)
+
+The same-page soak exposed 41 unreleased WebGL buffers per complete four-preset
+tour after warm-up. Several older Cityscape paths and Spaceport released only
+geometry, omitting InstancedMesh.dispose, which separately releases instance
+transforms/colours. Near/far building replacements, traffic, trees/beacons,
+expressway pylons and port navigation lights now release both owners while
+retaining shared materials. A port rebuild test protects that ownership split.
+
+721 tests and the production build passed for this increment. Before/after
+Chrome runs each performed 24 preset rebuilds and 72 travel actions over about
+8.4 minutes without reloading the page. The served dist tree was held fixed
+during each run. Between cycles 2 and 5 every sampled preset gained 123 buffers
+before the fix and zero afterward. Textures, programs, frame/render buffers
+and vertex arrays also have zero growth over that interval after the fix;
+no page/shader/context-loss errors occurred. GC-retained JavaScript heap still
+varied by 0.26–0.34 MiB. These are resource counts, not GPU byte measurements,
+frame-rate certification, proof of all leaks being gone, or a confirmed cause
+of the user's earlier transient slowdown. The reproducible probe is
+`qa/neighborhood-life/travel-soak.mjs`, with `EXPECT_STABLE=1` for the plateau gate.
+
+Public-bench work was prepared in source while the fixed dist build ran the
+comparison; it is a separate uncommitted increment at this checkpoint.

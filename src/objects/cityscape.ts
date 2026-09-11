@@ -2902,6 +2902,9 @@ export class Cityscape {
       ...this.archetypeBatches
     ]) {
       if (batch !== null) {
+        // Instance transforms/colours are GPU buffers owned by the mesh,
+        // separately from its geometry. Release both on a focus rebuild.
+        batch.dispose()
         batch.geometry.dispose()
         this.group.remove(batch)
       }
@@ -2910,6 +2913,7 @@ export class Cityscape {
     // Each detailed batch clones a tiny class-owned GLB source geometry so its
     // per-instance UV buffer can be replaced safely on every focus rebuild.
     for (const batch of this.detailedBuildingBatches) {
+      batch.dispose()
       batch.geometry.dispose()
       this.group.remove(batch)
     }
@@ -2924,6 +2928,7 @@ export class Cityscape {
     this.disposeNearBuildingBatches()
 
     if (this.farBuildings !== null) {
+      this.farBuildings.dispose()
       this.farBuildings.geometry.dispose()
       this.group.remove(this.farBuildings)
       this.farBuildings = null
@@ -2950,6 +2955,7 @@ export class Cityscape {
 
     if (this.expresswayGroup !== null) {
       for (const child of this.expresswayGroup.children) {
+        if (child instanceof THREE.InstancedMesh) child.dispose()
         ;(child as THREE.Mesh).geometry?.dispose()
       }
       this.group.remove(this.expresswayGroup)
@@ -2957,6 +2963,7 @@ export class Cityscape {
     }
 
     for (const mesh of this.trafficMeshes) {
+      mesh.dispose()
       mesh.geometry.dispose()
       this.group.remove(mesh)
     }
@@ -2990,6 +2997,7 @@ export class Cityscape {
       this.alleyRoads
     ]) {
       if (single !== null) {
+        if (single instanceof THREE.InstancedMesh) single.dispose()
         single.geometry.dispose()
         this.group.remove(single)
       }
@@ -3010,6 +3018,7 @@ export class Cityscape {
 
     if (this.towerGroup !== null) {
       for (const child of this.towerGroup.children) {
+        if (child instanceof THREE.InstancedMesh) child.dispose()
         ;(child as THREE.Mesh).geometry?.dispose()
       }
       this.group.remove(this.towerGroup)
@@ -3620,6 +3629,7 @@ export class Cityscape {
     }
 
     for (const mesh of this.trafficMeshes) {
+      mesh.dispose()
       mesh.geometry.dispose()
       this.group.remove(mesh)
     }
@@ -3869,6 +3879,7 @@ export class Cityscape {
     }
 
     if (this.farBuildings !== null) {
+      this.farBuildings.dispose()
       this.farBuildings.geometry.dispose()
       this.group.remove(this.farBuildings)
     }

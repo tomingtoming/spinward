@@ -4,6 +4,24 @@ import * as THREE from 'three'
 import { getSpaceportDimensions, getSpaceportEnvelopeRadius, Spaceport } from './spaceport'
 
 describe('getSpaceportDimensions', () => {
+  test('rebuilding the port releases per-instance resources as well as geometry', () => {
+    const port = new Spaceport({ radius: 3200, length: 40000 })
+    let instances = 0, geometries = 0, materialDisposals = 0
+    port.group.traverse(object => {
+      if (!(object instanceof THREE.InstancedMesh)) return
+      object.addEventListener('dispose', () => instances++)
+      object.geometry.addEventListener('dispose', () => geometries++)
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) material.addEventListener('dispose', () => materialDisposals++)
+    })
+    port.setDimensions({ radius: 18, length: 120 })
+    expect(instances).toBe(1)
+    expect(geometries).toBe(1)
+    expect(materialDisposals).toBe(0)
+    port.dispose()
+    expect(materialDisposals).toBe(1)
+  })
+
   test('the exterior envelope contains authored port meshes and the moving shuttle', () => {
     for (const [radius, length] of [[18, 120], [3200, 40000], [30000, 2000]]) {
       const port = new Spaceport({ radius, length })
