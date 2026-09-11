@@ -1242,3 +1242,52 @@ readiness passed. The harness now checkpoints each completed view so a later
 navigation timeout does not discard earlier results. Night and fallback still
 show frame-interval spikes; these checks establish rendering correctness, not
 hitch-free performance.
+
+## Glazing, curtains and night occupancy (2026-09-11)
+
+Non-pilot colony buildings now distinguish residential curtains from commercial
+and office blinds. Glass tint varies by building; curtain openings and blind
+heights vary by window. A resident's warm window light is selected per dwelling,
+while offices/commercial premises light groups of windows on the same floor in
+a cooler white. Ground-level shop glazing remains separate. These are fixed
+exterior appearance cues, not simulated resident schedules or new interiors.
+
+Window identity is seeded from the building and facade side, with a floor phase
+for upper masses. Camera movement, instance-slot compaction and detail promotion
+do not reroll it. The shared interior-layer upper facade uses the same attributes;
+the authored cafe/lobby/residential pilot materials remain authored assets.
+
+The change adds one vec4 instance attribute and no meshes, textures, draw calls,
+dynamic lights or GLB changes. Curtain edges use the pixel footprint; fine blind
+slats fade before becoming subpixel. Distant windows collapse to a use-dependent
+average light contribution and skip the detailed surface function. Derivatives
+are evaluated before divergent window branches. Glass and fabric also have
+different roughness.
+
+Same-position before/after captures use `windows-{before,after}-{day,night}-{mixed,office}.png`
+in `qa/neighborhood-life/` (local ignored evidence). Both daytime views keep
+the same visible buildings, instance counts and draws: mixed 27,935 / 67,776 / 170;
+office 27,943 / 67,799 / 160. All four before/after pairs use Metal on M1 Pro.
+Frame intervals remain variable: daytime medians mixed 33.4→49.9ms and office
+33.4→33.4ms; night mixed 49.9→49.9ms and office 33.4→50.0ms. These sequential
+captures do not establish a frame-rate improvement or isolate a regression.
+
+The same-page `colony-window-cost.mjs` probe alternates the new window-surface
+function on/off twice, retaining the rest of the scene. All four samples report
+50ms median / 66.7ms p95, so no additional cost is resolved at this frame-time
+granularity. This bypass is a QA-only material patch, not a runtime quality flag,
+and is not an old-build comparison. Overall frame rate remains an open issue.
+
+Validation: 680 tests and the production build pass. Browser checks pass for the
+street, phone quality profile, night overview and aborted-module fallback, with
+no JavaScript/shader errors or retired building batches. Live-slot validation
+now checks glazing kind, tint, occupancy and floor phase after eight focus moves
+and a full batch rebuild. Visible membership remains unchanged by that rebuild.
+The phone profile was checked on desktop Metal, not physical phone/XR hardware.
+
+Independent review of all eight before/after images confirms the intended use
+distinctions, window-bound shading, preserved window-frame alignment and separate
+ground-floor glazing. No mandatory visual correction was identified in those
+views. Flat curtain shading can still read as panels close up; cloth folds are a
+future refinement. Static captures do not establish temporal shimmer behavior,
+back-facade quality or XR comfort. Local implementation only; not published.

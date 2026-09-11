@@ -1,5 +1,6 @@
 import type {InteriorKind} from './buildingInteriors'
 import {colonyBuildingUse,colonyBuildingSeed} from './colonyBuildingUse'
+import {colonyWindowAppearance} from './colonyWindowAppearance'
 import type {CityBuilding} from './cityLayout'
 export type ColonyFacade={bay:number;storey:number;paneWidth:number;paneHeight:number;paneBottom:number}
 export const COLONY_FACADES:readonly ColonyFacade[]=[
@@ -31,5 +32,5 @@ export function colonyBuildingDesign(b:CityBuilding,interior?:InteriorKind){
  const base=COLONY_FACADES[style]
  const paneHeight=use.primary==='apartments'?[.7,.74,.78,.82][(seed>>>8)%4]:Math.min(.86,Math.max(.22,base.paneHeight+[-.1,-.03,.04,.08][(seed>>>8)%4]))
  const profile={bay:base.bay*[.82,1,1.18,1.34][seed%4],storey:base.storey*[.94,1,1.08][(seed>>>3)%3],paneWidth:Math.min(.86,Math.max(.36,base.paneWidth+[-.14,-.04,.04,.1][(seed>>>6)%4])),paneHeight,paneBottom:use.primary==='apartments'?.04:style===2?Math.min(.55,1-paneHeight-.08):(1-paneHeight)/2}
- return {use,style,profile,wall:PALETTES[style][(seed>>>12)%6],trim:TRIMS[(seed>>>16)%4],seed:(seed%65536)/65536,band:style===1?.94:[.78,.86,.94][(seed>>>20)%3]}
+ return {use,style,profile,windows:colonyWindowAppearance(use.primary,seed),wall:PALETTES[style][(seed>>>12)%6],trim:TRIMS[(seed>>>16)%4],seed:(seed%65536)/65536,band:style===1?.94:[.78,.86,.94][(seed>>>20)%3]}
 }

@@ -124,7 +124,7 @@ export class ColonyBuildings {
       data[i+12+row]=m[row]*v.x+m[4+row]*v.y+m[8+row]*v.z+m[12+row]
      }
      data[i+3]=data[i+7]=data[i+11]=0;data[i+15]=1
-     mesh.setColorAt(index,e.color);writeColonyFacade(mesh,index,e.design,part.ground)
+     mesh.setColorAt(index,e.color);writeColonyFacade(mesh,index,e.design,part.ground,v.y-v.h/2)
     })
    }
    if(!e.visible)continue

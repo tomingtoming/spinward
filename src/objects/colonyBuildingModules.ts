@@ -1,4 +1,5 @@
 import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {COLONY_WINDOW_GLSL} from './colonyWindowAppearance'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 export type ColonyModuleName='structure'|'window_frame'|'canopy'|'door'|'balcony'|'shop_awning'
@@ -21,15 +22,16 @@ export function loadColonyModules(){
 export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloor=false){
   const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82})
   m.onBeforeCompile=shader=>{
-    shader.vertexShader=(perBuilding?'attribute vec4 aColonyFacade; attribute vec4 aColonyStyle;\n':'')+'varying vec2 colonyPane; varying vec3 colonyStyle;\nvarying vec3 colonyPoint; varying vec3 colonyNormal; varying vec3 colonySize; varying vec2 colonyGrid;\n'+shader.vertexShader
+    shader.vertexShader=(perBuilding?'attribute vec4 aColonyFacade; attribute vec4 aColonyStyle; attribute vec4 aColonyWindows;\n':'')+'varying vec4 colonyWindows; varying vec2 colonyPane; varying vec3 colonyStyle;\nvarying vec3 colonyPoint; varying vec3 colonyNormal; varying vec3 colonySize; varying vec2 colonyGrid;\n'+shader.vertexShader
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
       colonyPoint=position+vec3(.5); colonyNormal=normal;
       ${perBuilding?'vec4 facade=aColonyFacade; colonyStyle=aColonyStyle.xyz;':'vec4 facade=vec4(2.8,3.2,.64,.6); colonyStyle=vec3(.2,0.,.76);'}
+      colonyWindows=${perBuilding?'aColonyWindows':'vec4(0.,.5,.4,0.)'};
       colonySize=vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz));
       colonyPane=facade.zw;
       float facadeWidth=abs(normal.x)>.5?colonySize.z:colonySize.x;
       colonyGrid=max(vec2(1.),floor(vec2(facadeWidth,colonySize.y)/facade.xy+.5));`)
-    shader.fragmentShader='varying vec2 colonyPane; varying vec3 colonyStyle;\nvarying vec3 colonyPoint; varying vec3 colonyNormal; varying vec3 colonySize; varying vec2 colonyGrid;\n'+shader.fragmentShader
+    shader.fragmentShader='varying vec4 colonyWindows; varying vec2 colonyPane; varying vec3 colonyStyle;\nvarying vec3 colonyPoint; varying vec3 colonyNormal; varying vec3 colonySize; varying vec2 colonyGrid;\n'+COLONY_WINDOW_GLSL+shader.fragmentShader
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       vec3 colonyBase=diffuseColor.rgb;
       bool wall=abs(colonyNormal.y)<.5;
@@ -40,14 +42,20 @@ export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloo
       vec2 pane=fract(cell);
       bool glass=wall&&width>1.5&&colonySize.y>2.&&pane.x>(1.-colonyPane.x)*.5&&pane.x<(1.+colonyPane.x)*.5&&pane.y>colonyStyle.x&&pane.y<colonyStyle.x+colonyPane.y;
       ${entrance?`if(colonyNormal.z>.5&&abs(((floor(cell.x)+.5)/grid.x-.5)*colonySize.x)<min(2.2,colonySize.x*.6)/2.+width/grid.x*colonyPane.x*.5&&(floor(cell.y)+colonyStyle.x+colonyPane.y*.5)/grid.y*colonySize.y<min(2.5,colonySize.y*.8)+colonySize.y/grid.y*colonyPane.y*.5)glass=false;`:''}
-      float lit=step(.78,fract(sin(dot(floor(cell)+colonyStyle.y*31.,vec2(12.9898,78.233)))*43758.5453));
+      vec2 footprint=fwidth(cell);
+      float distant=smoothstep(.3,1.,max(footprint.x,footprint.y));
+      float lit=0.,windowRoughness=.82;
+      vec3 windowColour=vec3(.1),lamp=colonyLamp(colonyWindows.x);
+      float averageLight=colonyWindows.z*colonyPane.x*colonyPane.y*.75;
+      if(wall&&glass&&distant<1.)colonyWindowSurface(cell,pane,colonyPane,colonyStyle.x,colonyWindows,colonyStyle.y,colonyNormal,footprint,windowColour,lit,windowRoughness);
       if(!wall)diffuseColor.rgb*=vec3(.49,.57,.5);
-      if(glass)diffuseColor.rgb=mix(vec3(.032,.065,.082),vec3(.18,.235,.24),lit);
+      if(glass)diffuseColor.rgb=windowColour;
       if(wall&&!glass&&pane.y>.96)diffuseColor.rgb*=colonyStyle.z;
-      float distant=smoothstep(.3,1.,max(fwidth(cell.x),fwidth(cell.y)));
       if(wall)diffuseColor.rgb=mix(diffuseColor.rgb,colonyBase*.67,distant);`)
+    shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+      if(wall&&glass)roughnessFactor=mix(windowRoughness,roughnessFactor,distant);`)
     shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
-      totalEmissiveRadiance*=wall?mix(glass?lit:0.,.08,distant):0.;`)
+      totalEmissiveRadiance*=lamp*(wall?mix(glass?lit:0.,averageLight,distant):0.);`)
     if(groundFloor){
       shader.vertexShader='varying vec3 colonyGround;\n'+shader.vertexShader
       shader.fragmentShader='varying vec3 colonyGround;\n'+shader.fragmentShader
@@ -58,7 +66,7 @@ export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloo
         colonyGround=vec3(ground,step(0.,aColonyStyle.w),max(1.,floor(colonySize.x/4.5+.5)));
         colonyPane=facade.zw;`)
       shader.fragmentShader=shader.fragmentShader.replace('if(colonyNormal.z>.5','if(colonyGround.x<.01&&colonyNormal.z>.5')
-      shader.fragmentShader=shader.fragmentShader.replace('float lit=step(',`float lowerY=colonyPoint.y*colonySize.y+colonyGround.x;
+      shader.fragmentShader=shader.fragmentShader.replace('vec2 footprint=fwidth(cell);',`float lowerY=colonyPoint.y*colonySize.y+colonyGround.x;
         bool lower=colonyPoint.y<0.;
         if(lower){
           float shopCell=colonyPoint.x*colonyGround.z;
@@ -67,13 +75,17 @@ export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloo
           glass=opening&&fract(shopCell)>.09&&fract(shopCell)<.91&&mod(lowerY,4.2)>.45&&mod(lowerY,4.2)<3.35;
           diffuseColor.rgb*=colonyGround.y>.5?vec3(.71,.69,.65):vec3(.59,.65,.67);
         }
-        float lit=step(`)
-      shader.fragmentShader=shader.fragmentShader.replace('if(glass)diffuseColor.rgb=', 'if(lower&&glass)lit=.55;\nif(glass)diffuseColor.rgb=')
+        vec2 footprint=fwidth(cell);`)
+      shader.fragmentShader=shader.fragmentShader.replace('if(glass)diffuseColor.rgb=', `if(lower){
+        windowColour=vec3(.09,.14,.15);windowRoughness=.35;
+        lit=.55;lamp=vec3(1.,.76,.50);averageLight=.12;
+      }
+      if(glass)diffuseColor.rgb=`)
       shader.fragmentShader=shader.fragmentShader.replace('if(wall&&!glass&&pane.y>.96)', 'if(wall&&!lower&&!glass&&pane.y>.96)')
     }
   }
-  m.customProgramCacheKey=()=> 'colony-metric-facade-v4-'+entrance+'-'+perBuilding+'-'+groundFloor
-  m.emissive.setHex(0xffd5a2)
+  m.customProgramCacheKey=()=> 'colony-metric-facade-v5-'+entrance+'-'+perBuilding+'-'+groundFloor
+  m.emissive.setHex(0xffffff)
   m.emissiveIntensity=.02
   return m
 }
@@ -82,13 +94,16 @@ export function prepareColonyGeometry(source:THREE.BufferGeometry,capacity:numbe
  const g=source.clone()
  g.setAttribute('aColonyFacade',new THREE.InstancedBufferAttribute(new Float32Array(capacity*4),4))
  g.setAttribute('aColonyStyle',new THREE.InstancedBufferAttribute(new Float32Array(capacity*4),4))
+ g.setAttribute('aColonyWindows',new THREE.InstancedBufferAttribute(new Float32Array(capacity*4),4))
  return g
 }
-export function writeColonyFacade(mesh:THREE.InstancedMesh,index:number,design:ReturnType<typeof colonyBuildingDesign>,groundHeight=0){
+export function writeColonyFacade(mesh:THREE.InstancedMesh,index:number,design:ReturnType<typeof colonyBuildingDesign>,groundHeight=0,baseHeight=0){
  const p=design.profile
  ;(mesh.geometry.getAttribute('aColonyFacade') as THREE.InstancedBufferAttribute).setXYZW(index,p.bay,p.storey,p.paneWidth,p.paneHeight)
  ;(mesh.geometry.getAttribute('aColonyStyle') as THREE.InstancedBufferAttribute).setXYZW(index,p.paneBottom,design.seed,design.band,design.use.ground==='retail'?groundHeight:-groundHeight)
+ const w=design.windows
+ ;(mesh.geometry.getAttribute('aColonyWindows') as THREE.InstancedBufferAttribute).setXYZW(index,w.kind,w.tint,w.occupied,Math.round((baseHeight+groundHeight)/p.storey))
 }
 export function dirtyColonyFacade(mesh:THREE.InstancedMesh){
- for(const name of ['aColonyFacade','aColonyStyle']){const a=mesh.geometry.getAttribute(name);if(a)a.needsUpdate=true}
+ for(const name of ['aColonyFacade','aColonyStyle','aColonyWindows']){const a=mesh.geometry.getAttribute(name);if(a)a.needsUpdate=true}
 }
