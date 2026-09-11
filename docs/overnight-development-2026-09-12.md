@@ -65,6 +65,31 @@ actual XR framing, latency, body proportions and comfort still need hardware.
 The full coffee regression also passes. This is a grounded body prototype;
 free-fly/driving body poses and inferred physical body collisions remain open.
 
-Next: broaden street activity beyond the two pilot rooms, and assess outdoor
-scene quality and performance together. Avoid unbounded character-art polish,
-new UI systems or a full ragdoll rewrite.
+## Fourth increment — nearby street residents (01:42)
+
+The wider street network now gets a small persistent nearby population: eight
+on desktop and four on phone/Quest presets, in six clothing palettes and modest
+body-size variants. Pavement routes stop short of intersections, pause/turn at
+their ends and stop approaching the player within 1.65 m (3.5 m for a rover).
+They do not have physical colliders or a global crowd simulation. Route pieces
+are generated only near the player; a first city-wide design would have stored
+178,034 route objects and was replaced before committing. Sampled routes from
+the real 18k-building plan avoid road and building footprints.
+
+The Blender resident gets eyes and overlapping knee/elbow/waist volumes.
+GLB is 147,832 bytes and body topology remains under 5k triangles. Export now
+uses the active scene, checks actual GLB roots/images/size, and writes only the
+resident scene to its source blend. This fixes an observed export contamination
+from unrelated GUI scenes. First-person head/cuff visibility and tracked palms
+pass regression after the model change. Whole suite: 709 tests and build pass.
+
+Desktop day and portrait phone-preset night checks confirm bounded population,
+approach/stop/resume with normal player movement, and no page errors. Independent
+image review found no obvious wall/road penetration; close phone framing led to
+the increased stop distance. Night silhouettes remain dark, and the simplified
+character art/foot planting are not a finished animation system. Hardware phone
+and XR performance remain unverified.
+
+Next: fix the parked-car light strips sampling the colour atlas, then continue
+the wider outdoor scene and movement survey. Avoid unbounded character-art
+polish, new UI systems or a full ragdoll rewrite.

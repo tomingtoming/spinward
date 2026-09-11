@@ -261,3 +261,37 @@ frames; crouching obscures toes behind knees. The full coffee path still passes.
 These checks do not emulate an XR runtime or validate hardware latency, comfort,
 fit to different people, controller occlusion or continuous retargeting. Free-fly
 and driving body poses, and physical collisions for the inferred body, remain open.
+
+## Wider street activity (2026-09-12)
+
+`StreetWalkers` reuses the original Blender person in six quiet clothing palettes
+and modest height/width variants. It keeps eight nearby people on desktop or
+four on phone/Quest presets, using six material/contact-shadow batches. A spatial
+index finds nearby pavements; only the local pieces of long sidewalks become
+walk routes. People persist across focus refreshes, are removed beyond 135 m,
+and replacements appear beyond 22 m. Above 8 m altitude the layer is hidden.
+
+Routes stay inside clipped pavements, leave 3 m end buffers and pause to turn.
+Approaching a player inside 1.65 m or a driven rover inside 3.5 m stops the local
+clock. They resume when the way clears; the player can walk through them because
+these are visual inhabitants, not rigid colliders. There is no population,
+commuting or crowd simulation. `?people=0` skips the population/index entirely.
+
+The resident GLB adds eyes and joint/waist overlap volumes (147,832 bytes; 4,368
+body triangles). A new export contract catches foreign scenes, unexpected image
+textures and size growth. The saved blend contains only this asset scene.
+Regression checks preserve hidden first-person head parts, missing tracked arms,
+exact palm targets and clothing tint reset when batch occupants change.
+
+`street-walkers.mjs` checks day/portrait-night approach, yield and resume, bounded
+counts and JS errors. `street-walkers-performance.mjs` isolates the new layer in
+one warmed scene in reversed order. Unit sampling uses the real city to reject
+road/building overlap and protects route continuity and local allocation size.
+Independent image review found no obvious road/wall penetration or torn joints;
+the close portrait stop was moved farther away after review. Dark night clothing,
+simplified mannequin-like shapes and approximate NPC foot planting remain.
+On the local M1 Pro/Metal browser, reversed-order warm measurements added six
+draws: 143–144 without versus 149–150 with the street layer. Both held a
+16.7 ms median; p95 changed from 16.7 to 16.8 ms. These vsync-limited samples
+show no observed frame-rate regression there, not spare GPU capacity or phone
+hardware performance.

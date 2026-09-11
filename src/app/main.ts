@@ -1,6 +1,7 @@
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
 import { sampleTrackedBodyPose } from '../xr/trackedBodyPose'
+import { StreetWalkers } from '../objects/streetWalkers'
 import { CoffeeService } from './coffeeService'
 import { CoffeeServiceView } from '../objects/coffeeServiceView'
 import { createCoffeeAction } from '../ui/coffeeAction'
@@ -719,6 +720,7 @@ export const bootstrapApp = async () => {
   const coffeeView = new CoffeeServiceView(cityscape.group, camera)
   const neighborhoodLife = new NeighborhoodLife(cityscape.group, cityscape)
   const playerBodyView = new PlayerBodyView(cityscape.group)
+  const streetWalkers = new StreetWalkers(cityscape.group, quality.tier === 'desktop' ? 8 : 4)
   const bodyDirection = new THREE.Vector3()
   const bodyFrameInverse = new THREE.Matrix4()
   let bodyHeading = 0
@@ -1242,6 +1244,7 @@ export const bootstrapApp = async () => {
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
       playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius)
       playerBodyView.motion.reset()
+      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius)
     }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
@@ -1481,6 +1484,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
+    ;(window as unknown as Record<string, unknown>).__spinwardWalkers = streetWalkers
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
@@ -2685,6 +2689,9 @@ export const bootstrapApp = async () => {
     neighborhoodLife.update(deltaSeconds, { azimuth: Math.atan2(rotatingCameraPosition.z,rotatingCameraPosition.x), axial: rotatingCameraPosition.y,
       altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
       { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition, speed: drive.driving ? drive.lastSpeed : 0 })
+    streetWalkers.update(deltaSeconds, { azimuth: Math.atan2(rotatingCameraPosition.z,rotatingCameraPosition.x), axial: rotatingCameraPosition.y,
+      altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
+      drive.driving ? { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition } : null)
     cityscape.update(deltaSeconds)
     // Aviation beacons: keep them at least ~1.3 CSS px in radius however far
     // they are (the far-side towers are 6 km up). In XR the drawing buffer is
@@ -2869,6 +2876,7 @@ export const bootstrapApp = async () => {
     roomAction.dispose()
     coffeeAction.dispose()
     playerBodyView.dispose()
+    streetWalkers.dispose()
     neighborhoodLife.dispose()
     coffeeView.dispose()
     hud.destroy()

@@ -27,6 +27,8 @@ export function placeResident(root:THREE.Object3D,azimuth:number,axial:number,ra
   root.position.set(Math.cos(azimuth)*(radius-height),axial,Math.sin(azimuth)*(radius-height))
   root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(up,forward),up,forward))
 }
+export type ResidentAppearance = { cloth: THREE.Color; trousers: THREE.Color }
+const untinted = new THREE.Color(1, 1, 1)
 // All authored parts share the same UV-sphere topology. Preserve their named
 // transform hierarchy for animation, but render all people in five material batches.
 export class ResidentBatches {
@@ -55,11 +57,12 @@ export class ResidentBatches {
       this.batches.set(m.name,mesh);this.group.add(mesh)
     })
   }
-  update(people:THREE.Object3D[]){
+  update(people:THREE.Object3D[], appearances?: ReadonlyMap<THREE.Object3D, ResidentAppearance>){
     for(const mesh of this.batches.values())mesh.count=0
     if(this.shadows)this.shadows.count=0
     for(const person of people){
       if(!person.visible)continue
+      const appearance = appearances?.get(person)
       person.updateMatrixWorld(true)
       if(this.shadows){
         const seated=(person.getObjectByName('pelvis')?.position.y??1)<.9
@@ -68,11 +71,14 @@ export class ResidentBatches {
       }
       person.traverse(o=>{if(!(o instanceof THREE.Mesh)||!o.visible)return
         const mesh=this.batches.get((o.material as THREE.Material).name)!
+        const name=(o.material as THREE.Material).name
+        const tint=name==='resident_cloth'?appearance?.cloth:name==='resident_trousers'?appearance?.trousers:undefined
+        if(tint||mesh.instanceColor)mesh.setColorAt(mesh.count,tint??untinted)
         this.matrix.copy(o.matrixWorld);mesh.setMatrixAt(mesh.count++,this.matrix)
       })
     }
-    for(const mesh of this.batches.values())mesh.instanceMatrix.needsUpdate=true
+    for(const mesh of this.batches.values()){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
     if(this.shadows)this.shadows.instanceMatrix.needsUpdate=true
   }
-  dispose(){for(const m of this.batches.values())(m.material as THREE.Material).dispose();this.shadows?.geometry.dispose();if(this.shadows)(this.shadows.material as THREE.Material).dispose();this.shadowTexture?.dispose();this.group.removeFromParent()}
+  dispose(){for(const m of this.batches.values()){m.dispose();(m.material as THREE.Material).dispose()}this.shadows?.geometry.dispose();if(this.shadows){this.shadows.dispose();(this.shadows.material as THREE.Material).dispose()}this.shadowTexture?.dispose();this.group.removeFromParent()}
 }

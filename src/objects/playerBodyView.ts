@@ -45,6 +45,7 @@ export class PlayerBodyView {
         this.root = asset.getObjectByName('resident')!.clone(true)
         this.root.traverse(object => this.binds.push({ object, position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone() }))
         this.root.traverse(o => { if (o instanceof THREE.Mesh && /face|hair|nose|neck|collar/.test(o.name)) o.visible = false })
+        this.root.getObjectByName('head')?.traverse(o => { if (o instanceof THREE.Mesh) o.visible = false })
         this.batches = new ResidentBatches(this.root, 1, false)
         this.group.add(this.batches.group)
         const source = asset.getObjectByName('cup_hand'); if (source) this.hand.add(source.clone(true))
@@ -136,7 +137,7 @@ export class PlayerBodyView {
     // Flat-screen coffee keeps its existing grip without a duplicate arm.
     root.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return
-      const part = /^(left|right)_(sleeve|forearm|hand)$/.exec(o.name)
+      const part = /^(left|right)_(sleeve|forearm|hand|elbow_cuff)$/.exec(o.name)
       if (!part) return
       const i = part[1] === 'left' ? 0 : 1
       o.visible = frame.tracked ? !!frame.tracked.hands[1 - i] && (part[2] === 'hand' || armReach[i]) : !(i === 0 && frame.holding)
