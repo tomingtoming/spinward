@@ -808,3 +808,72 @@ shaders, framebuffers, renderbuffers and vertex arrays. GC-retained JavaScript
 heap growth is 0.31–0.83 MiB per preset. No page errors or context loss occurred.
 This is bounded resource-balance evidence, not a GPU-byte or frame-rate result.
 Evidence: `travel-soak-final-render`.
+
+
+## Morning review route and artifacts
+
+The existing local preview remains `https://127.0.0.1:5192`. On Surface, look
+down and walk with WASD; stop to inspect planted feet, and use Shift for the
+faster gait. Places → Park reaches its entrance, and E or the visible action
+button uses the nearby benches. Places also reaches Cafe, Court, Apartment and
+Market. Exterior shows the rotating habitat from inertial rest with the visible
+flat-screen flight body. CONTROL remains the explicit reference for bindings.
+
+`qa/neighborhood-life/morning-walkthrough.mjs` records actual keyboard and UI
+input for standing/walking, park sitting/standing, coffee brewing/carrying/sipping,
+a night street and the exterior. A shared view initializes each shot; it is not
+a continuous journey between those locations. `render-walkthrough.mjs` trims
+loading and exports five MP4 chapters. The recording has no audio. These scripts
+follow the existing PLAYWRIGHT_MODULE / SPINWARD_URL convention; the export also
+accepts FFMPEG. Video, image and JSON evidence stays ignored in git.
+
+Independent review of the first final-build recording found no clear limb
+separation, penetration, reversed sides or camera failure in the sampled views.
+Four-second image sampling cannot establish continuous gait/contact, grasping
+details or sound synchronization. The final recording waits for the exterior's
+initial controls hint to finish before the retained footage.
+
+Remaining limits: no headset or phone hardware session was available; XR body
+proportions/comfort and device performance still need real devices. The body is
+a visual approximation, not a new articulated collision rig. Nearby residents
+use bounded routes and avoidance, without a global crowd or pedestrian physics
+simulation. The exterior's unlit side remains very dark. Public deployment,
+push and merge are outside this overnight window.
+
+
+## Thirtieth increment — stop long-idle ground creep (07:50)
+
+The full day/night observation revealed a slow sideways change of viewpoint
+without movement input. An isolated Rapier run reproduced 2.09 m of tangential
+drift over 120 simulated seconds on Izma. Removing engine friction while keeping
+the same traction controller and normal contact reduced that to 0.011 m.
+The locked sphere's contact point cannot rotate with the wall; friction adds
+roughly omega × sphere-radius of slip while the controller already holds the
+body-centre velocity at the intended co-rotation speed.
+
+Grounded traction now belongs to the existing controller, with zero engine
+friction. Normal contact, radial motion, measured weight and collision remain
+physical. Airborne transitions restore the former 0.5 friction for impacts and
+landing. The change is synchronized on takeoff, lost support, landing and travel
+reset; there is no position clamp or visual drift cancellation. A two-minute
+physics regression covers idle drift and friction restoration through takeoff
+and ground reset. Full suite: 804 tests across 135 files; production build passes.
+
+Before this physical fix, the continuous light check completed 390 seconds and
+23,417 observed frames. Daylight spans approximately 0–1, air-view star opacity
+0–0.9, and nearby lamp intensity 0–200. Maximum adjacent-frame changes were
+0.000294, 0.000875 and 0.077 respectively. No invalid state, JavaScript or shader
+errors occurred. This checks those light signals and sampled images, not every
+material or hardware frame rate. Evidence: `day-night-cycle`.
+
+The exterior rest check then observed 190 seconds, exceeding a full habitat
+rotation and a full artificial day. Five visible stars and the colony centre
+retain their screen directions (normalized-coordinate drift below 1e-11), star
+opacity stays at 0.6, and the free-flight body stays visible. No errors occurred.
+Evidence: `exterior-rest`. Browser drift and the final operation recording are
+captured by `morning-walkthrough.mjs` with `IDLE_MS=120000`.
+
+On the final browser build, 120 seconds without input produces 0.00631 m of
+surface displacement. The same page then walks, jumps into free flight and
+returns to grounded contact. Park seating/standing and taking/sipping coffee
+also pass. The video omits the idle wait but its JSON preserves the measurement.

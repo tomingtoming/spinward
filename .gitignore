@@ -10,4 +10,6 @@ dist
 # Local neighbourhood browser evidence (scripts are versioned).
 qa/neighborhood-life/*.png
 qa/neighborhood-life/*.json
+qa/neighborhood-life/*.mp4
+qa/neighborhood-life/*.webm
 assets/blender/*.blend1

@@ -154,6 +154,17 @@ const walkOutward = new THREE.Vector3()
 const walkTangent = new THREE.Vector3()
 const walkDesired = new THREE.Vector3()
 
+// Grounded traction is already applied by the controller at the body's centre.
+// A rotation-locked sphere's contact point cannot co-rotate with the wall:
+// engine friction adds ~omega * sphereRadius of unwanted tangential creep.
+// Keep real normal contact, and restore engine friction for airborne impacts.
+const syncPlayerContactFriction = (state: PlayerTraversalState) => {
+  const collider = state.physics?.freeFlyBody.collider(0)
+  if (!collider) return
+  const friction = state.mode === 'grounded' ? 0 : 0.5
+  if (collider.friction() !== friction) collider.setFriction(friction)
+}
+
 export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
   endCapMargin: 1.5,
   radialTolerance: 0.2,
@@ -205,15 +216,13 @@ export const createPlayerTraversalState = (
       },
       units
     )
-    // Traction is modeled by the walking controller (grip ~ spin gravity), so
-    // engine friction stays low: at panel seams the sphere touches two faces
-    // at once, and full friction there out-muscled the controller and parked
-    // the player on every seam.
+    // Grounded traction belongs to the controller. Airborne contact restores
+    // friction so a landing can exchange tangential momentum with the wall.
     physics.world.createCollider(
       physics.rapier.ColliderDesc.ball(
         scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, units)
       )
-        .setFriction(0.5)
+        .setFriction(0)
         .setFrictionCombineRule(physics.rapier.CoefficientCombineRule.Min)
         .setCollisionGroups(PLAYER_COLLISION_GROUPS)
         .setDensity(1.0)
@@ -241,6 +250,8 @@ const stepGroundedPlayerPhysics = (
   if (state.physics === null) {
     return
   }
+
+  syncPlayerContactFriction(state)
 
   // This runs BEFORE the world step, so the body pose corresponds to the
   // frame angle at the start of this frame. Converting it with the already
@@ -281,6 +292,7 @@ const stepGroundedPlayerPhysics = (
 
   if (!grounded || !insideAxially) {
     state.mode = 'free-fly'
+    syncPlayerContactFriction(state)
     return
   }
 
@@ -451,6 +463,7 @@ export const updatePlayerGroundContact = (
   if (!supported) return false
 
   state.mode = 'grounded'
+  syncPlayerContactFriction(state)
   state.groundHeight = groundHeight
   state.surface.azimuth = Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x)
   state.surface.axialPosition = nextRotatingPosition.y
@@ -523,6 +536,7 @@ export const detachPlayerToFreeFly = (
       linearVelocity: state.inertialVelocity
     })
     state.mode = 'free-fly'
+    syncPlayerContactFriction(state)
     rotatingPositionToInertial(config.launchVelocity, config.frameAngle, inertialLaunchVelocity)
     state.inertialVelocity.add(inertialLaunchVelocity)
     setRigidBodyLinvelFromReal(
@@ -548,6 +562,8 @@ export const stepFreeFlyPlayer = (
   if (state.mode !== 'free-fly') {
     return
   }
+
+  syncPlayerContactFriction(state)
 
   syncPlayerTraversalFromPhysics(state)
 
@@ -928,6 +944,8 @@ const syncFreeFlyBodyToState = (state: PlayerTraversalState, _enabled: boolean) 
   if (state.physics === null) {
     return
   }
+
+  syncPlayerContactFriction(state)
 
   setRigidBodyTranslationFromReal(
     state.physics.freeFlyBody,

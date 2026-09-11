@@ -350,6 +350,35 @@ test('physical walking holds co-rotation on the spinning wall at izma scale', as
   world.free()
 })
 
+test('standing traction does not accumulate wall-contact creep over two minutes', async () => {
+  const rapier = await initRapier(), world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(.02), radius = 3200, length = 32000, omega = Math.PI * 2 / 113.5
+  applyWorldLengthUnit(world, units)
+  const cylinder = createRotatingCylinderBody(rapier, world, { radius, length, units })
+  cylinder.setAngularVelocity(omega)
+  const state = createPlayerTraversalState({ axialPosition: 0, azimuth: 0 }, radius, 0, omega, { rapier, world, units })
+  let angle = 0
+  const dt = 1 / 60
+  try {
+    for (let i = 0; i < 7200; i++) {
+      angle = (angle + omega * dt) % (Math.PI * 2)
+      stepGroundedPlayer(state, { axisDistanceDelta: 0, tangentDistanceDelta: 0, radius, length, deltaSeconds: dt, omega, frameAngleEnd: angle })
+      world.timestep = dt; world.step(); syncGroundedSurfaceFromPhysics(state, angle)
+    }
+    // Locked-sphere friction used to pull the idle player ~2.1 m along the
+    // wall here. Preserve real radial support, without fixing its position.
+    expect(state.mode).toBe('grounded')
+    expect(Math.abs(state.surface.azimuth * radius)).toBeLessThan(.08)
+    expect(Math.abs(state.surface.axialPosition)).toBeLessThan(.03)
+    expect(radius - Math.hypot(state.inertialPosition.x, state.inertialPosition.z)).toBeGreaterThan(.1)
+    detachPlayerToFreeFly(state, { launchVelocity: new THREE.Vector3(-3, 0, 0), radius, omega, frameAngle: angle })
+    expect(state.physics!.freeFlyBody.collider(0).friction()).toBe(.5)
+    resetPlayerToGrounded(state, { axialPosition: 0, azimuth: 0, radius, frameAngle: angle, omega })
+    expect(state.physics!.freeFlyBody.collider(0).friction()).toBe(0)
+    expect(state.inertialPosition.toArray().every(Number.isFinite)).toBe(true)
+  } finally { cylinder.dispose(); disposePlayerTraversalState(state); world.free() }
+})
+
 test('grounded walking feels a measured ~1g from the spinning wall contact', async () => {
   // P2: on the open floor the radial axis is Rapier's wall contact, not an
   // analytic ground-follow. So the felt gravity is differenced from the
