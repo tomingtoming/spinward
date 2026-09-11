@@ -2686,6 +2686,9 @@ export const bootstrapApp = async () => {
       const heightPx = renderer.xr.isPresenting
         ? renderer.getDrawingBufferSize(beaconViewportScratch).y
         : window.innerHeight
+      const drawingHeight=renderer.getDrawingBufferSize(beaconViewportScratch).y
+      const eyes=renderer.xr.isPresenting?renderer.xr.getCamera().cameras:[]
+      cityscape.setBuildingProjection(eyes.length?Math.max(...eyes.map(eye=>Math.abs(eye.projectionMatrix.elements[5])*(eye.viewport?.w??drawingHeight)/2)):drawingHeight/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))))
       cityscape.setBeaconScreenScale(
         (beaconMinScreenRadiusPx * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5))) /
           Math.max(1, heightPx)

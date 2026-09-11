@@ -817,3 +817,65 @@ This stage is local only. Next candidates: connect this home to an everyday
 walking route through the cafe district, add apartment-specific room ambience,
 and improve surface wear/lighting. A closer canonical reconstruction would
 need direct visual references for the actual room layout.
+
+
+## Exterior city-block pilot — three complete buildings (2026-09-11)
+
+The first bounded block now replaces three existing R=3200 lots along road 77:
+a U-courtyard residential building, an office tower with a recessed podium,
+and a stepped commercial building. They match both 64,000- and 16,000-building
+plans. `?visit=city-block` opens the office approach. Existing cafe, apartment,
+roads and neighboring lots are retained; this is not a citywide replacement.
+The new doors are closed exterior dressing, with no new enterable interiors.
+
+`assets/blender/city-block.json` holds the exact lots and structural volumes.
+`build_city_block.py` generates three tagged Blender scenes, source `.blend`
+files, four named glTF LOD nodes per building, packed 256px day/emission atlases,
+and `city-block-audit.json`. It exports only its active scene and restores the
+previous scene. All levels preserve the courtyard, podium and setbacks.
+
+| Building | LOD0 triangles | LOD1 | LOD2 | LOD3 |
+| --- | ---: | ---: | ---: | ---: |
+| Residential | 8,564 | 1,362 | 240 | 48 |
+| Office | 5,476 | 810 | 240 | 48 |
+| Commercial | 5,426 | 832 | 180 | 36 |
+
+The three GLBs total 1,661,564 bytes. LOD0/1 use five material primitives per
+building; LOD2/3 use three. This small pilot has unique meshes, not city-scale
+instance batching. Assets are cached after the first geometrically visible
+level; a failed request retains the same structural volumes as plain proxies.
+
+Selection measures distance to the structural volumes including altitude:
+25/30 m, 120/144 m and 600/690 m entry/exit thresholds. LOD3 persists until its
+maximum dimension falls below 1.7 render pixels, returning above 2 pixels.
+Projection uses the actual drawing-buffer height/FOV and the more demanding XR
+eye. The 240ms complementary dither applies between mesh levels. LOD4 has no
+individual mesh; the existing shell receives the volumes' roof/light footprint,
+including the courtyard void. It remains a coarse aggregate, not a facade bake.
+There is no mesh-to-shell dither at the sub-two-pixel handoff.
+
+The permanent collision volumes follow the same mass contract, independent of
+LOD and successful loading. Render geometry uses a rigid tangent frame: bending
+large wall quads and small window quads separately caused unequal chords and
+fine depth artifacts. At these widths, ground corners bury by at most 2.3cm.
+This bounded approximation should be revisited for substantially wider lots.
+Roof surfaces are inset beneath parapets; entrance bays exclude overlapping
+windows. Atlas RGB is stored as sRGB so reduced levels retain the wall palette.
+
+Validation evidence: `qa/neighborhood-life/city-block.mjs` captures original,
+forced LOD0–3, close entrances, night, natural near/street/block/axis/field
+positions and deliberate asset failure. PNG/JSON evidence stays ignored under
+that directory. Seven regression tests cover real lot binding, exact GLB node
+sets, decreasing geometry budgets, bounds, courtyard/recess clearance, altitude
+and LOD hysteresis. Full suite: 663 passed, zero failed; production build passes
+with the existing chunk-size warning. Browser checks use a stationary colony
+for repeatable comparison, not a physical-XR performance test. The visit link
+also passes with normal rotation in desktop and 390×844 phone profiles, with
+all three assets loaded and no JavaScript errors. Independent image review
+found no major holes, entrance/window overlaps or floating buildings; fine
+dashed edges remain on oblique inner walls, with temporal flicker unverified.
+
+Remaining scope: citywide instancing, richer glass/storefront treatment, wider
+roof/oblique sampling, sustained phone/Quest measurements and stereo dither
+review. The three pilots are a functioning five-representation path; the full
+city and all design goals above are not yet implemented. Local work only.

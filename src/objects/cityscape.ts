@@ -1,3 +1,5 @@
+import {AuthoredCityBlock} from './authoredCityBlock'
+import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {createLandscapeCrown,createMeadowTexture} from './landscapeVegetation'
 import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
@@ -1746,6 +1748,9 @@ export class Cityscape {
     side: THREE.BackSide
   })
 
+  readonly authoredBlock=new AuthoredCityBlock(this.group)
+  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian)}
+
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x59764b,
     map: createMeadowTexture(),
@@ -2562,9 +2567,12 @@ export class Cityscape {
     this.interiors = planBuildingInteriors(plan.buildings, radius)
     const apartment = planNyaanApartment(plan.buildings, radius)
     if (apartment) this.interiors.set(apartment.building, apartment)
+    this.authoredBlock.rebuild(plan.buildings,radius)
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
+      const authored=cityBlockSpec(building,radius)
+      if(authored)return cityBlockCollision(building,authored,radius)
       const interior = this.interiors.get(building)
       if (interior) return interiorCollisionBuildings(interior, radius)
       const houseFit = fitSuburbanHouse(building)
@@ -2588,7 +2596,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
-    this.civicDetails.rebuild({ ...plan, buildings: plan.buildings.filter(b => !this.interiors.has(b)) }, radius)
+    this.civicDetails.rebuild({ ...plan, buildings: plan.buildings.filter(b => !this.interiors.has(b)&&!cityBlockSpec(b,radius)) }, radius)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2637,6 +2645,15 @@ export class Cityscape {
   getCoffeeStation() { return this.coffeeStation }
 
   getInteriorVisit(kind: string | null) {
+    if (kind === 'city-block') {
+      const b = this.cityPlanBuildings.find(b => cityBlockSpec(b, this.radius)?.id === 'office')
+      if (!b?.access) return null
+      const { azimuth, axial } = b.access.roadEdge
+      const up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
+      const forward = new THREE.Vector3(0, 1, 0)
+      const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(forward.clone().cross(up), up, forward.clone().negate()))
+      return { azimuth, axial, orientation }
+    }
     if (kind === 'coffee' && this.coffeeStation) {
       const station = this.coffeeStation, front = station.interior.building.front!
       const up = new THREE.Vector3(-Math.cos(station.azimuth), 0, -Math.sin(station.azimuth))
@@ -2707,6 +2724,7 @@ export class Cityscape {
 
   setDaylight(daylight: number) {
     this.civicDetails.setDaylight(daylight)
+    this.authoredBlock.setDaylight(daylight)
     this.interiorLayer.setDaylight(daylight)
     this.neighborhoodFronts.setDaylight(daylight)
     const night = 1 - daylight
@@ -2830,6 +2848,7 @@ export class Cityscape {
   dispose() {
     this.disposed = true
     this.clear()
+    this.authoredBlock.dispose()
     this.civicDetails.dispose()
     this.interiorLayer.dispose()
     this.neighborhoodFronts.dispose()
@@ -3099,6 +3118,7 @@ export class Cityscape {
   // far buffer every few metres. The fine grid rebuilds only nearby GLB and
   // procedural batches; the coarse grid rebuckets near/far buildings.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
+    this.authoredBlock.update(azimuth,axial,altitude)
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)
     this.neighborhoodFronts.update(azimuth, axial, altitude)
@@ -3184,7 +3204,7 @@ export class Cityscape {
     })
     this.interiorLayer.rebuild(interiorPlans, this.radius)
     this.interiorLayer.update(this.interiorFocus.azimuth, this.interiorFocus.axial, this.interiorFocus.altitude)
-    const exteriorBuildings = this.cityNearBuildings.filter(b => !this.interiors.has(b))
+    const exteriorBuildings = this.cityNearBuildings.filter(b => !this.interiors.has(b)&&!cityBlockSpec(b,this.radius))
     let procedural = exteriorBuildings.map(stableBuildingPlacement)
 
     // The LOD selection keys on the Kenney pack: it dresses every building,
@@ -3936,6 +3956,7 @@ export class Cityscape {
     let count = 0
 
     for (const building of far) {
+      if(cityBlockSpec(building,this.radius))continue
       const chord = getBuildingChordDistance(
         this.radius,
         this.cityBatchFocusAzimuth,

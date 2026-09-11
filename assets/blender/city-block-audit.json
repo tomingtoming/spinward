@@ -1,0 +1,80 @@
+[
+  {
+    "id": "residential",
+    "bytes": 723964,
+    "levels": [
+      {
+        "lod": 0,
+        "triangles": 8564,
+        "materials": 5
+      },
+      {
+        "lod": 1,
+        "triangles": 1362,
+        "materials": 5
+      },
+      {
+        "lod": 2,
+        "triangles": 240,
+        "materials": 3
+      },
+      {
+        "lod": 3,
+        "triangles": 48,
+        "materials": 3
+      }
+    ]
+  },
+  {
+    "id": "office",
+    "bytes": 472272,
+    "levels": [
+      {
+        "lod": 0,
+        "triangles": 5476,
+        "materials": 5
+      },
+      {
+        "lod": 1,
+        "triangles": 810,
+        "materials": 5
+      },
+      {
+        "lod": 2,
+        "triangles": 240,
+        "materials": 3
+      },
+      {
+        "lod": 3,
+        "triangles": 48,
+        "materials": 3
+      }
+    ]
+  },
+  {
+    "id": "commercial",
+    "bytes": 465328,
+    "levels": [
+      {
+        "lod": 0,
+        "triangles": 5426,
+        "materials": 5
+      },
+      {
+        "lod": 1,
+        "triangles": 832,
+        "materials": 5
+      },
+      {
+        "lod": 2,
+        "triangles": 180,
+        "materials": 3
+      },
+      {
+        "lod": 3,
+        "triangles": 36,
+        "materials": 3
+      }
+    ]
+  }
+]

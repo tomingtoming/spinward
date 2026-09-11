@@ -1,3 +1,4 @@
+import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import * as THREE from 'three'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import type { LandArc } from '../sim/habitatConfig'
@@ -191,6 +192,12 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan) => {
   // Building roofs from the shared kit palette, nudged toward the wall tone so
   // grazing views agree with the far-batch boxes.
   for (const building of plan.buildings) {
+    const block=cityBlockSpec(building,bake.radius)
+    if(block){
+      ctx.fillStyle='#'+block.roof;ctx.globalAlpha=.85
+      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      continue
+    }
     const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(building).set]
     scratchColor.copy(roof).lerp(buildingTone(building, scratchColor2), 0.25)
     ctx.fillStyle = cssColor(scratchColor)
@@ -315,6 +322,11 @@ const bakeEmissive = (
   for (const building of plan.buildings) {
     const litChance = FACADE_LIT_CHANCE * (building.industrial === true ? 0.4 : 1)
     if (random() >= litChance) {
+      const block=cityBlockSpec(building,bake.radius)
+      if(block){
+        ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
+        for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      }
       continue
     }
 
@@ -341,6 +353,14 @@ const bakeEmissive = (
     const speckle = nightSpeckle(building.azimuth, building.axial)
     ctx.fillStyle = cssColor(scratchColor)
     ctx.globalAlpha = gain * (0.38 + heightNorm * 0.55) * speckle
+    const block=cityBlockSpec(building,bake.radius)
+    if(block){
+      ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
+      // One bounded roof/light footprint per structural volume; the courtyard
+      // stays dark. The ordinary whole-lot glow must not fill it back in.
+      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      continue
+    }
     bakeRect(bake, building.azimuth, building.axial, building.width, building.depth, 1)
 
     // Street-level commerce: urban non-house blocks carry the shop-band glow,
