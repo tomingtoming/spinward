@@ -52,6 +52,8 @@ The **Places** menu (inside **Travel** on phones) offers the current city's
 café, courtyard, apartment, market street and park where available. It arrives at a
 real entrance, ready to walk. Travel also leaves a rover or bench before moving.
 The park has a short garden loop and two usable benches among the trees.
+**Sound on/off** (inside **More** on phones) or **M** toggles audio. Hidden
+pages pause their audio context; returning keeps the current mute choice.
 Use Tab to reach the dock, Space/Enter to open a menu, arrows to choose and Esc
 to close. On small screens, **More** reveals preset, weather and sharing controls.
 [Implementation and local preview links](docs/building-interiors.md).

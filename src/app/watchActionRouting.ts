@@ -12,6 +12,7 @@ export type RuntimeWatchAction =
     }
   | { kind: 'rain-toggle' }
   | { kind: 'depth-toggle' }
+  | { kind: 'audio-toggle' }
   | { kind: 'visit'; action: PlaceVisitAction }
   | null
 
@@ -42,6 +43,8 @@ export const resolveRuntimeWatchAction = (
       return { kind: 'rain-toggle' }
     case 'depth-mode-toggle':
       return { kind: 'depth-toggle' }
+    case 'audio-mute-toggle':
+      return { kind: 'audio-toggle' }
     default:
       return null
   }

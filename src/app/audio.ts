@@ -1,4 +1,5 @@
 import type { RoomEnvironment } from '../objects/roomExperience'
+import { AudioActivity } from './audioActivity'
 
 // Synthesized audio: no assets, everything generated with WebAudio. The
 // context unlocks on the first user gesture (browser autoplay policy).
@@ -26,6 +27,8 @@ export type EnvironmentMix = {
 }
 
 export class GameAudio {
+  private readonly activity = new AudioActivity()
+  private disposed = false
   private context: AudioContext | null = null
   private master: GainNode | null = null
   private world: GainNode | null = null
@@ -53,10 +56,9 @@ export class GameAudio {
 
   // Call from a user-gesture handler; safe to call repeatedly.
   unlock() {
+    if (this.disposed) return
     if (this.context !== null) {
-      if (this.context.state === 'suspended') {
-        void this.context.resume()
-      }
+      this.activity.sync()
       return
     }
 
@@ -69,6 +71,7 @@ export class GameAudio {
     }
 
     this.context = new AudioContextClass()
+    this.activity.attach(this.context)
     this.master = this.context.createGain()
     this.master.gain.value = this.muted ? 0 : MASTER_GAIN
     this.master.connect(this.context.destination)
@@ -76,6 +79,15 @@ export class GameAudio {
     this.world.gain.value = 1
     this.world.connect(this.master)
     this.startAmbience()
+  }
+
+  setActive(active: boolean) { this.activity.setActive(active) }
+
+  dispose() {
+    if (this.disposed) return
+    this.disposed = true
+    this.activity.dispose()
+    this.context = null
   }
 
   // Air-carried sounds route here so the vacuum duck silences them together.

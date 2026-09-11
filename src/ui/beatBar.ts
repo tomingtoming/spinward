@@ -16,6 +16,7 @@ export type BeatBarAction =
   | 'respawn-exterior'
   | 'rpm-coarse-decrement'
   | 'rpm-coarse-increment'
+  | 'audio-mute-toggle'
 
 export type BeatBarSnapshot = {
   rpm: number
@@ -23,6 +24,7 @@ export type BeatBarSnapshot = {
   axisAvailable: boolean
   oldTownAvailable: boolean
   raining: boolean
+  muted: boolean
   availablePlaces: ReadonlySet<PlaceVisitAction>
 }
 
@@ -96,6 +98,9 @@ export const createBeatBar = (
   const rainSeparator = document.createElement('span')
   rainSeparator.className = 'beat-sep'
   const rain = makeButton('Rain', 'beat-btn', () => onToggleRain?.())
+  const sound = makeButton('Sound on', 'beat-btn beat-btn--sound', () => onAction('audio-mute-toggle'))
+  sound.title = 'Toggle sound (M)'
+  sound.setAttribute('aria-pressed', 'true')
 
   // Compact arrangement: one labelled pill that opens the same destinations.
   // The label stays on the pill, so the affordance is still visible — only the
@@ -129,7 +134,8 @@ export const createBeatBar = (
     spinDown,
     spinUp,
     rainSeparator,
-    rain
+    rain,
+    sound
   )
   mount.prepend(root)
 
@@ -185,6 +191,11 @@ export const createBeatBar = (
       if (streetHeading) streetHeading.hidden = !placesAvailable
       applyArrangement()
       rain.classList.toggle('beat-btn--on', snapshot.raining)
+      const soundLabel = snapshot.muted ? 'Sound off' : 'Sound on'
+      if (sound.textContent !== soundLabel) {
+        sound.textContent = soundLabel
+        sound.setAttribute('aria-pressed', String(!snapshot.muted))
+      }
     }
   }
 }

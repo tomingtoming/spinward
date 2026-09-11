@@ -569,3 +569,27 @@ the final comparison uses a stable grounded street-corner view instead.
 
 Next: audio interruption and accessible mute controls, followed by a longer
 whole-colony travel/resource pass.
+
+## Twenty-second increment — audio interruption and mute access (06:23)
+
+Sound on/off is now a visible desktop action and lives inside More on phones,
+sharing the existing M shortcut and the same mute state. Page visibility,
+pagehide/pageshow and immersive-session visibility control the audio context
+independently of that preference. Hidden contexts suspend; returning resumes
+the same context, and delayed resume/suspend completions reconcile to the most
+recent visibility. Immersive visibility owns the policy during XR, including
+visible-blurred. Unload closes the context. This does not persist mute across
+reloads or add an XR sound button yet.
+
+Real WebAudio contexts in desktop and phone-profile Chrome previously advanced
+about 0.304 s during a 0.3 s injected hidden interval. They now remain suspended
+with zero clock advance, resume once, preserve mute and survive rapid hide/show.
+This injects document visibility events; it does not certify OS backgrounding,
+mobile suspension or headset audio. Touch checks at 320, 390 and 720 px confirm
+sound/weather/menu access with no controls outside the viewport or overlapping
+the game-action row; the collapsed dock remains 44 px. No listening-quality
+claim is made by these state probes. Full suite: 792 tests; build passes.
+Evidence: `audio-activity.mjs`, `audio-activity-{before,after}*`, `dock-audio*`.
+
+Next: a longer all-preset resource/travel run, and access to everyday places
+through the wrist menu as well as desktop/phone controls.

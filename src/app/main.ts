@@ -20,6 +20,7 @@ import {
   getEffectiveObserverMode
 } from './observerMode'
 import { GameAudio } from './audio'
+import { isAudioActive } from './audioActivity'
 import { ThrowTarget } from '../objects/throwTarget'
 import { clearBalls, getTrackedBall, removeExpiredBalls } from './ballCollection'
 import { resolveFogVisibility, visibilityToFogDensity } from './airVisibility'
@@ -278,6 +279,13 @@ export const bootstrapApp = async () => {
   let dayNightPhase =
     shareState.dayNightPhase ?? getInitialDayNightPhase(habitatConfig.skyLook)
   const audio = new GameAudio()
+  let audioSession: XRSession | null = null
+  const syncAudioActivity = () => audio.setActive(isAudioActive(document.hidden, audioSession?.visibilityState ?? null))
+  const hideAudio = () => audio.setActive(false)
+  syncAudioActivity()
+  document.addEventListener('visibilitychange', syncAudioActivity)
+  window.addEventListener('pagehide', hideAudio)
+  window.addEventListener('pageshow', syncAudioActivity)
   // The Sun's true (Sol) colour. The colony beam stays this at every hour — see
   // the setSunlight call below for why colony dusk carries no warm tint.
   const sunBeamColor = new THREE.Color(0xfff6ee)
@@ -617,7 +625,17 @@ export const bootstrapApp = async () => {
       })
       .catch(() => {})
   }
-  renderer.xr.addEventListener('sessionstart', () => audio.unlock())
+  renderer.xr.addEventListener('sessionstart', () => {
+    audioSession = renderer.xr.getSession()
+    audioSession?.addEventListener('visibilitychange', syncAudioActivity)
+    syncAudioActivity()
+    audio.unlock()
+  })
+  renderer.xr.addEventListener('sessionend', () => {
+    audioSession?.removeEventListener('visibilitychange', syncAudioActivity)
+    audioSession = null
+    syncAudioActivity()
+  })
   renderer.xr.addEventListener('sessionstart', () => metrics?.vrStart())
   renderer.xr.addEventListener('sessionend', () => metrics?.vrEnd('exit', perfMeter.stats().fps))
 
@@ -1173,6 +1191,10 @@ export const bootstrapApp = async () => {
       case 'rain-toggle':
         audio.playClick()
         setRaining(!weather.raining)
+        return true
+      case 'audio-toggle':
+        audio.unlock()
+        audio.toggleMuted()
         return true
       case 'depth-toggle':
         audio.playClick()
@@ -2564,7 +2586,8 @@ export const bootstrapApp = async () => {
       oldTownAvailable:
         getArrivalSquare(habitatConfig.radius, getHabitatSpanMeters()) !== null,
       raining: weather.raining,
-      availablePlaces
+      availablePlaces,
+      muted: audio.isMuted
     })
     debugGui?.update()
     worldRoot.rotation.y = getDisplayRootRotation(effectiveObserverMode, frameAngle)
@@ -2951,6 +2974,11 @@ export const bootstrapApp = async () => {
     // disposed Rapier world.
     renderer.setAnimationLoop(null)
     removeInputInterruption()
+    document.removeEventListener('visibilitychange', syncAudioActivity)
+    window.removeEventListener('pagehide', hideAudio)
+    window.removeEventListener('pageshow', syncAudioActivity)
+    audioSession?.removeEventListener('visibilitychange', syncAudioActivity)
+    audio.dispose()
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()

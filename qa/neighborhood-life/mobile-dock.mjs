@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright')
 const out=fileURLToPath(new URL('.',import.meta.url)),base=process.env.SPINWARD_URL??'https://127.0.0.1:5192'
+const prefix=process.env.PREFIX??'dock'
 const q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().lookAt(new T.Vector3(3198.4,-200,0),new T.Vector3(3199.78,-199.35,0),new T.Vector3(-1,0,0)))
 const browser=await chromium.launch({channel:'chrome',headless:true})
 try {
@@ -21,7 +22,7 @@ try {
     },name)
     if(state.buttons.some(b=>b.rect.x<0||b.rect.right>state.width+.5||b.rect.bottom>state.height))throw Error('Control outside viewport: '+name)
     if(state.mobile.height&&state.mobile.bottom>state.dock.top)throw Error('Game actions overlap dock: '+name)
-    samples.push(state);await page.screenshot({path:out+'dock-'+name+'.png'});return state
+    samples.push(state);await page.screenshot({path:out+prefix+'-'+name+'.png'});return state
   }
   for(const width of [320,390,720]){
     await page.setViewportSize({width,height:844})
@@ -30,6 +31,8 @@ try {
     await page.getByRole('button',{name:'More controls',exact:true}).tap()
     const expanded=await snapshot('expanded-'+width)
     if(expanded.dock.height<90||expanded.expanded!=='true'||!expanded.buttons.some(b=>b.label==='Photo'))throw Error('Controls inaccessible')
+    await page.getByRole('button',{name:'Sound on',exact:true}).tap();await page.waitForFunction(()=>window.__spinward.room.audio.muted)
+    await page.getByRole('button',{name:'Sound off',exact:true}).tap();await page.waitForFunction(()=>!window.__spinward.room.audio.muted)
     await page.getByRole('button',{name:'Rain',exact:true}).tap();await page.waitForFunction(()=>window.__spinward.raining)
     await page.getByRole('button',{name:'Rain',exact:true}).tap();await page.waitForFunction(()=>!window.__spinward.raining)
     await page.keyboard.press('Escape')
@@ -42,5 +45,5 @@ try {
   if(await page.locator('.dock-more').isVisible())throw Error('Wide-screen toggle should be hidden')
   if(!await page.getByRole('button',{name:'Surface',exact:true}).isVisible())throw Error('Wide Travel buttons lost')
   if(errors.length)throw Error(JSON.stringify(errors))
-  fs.writeFileSync(out+'dock-layout.json',JSON.stringify({errors,samples},null,2));console.log(JSON.stringify({errors,heights:samples.map(s=>[s.name,s.dock.height])}))
+  fs.writeFileSync(out+prefix+'-layout.json',JSON.stringify({errors,samples},null,2));console.log(JSON.stringify({errors,heights:samples.map(s=>[s.name,s.dock.height])}))
 }finally{await browser.close()}

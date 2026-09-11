@@ -35,6 +35,7 @@ export type WatchActionId =
   | 'respawn-exterior'
   | 'weather-rain-toggle'
   | 'depth-mode-toggle'
+  | 'audio-mute-toggle'
 
 export type WatchButton = {
   id: WatchActionId
