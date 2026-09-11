@@ -118,7 +118,23 @@ aspects, inertial rest, and reveal cancellation through real control updates.
 day/night and portrait phone; it asserts the current location card. This is
 browser/profile coverage, not headset or mobile hardware validation.
 
-Next: exterior inspection revealed haze continuing outside the pressurized
-cylinder, washing the hull into a flat sky-coloured shape. Clip atmospheric
-integration to the finite habitat while preserving interior sightlines, then
-continue the broad scene/movement survey.
+## Seventh increment — finite atmospheric haze (02:00)
+
+Exterior rays previously counted vacuum as floor-density air, washing the hull
+into a sky-coloured capsule. CPU/GLSL now clip the ray to the radial shell and
+axial end planes before applying the existing eight midpoint samples. A long
+vacuum lead-in leaves the interior air column unchanged; the outer hull has no
+foreground haze. The legacy Gaussian branch uses its existing formula over
+the clipped air length. The ring's internal representative-air approximation
+is retained. Interior-to-interior segments take a cheap unchanged fast path.
+
+716 tests/build pass, including empty vacuum paths, far observers, reversal,
+axial clipping and the established interior contrast/closed-form checks.
+All-preset exterior and Izma day/night/phone interior probes show no page or
+shader errors. The sampled scenes still report 60 fps on the local M1 Pro;
+this is not an on-device GPU budget certification.
+
+Independent tour review flags Izma's long mirror wings outside the hull-based
+framing and bright objects behind the translucent guide text. Next: include
+the complete mirror envelope in Exterior and protect guide readability. Keep
+the wider scene/movement survey moving after those bounded repairs.

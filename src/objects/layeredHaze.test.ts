@@ -47,6 +47,40 @@ describe('setHazeProfile', () => {
 })
 
 describe('layeredOpticalDepth', () => {
+  test('vacuum sightlines have no haze, including views ending on the outer hull',()=>{
+    const profile=izma();setHazeProfile(profile,3200,500,40000)
+    expect(profile.w).toBe(20000)
+    const rays=[
+      [{x:100000,y:0,z:0},{x:3203.2,y:0,z:0}],
+      [{x:0,y:-40000,z:0},{x:0,y:-20001,z:0}],
+      [{x:5000,y:-10000,z:0},{x:5000,y:10000,z:0}],
+    ]
+    for(const [from,to] of rays){
+      expect(layeredOpticalDepth(from,to,rho16km,profile)).toBe(0)
+      expect(layeredOpticalDepth(to,from,rho16km,profile)).toBe(0)
+    }
+  })
+
+  test('a long vacuum lead-in preserves the sampled air column through the diameter',()=>{
+    const profile=izma();setHazeProfile(profile,3200,500,40000)
+    const wall={x:-3200,y:0,z:0}
+    const reference=layeredOpticalDepth({x:3200,y:0,z:0},wall,rho16km,profile)
+    for(const distance of [5120,100000,1000000]){
+      const outside={x:distance,y:0,z:0}
+      expect(layeredOpticalDepth(outside,wall,rho16km,profile)).toBeCloseTo(reference,8)
+      expect(layeredOpticalDepth(wall,outside,rho16km,profile)).toBeCloseTo(reference,8)
+    }
+  })
+
+  test('axial clipping limits haze to the pressurized span in layered and uniform modes',()=>{
+    const profile=izma();setHazeProfile(profile,3200,500,40000)
+    const from={x:3100,y:-100000,z:0},to={x:3100,y:0,z:0}
+    expect(layeredOpticalDepth(from,to,rho16km,profile)).toBeCloseTo(rho16km*20000*Math.exp(-100/500),8)
+    setHazeProfile(profile,3200,null,40000)
+    expect(layeredOpticalDepth(from,to,rho16km,profile)).toBeCloseTo((rho16km*20000)**2,8)
+    expect(layeredOpticalDepth({x:3300,y:0,z:0},{x:5000,y:0,z:0},rho16km,profile)).toBe(0)
+  })
+
   test('uniform branch reproduces the legacy Gaussian FogExp2 (the A/B control)', () => {
     const profile = createHazeProfile()
     setHazeProfile(profile, 3200, null)

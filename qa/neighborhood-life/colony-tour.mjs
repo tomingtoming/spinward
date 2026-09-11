@@ -18,6 +18,7 @@ try{
   const phone=config.tier==='phone'
   const page=await browser.newPage({ignoreHTTPSErrors:true,viewport:phone?{width:390,height:844}:{width:1440,height:1000},hasTouch:phone,deviceScaleFactor:1})
   page.on('pageerror',e=>errors.push({config,message:e.message}))
+  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGLProgram/i.test(m.text()))errors.push({config,message:m.text()})})
   await page.goto(base+`/?debug&stats&preset=${config.preset}&t=${config.time}&tier=${config.tier}&dpr=1`)
   await page.waitForSelector('#splash',{state:'detached'})
   for(const stop of config.stops){

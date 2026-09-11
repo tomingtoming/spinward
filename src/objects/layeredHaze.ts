@@ -33,7 +33,7 @@ export const LAYERED_HAZE_SAMPLES = 8
 // snapshot; a plain {x,y,z,w} is copied by reference and uploaded by the same
 // vec4 setter, so mutating this object retunes every fogged material at once.
 //   x = habitat radius (m)      y = 1 / scale height (1/m)
-//   z = 1 layered, 0 uniform    w = unused
+//   z = 1 layered, 0 uniform    w = axial half-length (0 = unbounded)
 export type HazeProfileUniform = { x: number; y: number; z: number; w: number }
 
 export const createHazeProfile = (): HazeProfileUniform => ({
@@ -46,9 +46,11 @@ export const createHazeProfile = (): HazeProfileUniform => ({
 export const setHazeProfile = (
   profile: HazeProfileUniform,
   radiusMeters: number,
-  scaleHeightMeters: number | null
+  scaleHeightMeters: number | null,
+  lengthMeters = 0
 ) => {
   profile.x = radiusMeters
+  profile.w = Math.max(0, lengthMeters * .5)
   if (scaleHeightMeters === null || scaleHeightMeters <= 0) {
     profile.y = 0
     profile.z = 0
@@ -77,13 +79,42 @@ export const resolveHazeScaleHeight = (
   return Math.min(MAX_HAZE_SCALE_HEIGHT_METERS, Math.max(MIN_HAZE_SCALE_HEIGHT_METERS, parsed))
 }
 
-// Relative aerosol density at a height above the shell floor. Outside the
-// shell (negative height) the profile is held at the floor value so the
-// Exterior vantage keeps its current look instead of snapping to vacuum.
+// Relative aerosol density inside the habitat. Ray clipping below excludes
+// vacuum; the clamp only absorbs roundoff at the floor boundary.
 export const layeredDensityAtHeight = (heightMeters: number, invScaleHeight: number) =>
   Math.exp(-Math.max(heightMeters, 0) * invScaleHeight)
 
 type Vec3Like = { x: number; y: number; z: number }
+
+/** Parameter interval of a segment inside the finite air cylinder. Clip
+ * before quadrature so a distant observer cannot skip a thin air column
+ * between widely spaced samples or count kilometres of vacuum as floor air. */
+const airInterval = (from: Vec3Like, to: Vec3Like, profile: HazeProfileUniform): [number, number] => {
+  const r2 = profile.x * profile.x
+  const inside = (p: Vec3Like) => p.x * p.x + p.z * p.z <= r2 && (profile.w <= 0 || Math.abs(p.y) <= profile.w)
+  if (inside(from) && inside(to)) return [0, 1]
+  const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z
+  let start = 0, end = 1
+  const a = dx * dx + dz * dz, b = from.x * dx + from.z * dz, c = from.x * from.x + from.z * from.z - r2
+  if (a <= 1e-12) {
+    if (c > 0) return [0, 0]
+  } else {
+    const disc = b * b - a * c
+    if (disc <= 0) return [0, 0]
+    const root = Math.sqrt(disc)
+    start = Math.max(start, (-b - root) / a)
+    end = Math.min(end, (-b + root) / a)
+  }
+  if (profile.w > 0) {
+    if (Math.abs(dy) < 1e-6) {
+      if (Math.abs(from.y) > profile.w) return [0, 0]
+    } else {
+      const t0 = (-profile.w - from.y) / dy, t1 = (profile.w - from.y) / dy
+      start = Math.max(start, Math.min(t0, t1)); end = Math.min(end, Math.max(t0, t1))
+    }
+  }
+  return end > start ? [start, end] : [0, 0]
+}
 
 // CPU twin of the GLSL below (same midpoint rule, same sample count) so the
 // shader's numbers can be unit-tested against closed forms. The habitat axis
@@ -98,14 +129,16 @@ export const layeredOpticalDepth = (
   const dx = to.x - from.x
   const dy = to.y - from.y
   const dz = to.z - from.z
-  const length = Math.hypot(dx, dy, dz)
+  const [start, end] = airInterval(from, to, profile)
+  const length = Math.hypot(dx, dy, dz) * (end - start)
+  if (length <= 0) return 0
   if (profile.z < 0.5) {
     // Legacy three.js FogExp2: Gaussian in distance.
     return groundDensity * groundDensity * length * length
   }
   let sum = 0
   for (let i = 0; i < samples; i++) {
-    const t = (i + 0.5) / samples
+    const t = start + (end - start) * (i + 0.5) / samples
     const px = from.x + dx * t
     const pz = from.z + dz * t
     sum += layeredDensityAtHeight(profile.x - Math.hypot(px, pz), profile.y)
@@ -134,16 +167,46 @@ export const diameterOpticalDepth = (
 export const GLSL_LAYERED_HAZE = /* glsl */ `
 // Boundary-layer haze optical depth along origin → origin + seg (world space,
 // habitat axis = +Y through the origin). profile: x = radius, y = 1/scale
-// height, z = 1 layered / 0 uniform. Midpoint rule, LAYERED_HAZE_SAMPLES taps.
+// height, z = 1 layered / 0 uniform, w = axial half-length (0 unbounded).
+bool insideHazeCylinder(vec3 p, vec4 profile) {
+  return dot(p.xz, p.xz) <= profile.x * profile.x && (profile.w <= 0.0 || abs(p.y) <= profile.w);
+}
+vec2 hazeAirInterval(vec3 origin, vec3 seg, vec4 profile) {
+  // Most street/overhead fragments stay inside the convex air volume.
+  if (insideHazeCylinder(origin, profile) && insideHazeCylinder(origin + seg, profile)) return vec2(0.0, 1.0);
+  float start = 0.0, end = 1.0;
+  float a = dot(seg.xz, seg.xz), b = dot(origin.xz, seg.xz);
+  float c = dot(origin.xz, origin.xz) - profile.x * profile.x;
+  if (a <= 1e-12) {
+    if (c > 0.0) return vec2(0.0);
+  } else {
+    float disc = b * b - a * c;
+    if (disc <= 0.0) return vec2(0.0);
+    float root = sqrt(disc);
+    start = max(start, (-b - root) / a);
+    end = min(end, (-b + root) / a);
+  }
+  if (profile.w > 0.0) {
+    if (abs(seg.y) < 1e-6) {
+      if (abs(origin.y) > profile.w) return vec2(0.0);
+    } else {
+      float t0 = (-profile.w - origin.y) / seg.y, t1 = (profile.w - origin.y) / seg.y;
+      start = max(start, min(t0, t1)); end = min(end, max(t0, t1));
+    }
+  }
+  return end > start ? vec2(start, end) : vec2(0.0);
+}
 float layeredHazeOpticalDepth(vec3 origin, vec3 seg, float groundDensity, vec4 profile) {
-  float len = length(seg);
+  vec2 interval = hazeAirInterval(origin, seg, profile);
+  float len = length(seg) * (interval.y - interval.x);
+  if (len <= 0.0) return 0.0;
   if (profile.z < 0.5) {
     // Legacy three.js FogExp2 (Gaussian) — the A/B control look.
     return groundDensity * groundDensity * len * len;
   }
   float sum = 0.0;
   for (int i = 0; i < LAYERED_HAZE_SAMPLES; i++) {
-    float t = (float(i) + 0.5) / float(LAYERED_HAZE_SAMPLES);
+    float t = mix(interval.x, interval.y, (float(i) + 0.5) / float(LAYERED_HAZE_SAMPLES));
     vec3 p = origin + seg * t;
     float h = profile.x - length(p.xz);
     sum += exp(-max(h, 0.0) * profile.y);

@@ -2678,7 +2678,7 @@ export const bootstrapApp = async () => {
     // Rings keep the uniform model: their air is a roofed tube, not a
     // gravity-settled layer against a floor.
     const layeredHaze = habitatConfig.type === 'cylinder' && airFog.scaleHeightMeters > 0
-    setHazeProfile(hazeProfile, habitatConfig.radius, layeredHaze ? airFog.scaleHeightMeters : null)
+    setHazeProfile(hazeProfile, habitatConfig.radius, layeredHaze ? airFog.scaleHeightMeters : null, getHabitatSpanMeters())
     fog.density =
       visibilityToFogDensity(airFog.visibilityMeters) *
       (layeredHaze ? 1 : getAirColumnFraction(habitatConfig)) *

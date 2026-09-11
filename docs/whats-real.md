@@ -79,6 +79,11 @@ bug: please open an issue.
   strip read overhead (≈ 74%). Derivation (Japanese):
   [オニールシリンダーの空は何色か](https://toming.app/tech/2026/08/oneill-cylinder-sky/).
 - Air pressure, temperature, wind and humidity are not modelled.
+- Haze integration is clipped to the finite habitat cylinder. Vacuum before
+  the outer hull contributes no haze; a view through a window counts only the
+  air interval inside. The eight samples span that clipped interval, so moving
+  far outside does not make them skip the interior air. The ring still uses
+  its existing representative air-column approximation inside that envelope.
 
 ## Sun, mirrors, sky colour, day length
 
