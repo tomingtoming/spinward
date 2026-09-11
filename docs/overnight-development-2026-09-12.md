@@ -469,3 +469,34 @@ Next: a separate settling experiment at azimuth 0.12 exposed a Cooper floor
 collision miss before jumping. The ordinary browser test positions settle and
 land correctly; investigate the other floor angle rather than treating that
 limited sample as proof of every panel.
+
+## Nineteenth increment — reliable small-body floor support (05:20)
+
+An isolated physical-world sweep reproduced complete rounded-panel contact
+loss on Cooper at azimuth ±0.12: after three seconds the sphere was 28–36 m
+outside the wall. Replacing the rounded panels with boxes stopped the miss but
+regressed the vehicle seam/float test, so that experiment was rejected.
+
+Each floor panel now also has a cuboid face recessed 1 cm and inset from the
+rounded seams/ends. It contacts only the small player sphere; vehicles retain
+the rounded surface. These support colliders have zero density, preserving
+the wall's centre of mass. The change adds 629 support colliders on Izma/Cooper
+and 1,024 on Elysium, with no rendered geometry or draws. The permanent sweep
+covers eight azimuths and two axial positions on each of four presets. All
+64 positions retain real contact inside the floor. Jump arcs, roof landing,
+wall seam drift, car entry and the against-spin drive test pass unchanged.
+
+The complete application did not reproduce the isolated miss at the sampled
+browser positions, even with support disabled before its first physics step;
+this is a robustness fix supported by the isolated regression, not evidence
+of a previously visible failure there. Four nine-second browser samples remain
+stable with support enabled. Disabled/enabled physics-step medians are about
+1.5/1.5 ms on Cooper, 1.2/1.2 ms on Izma and 2.1/2.1 ms on Elysium; frame
+medians remain 16.7 ms. This short desktop-emulation comparison does not certify
+mobile hardware or initial allocation cost. Full suite: 776 tests; build passes.
+Probe/evidence: `floor-support.mjs`, `floor-without-support-initial*`,
+`floor-with-support*`. The earlier `floor-without-support*` toggled support only
+after loading and is a warmed-contact comparison.
+
+Next: return to the outdoor experience, focusing on local night illumination
+and how nearby people and architecture receive the existing street lamps.

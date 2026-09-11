@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import type { RapierModule } from './rapierContext'
-import { getStableWallThicknessReal, scaleLengthForRapier } from './rapierBoundary'
+import { getStableWallThicknessReal, PLAYER_FLOOR_SUPPORT_GROUPS, scaleLengthForRapier } from './rapierBoundary'
 import { createUnitsContext, type UnitsContext } from '../units/units'
 
 // Physics spec for the elevated expressway, in REAL metres (scaled for
@@ -399,6 +399,7 @@ export const createRotatingCylinderBody = (
     // at the player's feet, so the wall surface read as static and friction
     // braked walkers/cars toward inertial rest (~13 m/s lost at izma scale).
     const builtPanels = buildCylinderWallPanels(scaledConfig)
+    const floorPanelCount = builtPanels.length
 
     if (nextConfig.expressway != null) {
       builtPanels.push(
@@ -430,7 +431,7 @@ export const createRotatingCylinderBody = (
         )
       : 0
 
-    for (const panel of builtPanels) {
+    for (const [panelIndex, panel] of builtPanels.entries()) {
       panels.push(
         world.createCollider(
           rapier.ColliderDesc.roundCuboid(
@@ -446,6 +447,27 @@ export const createRotatingCylinderBody = (
           body
         )
       )
+      if (panelIndex < floorPanelCount) {
+        // On kilometre-long rounded panels, generic convex contact can miss
+        // a human-sized sphere. A recessed cuboid supplies the robust flat
+        // face, while staying inside the rounded panel at every seam/end.
+        // Its 1 cm recess leaves ordinary rounded contact undisturbed.
+        const recess = scaleLengthForRapier(.01, units)
+        const shift = new THREE.Vector3(recess * .5, 0, 0).applyQuaternion(panel.rotation)
+        panels.push(world.createCollider(
+          rapier.ColliderDesc.cuboid(
+            panel.halfExtents.x - recess * .5,
+            panel.halfExtents.y - borderRadius * 1.5,
+            panel.halfExtents.z - borderRadius * 1.5
+          )
+            .setTranslation(panel.translation.x + shift.x, panel.translation.y + shift.y, panel.translation.z + shift.z)
+            .setRotation(panel.rotation)
+            .setFriction(panel.friction ?? 1.8)
+            .setRestitution(0.02)
+            .setDensity(0)
+            .setCollisionGroups(PLAYER_FLOOR_SUPPORT_GROUPS), body
+        ))
+      }
     }
   }
 

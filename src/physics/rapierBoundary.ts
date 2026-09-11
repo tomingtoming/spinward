@@ -41,6 +41,9 @@ export const applyWorldLengthUnit = (world: World, units: UnitsContext | number)
 // building colliders (P1); balls still use analytic building collision, so the
 // ball bit is NOT in the building filter.
 export const PLAYER_COLLISION_GROUPS = (0x0002 << 16) | (0x0001 | 0x0008 | 0x0010)
+// Recessed flat support for the small player sphere on very long wall panels.
+// Larger vehicles keep the rounded seam contacts that their suspension uses.
+export const PLAYER_FLOOR_SUPPORT_GROUPS = (0x0001 << 16) | 0x0002
 export const CAR_COLLISION_GROUPS = (0x0004 << 16) | (0x0001 | 0x0008 | 0x0010)
 // Streamed city building colliders: members of bit 0x10, colliding with the car
 // and the walker (not balls, which keep analytic building collision).
