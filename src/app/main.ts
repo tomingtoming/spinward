@@ -356,7 +356,7 @@ export const bootstrapApp = async () => {
   // decoded by the share codec so the whole URL scheme lives in one module.
   const weather = createWeatherState(shareState.raining)
   const rain = new RainStreaks(quality.rainStreaks)
-  rain.setBounds(habitatConfig.radius)
+  rain.setBounds(habitatConfig.radius, habitatConfig.length)
   nearLayer.add(rain.lines)
   const rainSample = createRainSample()
   const carrierRotatingPosition = new THREE.Vector3()
@@ -1250,7 +1250,7 @@ export const bootstrapApp = async () => {
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
     // fog.density is owned by the frame loop (it folds the live rain level in
     // every frame); nothing to set here.
-    rain.setBounds(habitatConfig.radius)
+    rain.setBounds(habitatConfig.radius, habitatConfig.length)
     // Far-field city shell bake (docs/far-field-lod.md slice ②): rebaked from
     // the fresh CityPlan on every habitat change. Small drums and the open
     // ring skip it (createCityShellTextureSet also gates on radius) — the
@@ -2672,7 +2672,8 @@ export const bootstrapApp = async () => {
       rainVelocity: rainSample.velocity,
       cameraVelocity: carrierRotatingVelocity,
       deltaSeconds,
-      intensity: rainStrength
+      intensity: rainStrength,
+      roofs: cityscape.getRainRoofs()
     })
     audio.setRainLevel(rainStrength * (1 - roomEnvironment.shelter * .85))
 

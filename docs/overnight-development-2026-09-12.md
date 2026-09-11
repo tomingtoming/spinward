@@ -375,3 +375,32 @@ rate comparison. Evidence: `window-before-export*`, the intermediate
 `qa/neighborhood-life/window-occlusion.mjs`. The source clipping math is in
 `assets/blender/facade_visibility.py`; the GLB regression is in
 `src/objects/authoredCityBlockFaces.test.ts`.
+
+## Sixteenth increment — sheltered rain (04:42)
+
+Rain was generated throughout the camera box even beneath indoor ceilings.
+Independent before captures show streaks inside the cafe and apartment; the
+generic Cooper cafe also reported no audio shelter. Rain now uses cached roof
+footprints from the same interior parts used by the structural renderer and
+collision plan. Courtyard wings leave their actual light well open. The GPU
+rejects an entire streak when either endpoint crosses beneath a roof or beyond
+the finite habitat floor/end boundaries, avoiding interpolated ceiling slivers.
+There is still one rain draw; at most 16 nearby roof records reach its shader,
+with nearest roofs taking priority if the budget is exceeded. This is a local
+vertical roof-shadow approximation, not per-drop wind/solid collision.
+
+Generic cafes and passages now attenuate outside ambience just like authored
+rooms; the authored room voices remain attached to their original rooms. Rain
+outside a window is not disabled merely because the observer is indoors.
+
+Five browser cases cover Izma day cafe/apartment/court and Cooper night phone
+cafe/court. Every sampled covered-room head/tail is masked, while hundreds of
+unmasked exterior drops remain. Independent image review confirms removal of
+the former indoor lines and continued rain in both courtyards. A second pass
+turns back toward the entrances and preserves visible street rain. These are
+browser samples, not phone/Quest hardware or exhaustive wind simulation. The
+full suite passes 752 tests and the production build passes. Probes and evidence:
+`rain-rooms.mjs`, `rain-rooms-before*`, `rain-rooms-after*`, `rain-rooms-final*`.
+
+Next: reassess exterior arrival framing/legibility and the transition from the
+inhabited surface to the complete structure, then return to bodily movement.

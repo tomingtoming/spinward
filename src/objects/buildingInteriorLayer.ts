@@ -4,6 +4,8 @@ import { NYAAN_PILOT, apartmentShelter } from './nyaanApartment'
 import * as THREE from 'three'
 import { AuthoredBuildingPilot, CAFE_PILOT, LOBBY_PILOT } from './cafePilot'
 import { RoomDressing } from './roomDressing'
+import { roomPresence } from './roomExperience'
+import { planRainRoofs, type RainRoof } from './rainShelter'
 import { getRoadTileLiftMeters } from './roadTiles'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import {
@@ -29,6 +31,7 @@ export class BuildingInteriorLayer {
   private entries: Array<{ interior: BuildingInterior; lod: BuildingExperienceLod; parts: Array<{ part: InteriorPart; matrix: THREE.Matrix4 }> }> = []
   private readonly pilots: AuthoredBuildingPilot[]
   private readonly roomDressing: RoomDressing
+  private rainRoofs: RainRoof[] = []
   private radius = 1
   private focus = new THREE.Vector3(Infinity, Infinity, Infinity)
 
@@ -69,6 +72,7 @@ export class BuildingInteriorLayer {
       interiors.every((interior, i) => interior === this.entries[i].interior)) return
     this.clear()
     this.radius = radius
+    this.rainRoofs = planRainRoofs(interiors, radius)
     this.pilots.forEach(pilot => pilot.rebuild(interiors, radius))
     this.roomDressing.rebuild(interiors, radius)
     const rotation = new THREE.Quaternion(), scale = new THREE.Vector3(), position = new THREE.Vector3()
@@ -143,10 +147,17 @@ export class BuildingInteriorLayer {
 
   sampleRoomEnvironment(azimuth: number, axial: number, altitude: number) {
     const environment = this.roomDressing.sampleEnvironment(azimuth, axial, altitude)
-    const apartment = this.entries.find(entry => entry.interior.kind === 'apartment')?.interior
-    if (apartment) environment.shelter = Math.max(environment.shelter, apartmentShelter(apartment, this.radius, azimuth, axial, altitude))
+    for (const { interior } of this.entries) {
+      if (interior.kind === 'court') continue
+      const shelter = interior.kind === 'apartment'
+        ? apartmentShelter(interior, this.radius, azimuth, axial, altitude)
+        : roomPresence(interior, this.radius, azimuth, axial, altitude)
+      environment.shelter = Math.max(environment.shelter, shelter)
+    }
     return environment
   }
+
+  getRainRoofs(): readonly RainRoof[] { return this.rainRoofs }
 
   setDaylight(daylight: number) {
     this.materials[1].emissiveIntensity=.015+(1-daylight)*.5
@@ -161,6 +172,7 @@ export class BuildingInteriorLayer {
   }
 
   clear() {
+    this.rainRoofs = []
     this.roomDressing.clear()
     this.pilots.forEach(pilot => pilot.rebuild([], this.radius))
     for (const mesh of this.meshes) { if(mesh.geometry.getAttribute('aColonyFacade'))mesh.geometry.dispose();mesh.dispose(); mesh.removeFromParent() }

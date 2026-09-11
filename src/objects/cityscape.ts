@@ -2620,6 +2620,7 @@ export class Cityscape {
   }
 
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
+  getRainRoofs() { return this.interiorLayer.getRainRoofs() }
   getSeats(): readonly RoomSeat[] { return this.seats }
   getCoffeeStation() { return this.coffeeStation }
 
