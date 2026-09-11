@@ -79,9 +79,37 @@ for axis in range(3):
     for v in plant.data.vertices:v.co[axis]=(v.co[axis]-(lo+hi)/2)/(hi-lo)
 for polygon in plant.data.polygons:polygon.use_smooth=True
 for uv in list(plant.data.uv_layers):plant.data.uv_layers.remove(uv)
+# Metric roof equipment with baked vertex colours, no texture fetches. Keeping
+# cabinet and grille in one mesh lets all units share a single material/batch.
+def colour(o,value):
+    attr=o.data.color_attributes.get('Color') or o.data.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
+    for datum in attr.data:datum.color=(*value,1)
+    for uv in list(o.data.uv_layers):o.data.uv_layers.remove(uv)
+    return o
+def roof_module(name,objects):
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objects:o.select_set(True)
+    bpy.context.view_layer.objects.active=objects[0];bpy.ops.object.join();o=objects[0];o.name=name
+    scene.cursor.location=(0,0,0);bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+    # Export unit x/z bounds and y=0..1; runtime supplies physical dimensions.
+    for axis in range(3):
+        lo=min(v.co[axis] for v in o.data.vertices);hi=max(v.co[axis] for v in o.data.vertices)
+        for v in o.data.vertices:v.co[axis]=(v.co[axis]-lo)/(hi-lo)-(0 if axis==2 else .5)
+    return o
+hvac=[colour(cube('SWCM_hvac_case',[(0,.62,0,2.4,.88,1.5),(-.83,.09,0,.18,.18,1.24),(.83,.09,0,.18,.18,1.24)]),(.68,.72,.70))]
+hvac.append(colour(cube('SWCM_hvac_grille',[(0,.65,z,2.12,.57,.025) for z in [-.758,.758]]),(.085,.12,.13)))
+hvac.append(colour(cube('SWCM_hvac_louvres',[(0,y,z,2.16,.035,.028) for z in [-.777,.777] for y in [.41,.53,.65,.77,.89]]),(.46,.51,.50)))
+for x in [-.61,.61]:
+    bpy.ops.mesh.primitive_cylinder_add(vertices=16,radius=.48,depth=.035,location=(x,0,1.08))
+    fan=bpy.context.object;fan.name='SWCM_hvac_fan';fan.data.materials.append(mat);hvac.append(colour(fan,(.07,.10,.11)))
+    hvac.append(colour(cube('SWCM_hvac_guard',[(x,1.125,0,.96,.04,.045),(x,1.125,0,.045,.04,.96)]),(.43,.49,.49)))
+roof_module('roof_hvac',hvac)
+vent=[colour(cube('SWCM_vent_body',[(0,.06,0,.8,.12,.8),(0,.55,0,.42,.98,.42),(0,1.29,0,.8,.22,.8)]),(.49,.56,.55)),
+      colour(cube('SWCM_vent_throat',[(0,1.08,0,.62,.20,.62)]),(.07,.11,.12))]
+roof_module('roof_vent',vent)
 bpy.ops.object.select_all(action='SELECT')
 path=ROOT/'public/assets/buildings/colony-modules.glb'
-bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT')
+bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT',export_vertex_color='ACTIVE')
 bpy.data.libraries.write(str(ROOT/'assets/blender/colony-modules.blend'),{scene},fake_user=True,compress=True)
 bpy.context.window.scene=previous
-result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting','stair_flight']}
+result={'asset':str(path),'bytes':path.stat().st_size,'nodes':[o.name for o in scene.objects]}

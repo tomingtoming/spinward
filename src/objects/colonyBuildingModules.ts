@@ -2,14 +2,14 @@ import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {COLONY_WINDOW_GLSL} from './colonyWindowAppearance'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-export type ColonyModuleName='structure'|'window_frame'|'canopy'|'door'|'balcony'|'balcony_rail'|'shop_awning'|'planter'|'planting'|'stair_flight'
+export type ColonyModuleName='structure'|'window_frame'|'canopy'|'door'|'balcony'|'balcony_rail'|'shop_awning'|'planter'|'planting'|'stair_flight'|'roof_hvac'|'roof_vent'
 export type ColonyModules=Record<ColonyModuleName,THREE.BufferGeometry>
 let pending:Promise<ColonyModules>|undefined
 // Shared immutable source geometry: rebuilds and interior layers never duplicate it.
 export function loadColonyModules(){
   return pending??=new GLTFLoader().loadAsync('/assets/buildings/colony-modules.glb').then(g=>{
     const result={} as ColonyModules
-    for(const name of ['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting','stair_flight'] as const){
+    for(const name of ['structure','window_frame','canopy','door','balcony','balcony_rail','shop_awning','planter','planting','stair_flight','roof_hvac','roof_vent'] as const){
       const node=g.scene.getObjectByName(name)
       if(!(node instanceof THREE.Mesh))throw Error('Missing colony module '+name)
       node.updateWorldMatrix(true,false)
@@ -49,6 +49,18 @@ export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloo
       float averageLight=colonyWindows.z*colonyPane.x*colonyPane.y*.75;
       if(wall&&glass&&distant<1.)colonyWindowSurface(cell,pane,colonyPane,colonyStyle.x,colonyWindows,colonyStyle.y,colonyNormal,footprint,windowColour,lit,windowRoughness);
       if(!wall)diffuseColor.rgb*=vec3(.49,.57,.5);
+      if(colonyNormal.y>.5){
+        // Roof finish follows physical metres and filters away before seams
+        // become sub-pixel; no extra geometry or far-distance texture fetch.
+        vec2 roofPoint=colonyPoint.xz*colonySize.xz;
+        float pitch=mix(2.4,5.5,step(.45,colonyStyle.y));
+        vec2 seamDistance=abs(fract(roofPoint/pitch+.5)-.5)*pitch;
+        vec2 aa=max(fwidth(roofPoint),vec2(.001));
+        float seam=1.-min(smoothstep(.025,.025+aa.x,seamDistance.x),smoothstep(.025,.025+aa.y,seamDistance.y));
+        float fade=1.-smoothstep(.12,.55,max(aa.x,aa.y));
+        vec3 finish=mix(vec3(.23,.26,.27),vec3(.31,.29,.25),colonyStyle.y);
+        diffuseColor.rgb=mix(diffuseColor.rgb,finish,.3)*(1.-seam*fade*.12);
+      }
       if(glass)diffuseColor.rgb=windowColour;
       if(wall&&!glass&&pane.y>.96)diffuseColor.rgb*=colonyStyle.z;
       if(wall)diffuseColor.rgb=mix(diffuseColor.rgb,colonyBase*.67,distant);`)
@@ -84,7 +96,7 @@ export function colonyFacadeMaterial(entrance=false,perBuilding=false,groundFloo
       shader.fragmentShader=shader.fragmentShader.replace('if(wall&&!glass&&pane.y>.96)', 'if(wall&&!lower&&!glass&&pane.y>.96)')
     }
   }
-  m.customProgramCacheKey=()=> 'colony-metric-facade-v5-'+entrance+'-'+perBuilding+'-'+groundFloor
+  m.customProgramCacheKey=()=> 'colony-metric-facade-v6-'+entrance+'-'+perBuilding+'-'+groundFloor
   m.emissive.setHex(0xffffff)
   m.emissiveIntensity=.02
   return m

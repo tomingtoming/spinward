@@ -3,6 +3,7 @@ import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {colonyBalconies,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
+import {colonyRoofSurface,colonyRoofUnits,colonyRoofLod,ROOF_BUILDING_LIMIT,ROOF_DETAIL_LIMIT,ROOF_UNIT_LIMIT} from './colonyRoofs'
 import {planColonyStairs,colonyStairParts,colonyStairCollider,STAIR_BUILDING_LIMIT,STAIR_CORE_LIMIT,type ColonyStair} from './colonyStairs'
 import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
 import * as THREE from 'three'
@@ -14,7 +15,7 @@ import { colonyFacadeMaterial, prepareColonyGeometry,writeColonyFacade, loadColo
 
 type StructureKind='structure'|'entrance-structure'|'mixed-structure'
 type StructurePart={volume:BlockVolume;kind:StructureKind;ground:number;slot:InstanceSlot}
-type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean}
+type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2}
 /** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
 export class ColonyBuildings {
  readonly group=new THREE.Group()
@@ -34,6 +35,9 @@ export class ColonyBuildings {
  private potColors=['#9e806b','#a3a698','#667675'].map(c=>new THREE.Color(c))
  private leafColors=['#657b54','#728862','#527565'].map(c=>new THREE.Color(c))
  private frame=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7})
+ private roofEquipment=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.8})
+ private roofTints=['#d7ddd9','#b9c9cd','#d9cfc0','#afbbb6'].map(c=>new THREE.Color(c))
+ private roofProxyTints=this.roofTints.map(c=>c.clone().multiplyScalar(.64))
  private signGeometry=new THREE.PlaneGeometry(1,1)
  private signs=colonyShopSignMaterial()
  private door=new THREE.MeshStandardMaterial({color:0x28434c,roughness:.55})
@@ -60,7 +64,7 @@ export class ColonyBuildings {
    const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*radius,b.axial,Math.sin(a)*radius)
    const design=colonyBuildingDesign(b,interior?.kind)
    const parts:StructurePart[]=spec.volumes.map(volume=>{const ground=interior?0:colonyGroundHeight(volume,design);return {volume,ground,kind:ground>0?'mixed-structure':!interior&&volume.y-volume.h/2<.01&&Math.abs(volume.x)<volume.w/2?'entrance-structure':'structure',slot:{index:-1}}})
-   return {parts,design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height)}
+   return {parts,design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height),roof:interior?null:colonyRoofSurface(spec),roofLod:2}
   })
   this.capacities={shell:0,entrance:0,mixed:0}
   for(const e of this.entries)for(const v of e.spec.volumes){
@@ -107,6 +111,9 @@ export class ColonyBuildings {
   const railBalconies=this.modules?this.batch('balconies-rail',this.modules.balcony_rail,this.frame,BALCONY_BUILDING_LIMIT*BALCONY_SECTION_LIMIT):null
   const stairFlights=this.modules?this.batch('stair-flights',this.modules.stair_flight,this.frame,96):null
   const stairMetal=this.batch('stair-metal',this.modules?.canopy??this.fallback,this.frame,4096)
+  const roofHvac=this.modules?this.batch('roof-hvac',this.modules.roof_hvac,this.roofEquipment,ROOF_DETAIL_LIMIT*ROOF_UNIT_LIMIT):null
+  const roofVents=this.modules?this.batch('roof-vents',this.modules.roof_vent,this.roofEquipment,ROOF_DETAIL_LIMIT*ROOF_UNIT_LIMIT):null
+  const roofSimple=this.batch('roof-simple',this.modules?.canopy??this.fallback,this.frame,ROOF_BUILDING_LIMIT*ROOF_UNIT_LIMIT)
   const awnings=this.modules?this.batch('awnings',this.modules.shop_awning,this.frame,512):null
   const signs=this.batch('signs',this.signGeometry,this.signs,1024)
   const pots=this.batch('planters',this.modules?.planter??this.fallback,this.frame,320)
@@ -124,6 +131,7 @@ export class ColonyBuildings {
   }
   let visible=0,near=0,framed=0,balconyBuildings=0,retailBuildings=0,stairBuildings=0,enclosedStairs=0
   const close:Array<{e:Entry;distance:number}>=[]
+  const roofClose:Array<{e:Entry;distance:number}>=[]
   for(const e of this.entries){
    const interiorOwned=e.interior&&this.nearInteriors.has(e.spec.building)
    const distance=Math.max(1,camera.distanceTo(p.setFromMatrixPosition(e.matrix))-e.size)
@@ -146,7 +154,27 @@ export class ColonyBuildings {
    }
    if(!e.visible)continue
    visible++
+   if(e.roof){
+    const v=e.roof
+    const distance=camera.distanceTo(p.set(v.x,v.y+v.h/2,v.z).applyMatrix4(e.matrix))
+    const level=colonyRoofLod(distance,e.roofLod)
+    e.roofLod=level
+    if(level<2)roofClose.push({e,distance})
+   }
    if(distance<144&&!e.interior)close.push({e,distance:cityBlockDistance(e.spec,this.radius,{azimuth,axial,altitude})})
+  }
+  roofClose.sort((a,b)=>a.distance-b.distance)
+  let roofBuildings=0,roofDetailed=0,roofUnits=0
+  for(const {e} of roofClose.slice(0,ROOF_BUILDING_LIMIT)){
+   const units=colonyRoofUnits(e.spec,e.design);if(!units.length)continue
+   const detailed=e.roofLod===0&&roofDetailed<ROOF_DETAIL_LIMIT&&roofHvac&&roofVents
+   roofBuildings++;if(detailed)roofDetailed++
+   for(const unit of units){
+    const tint=this.roofTints[unit.tint]
+    if(detailed)add(unit.kind==='roof_hvac'?roofHvac:roofVents,e,unit,unit.yaw,tint)
+    else add(roofSimple,e,{...unit,y:unit.y+unit.h/2},unit.yaw,this.roofProxyTints[unit.tint])
+    roofUnits++
+   }
   }
   close.sort((a,b)=>a.distance-b.distance)
   for(const {e,distance} of close.slice(0,160)){
@@ -267,10 +295,10 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0,roofBuildings,roofDetailed,roofUnits}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}
  private clearBatches(){this.structuresDirty=true;this.structures.clear();for(const e of this.entries)for(const p of e.parts)p.slot.index=-1;for(const m of this.batches.values()){if(m.geometry.getAttribute('aColonyFacade')||m.geometry.getAttribute('aShopSign'))m.geometry.dispose();m.removeFromParent();m.dispose()}this.batches.clear()}
- dispose(){this.disposed=true;this.clearBatches();this.fallback.dispose();this.facade.dispose();this.entranceFacade.dispose();this.mixedFacade.dispose();this.frame.dispose();this.door.dispose();this.signGeometry.dispose();this.signs.map?.dispose();this.signs.dispose();this.group.removeFromParent()}
+ dispose(){this.disposed=true;this.clearBatches();this.fallback.dispose();this.facade.dispose();this.entranceFacade.dispose();this.mixedFacade.dispose();this.frame.dispose();this.roofEquipment.dispose();this.door.dispose();this.signGeometry.dispose();this.signs.map?.dispose();this.signs.dispose();this.group.removeFromParent()}
 }

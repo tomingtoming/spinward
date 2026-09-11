@@ -1478,3 +1478,49 @@ the distant night overview draws no stairs. Settled exterior captures report
 An earlier transient slow capture prevents treating these as a speedup claim.
 The phone check is an emulated profile, not a physical phone or Quest result.
 Local implementation only; not published.
+
+## Roof services and surface finishes (2026-09-11)
+
+The replacement roofs now carry physical-size service equipment: apartments
+receive one or two compact HVAC units; offices and commercial roofs receive
+three to five; industrial roofs mix exhaust hoods and HVAC in four to six
+positions. Placement uses the highest/largest actual roof, the same selection
+as the beacon anchor. It keeps at least 1m inside the roof edge, 0.8m between
+units and a clear central beacon/maintenance area. Narrow roofs may fit fewer
+units or none. Courtyards, pitched-house lots, public rooms and authored pilot
+buildings retain their existing treatment. These are visual services, without
+new interactions or physical equipment colliders.
+
+Blender supplies a louvred two-fan HVAC mesh (348 triangles) and a capped
+exhaust hood (48 triangles), each a single primitive with vertex colours.
+The cabinet/grille contrast needs no textures. Exported local bounds are
+x/z ±0.5 and y 0–1; runtime supplies the equipment's metric dimensions, with
+uniform size variants and quarter-turn orientation. The full twelve-node GLB
+is 66,028 bytes, against an 80,000-byte budget.
+
+The roof surface has subdued colour variation and filtered metric seams.
+These use the existing facade shader and add no geometry or texture fetches.
+Equipment has independent distance tiers measured from the roof: detailed
+below 70m (retained to 84m), box silhouettes through 240m (retained to 260m),
+then no individual equipment. At most 24 roofs/144 units are selected, with
+detail capped at eight roofs/48 units across two detailed batches and one
+simple batch. The simple material approximates the detailed cabinet colour;
+failed module loading uses the same bounded boxes.
+
+All 691 tests and the production build pass. Geometry tests cover actual
+16k plans at 250m and 3,200m habitat radii, all four frontage orientations,
+roof/beacon contact, spacing, exclusions, stable variation, export budgets and
+LOD hysteresis. Browser probes inspect the actual instance matrices and vertex
+colours. The same office roof is detailed at 35m, simplified at 110m and absent
+at 300m; failed loading retains only simple units. Apartment, office and
+industrial daytime images and industrial night imagery show no clear equipment
+floating, overhang or intersection in independent review. A faint dotted seam
+at the office's L-shaped roof joint remains a low-confidence static-image
+observation, not a confirmed geometry defect; motion/XR inspection is still
+outside this review. Local implementation only; not published.
+
+Broad street/phone-profile/night/fallback probes also pass, including balcony,
+stair, forecourt and structural churn checks. The standard street view is
+145 draws (previously 144), the phone profile 123 (previously 122), and the far
+night view still 146 with zero roof units. Desktop Chrome/Metal captures report
+60fps and 16.7–16.8ms p95; these are not physical phone/Quest measurements.

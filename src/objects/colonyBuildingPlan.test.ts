@@ -39,7 +39,7 @@ test('public room structural recipe retains its existing collision openings',()=
 })
 test('Blender module export contains only the reusable structural parts',()=>{
  const bytes=fs.readFileSync(new URL('../../public/assets/buildings/colony-modules.glb',import.meta.url)),g=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12)))
- expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','balcony_rail','canopy','door','planter','planting','shop_awning','stair_flight','structure','window_frame'])
+ expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','balcony_rail','canopy','door','planter','planting','roof_hvac','roof_vent','shop_awning','stair_flight','structure','window_frame'])
  const structure=g.meshes[g.nodes.find(n=>n.name==='structure').mesh]
  const a=g.accessors[structure.primitives[0].attributes.POSITION]
  expect(a.min).toEqual([-.5,-.5,-.5]);expect(a.max).toEqual([.5,.5,.5])
@@ -61,7 +61,15 @@ test('Blender module export contains only the reusable structural parts',()=>{
  expect(flightBounds.min).toEqual([-.5,expect.closeTo(1/12-.05,5),-.5])
  expect(flightBounds.max).toEqual([.5,1,.5])
  expect(g.accessors[flight.indices].count/3).toBe(144)
- expect(bytes.length).toBeLessThan(48000)
+ for(const [name,budget] of [['roof_hvac',360],['roof_vent',48]] as const){
+  const primitives=g.meshes[g.nodes.find(n=>n.name===name).mesh].primitives
+  expect(primitives).toHaveLength(1)
+  const p=primitives[0],bounds=g.accessors[p.attributes.POSITION]
+  expect(bounds.min).toEqual([-.5,0,-.5]);expect(bounds.max).toEqual([.5,1,.5])
+  expect(g.accessors[p.indices].count/3).toBeLessThanOrEqual(budget)
+  expect(p.attributes.COLOR_0).toBeNumber()
+ }
+ expect(bytes.length).toBeLessThan(80000)
 })
 
 test('replacement masses keep every certified street approach clear',()=>{
