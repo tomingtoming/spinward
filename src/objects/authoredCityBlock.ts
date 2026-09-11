@@ -33,6 +33,7 @@ export class AuthoredCityBlock {
     private batchSignature = '';
     private loading = false;
     private nextLoadAt = 0;
+    private focus={azimuth:0,axial:0,altitude:3200};
     constructor(parent: THREE.Group) { this.group.name = 'blender-city-block'; parent.add(this.group); }
     setProjection(pixelsPerRadian: number) { this.projection = Math.max(1, pixelsPerRadian); }
     rebuild(buildings: CityBuilding[], radius: number) {
@@ -46,7 +47,9 @@ export class AuthoredCityBlock {
             group.name = 'block-' + spec.id;
             group.position.set(Math.cos(b.azimuth) * radius, b.axial, Math.sin(b.azimuth) * radius);
             const a=b.azimuth,side=b.front?.side??-1;
-            group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a)),new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),new THREE.Vector3(0,side,0)));
+            const across=new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a)),front=new THREE.Vector3(0,side,0);
+            if(b.front?.axis==='tangent'){across.set(0,side,0);front.set(-side*Math.sin(a),0,side*Math.cos(a))}
+            group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(across,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),front));
             this.group.add(group);
             const e: Entry = { spec, group, levels: Array.from({ length: 4 }, () => new THREE.Group()), lod: 3, fades: Array.from({ length: 4 }, () => ({ value: 1 })), inverse: Array.from({ length: 4 }, () => ({ value: 0 })), transition: null, asset: false };
             e.levels.forEach((g, i) => { g.name = spec.id + '-level-' + i; group.add(g); });
@@ -54,7 +57,7 @@ export class AuthoredCityBlock {
             this.mount(e);
         }
     }
-    private mount(e: Entry) {
+    private mount(e: Entry, includeNear=false) {
         this.clearEntry(e);
         const asset = this.assets.get(e.spec.id);
         e.asset = !!asset;
@@ -67,7 +70,9 @@ export class AuthoredCityBlock {
             }
         }
         else {
+            const near=includeNear || cityBlockDistance(e.spec,this.radius,this.focus)<180;
             for (let level = 0; level < 4; level++) {
+                if(level<2 && !near)continue;
                 const source = asset.getObjectByName(e.spec.id + '_lod' + level);
                 if (!source)
                     throw Error('Missing authored city LOD ' + level);
@@ -103,6 +108,7 @@ export class AuthoredCityBlock {
         this.setDaylight(this.daylight, true);
     }
     update(azimuth: number, axial: number, altitude: number) {
+        this.focus={azimuth,axial,altitude};
         const params = new URLSearchParams(window.location.search), force = params.has('debug') && /^[0-4]$/.test(params.get('blockLod') ?? '') ? Number(params.get('blockLod')) : null;
         const closest = this.entries.filter(e=>!this.requested.has(e.spec.id)).sort((a,b)=>cityBlockDistance(a.spec,this.radius,{azimuth,axial,altitude})-cityBlockDistance(b.spec,this.radius,{azimuth,axial,altitude}))[0];
         for (const e of this.entries) {
@@ -122,6 +128,7 @@ export class AuthoredCityBlock {
                     if (item.spec.id === e.spec.id)
                         this.mount(item); }, undefined, () => {this.loading=false;this.nextLoadAt=performance.now()+180;console.warn('City building asset unavailable; keeping its architectural proxy.')});
             }
+            if(e.asset && wanted<2 && e.levels[wanted].children.length===0)this.mount(e,true);
             const next = e.asset ? wanted : wanted === 4 ? 4 : 3;
             if (next !== e.lod) {
                 e.transition = force === null && e.lod < 4 && next < 4 ? { from: e.lod, to: next, start: performance.now() } : null;

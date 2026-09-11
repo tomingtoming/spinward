@@ -964,3 +964,29 @@ sample measured median 16.7ms, p95 16.8ms and maximum 16.8ms (approximately
 is not evidence that expansion improves frame time. Desktop and phone-profile
 visits complete without JavaScript errors. Physical-device performance and
 continuous walking over the full district remain unmeasured. Local only.
+
+## Four frontage directions: 304 buildings (2026-09-11)
+
+Added 192 lots facing circumferential streets, for 304 desktop buildings and
+190 in the phone plan. All previous placements remain unchanged. Tangent-facing
+lots swap the model's across/front envelope against the lot's axial/tangential
+widths; source models remain unscaled. Both signs of each road axis are now
+supported. Render basis, structural centers/extents, distance coordinates and
+shell footprints use the same orientation. Regression checks include the city's
+actual road-edge-to-entrance access path, rather than only local model coordinates.
+
+Far placements now instantiate only LOD2/3 objects. LOD0/1 objects are prepared
+within 180m at loading, or on first promotion into those levels. Shared source
+GLBs still contain all four levels; geometry is neither duplicated per lot nor
+regenerated. At the 400m overview the render graph contains 18 unique geometries
+instead of 48, with 18 instance batches representing 912 primitive instances.
+The cold-low-to-near probe verifies creation of LOD0; it is not a continuous
+walking or first-use shader compilation benchmark.
+
+The six-second overview sample measured approximately 60fps, median/p95 16.7ms
+and maximum 16.8ms, at 211 total draws (the same count as the 112-building view).
+Three serialized requests serve all placements. These capped desktop results
+do not establish physical-device headroom. `city-block-facing.mjs` now captures
+all three model families on both signs of tangent-facing streets. The prior
+axial-direction captures remain as evidence. Tests: 666 passed; production build
+passes with the existing chunk warning. Local only; not published.

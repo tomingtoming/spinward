@@ -7,7 +7,7 @@ import { collideSphereWithBuildings } from '../sim/cityCollision';
 for (const maxBuildings of [64000, 16000])
     test(`authored block keeps all certified lots in tier ${maxBuildings}`, () => {
         const p = planCity({ radius: 3200, length: 40000, maxBuildings });
-        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(maxBuildings===64000?112:68);
+        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(maxBuildings===64000?304:190);
     });
 for (const s of CITY_BLOCK.blocks)
     test(`${s.id}: GLB contains only four decreasing LODs within the lot`, () => {
@@ -56,24 +56,35 @@ test('block LOD observes altitude and keeps the skyline until sub-pixel size', (
 test('expanded lots retain metre-scale architecture, original entrances and clear neighbours',()=>{
  for(const s of CITY_BLOCK_PLACEMENTS){
   const model=CITY_BLOCK.blocks.find(m=>m.id===s.id)!;
-  expect(s.building.front?.axis).toBe('axial');expect(Math.abs(s.building.front!.side)).toBe(1);
-  expect(model.building.width).toBeLessThanOrEqual(s.building.width+1e-6);
+  expect(['axial','tangent']).toContain(s.building.front!.axis);expect(Math.abs(s.building.front!.side)).toBe(1);
+  const tangent=s.building.front!.axis==='tangent',width=tangent?s.building.depth:s.building.width,depth=tangent?s.building.width:s.building.depth;
+  expect(model.building.width).toBeLessThanOrEqual(width+1e-6);
   expect(model.building.height).toBeLessThanOrEqual(s.building.height+1e-6);
-  for(const v of s.volumes){expect(Math.abs(v.x)+v.w/2).toBeLessThan(s.building.width/2);expect(Math.abs(v.z)+v.d/2).toBeLessThan(s.building.depth/2)}
-  expect(model.building.depth/2+(s.offsetZ??0)).toBeCloseTo(s.building.depth/2,6);
+  for(const v of s.volumes){expect(Math.abs(v.x)+v.w/2).toBeLessThan(width/2);expect(Math.abs(v.z)+v.d/2).toBeLessThan(depth/2)}
+  expect(model.building.depth/2+(s.offsetZ??0)).toBeCloseTo(depth/2,6);
  }
 });
 
 test('both street sides keep the courtyard and recessed approach open',()=>{
  for(const s of CITY_BLOCK_PLACEMENTS.filter(s=>s.id!=='commercial')){
-  const b=s.building,side=b.front!.side,back=s.volumes[0].z+s.volumes[0].d/2;
+  const b=s.building,side=b.front!.side,tangent=b.front!.axis==='tangent',depth=tangent?b.width:b.depth,back=s.volumes[0].z+s.volumes[0].d/2;
   const colliders=cityBlockCollision(b,s,3200);
-  for(let z=b.depth/2+1;z>back+1;z-=.5){
-   const point=new THREE.Vector3(Math.cos(b.azimuth)*3199,b.axial+side*z,Math.sin(b.azimuth)*3199);
+  for(let z=depth/2+1;z>back+1;z-=.5){
+   const a=b.azimuth+(tangent?side*z/3200:0);
+   const point=new THREE.Vector3(Math.cos(a)*3199,b.axial+(tangent?0:side*z),Math.sin(a)*3199);
    expect(collideSphereWithBuildings(point,new THREE.Vector3(),colliders,{habitatRadius:3200,sphereRadius:.3,restitution:0})).toBe(false);
   }
-  const focus={azimuth:b.azimuth,axial:b.axial+side*(b.depth/2+2),altitude:1};
-  expect(cityBlockDistance(s,3200,focus)).toBeLessThan(b.depth);
-  expect(cityBlockSpec({...b,front:{axis:'axial',side:side===1?-1:1}},3200)).toBeNull();
+  const focus={azimuth:b.azimuth+(tangent?side*(depth/2+2)/3200:0),axial:b.axial+(tangent?0:side*(depth/2+2)),altitude:1};
+  expect(cityBlockDistance(s,3200,focus)).toBeLessThan(depth);
+  expect(cityBlockSpec({...b,front:{axis:b.front!.axis,side:side===1?-1:1}},3200)).toBeNull();
+ }
+});
+
+test('certified road-to-entrance access stays clear in every frontage direction',()=>{
+ for(const s of CITY_BLOCK_PLACEMENTS.filter(s=>s.id!=='commercial')){
+  const b=s.building,{roadEdge,entrance}=b.access!,parts=cityBlockCollision(b,s,3200);
+  for(let t=0;t<=1;t+=.1){const a=roadEdge.azimuth+(entrance.azimuth-roadEdge.azimuth)*t,ax=roadEdge.axial+(entrance.axial-roadEdge.axial)*t;
+   expect(collideSphereWithBuildings(new THREE.Vector3(Math.cos(a)*3199,ax,Math.sin(a)*3199),new THREE.Vector3(),parts,{habitatRadius:3200,sphereRadius:.3,restitution:0})).toBe(false)
+  }
  }
 });

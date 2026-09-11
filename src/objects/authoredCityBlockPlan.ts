@@ -23,7 +23,8 @@ export function cityBlockSpec(b: CityBuilding, radius: number) {
     return s && s.building.front?.axis===b.front?.axis && s.building.front?.side===b.front?.side && Math.abs(s.building.width - b.width) < 1e-5 && Math.abs(s.building.depth - b.depth) < 1e-5 && Math.abs(s.building.height - b.height) < 1e-5 ? s : null;
 }
 export function cityBlockCollision(b: CityBuilding, s: BlockSpec, radius: number): CityBuilding[] {
-    return s.volumes.map(v => ({ ...b, azimuth: b.azimuth - (b.front?.side??-1)*v.x / radius, axial: b.axial + (b.front?.side??-1)*v.z, width: v.w, depth: v.d, height: v.h, baseHeight: v.y - v.h / 2, collisionMargin: 0 }));
+    const side=b.front?.side??-1,tangent=b.front?.axis==='tangent';
+    return s.volumes.map(v => ({ ...b, azimuth: b.azimuth + side*(tangent?v.z:-v.x) / radius, axial: b.axial + side*(tangent?v.x:v.z), width: tangent?v.d:v.w, depth: tangent?v.w:v.d, height: v.h, baseHeight: v.y - v.h / 2, collisionMargin: 0 }));
 }
 /** Distance to actual architectural volumes, including altitude and cylinder curvature. */
 export function cityBlockDistance(s: BlockSpec, radius: number, focus: {
@@ -32,8 +33,8 @@ export function cityBlockDistance(s: BlockSpec, radius: number, focus: {
     altitude: number;
 }) {
     const a = focus.azimuth - s.building.azimuth, r = radius - focus.altitude;
-    const side=s.building.front?.side??-1;
-    const x = -side*r * Math.sin(a), y = radius - r * Math.cos(a), z = side*(focus.axial-s.building.axial);
+    const side=s.building.front?.side??-1,tangent=s.building.front?.axis==='tangent';
+    const x = side*(tangent?focus.axial-s.building.axial:-r*Math.sin(a)), y = radius - r * Math.cos(a), z = side*(tangent?r*Math.sin(a):focus.axial-s.building.axial);
     return Math.min(...s.volumes.map(v => Math.hypot(Math.max(0, Math.abs(x - v.x) - v.w / 2), Math.max(0, Math.abs(y - v.y) - v.h / 2), Math.max(0, Math.abs(z - v.z) - v.d / 2))));
 }
 export function selectCityBlockLod(distance: number, size: number, previous = 3, pixelsPerRadian = 935) {
