@@ -8,7 +8,7 @@ try{const reports=[];for(const scene of (process.env.SCENES??'apartments,mixed,m
  const target=await page.evaluate(scene=>{
   const c=window.__spinwardCity;
   if(scene==='roof'){const roofs=c.beacons.userData.mounts;return {roof:roofs[Math.floor(roofs.length/3)]}}
-  const entries=c.colonyBuildings.entries.filter(e=>!e.interior&&(scene.startsWith('mixed')?e.design.use.primary==='apartments'&&e.design.use.mixed:scene==='office'?e.design.use.primary==='office'&&e.design.use.ground==='lobby':scene.startsWith('commercial')?e.design.use.primary==='commercial':e.design.use.primary==='apartments'&&e.design.use.ground==='residential'&&e.spec.building.height>18)&&e.spec.building.width>16&&(scene!=='commercial-street'||e.spec.building.kind==='block'));
+  const entries=c.colonyBuildings.entries.filter(e=>!e.interior&&(scene.startsWith('mixed')?e.design.use.primary==='apartments'&&e.design.use.mixed:scene.startsWith('office')?e.design.use.primary==='office'&&e.design.use.ground==='lobby':scene.startsWith('commercial')?e.design.use.primary==='commercial':e.design.use.primary==='apartments'&&e.design.use.ground==='residential'&&e.spec.building.height>18)&&e.spec.building.width>16&&(scene!=='commercial-street'||e.spec.building.kind==='block'));
   entries.sort((e,f)=>Math.hypot((e.spec.building.azimuth-.05)*3200,e.spec.building.axial)-Math.hypot((f.spec.building.azimuth-.05)*3200,f.spec.building.axial));return {b:entries[0].spec.building,use:entries[0].design.use}
  },scene);
  let pos,aim,up;

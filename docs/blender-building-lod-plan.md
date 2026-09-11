@@ -1184,3 +1184,61 @@ now recorded in the QA report to guard against silent software rendering.
 Eight direct final structural updates measured 9.2–57.1ms; the first-update spike
 and end-to-end traversal smoothness remain unresolved. This is browser sampling,
 not physical phone/Quest validation. Local changes only; not published.
+
+## Tenant fronts, arrival details and stable structural buffers (2026-09-11)
+
+Tenant fronts now vary beyond sign text: sloping fabric awnings or flat canopies,
+left/right doors, timber lower panels, and small book/pharmacy display silhouettes.
+The Blender module pack adds a 24-triangle sloping awning and is 16,104 bytes.
+Its separate instanced batch adds one draw where these details are visible.
+Residential entrances receive a residence label, mailboxes and intercom; offices
+receive a wider portal/canopy and glass sidelights. Small buildings omit these
+larger portals. The certified central approach is retained. This is still exterior
+representation, without newly enterable interiors or interactive fixtures.
+
+Structural rendering now keeps dense instance slots between focus updates.
+A building entering/leaving the visible set inserts/removes its own parts; a
+removed slot is filled by the last live part, copying its matrix, colour and all
+facade attributes together. Unchanged membership leaves structural buffers alone.
+Near decoration still refreshes within its existing bounded radius. GPU update
+ranges persist until Three uploads them, including multiple updates before one
+render. A scene/asset rebuild resets every slot before repopulating the batches.
+
+Tests exercise repeated visibility churn, surviving transforms/colours/profiles,
+no duplicated slots, stationary membership doing no upload, and pending ranges
+surviving multiple updates. Browser churn additionally compares each live slot
+against its building's expected transform, colour and facade after eight moves.
+Independent visual review confirms tenant variation, distinct residential/office
+arrival cues and upright text, with no major visible floating canopies or blocked
+doors. Cars obscure parts of the entrance feet, and small intercom details are
+below the captured image's reliable resolution.
+
+An initial browser check caught an asset-swap regression: resetting slot storage
+also reset visibility hysteresis and removed distant buildings. Slot resets now
+retain each building's prior visibility, and the browser probe explicitly rebuilds
+all batches at the same focus and asserts that membership is unchanged.
+
+Final validation: 678 tests and the production build pass. At the original
+street focus, 67,766 structural instances remain visible. Eight subsequent focus
+updates write only 182, 24, 49, 27, 23, 33, 36 and 21 slots (including swap copies),
+instead of rewriting every visible part. Their CPU times are 33.0, 29.3, 6.8, 6.3,
+5.0, 4.6, 6.1 and 5.0ms. The post-movement buffer checks pass for all live parts,
+and a full batch rebuild preserves the same visibility membership. These slot
+write counts are CPU mutations, not the number of vertices drawn or exact GPU
+upload bytes; the upload ranges can span unchanged slots between edits.
+
+The final overview/street/phone-profile counts match the preceding increment
+(28,406 / 27,927 / 8,506 visible buildings). On Metal/M1 Pro, sampled overlay fps
+is 20 / 20 / 27, with p95 intervals of 83.3 / 150 / 50ms. These results remain
+poor and variable; the reduction in structural work is not a claim that total
+frame rate or traversal hitches have been solved. Street draws rise by one
+(140 to 141) for awnings; overview stays at 146. This session did not obtain a
+controlled new before/after frame-rate baseline. Local changes only; not published.
+
+Night rendering and the aborted-module fallback also pass without JavaScript or
+shader errors. The first fallback navigation exceeded the browser's 30-second
+load timeout; a separate retry using DOM readiness and explicit scene/asset
+readiness passed. The harness now checkpoints each completed view so a later
+navigation timeout does not discard earlier results. Night and fallback still
+show frame-interval spikes; these checks establish rendering correctness, not
+hitch-free performance.

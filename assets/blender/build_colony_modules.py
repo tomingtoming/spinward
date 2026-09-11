@@ -36,9 +36,13 @@ cube('door',[(0,0,0,1,1,1)])
 # A metre-wide balcony section: slab, solid parapet and side returns.
 # Local y=0 is the finished deck; z=0 meets the facade. Repeat per dwelling bay.
 cube('balcony',[(0,-.06,.48,1,.12,.96),(0,.48,.94,1,.96,.055),(-.4975,.48,.48,.005,.96,.92),(.4975,.48,.48,.005,.96,.92)])
+# Sloping fabric awning, with a front valance; x=width, z=projection in runtime.
+awning=cube('shop_awning',[(0,0,.5,1,.055,1),(0,-.14,.98,1,.23,.035)])
+# Lower the front edge, preserving the back attachment at y=0.
+for v in awning.data.vertices:v.co.z+=v.co.y*.16
 bpy.ops.object.select_all(action='SELECT')
 path=ROOT/'public/assets/buildings/colony-modules.glb'
 bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT')
 bpy.data.libraries.write(str(ROOT/'assets/blender/colony-modules.blend'),{scene},fake_user=True,compress=True)
 bpy.context.window.scene=previous
-result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony']}
+result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony','shop_awning']}

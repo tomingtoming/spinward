@@ -39,7 +39,7 @@ test('public room structural recipe retains its existing collision openings',()=
 })
 test('Blender module export contains only the reusable structural parts',()=>{
  const bytes=fs.readFileSync(new URL('../../public/assets/buildings/colony-modules.glb',import.meta.url)),g=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12)))
- expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','canopy','door','structure','window_frame'])
+ expect(g.nodes.map(n=>n.name).sort()).toEqual(['balcony','canopy','door','shop_awning','structure','window_frame'])
  const structure=g.meshes[g.nodes.find(n=>n.name==='structure').mesh]
  const a=g.accessors[structure.primitives[0].attributes.POSITION]
  expect(a.min).toEqual([-.5,-.5,-.5]);expect(a.max).toEqual([.5,.5,.5])
