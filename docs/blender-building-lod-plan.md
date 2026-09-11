@@ -3,7 +3,10 @@
 Status: staged implementation authorized by toming on 2026-09-10. Stages 1–7
 have connected-Blender cafe/lobby assets, local three-level LOD switching, room
 dressing, localized ambience, usable bench seats, three neighboring shops and a self-service coffee action.
-Production is unchanged. Stage-1 and stage-2 sections below are historical;
+Stages 1–8 are already on main as of 2026-09-11 (`ac688b1`); the old
+"local only" statements below describe their validation time, not current deployment.
+The next local pass is documented in [Neighbourhood life](neighborhood-life.md).
+Stage-1 and stage-2 sections below are historical;
 the stage-3 through stage-7 sections record the current implementation. Baseline: local frontage study `879e234`, parent production
 `2266f74`. This document supersedes neither the existing interior contracts nor
 all historical claims in `far-field-lod.md`.

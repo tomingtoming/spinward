@@ -1,3 +1,5 @@
+import { NeighborhoodLife } from '../objects/neighborhoodLife'
+import { PlayerBodyView } from '../objects/playerBodyView'
 import { CoffeeService } from './coffeeService'
 import { CoffeeServiceView } from '../objects/coffeeServiceView'
 import { createCoffeeAction } from '../ui/coffeeAction'
@@ -35,7 +37,7 @@ import {
   referrerHost
 } from './metrics'
 import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
-import { DesktopLookControls } from './desktopLookControls'
+import { DesktopLookControls, composeCameraParentTwist } from './desktopLookControls'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { createPerfMeter } from './perfMeter'
@@ -697,8 +699,15 @@ export const bootstrapApp = async () => {
     audio.unlock()
     roomSeating.update(playerTraversal, seatFrame(), cityscape.getRoomSeats())
     if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
-    const seat = nearestRoomSeat(cityscape.getRoomSeats(), playerTraversal, habitatConfig.radius)
+    const seat = nearestRoomSeat(cityscape.getRoomSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius)
     if (!seat || !roomSeating.enter(seat, playerTraversal, seatFrame())) return false
+    // Face the bench's clear aisle rather than retaining an approach heading
+    // that can put the backrest in front of the seated player.
+    const tangent = Math.atan2(Math.sin(seat.exit.azimuth-seat.azimuth), Math.cos(seat.exit.azimuth-seat.azimuth))*seat.radius
+    const facing = new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.atan2(-(seat.exit.axialPosition-seat.axialPosition),-tangent),0))
+    const localFacing = composeCameraParentTwist(camera,playerRig,new THREE.Quaternion()).invert().multiply(facing)
+    const look = new THREE.Euler().setFromQuaternion(localFacing,'YXZ')
+    desktopLookControls.setLook(look.y,look.x)
     audio.playClick(); return true
   }
   const roomAction = createRoomAction(toggleRoomSeat, () => Math.max(
@@ -707,6 +716,8 @@ export const bootstrapApp = async () => {
   ))
   const coffeeService = new CoffeeService()
   const coffeeView = new CoffeeServiceView(cityscape.group, camera)
+  const neighborhoodLife = new NeighborhoodLife(cityscape.group, cityscape)
+  const playerBodyView = new PlayerBodyView(cityscape.group)
   const coffeeContext = () => ({ station: cityscape.getCoffeeStation(), player: playerTraversal,
     radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
   const activateCoffee = () => {
@@ -1464,6 +1475,8 @@ export const bootstrapApp = async () => {
     // debugging session teleport the rover to a spot (e.g. a ramp mouth) and
     // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
+    ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
+    ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,
@@ -2660,6 +2673,11 @@ export const bootstrapApp = async () => {
     starfield.setDaylight(daylight)
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
+    neighborhoodLife.setRadius(habitatConfig.radius)
+    neighborhoodLife.setPlayerSeat(roomSeating.seat?.id ?? null)
+    neighborhoodLife.update(deltaSeconds, { azimuth: Math.atan2(rotatingCameraPosition.z,rotatingCameraPosition.x), axial: rotatingCameraPosition.y,
+      altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
+      { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition, speed: drive.driving ? drive.lastSpeed : 0 })
     cityscape.update(deltaSeconds)
     // Aviation beacons: keep them at least ~1.3 CSS px in radius however far
     // they are (the far-side towers are 6 km up). In XR the drawing buffer is
@@ -2682,12 +2700,14 @@ export const bootstrapApp = async () => {
       room: { ...roomEnvironment, coffee: { phase: coffeeService.phase, servings: coffeeService.servings, sipRemaining: coffeeService.sipRemaining }, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
         seats: cityscape.getRoomSeats(), bodyEnabled: playerTraversal.physics?.freeFlyBody.isEnabled(),
         sensor: playerTraversal.physics?.freeFlyBody.collider(0).isSensor() },
+      neighborhood: neighborhoodLife.group.userData,
       pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,
+      azimuth: Math.atan2(rotatingCameraPosition.z, rotatingCameraPosition.x),
       speed: playerTraversal.inertialVelocity.length(),
       frameAngle,
       groundHeight: playerTraversal.groundHeight,
@@ -2705,12 +2725,15 @@ export const bootstrapApp = async () => {
       }
     }
 
-    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getRoomSeats(), playerTraversal, habitatConfig.radius) : null
+    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getRoomSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
     roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice())
     const coffeeCtx = coffeeContext()
     coffeeService.update(deltaSeconds, coffeeCtx)
     coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
     coffeeView.update(coffeeService, coffeeCtx.station, !coffeeCtx.blocked && playerTraversal.mode === 'grounded', roomEnvironment.cafe > 0, coffeeAction.getReservedBottomHeight())
+
+    playerBodyView.update(roomSeating.seat, !renderer.xr.isPresenting && !drive.driving, coffeeService.phase === 'holding')
+    if (playerBodyView.hand.parent !== coffeeView.held) coffeeView.held.add(playerBodyView.hand)
 
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
@@ -2736,7 +2759,11 @@ export const bootstrapApp = async () => {
       controlsBootFlashDone = true
       hud.peekControls()
     }
-    tourCardPanel.update(resolveTourCard(activeTourCard, currentControlPlatform()), {
+    // Let the current room action teach itself. The large generic welcome
+    // card otherwise covers the held cup and the seated body on portrait screens.
+    const roomInteraction = !!roomSeating.seat || coffeeService.phase !== 'idle'
+    const visibleTourCard = roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard
+    tourCardPanel.update(resolveTourCard(visibleTourCard, currentControlPlatform()), {
       camera: desktopUiCamera,
       deltaSeconds,
       xrActive: renderer.xr.isPresenting,
@@ -2815,6 +2842,8 @@ export const bootstrapApp = async () => {
     fullscreenToggle?.dispose()
     roomAction.dispose()
     coffeeAction.dispose()
+    playerBodyView.dispose()
+    neighborhoodLife.dispose()
     coffeeView.dispose()
     hud.destroy()
     beatBar.destroy()

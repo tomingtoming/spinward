@@ -1,3 +1,4 @@
+import { advanceTraffic, crossingGap, type CrossingGate } from './trafficMotion'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import { planNyaanApartment } from './nyaanApartment'
 import { planCoffeeStation, type CoffeeStation } from '../app/coffeeService'
@@ -451,6 +452,7 @@ type TrafficRoute = {
   direction: 1 | -1
   speedMetersPerSecond: number
   phaseMeters: number
+  motion?: { progress: number; speed: number }
   scale: number
 }
 
@@ -1932,6 +1934,16 @@ export class Cityscape {
   private kenneyCarGeometries: KenneyCarGeometryPack | null = null
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
+  private crossingGate: CrossingGate | null = null
+  setCrossingGate(gate: CrossingGate | null) { this.crossingGate = gate }
+  getTrafficPositions() {
+    return this.trafficRoutes.map(route => {
+      const progress = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)
+      const along = route.direction === 1 ? route.spanStart + progress : route.spanStart + route.spanLength - progress
+      return { azimuth: route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth + along / this.radius,
+        axial: route.kind === 'avenue' ? along : route.laneAxial, height: this.radius-route.surfaceRadius, speed: route.motion?.speed ?? 0 }
+    })
+  }
   private cityPlanRoads: CityRoad[] = []
   // The full plan of the current build, for read-only consumers outside the
   // cityscape (the far-field city shell bake). Null until the first build.
@@ -2355,13 +2367,34 @@ export class Cityscape {
     }
 
     this.trafficTime += deltaSeconds
+    // Snapshot lane order before moving any car, so update order cannot let
+    // the follower overlap a stopped leader. Group/sort is O(n log n).
+    const lanes = new Map<string, { index:number; along:number }[]>()
+    const leaderGaps = new Map<number,number>()
+    this.trafficRoutes.forEach((r,index) => {
+      const key=[r.kind,r.laneAzimuth,r.laneAxial,r.surfaceRadius,r.direction].join(':')
+      const progress=THREE.MathUtils.euclideanModulo(r.motion?.progress??r.phaseMeters,r.spanLength)
+      const along=(r.direction===1?r.spanStart+progress:r.spanStart+r.spanLength-progress)*r.direction
+      const lane=lanes.get(key)??[];lane.push({index,along});lanes.set(key,lane)
+    })
+    for(const lane of lanes.values()){
+      lane.sort((a,b)=>a.along-b.along)
+      for(let i=0;i<lane.length-1;i++)leaderGaps.set(lane[i].index,Math.max(0,lane[i+1].along-lane[i].along-2))
+    }
 
     for (let index = 0; index < this.trafficRoutes.length; index += 1) {
       const route = this.trafficRoutes[index]
-      const progress = THREE.MathUtils.euclideanModulo(
-        route.phaseMeters + route.speedMetersPerSecond * this.trafficTime,
-        route.spanLength
-      )
+      route.motion ??= { progress: route.phaseMeters, speed: route.speedMetersPerSecond }
+      const previous = THREE.MathUtils.euclideanModulo(route.motion.progress, route.spanLength)
+      const previousAlong = route.direction === 1 ? route.spanStart + previous : route.spanStart + route.spanLength - previous
+      let gap = leaderGaps.get(index) ?? Infinity
+      if (this.crossingGate && this.radius-route.surfaceRadius < 1) {
+        gap = Math.min(gap, crossingGap(this.crossingGate, this.radius, route.kind,
+          route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth+previousAlong/this.radius,
+          route.kind === 'avenue' ? previousAlong : route.laneAxial, route.direction))
+      }
+      route.motion = advanceTraffic(route.motion, deltaSeconds, route.speedMetersPerSecond, gap)
+      const progress = THREE.MathUtils.euclideanModulo(route.motion.progress, route.spanLength)
       // Direction -1 runs the same span backwards, so both lanes wrap without
       // ever reversing mid-road.
       const along =
@@ -3591,6 +3624,8 @@ export class Cityscape {
   // stays where it can be seen. Seeded per focus step: deterministic, and a
   // re-focus reshuffles routes without reallocating the mesh.
   private rebuildTraffic() {
+    const routeKey = (r: TrafficRoute) => [r.kind,r.laneAzimuth,r.laneAxial,r.spanStart,r.spanLength,r.direction,r.phaseMeters].join(':')
+    const previousMotion = new Map(this.trafficRoutes.map(r => [routeKey(r),r.motion]))
     this.trafficRoutes = []
 
     if (this.maxTraffic <= 0 || this.radius <= 0 || this.cityPlanRoads.length === 0) {
@@ -3746,7 +3781,7 @@ export class Cityscape {
           kind: candidate.isAvenue ? 'avenue' : 'street',
           laneAzimuth:
             candidate.road.azimuth +
-            (candidate.isAvenue ? (direction * laneOffset) / this.radius : 0),
+            (candidate.isAvenue ? (-direction * laneOffset) / this.radius : 0),
           laneAxial: candidate.isAvenue
             ? 0
             : candidate.road.axial + direction * laneOffset,
@@ -3754,7 +3789,7 @@ export class Cityscape {
           spanLength: candidate.spanLength,
           surfaceRadius,
           direction,
-          speedMetersPerSecond: 7 + random() * 9,
+          speedMetersPerSecond: candidate.road.kind === 'local' ? 5 + random() * 3 : 8 + random() * 5,
           phaseMeters: random() * candidate.spanLength,
           scale: 0.97 + random() * 0.06,
           })
@@ -3785,6 +3820,7 @@ export class Cityscape {
       }
     }
 
+    for (const route of this.trafficRoutes) route.motion = previousMotion.get(routeKey(route))
     // Place everyone immediately so a focus change never shows a frame of
     // stale cars parked on the old roads.
     this.updateTraffic(0)

@@ -33,6 +33,7 @@ export class CoffeeServiceView {
     if(this.requested)return;this.requested=true
     new GLTFLoader().load('/assets/buildings/coffee-service.glb',gltf=>{
       if(this.disposed){this.release(gltf.scene);return}
+      const grip=this.held.getObjectByName('coffee-grip');grip?.removeFromParent()
       this.release(this.held);this.held.clear();this.counterCup.clear();this.asset=gltf.scene
       for(const target of [this.counterCup,this.held]){
         for(const name of ['coffee_mug','coffee_liquid']){
@@ -42,6 +43,7 @@ export class CoffeeServiceView {
           if(name==='coffee_liquid')this.liquids.push(o)
         }
       }
+      if(grip)this.held.add(grip)
       const sign=gltf.scene.getObjectByName('coffee_station_sign');if(sign)this.counter.add(sign.clone(true))
     },undefined,error=>console.warn('Coffee detail unavailable; using simple cup.',error))
   }

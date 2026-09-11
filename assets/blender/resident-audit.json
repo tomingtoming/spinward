@@ -1,0 +1,21 @@
+{
+  "original": true,
+  "heightMetres": 1.76,
+  "bytes": 118472,
+  "triangles": 4368,
+  "joints": [
+    "resident",
+    "pelvis",
+    "torso",
+    "head",
+    "left_hip",
+    "left_knee",
+    "left_shoulder",
+    "left_elbow",
+    "right_hip",
+    "right_knee",
+    "right_shoulder",
+    "right_elbow",
+    "cup_hand"
+  ]
+}
