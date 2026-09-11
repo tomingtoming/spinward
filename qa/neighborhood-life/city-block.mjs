@@ -10,7 +10,7 @@ const out=fileURLToPath(new URL('.',import.meta.url)),base=process.env.SPINWARD_
  }
  for(const [name,ax,alt,expected] of [['near',3,1.8,0],['street',-55,1.8,1],['block',-250,110,2],['axis',30,3200,3],['field',-39000,100,4]]){
   await shot('block-auto-'+name,url(.05333934543525725,ax,alt,.05333934543525725,30,12),name!=='field');
-  const state=reports.at(-1).state.buildings.find(b=>b.id==='office');if(state.lod!==expected)throw Error(name+': expected '+expected+' got '+state.lod);
+  const state=reports.at(-1).state.buildings.find(b=>b.id==='office'&&b.axial>0&&b.axial<50);if(state.lod!==expected)throw Error(name+': expected '+expected+' got '+state.lod);
  }
  await page.route('**/assets/buildings/city-block-*.glb',route=>route.abort());
  await shot('block-fallback',url(.05333934543525725,3,1.8,.05333934543525725,30,5),false);

@@ -1,13 +1,13 @@
 import { test, expect } from 'bun:test';
 import fs from 'node:fs';
 import * as THREE from 'three';
-import { CITY_BLOCK, cityBlockSpec, cityBlockCollision, cityBlockDistance, selectCityBlockLod } from './authoredCityBlockPlan';
+import { CITY_BLOCK, CITY_BLOCK_PLACEMENTS, cityBlockSpec, cityBlockCollision, cityBlockDistance, selectCityBlockLod } from './authoredCityBlockPlan';
 import { planCity } from './cityLayout';
 import { collideSphereWithBuildings } from '../sim/cityCollision';
 for (const maxBuildings of [64000, 16000])
     test(`authored block keeps all certified lots in tier ${maxBuildings}`, () => {
         const p = planCity({ radius: 3200, length: 40000, maxBuildings });
-        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(3);
+        expect(p.buildings.filter(b => cityBlockSpec(b, 3200))).toHaveLength(maxBuildings===64000?11:8);
     });
 for (const s of CITY_BLOCK.blocks)
     test(`${s.id}: GLB contains only four decreasing LODs within the lot`, () => {
@@ -51,4 +51,15 @@ test('block LOD observes altitude and keeps the skyline until sub-pixel size', (
     expect(selectCityBlockLod(40000, b.height, 3)).toBe(4);
     expect(selectCityBlockLod(27, b.height, 0)).toBe(0);
     expect(selectCityBlockLod(31, b.height, 0)).toBe(1);
+});
+
+test('expanded lots retain metre-scale architecture, original entrances and clear neighbours',()=>{
+ for(const s of CITY_BLOCK_PLACEMENTS){
+  const model=CITY_BLOCK.blocks.find(m=>m.id===s.id)!;
+  expect(s.building.front).toEqual({axis:'axial',side:-1});
+  expect(model.building.width).toBeLessThanOrEqual(s.building.width+1e-6);
+  expect(model.building.height).toBeLessThanOrEqual(s.building.height+1e-6);
+  for(const v of s.volumes){expect(Math.abs(v.x)+v.w/2).toBeLessThan(s.building.width/2);expect(Math.abs(v.z)+v.d/2).toBeLessThan(s.building.depth/2)}
+  expect(model.building.depth/2+(s.offsetZ??0)).toBeCloseTo(s.building.depth/2,6);
+ }
 });

@@ -879,3 +879,42 @@ Remaining scope: citywide instancing, richer glass/storefront treatment, wider
 roof/oblique sampling, sustained phone/Quest measurements and stereo dither
 review. The three pilots are a functioning five-representation path; the full
 city and all design goals above are not yet implemented. Local work only.
+
+## Exterior expansion and shared rendering (2026-09-11)
+
+The three families now occupy 11 exact desktop lots across neighboring blocks;
+the phone plan contains eight of those lots. `city-block-expansion.json` records
+the eight added placements. Only lots large enough for the original metre-scale
+model are selected; existing enterable interiors are excluded. No model is
+stretched. A local front offset preserves the original entrance alignment and
+is applied equally to render geometry, structural collision and shell baking.
+`?visit=city-block` continues to open the original office approach.
+
+All placements now share the original 48 glTF primitive geometries instead of
+cloning and transforming every vertex per building. Placement uses the tangent
+frame on the object transform. Stable LOD2/3 meshes are instanced by family,
+level and primitive; transitioning buildings temporarily use their individual
+dithered meshes. Batches change only when membership changes. Their bounds are
+recomputed, and instance buffers/materials are disposed independently of shared
+geometry. LOD0/1 keep individual material state for the short transitions.
+
+The three asset requests are serialized, starting with the nearest family and
+leaving 180ms between completions and the next request. This distributes loading
+work and eliminates the former per-placement geometry conversion; it is not a
+claim that first-use shader compilation is eliminated. Unchanged lighting skips
+redundant traversal. The far-city exact-lot lookup rejects positions outside
+the pilot area before creating string keys.
+
+`qa/neighborhood-life/city-block-expansion.mjs` compares `cityBlock=pilot` and
+the expanded default at the same overhead view, resolution and lighting. It
+checks exactly three requests, at most one active request, 48 unique geometries
+in both scenes, and nine instanced primitive draws containing 33 instances for
+the expanded LOD2 view. Before batching, that view grew from 202 to 223 total
+draws; batching brings the expanded view back to 202. This is a bounded desktop
+view, not a citywide or physical-device performance claim. Initial load timing
+is reported but not treated as a cold-cache improvement measurement.
+
+Full tests: 664 pass, zero fail; build passes with the existing chunk warning.
+The current expansion is deliberately bounded. Whole-city placement, spatially
+partitioned instance batches and physical Quest/phone frame-time measurements
+remain future work.

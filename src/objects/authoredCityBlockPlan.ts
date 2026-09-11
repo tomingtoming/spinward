@@ -1,17 +1,23 @@
 import contract from '../../assets/blender/city-block.json';
+import expansion from '../../assets/blender/city-block-expansion.json';
 import type { CityBuilding } from './cityLayout';
-export type BlockSpec = typeof contract.blocks[number];
-export type BlockVolume = BlockSpec['volumes'][number];
+export type BlockVolume = typeof contract.blocks[number]['volumes'][number];
+export type BlockSpec = { id: string; building: CityBuilding; volumes: BlockVolume[]; wall: string; roof: string; offsetZ?: number };
+export const CITY_BLOCK_PLACEMENTS: BlockSpec[] = [...contract.blocks.map(s=>({...s,building:s.building as CityBuilding})), ...expansion.map(p=>{const source=contract.blocks.find(s=>s.id===p.model)!;return {...source,building:p.building as CityBuilding,offsetZ:p.offsetZ,volumes:source.volumes.map(v=>({...v,z:v.z+p.offsetZ}))}})];
 export const CITY_BLOCK = contract;
 const key = (b: {
     azimuth: number;
     axial: number;
 }) => `${b.azimuth.toFixed(9)}:${b.axial.toFixed(6)}`;
 const disabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cityBlock') === '0';
-const specs = new Map(contract.blocks.map(s => [key(s.building), s]));
+const pilotOnly=typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('cityBlock')==='pilot';
+const specs = new Map((pilotOnly?CITY_BLOCK_PLACEMENTS.slice(0,3):CITY_BLOCK_PLACEMENTS).map(s => [key(s.building), s]));
 export function cityBlockSpec(b: CityBuilding, radius: number) {
     if (radius !== contract.radius || disabled)
         return null;
+    // Most city lots are outside the bounded pilot area: avoid string allocation
+    // while scanning the far-city buffers. Exact matching still guards the rest.
+    if (Math.abs(b.azimuth-.05)*radius>450 || Math.abs(b.axial)>400) return null;
     const s = specs.get(key(b));
     return s && Math.abs(s.building.width - b.width) < 1e-5 && Math.abs(s.building.depth - b.depth) < 1e-5 && Math.abs(s.building.height - b.height) < 1e-5 ? s : null;
 }
