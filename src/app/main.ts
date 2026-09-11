@@ -40,6 +40,7 @@ import {
 } from './metrics'
 import { loadDepthMode, toggleDepthModeAndReload } from './depthMode'
 import { DesktopLookControls, composeCameraParentTwist } from './desktopLookControls'
+import { isGameplayKeyboardEvent, onInputInterrupted } from './inputFocus'
 import { getForwardDirection } from './forwardDirection'
 import { GameLoop } from './gameLoop'
 import { createPerfMeter } from './perfMeter'
@@ -1782,6 +1783,7 @@ export const bootstrapApp = async () => {
   }
 
   window.addEventListener('keydown', (event) => {
+    if (!isGameplayKeyboardEvent(event)) return
     audio.unlock()
 
     if (event.code === 'KeyM' && !event.repeat) {
@@ -1792,10 +1794,9 @@ export const bootstrapApp = async () => {
       return
     }
 
-    // No menu lives behind Tab any more, but it still must not leave the
-    // browser's default focus-cycling to steal keyboard/Space from gameplay.
+    // Tab gives the pointer back and lets native focus reach the dock.
     if (event.code === 'Tab') {
-      event.preventDefault()
+      desktopLookControls.releasePointerLock()
       return
     }
 
@@ -1895,6 +1896,14 @@ export const bootstrapApp = async () => {
     if (event.code === 'KeyD') driveKeys.right = false
     if (event.code === 'Space') driveKeys.brake = false
   })
+
+  const cancelDesktopIntent = () => {
+    driveKeys.forward = driveKeys.back = driveKeys.left = driveKeys.right = driveKeys.brake = false
+    desktopJumpQueued = false
+    desktopThrowQueued = false
+  }
+  const removeInputInterruption = onInputInterrupted(cancelDesktopIntent)
+  renderer.xr.addEventListener('sessionstart', cancelDesktopIntent)
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
     audio.unlock()
@@ -2895,6 +2904,7 @@ export const bootstrapApp = async () => {
     // Stop ticking before freeing physics, or a final frame races the
     // disposed Rapier world.
     renderer.setAnimationLoop(null)
+    removeInputInterruption()
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()

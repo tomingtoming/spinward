@@ -208,3 +208,23 @@ penetration; knees obscure much of the shoes, particularly at night. On a direct
 bench-link boot, the temporary introduction also obscures part of the seat.
 These visual limits remain documented rather than expanding into a character
 art overhaul. Next: cross-cutting input interruption and navigation reliability.
+
+## Eleventh increment — input interruption and keyboard focus (02:55)
+
+Lost key/pointer releases on window blur, page hiding or field focus now cancel
+desktop movement, touch stick/jump/brake and queued jump/throw/drive intent.
+Cancelled right drags cannot cycle a projectile on a later stray release.
+Text fields and browser shortcuts retain their keys; Space/Enter on a focused
+button activates that control, and Tab can reach the dock. Movement still works
+after clicking a button. Existing physical velocity and coasting roll are kept.
+
+729 tests and production build pass, including event cancellation, renewed input,
+pointer ownership, field focus, listener disposal and preserved roll momentum.
+Before/after browser probes show 1.18 m of continued walking over 0.7 seconds
+before the fix and about 0.01 m of ordinary contact settling afterward, on both
+desktop and touch paths. Fresh movement, typing without world actions, native
+Rain-button activation, Tab focus, cancelled touch/queued jumps and car coasting
+all pass with no page errors. A released accelerator lets the rover slow from
+about 11.1 to 8.2–8.7 m/s rather than imposing a brake or retaining the throttle.
+These are browser-delivered interruption events, not a mobile OS lifecycle test.
+Next: connect junction signals to ambient traffic and survey the resulting flow.

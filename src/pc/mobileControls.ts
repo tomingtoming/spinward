@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { computeDeviceOrientationQuaternion } from './deviceOrientation'
+import { onInputInterrupted } from '../app/inputFocus'
 
 export const isTouchDevice = () =>
   typeof window !== 'undefined' &&
@@ -78,6 +79,7 @@ export class MobileControls {
   private driving = false
   private enabled = true
   private lastClearancePx = -1
+  private readonly removeInputInterruption: () => void
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -153,9 +155,12 @@ export class MobileControls {
     window.addEventListener('pointermove', this.handlePointerMove)
     window.addEventListener('pointerup', this.handlePointerUp)
     window.addEventListener('pointercancel', this.handlePointerUp)
+    this.removeInputInterruption = onInputInterrupted(this.cancelHeldInput)
   }
 
   dispose() {
+    this.cancelHeldInput()
+    this.removeInputInterruption()
     this.overlay.remove()
     this.stickBase.remove()
     this.element.removeEventListener('pointerdown', this.handlePointerDown)
@@ -255,12 +260,19 @@ export class MobileControls {
     this.stickBase.classList.toggle('is-hidden', !enabled)
 
     if (!enabled) {
-      this.movePointerId = null
-      this.lookPointerId = null
-      this.moveInput.forward = 0
-      this.moveInput.right = 0
-      this.hideStick()
+      this.cancelHeldInput()
     }
+  }
+
+  private readonly cancelHeldInput = () => {
+    this.movePointerId = null
+    this.lookPointerId = null
+    this.moveInput.forward = 0
+    this.moveInput.right = 0
+    this.brakeHeld = false
+    this.jumpHeld = false
+    this.jumpButton.classList.remove('is-active')
+    this.hideStick()
   }
 
   setDriveAvailable(available: boolean) {
@@ -273,6 +285,9 @@ export class MobileControls {
     }
 
     this.driving = driving
+    this.jumpHeld = false
+    this.brakeHeld = false
+    this.jumpButton.classList.remove('is-active')
     this.driveButton.textContent = driving ? 'Exit' : 'Drive'
     this.jumpButton.classList.toggle('is-hidden', driving)
     this.brakeButton.classList.toggle('is-hidden', !driving)

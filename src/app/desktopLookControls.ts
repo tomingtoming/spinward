@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { getForwardDirection } from './forwardDirection'
 import { introRevealDurationSeconds, introRevealPitch } from './introReveal'
 import { createLocomotionIntent } from './locomotionIntent'
+import { isGameplayKeyboardEvent, onInputInterrupted } from './inputFocus'
 import {
   createJetpackAttitudeState,
   integrateJetpackAttitudeOrientation,
@@ -97,6 +98,8 @@ export class DesktopLookControls {
   private wasFreeFly = false
   private inertialLook = false
   private dragging = false
+  private dragPointerId: number | null = null
+  private readonly removeInputInterruption: () => void
   // True while easing the inherited free-fly pitch back to level after a landing.
   private standingUp = false
   private readonly pressedKeys = new Set<string>()
@@ -129,10 +132,13 @@ export class DesktopLookControls {
     this.element.addEventListener('contextmenu', this.handleContextMenu)
     this.element.addEventListener('pointerdown', this.handlePointerDown)
     window.addEventListener('pointerup', this.handlePointerUp)
+    window.addEventListener('pointercancel', this.handlePointerCancel)
+    this.element.addEventListener('lostpointercapture', this.handlePointerCancel)
     window.addEventListener('pointermove', this.handlePointerMove)
     window.addEventListener('keydown', this.handleKeyDown)
     window.addEventListener('keyup', this.handleKeyUp)
     document.addEventListener('pointerlockchange', this.handlePointerLockChange)
+    this.removeInputInterruption = onInputInterrupted(this.cancelHeldInput)
   }
 
   setPointerLockEnabled(enabled: boolean) {
@@ -174,9 +180,13 @@ export class DesktopLookControls {
   }
 
   dispose() {
+    this.cancelHeldInput()
+    this.removeInputInterruption()
     this.element.removeEventListener('contextmenu', this.handleContextMenu)
     this.element.removeEventListener('pointerdown', this.handlePointerDown)
     window.removeEventListener('pointerup', this.handlePointerUp)
+    window.removeEventListener('pointercancel', this.handlePointerCancel)
+    this.element.removeEventListener('lostpointercapture', this.handlePointerCancel)
     window.removeEventListener('pointermove', this.handlePointerMove)
     window.removeEventListener('keydown', this.handleKeyDown)
     window.removeEventListener('keyup', this.handleKeyUp)
@@ -201,6 +211,7 @@ export class DesktopLookControls {
     intent.detachLaunchVelocity.set(0, 0, 0)
 
     if (xrActive) {
+      this.cancelHeldInput()
       this.introElapsed = null
       this.inertialLook = false
       return intent
@@ -603,6 +614,7 @@ export class DesktopLookControls {
     }
 
     this.dragging = true
+    this.dragPointerId = event.pointerId
     this.rightClickDownAt = performance.now()
     this.rightClickTravelPx = 0
     this.element.setPointerCapture(event.pointerId)
@@ -610,15 +622,11 @@ export class DesktopLookControls {
   }
 
   private readonly handlePointerUp = (event: PointerEvent) => {
-    if (event.button !== 2) {
+    if (event.button !== 2 || event.pointerId !== this.dragPointerId) {
       return
     }
 
-    this.dragging = false
-
-    if (this.element.hasPointerCapture(event.pointerId)) {
-      this.element.releasePointerCapture(event.pointerId)
-    }
+    this.cancelDrag()
 
     const heldMs = performance.now() - this.rightClickDownAt
     if (
@@ -627,6 +635,24 @@ export class DesktopLookControls {
     ) {
       this.onRightClickTap?.()
     }
+  }
+
+  private cancelDrag() {
+    const pointerId = this.dragPointerId
+    this.dragPointerId = null
+    this.dragging = false
+    if (pointerId !== null && this.element.hasPointerCapture(pointerId)) this.element.releasePointerCapture(pointerId)
+  }
+
+  private readonly handlePointerCancel = (event: PointerEvent) => {
+    if (event.pointerId === this.dragPointerId) this.cancelDrag()
+  }
+
+  private readonly cancelHeldInput = () => {
+    this.pressedKeys.clear()
+    this.cancelDrag()
+    this.lockClickPending = false
+    this.movedWhileLocked = false
   }
 
   private readonly handlePointerMove = (event: PointerEvent) => {
@@ -659,6 +685,7 @@ export class DesktopLookControls {
       this.releasePointerLock()
       return
     }
+    if (!isGameplayKeyboardEvent(event)) return
     if (
       event.code !== 'KeyW' &&
       event.code !== 'KeyA' &&
