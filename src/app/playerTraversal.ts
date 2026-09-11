@@ -148,6 +148,7 @@ const GROUND_CONTACT_MAX_RADIAL_SPEED = 1.8
 // a fast tangential slide or high-speed arrival should keep flying, not snap
 // to a grounded stand.
 const GROUND_CONTACT_MAX_RELATIVE_SPEED = 6
+const GROUND_CONTACT_MAX_SEPARATION = 0.02
 const WALK_TRACTION_ACCEL = 28
 const walkOutward = new THREE.Vector3()
 const walkTangent = new THREE.Vector3()
@@ -424,6 +425,30 @@ export const updatePlayerGroundContact = (
   if (rotatingVelocity.length() > GROUND_CONTACT_MAX_RELATIVE_SPEED) {
     return false
   }
+
+  // Proximity and low speed also describe the top of an ordinary jump.
+  // Require a real floor/roof contact beneath the sphere before changing
+  // mode. Rapier's broad-phase pairs alone include separated shapes, and a
+  // vertical wall contact must not count as support.
+  const { world, freeFlyBody, units } = state.physics
+  const playerCollider = freeFlyBody.collider(0)
+  const maxSeparation = scaleLengthForRapier(GROUND_CONTACT_MAX_SEPARATION, units)
+  const inertialRadius = Math.max(Math.hypot(state.inertialPosition.x, state.inertialPosition.z), 1e-6)
+  let supported = false
+  world.contactPairsWith(playerCollider, other => {
+    if (supported || other.isSensor() || other.parent()?.isDynamic()) return
+    world.contactPair(playerCollider, other, (manifold, flipped) => {
+      const normal = manifold.normal()
+      const outwardAlignment = (flipped ? -1 : 1) * (
+        normal.x * state.inertialPosition.x + normal.z * state.inertialPosition.z
+      ) / inertialRadius
+      if (outwardAlignment < .6) return
+      for (let i = 0; i < manifold.numSolverContacts(); i++) {
+        if (manifold.solverContactDist(i) <= maxSeparation) supported = true
+      }
+    })
+  })
+  if (!supported) return false
 
   state.mode = 'grounded'
   state.groundHeight = groundHeight

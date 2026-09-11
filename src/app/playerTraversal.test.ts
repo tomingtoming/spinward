@@ -461,7 +461,7 @@ test('jumping mid-run keeps the walking momentum', async () => {
   world.free()
 })
 
-test('a free-fly drop lands on a rooftop and grounds at its height', async () => {
+test('an analytic rooftop constraint alone cannot impersonate a physical landing', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })
   const radius = 30
@@ -486,43 +486,22 @@ test('a free-fly drop lands on a rooftop and grounds at its height', async () =>
     { rapier, world }
   )
 
-  // Co-rotating, 4m above the roof: spin gravity pulls it down onto it.
+  // The old analytic helper pushes an overlapping sphere above the roof,
+  // but there is deliberately no physical roof in this world.
   resetPlayerToFreeFly(state, {
-    rotatingPosition: new THREE.Vector3(radius - building.height - 4, 0, 0),
+    rotatingPosition: new THREE.Vector3(radius - building.height - .1, 0, 0),
     frameAngle: 0,
     omega
   })
 
-  const deltaSeconds = 1 / 72
-  let frameAngle = 0
-  let landed = false
+  const frameAngle = 0
+  confinePlayerToCityBuildings(state, { buildings: [building], radius, frameAngle, omega })
+  const landed = updatePlayerGroundContact(state, { radius, length, frameAngle, omega, sampleGroundHeight: sample })
 
-  for (let index = 0; index < 720 && !landed; index += 1) {
-    frameAngle = THREE.MathUtils.euclideanModulo(
-      frameAngle + omega * deltaSeconds,
-      Math.PI * 2
-    )
-    world.timestep = deltaSeconds
-    world.step()
-    syncPlayerTraversalFromPhysics(state)
-    confinePlayerToCityBuildings(state, {
-      buildings: [building],
-      radius,
-      frameAngle,
-      omega
-    })
-    landed = updatePlayerGroundContact(state, {
-      radius,
-      length,
-      frameAngle,
-      omega,
-      sampleGroundHeight: sample
-    })
-  }
-
-  expect(landed).toBe(true)
-  expect(state.mode).toBe('grounded')
-  expect(state.groundHeight).toBeCloseTo(building.height, 5)
+  // The legacy analytic helper can stop penetration, but the application
+  // lands only on an actual support collider (covered separately below).
+  expect(landed).toBe(false)
+  expect(state.mode).toBe('free-fly')
 
   const rotating = inertialPositionToRotating(
     state.inertialPosition,

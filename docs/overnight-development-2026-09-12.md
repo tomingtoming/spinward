@@ -445,3 +445,27 @@ with `COMPARE=1`, evidence `exterior-side-before*`.
 Next: the jump probe shows surprisingly short flights. Ground contact currently
 accepts the ascending body within a 0.9 m gap, so investigate premature landing
 against the real physics trajectory before changing the takeoff impulse.
+
+## Eighteenth increment — physical landings (05:09)
+
+The former proximity/speed gate marked an ordinary jump as grounded while
+still ascending: browser air times were 0.18/0.25/0.22 s in Izma/Cooper/Elysium.
+Landing now additionally requires an actual Rapier solver contact beneath the
+player with a fixed or kinematic floor/roof. Broad-phase proximity, a side wall,
+a ceiling or a loose dynamic object cannot supply ground support. Both manifold
+orientations are tested; the existing speed and inside-hull checks remain.
+Launch impulse, ballistic integration and manual reattachment are unchanged.
+
+The same browser probe now measures 0.77/0.95/0.85 s air time and roughly
+0.82/1.00/0.90 m maximum rise over the settled body position. The body remains
+visible with unsupported feet throughout flight. Physical tests cover all four
+presets at 30/72 Hz against the actual inertial ballistic return time, plus
+support direction/type and the real streamed roof. The obsolete analytic-roof
+test now explicitly verifies that pushout alone cannot create a physical
+landing. Full suite: 772 tests; production build passes. Evidence and probe:
+`jump-landing.mjs`, `jump-before-contact*`, `jump-after-contact*`.
+
+Next: a separate settling experiment at azimuth 0.12 exposed a Cooper floor
+collision miss before jumping. The ordinary browser test positions settle and
+land correctly; investigate the other floor angle rather than treating that
+limited sample as proof of every panel.
