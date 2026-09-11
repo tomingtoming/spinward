@@ -42,6 +42,8 @@ export type CityBuilding = {
   front?: { axis: 'tangent' | 'axial'; side: 1 | -1 }
   // Required on generated buildings after plan certification; optional only
   // for synthetic collision footprints and hand-authored test fixtures.
+  // Actual certified frontage road, used by the land-use plan.
+  streetKind?: RoadKind
   access?: StreetAccess
   // The full parcel this building owns, as centre offsets from the building
   // centre plus extents (surface metres): the slot pitch along the row and

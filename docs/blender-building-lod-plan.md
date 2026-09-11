@@ -1121,3 +1121,66 @@ were observed. Roof image review confirms a continuous light/support and a
 reasonable nearby light size; exact roof contact is supported by the coordinate
 checks, since the untextured roof makes image-only contact judgement uncertain.
 Local changes only; not published.
+
+## Street-aware land use and mixed-use lower floors (2026-09-11)
+
+Buildings now have deterministic residential, office, commercial or industrial
+uses, with a separate ground-floor use. The certified road kind is attached to
+the lot after access certification; this consumes no plan RNG and does not move
+roads or lots. Main streets and dense districts favour offices, commercial
+buildings and retail below housing/offices. Pure residential and lobby-only
+buildings remain, including on main streets. Houses and low apartments do not
+acquire retail by height alone. These probabilities are art-direction choices,
+not an empirical model of a particular real city. Existing authored city-block
+models keep their explicit uses; enterable cafes, passages and apartments remain
+authoritative about their ground floors.
+
+Upper windows now follow use rather than deriving office/residential character
+from the shape alone. Apartments have low-sill dwelling openings and nearby
+Blender balcony decks/parapets with close-range dwelling dividers. Offices keep
+continuous fine bays, while commercial buildings use broader, taller openings.
+Retail lower floors have large glazing, individual tenant signs, canopies and
+separate doors; the certified central approach remains the upper-floor entrance.
+Some tall central buildings have two retail floors. Tower podiums reserve enough
+height for these floors without changing the parcel envelope or total height.
+A lobby gets glazing and an entrance, without shop signs. New tenant fronts are
+exterior detail; this increment does not make every shop or balcony enterable.
+
+The shared Blender module pack adds a 48-triangle balcony component and remains
+under 14KB. Balcony geometry is bounded to eight nearby apartment buildings
+(within 65m); window frames retain their existing close-range cap. Signs use one
+atlas and one instanced draw. Lower-floor shading has its own batch so ordinary
+buildings keep their previous shader. Structural buffer capacity is allocated
+from the actual use counts, not three whole-city reservations. Ground-floor
+colour/glazing and upper window profiles persist after near details disappear.
+
+Regression coverage includes street-kind provenance, a mixture of uses on each
+street class, main-street/back-lane contrast, house/industrial exclusions, stable
+identity, all retail-bearing masses having room for the frontage, unobstructed
+central approaches, and the Blender module dimensions/budget. The previous
+layout hash is retained after excluding the new derived road metadata: lot,
+road and park positions remain unchanged. Existing interior/collision checks
+continue to cover their original openings.
+
+Validation: 676 tests and the production build pass (existing chunk-size warning).
+The six use views show apartments, mixed-use housing, offices and commercial
+fronts; final street close-ups confirm tenant doors and a separate central
+entrance. Independent review caught inverted sign text and high apartment
+window sills; both were corrected. The final reviewer found no major visible
+floating pieces or penetrations, but balcony floor contact remains obscured by
+the parapet in these images. The profile/geometry checks cover the low-sill
+placement; no balcony traversal is claimed.
+
+The final overview, original street, phone-profile and night samples each report
+30fps on ANGLE/Metal Apple M1 Pro, with p95 about 33.4ms. Original street uses
+140 draws versus 137 before; overview 146 versus 145; phone profile 120 versus
+117. Structural triangles remain at the same rounded 3.7M/2.4M totals. An isolated
+build of the previous commit 8375b0b, run on port 5193 during the same session,
+also reports 30fps for street/phone and 34fps overview. Earlier samples in this
+session varied from 22 to 54fps; disabling the new ground shader/details in one
+page made little difference. Consequently these runs do not establish a clean
+performance delta or reproduce the earlier 60fps baseline. The GPU renderer is
+now recorded in the QA report to guard against silent software rendering.
+Eight direct final structural updates measured 9.2–57.1ms; the first-update spike
+and end-to-end traversal smoothness remain unresolved. This is browser sampling,
+not physical phone/Quest validation. Local changes only; not published.

@@ -33,9 +33,12 @@ cube('structure',[(0,0,0,1,1,1)])
 cube('window_frame',[(-.49,0,.025,.02,1,.05),(.49,0,.025,.02,1,.05),(0,-.49,.025,.96,.02,.05),(0,.49,.025,.96,.02,.05),(0,0,.025,.015,.96,.05)])
 cube('canopy',[(0,0,0,1,1,1)])
 cube('door',[(0,0,0,1,1,1)])
+# A metre-wide balcony section: slab, solid parapet and side returns.
+# Local y=0 is the finished deck; z=0 meets the facade. Repeat per dwelling bay.
+cube('balcony',[(0,-.06,.48,1,.12,.96),(0,.48,.94,1,.96,.055),(-.4975,.48,.48,.005,.96,.92),(.4975,.48,.48,.005,.96,.92)])
 bpy.ops.object.select_all(action='SELECT')
 path=ROOT/'public/assets/buildings/colony-modules.glb'
 bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_materials='EXPORT')
 bpy.data.libraries.write(str(ROOT/'assets/blender/colony-modules.blend'),{scene},fake_user=True,compress=True)
 bpy.context.window.scene=previous
-result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door']}
+result={'asset':str(path),'bytes':path.stat().st_size,'nodes':['structure','window_frame','canopy','door','balcony']}

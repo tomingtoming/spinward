@@ -126,7 +126,7 @@ export class BuildingInteriorLayer {
       if (part.detail < 3 && entry.lod > part.detail) continue
       const index = MATERIALS.indexOf(part.material)
       this.meshes[index].setMatrixAt(counts[index], matrix)
-      if(index<=1){const design=colonyBuildingDesign(entry.interior.building);this.meshes[index].setColorAt(counts[index],new THREE.Color('#'+design.wall));if(index===1)writeColonyFacade(this.meshes[index],counts[index],design)}
+      if(index<=1){const design=colonyBuildingDesign(entry.interior.building,entry.interior.kind);this.meshes[index].setColorAt(counts[index],new THREE.Color('#'+design.wall));if(index===1)writeColonyFacade(this.meshes[index],counts[index],design)}
       counts[index]++
     }
     this.meshes.forEach((mesh, index) => {

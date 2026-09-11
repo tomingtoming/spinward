@@ -11,7 +11,7 @@ export function fitColonyHouse(b:CityBuilding){
 
 /** Metric structural recipe shared by rendering, collision and the distant bake. */
 export function colonyBuildingSpec(b: CityBuilding, interior?: BuildingInterior): BlockSpec {
-  const building=b
+  const building=b,design=colonyBuildingDesign(b,interior?.kind)
   const fit=interior?null:fitColonyHouse(b)
   // Preserve the previously certified garden and entrance, not the retired house mesh.
   const tangent=b.front?.axis==='tangent',side=b.front?.side??-1
@@ -30,8 +30,10 @@ export function colonyBuildingSpec(b: CityBuilding, interior?: BuildingInterior)
     box(0,h*.38,0,w,h*.76,d)
     box(0,h*.88,-d*.08,w*.72,h*.24,d*.65)
   }else if(b.kind==='tower'||b.kind==='setback'){
-    box(0,h*.12,0,w,h*.24,d)
-    box(0,h*.52,-d*.09,w*.72,h*.56,d*.76)
+    const base=Math.max(h*.24,Math.min(h*.6,design.use.groundHeight>0?design.use.groundHeight+2:0))
+    const middle=h*.8-base
+    box(0,base/2,0,w,base,d)
+    box(0,base+middle/2,-d*.09,w*.72,middle,d*.76)
     box(0,h*.9,-d*.12,w*.52,h*.2,d*.58)
   }else if(b.kind==='lshape'&&w>8&&d>8){
     box(0,h*.5,-d*.3,w,h,d*.4)
@@ -44,7 +46,7 @@ export function colonyBuildingSpec(b: CityBuilding, interior?: BuildingInterior)
     box(0,h*.45,0,w,h*.9,d)
     box(0,h*.95,-d*.04,w*.84,h*.1,d*.84)
   }
-  const wall=colonyBuildingDesign(b).wall
+  const wall=design.wall
   return {id,building,volumes,wall,roof:b.industrial?'596768':'727b70'}
 }
 

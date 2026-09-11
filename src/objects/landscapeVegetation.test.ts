@@ -8,7 +8,8 @@ test('tree budget reaches all three land strips without moving established lots'
  for(let strip=0;strip<3;strip++)expect(p.trees.filter(t=>Math.round(t.azimuth/(Math.PI*2/3))===strip).length).toBeGreaterThan(350)
  // Snapshot taken before the vegetation pass: changes to the planner's random
  // stream must not silently move doors, roads or the authored cafe/lobby lots.
- expect(createHash('sha256').update(JSON.stringify([p.buildings,p.roads,p.patches])).digest('hex')).toBe('e26a9cebfd27b0ebec639015e6f71109083b8dfc882556738692908539cef737')
+ // Road-use metadata is derived after certification; keep comparing the original lot geometry.
+ expect(createHash('sha256').update(JSON.stringify([p.buildings.map(({streetKind,...lot})=>lot),p.roads,p.patches])).digest('hex')).toBe('e26a9cebfd27b0ebec639015e6f71109083b8dfc882556738692908539cef737')
 })
 test('position-ranked vegetation sampling is independent of traversal order',()=>{
  const trees=Array.from({length:100},(_,i)=>({azimuth:i*.1,axial:i*30,height:6,tone:i/100}))

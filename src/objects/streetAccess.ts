@@ -129,7 +129,7 @@ export const certifyStreetAccess = (
       }
       if (best === null || gap < best.length) best = { roadId: roadId(i), roadIndex: i, entrance: entry, roadEdge: edge, width, length: Math.max(0, gap) }
     }
-    if (best) accepted.push({ ...original, front, access: best })
+    if (best) accepted.push({ ...original, front, access: best, streetKind: roads[best.roadIndex].kind })
     else rejected.push({ building: original, reason: blocked ? 'blocked-path' : 'no-connected-frontage' })
   })
   return { buildings: accepted, rejected }
