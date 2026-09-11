@@ -2,6 +2,9 @@ import * as THREE from 'three'
 
 import type { CityIntersection } from './cityLayout'
 import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
+import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS, isSignalledIntersection,
+  signalAspect, signalPhaseOffset, signalStopLineOffset, type SignalRoad } from './intersectionSignals'
+export { SIGNAL_CYCLE_SECONDS, signalAspect } from './intersectionSignals'
 
 // Street furniture at road crossings (2026-09-03, 緻密さ③): zebra crosswalks
 // on every leg, signal poles with lit heads at arterial junctions, name-plate
@@ -19,12 +22,11 @@ import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roa
 export const FURNITURE_RANGE_METERS = 420
 export const REFOCUS_DISTANCE_METERS = 60
 export const STRIPE_PITCH = 1.0
-export const STRIPE_LENGTH = 2.6
+export const STRIPE_LENGTH = CROSSWALK_LENGTH_METERS
 export const STRIPE_WIDTH = 0.5
 export const SIGNAL_POLE_HEIGHT = 5.4
 export const SIGNAL_ARM_LENGTH = 3.6
 export const SIGN_POST_HEIGHT = 2.6
-export const SIGNAL_CYCLE_SECONDS = 24
 
 export type FurnitureTransform = {
   // Local offsets from the crossing centre: `t` along tangent, `a` along the
@@ -47,6 +49,7 @@ export type SignalHeadTransform = FurnitureTransform & {
 
 export type FurnitureLayout = {
   stripes: FurnitureTransform[]
+  stopLines: FurnitureTransform[]
   poles: FurnitureTransform[]
   arms: FurnitureTransform[]
   heads: SignalHeadTransform[]
@@ -59,7 +62,7 @@ export const layoutIntersection = (
   x: CityIntersection,
   radius: number
 ): FurnitureLayout => {
-  const layout: FurnitureLayout = { stripes: [], poles: [], arms: [], heads: [], plates: [], signalled: false }
+  const layout: FurnitureLayout = { stripes: [], stopLines: [], poles: [], arms: [], heads: [], plates: [], signalled: false }
   const halfAvenue = x.avenueWidth * 0.5
   const halfStreet = x.streetWidth * 0.5
   // Each bar follows its own position on the cylinder. Reserve clearance
@@ -73,7 +76,7 @@ export const layoutIntersection = (
   // Crosswalks. Legs along the avenue (±axial) cross the AVENUE: bars run
   // axially, repeated across the avenue width. Legs along the street (±tangent)
   // cross the STREET: bars run tangentially, repeated across the street width.
-  const setback = 1.2
+  const setback = CROSSWALK_SETBACK_METERS
   const stripeAcross = (width: number) => {
     const count = Math.max(2, Math.floor(width / STRIPE_PITCH))
     const start = -((count - 1) * STRIPE_PITCH) * 0.5
@@ -92,14 +95,23 @@ export const layoutIntersection = (
     }
   }
 
-  const signalled = x.avenueKind === 'arterial' || x.streetKind === 'arterial'
+  const signalled = isSignalledIntersection(x)
   layout.signalled = signalled
   const cornerT = halfAvenue + 0.9
   const cornerA = halfStreet + 0.9
   if (signalled) {
-    // Four corner poles; each carries an arm out over the road it faces and
-    // a head at the arm's end. Diagonal corners share phases (see the
-    // renderer), so opposite approaches see the same aspect.
+    for (const side of [-1, 1]) {
+      const avenueLineWidth = halfAvenue - .6, streetLineWidth = halfStreet - .6
+      const pieces = Math.ceil(avenueLineWidth / STRIPE_LENGTH), width = avenueLineWidth / pieces
+      for (let piece = 0; piece < pieces; piece++) {
+        layout.stopLines.push({ t: side * halfAvenue / 2 - avenueLineWidth / 2 + (piece + .5) * width,
+          a: side * signalStopLineOffset(x, 'avenue'), h: paintLift(width / 2), yaw: 0, sx: width, sy: 1, sz: .3 })
+      }
+      layout.stopLines.push({ t: side * signalStopLineOffset(x, 'street'), a: -side * halfStreet / 2,
+        h: paintLift(.15), yaw: 0, sx: .3, sy: 1, sz: streetLineWidth })
+    }
+    // Each corner pole carries one head for each road. Lens normals point
+    // toward the approaching driver; the opposite approaches share a phase.
     for (const st of [-1, 1] as const) {
       for (const sa of [-1, 1] as const) {
         layout.poles.push({ t: st * cornerT, a: sa * cornerA, h: 0, yaw: 0, sx: 1, sy: SIGNAL_POLE_HEIGHT, sz: 1 })
@@ -111,12 +123,16 @@ export const layoutIntersection = (
           t: st * (cornerT - SIGNAL_ARM_LENGTH + 0.2),
           a: sa * cornerA,
           h: SIGNAL_POLE_HEIGHT - 0.85,
-          yaw: 0,
+          yaw: sa > 0 ? 0 : Math.PI,
           sx: 1,
           sy: 1,
           sz: 1,
           faces: 'avenue'
         })
+        layout.arms.push({ t: st * cornerT, a: sa * (cornerA - SIGNAL_ARM_LENGTH * .5),
+          h: SIGNAL_POLE_HEIGHT - .3, yaw: 0, sx: 1, sy: 1, sz: SIGNAL_ARM_LENGTH })
+        layout.heads.push({ t: st * cornerT, a: sa * (cornerA - SIGNAL_ARM_LENGTH + .2),
+          h: SIGNAL_POLE_HEIGHT - .85, yaw: -st * Math.PI / 2, sx: 1, sy: 1, sz: 1, faces: 'street' })
       }
     }
   } else {
@@ -150,16 +166,6 @@ export const selectNearbyIntersections = (
     if (Math.hypot(tangent, x.axial - focusAxial) <= rangeMeters) out.push(x)
   }
   return out
-}
-
-// Signal aspect for a crossing at a moment: 0 = green for the avenue (axial
-// traffic), 1 = amber, 2 = red (green for the street). Per-crossing phase
-// offset so a boulevard shows a wave of lights, not one synchronised blink.
-export const signalAspect = (seconds: number, phaseOffset: number): 0 | 1 | 2 => {
-  const t = ((seconds + phaseOffset) % SIGNAL_CYCLE_SECONDS + SIGNAL_CYCLE_SECONDS) % SIGNAL_CYCLE_SECONDS
-  if (t < 10) return 0
-  if (t < 12) return 1
-  return 2
 }
 
 const ASPECT_COLORS = [new THREE.Color(0x36ff7a), new THREE.Color(0xffc23a), new THREE.Color(0xff3b30)] as const
@@ -207,6 +213,7 @@ export class IntersectionFurniture {
   private elapsed = 0
   private nearby: CityIntersection[] = []
   private headPhases: number[] = []
+  private headRoads: SignalRoad[] = []
   private night = 0
 
   private readonly stripeMaterial = new THREE.MeshStandardMaterial({
@@ -270,9 +277,11 @@ export class IntersectionFurniture {
     this.poles = make(pole, this.poleMaterial, 512)
     this.arms = make(arm, this.poleMaterial, 512)
     this.heads = make(head, this.headMaterial, 512)
-    this.lamps = make(lamp, this.lampMaterial, 512)
+    this.heads.mesh.name = 'intersection-signal-heads'
+    this.lamps = make(lamp, this.lampMaterial, 512 * 3)
+    this.lamps.mesh.name = 'intersection-signal-lamps'
     this.plates = make(plate, this.plateMaterial, 256)
-    this.lamps.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3), 3)
+    this.lamps.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3 * 3), 3)
   }
 
   setPlan(intersections: CityIntersection[], radius: number) {
@@ -280,6 +289,10 @@ export class IntersectionFurniture {
     this.radius = radius
     this.focusAzimuth = Number.NaN
     this.focusAxial = Number.NaN
+    this.nearby = []
+    this.headPhases.length = 0
+    this.headRoads.length = 0
+    for (const part of [this.stripes, this.poles, this.arms, this.heads, this.lamps, this.plates]) part.mesh.count = 0
   }
 
   setDaylight(daylight: number) {
@@ -289,8 +302,8 @@ export class IntersectionFurniture {
 
   // Called every frame with the player's surface position. Relayout only
   // when the focus has moved far enough; the signal lamps animate always.
-  update(focusAzimuth: number, focusAxial: number, deltaSeconds: number) {
-    this.elapsed += Math.max(0, deltaSeconds)
+  update(focusAzimuth: number, focusAxial: number, deltaSeconds: number, clockSeconds?: number) {
+    this.elapsed = clockSeconds ?? this.elapsed + Math.max(0, deltaSeconds)
     if (this.radius <= 0 || this.intersections.length === 0) {
       return
     }
@@ -339,9 +352,10 @@ export class IntersectionFurniture {
     let nHead = 0
     let nPlate = 0
     this.headPhases.length = 0
+    this.headRoads.length = 0
     for (const x of this.nearby) {
       const layout = layoutIntersection(x, this.radius)
-      for (const s of layout.stripes) {
+      for (const s of [...layout.stripes, ...layout.stopLines]) {
         if (nStripe >= this.stripes.capacity) break
         this.place(this.stripes, nStripe++, x, s, ROAD_SURFACE_LIFT_METERS)
       }
@@ -353,13 +367,15 @@ export class IntersectionFurniture {
         if (nArm >= this.arms.capacity) break
         this.place(this.arms, nArm++, x, a, ROAD_SURFACE_LIFT_METERS - 0.06)
       }
-      // A stable per-crossing phase from its grid position.
-      const phase = ((x.azimuth * 1000 + x.axial * 0.37) % SIGNAL_CYCLE_SECONDS + SIGNAL_CYCLE_SECONDS) % SIGNAL_CYCLE_SECONDS
+      const phase = signalPhaseOffset(x)
       for (const h of layout.heads) {
         if (nHead >= this.heads.capacity) break
         this.place(this.heads, nHead, x, h, ROAD_SURFACE_LIFT_METERS - 0.06)
-        this.place(this.lamps, nHead, x, h, ROAD_SURFACE_LIFT_METERS - 0.06)
+        for (let aspect = 0; aspect < 3; aspect++) {
+          this.place(this.lamps, nHead * 3 + aspect, x, { ...h, h: h.h + (aspect - 1) * .28 }, ROAD_SURFACE_LIFT_METERS - .06)
+        }
         this.headPhases.push(phase)
+        this.headRoads.push(h.faces)
         nHead++
       }
       for (const p of layout.plates) {
@@ -372,7 +388,7 @@ export class IntersectionFurniture {
       [this.poles, nPole],
       [this.arms, nArm],
       [this.heads, nHead],
-      [this.lamps, nHead],
+      [this.lamps, nHead * 3],
       [this.plates, nPlate]
     ] as const) {
       part.mesh.count = count
@@ -383,10 +399,12 @@ export class IntersectionFurniture {
   private animateLamps() {
     const color = this.lamps.mesh.instanceColor
     if (color === null || this.lamps.mesh.count === 0) return
-    for (let i = 0; i < this.lamps.mesh.count; i++) {
-      const aspect = signalAspect(this.elapsed, this.headPhases[i] ?? 0)
-      colorScratch.copy(ASPECT_COLORS[aspect])
-      color.setXYZ(i, colorScratch.r, colorScratch.g, colorScratch.b)
+    for (let i = 0; i < this.heads.mesh.count; i++) {
+      const active = signalAspect(this.elapsed, this.headPhases[i] ?? 0, this.headRoads[i])
+      for (let aspect = 0; aspect < 3; aspect++) {
+        colorScratch.copy(ASPECT_COLORS[aspect]).multiplyScalar(aspect === active ? 1 : .035)
+        color.setXYZ(i * 3 + aspect, colorScratch.r, colorScratch.g, colorScratch.b)
+      }
     }
     color.needsUpdate = true
   }

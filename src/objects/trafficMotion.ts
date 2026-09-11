@@ -1,4 +1,17 @@
 export type TrafficMotion = { progress: number; speed: number }
+export type TrafficLaneMember = { index: number; along: number }
+
+/** Routes repeat at their endpoint. Keep the last car behind the first car's
+ * next lap too, so crossing a span boundary cannot spawn it inside a queue. */
+export function fillLaneLeaderGaps(lane: TrafficLaneMember[], period: number, gaps: Map<number, number>) {
+  if (lane.length < 2) return
+  lane.sort((a, b) => a.along - b.along)
+  for (let i = 0; i < lane.length; i++) {
+    const leader = lane[(i + 1) % lane.length]
+    const distance = leader.along - lane[i].along + (i === lane.length - 1 ? period : 0)
+    gaps.set(lane[i].index, Math.max(0, distance - 2))
+  }
+}
 /** Comfortable braking to a centre stop, including a fixed bumper allowance. */
 export function advanceTraffic(state: TrafficMotion, dt: number, cruise: number, gap = Infinity) {
   const step = Math.min(.1, Math.max(0, dt))

@@ -37,12 +37,13 @@ describe('layoutIntersection', () => {
     expect(avenueLegs.length).toBeGreaterThan(streetLegs.length)
   })
 
-  test('arterial crossings get four signal poles with arms and heads; quiet ones get two sign posts', () => {
+  test('arterial crossings get four shared poles and heads for both roads; quiet ones get two sign posts', () => {
     const signalled = layoutIntersection(arterialCross, R)
     expect(signalled.signalled).toBe(true)
     expect(signalled.poles.length).toBe(4)
-    expect(signalled.arms.length).toBe(4)
-    expect(signalled.heads.length).toBe(4)
+    expect(signalled.arms.length).toBe(8)
+    expect(signalled.heads.filter(h => h.faces === 'avenue').length).toBe(4)
+    expect(signalled.heads.filter(h => h.faces === 'street').length).toBe(4)
     expect(signalled.plates.length).toBe(0)
     // poles stand clear of both roads
     for (const p of signalled.poles) {
@@ -55,6 +56,36 @@ describe('layoutIntersection', () => {
     expect(quiet.plates.length).toBe(2)
     expect(quiet.heads.length).toBe(0)
   })
+})
+
+test('signal lenses face approaching drivers on all four legs, with one lit lamp per head', () => {
+  const crossing = { ...arterialCross, azimuth: .7, axial: 0 }
+  const layout = layoutIntersection(crossing, R)
+  for (const head of layout.heads) {
+    const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), head.yaw).applyQuaternion(crossingQuaternionFor(crossing.azimuth))
+    const approach = head.faces === 'avenue' ? new THREE.Vector3(0, Math.sign(head.a), 0) : new THREE.Vector3(-Math.sin(crossing.azimuth), 0, Math.cos(crossing.azimuth)).multiplyScalar(Math.sign(head.t))
+    expect(normal.dot(approach)).toBeCloseTo(1, 6)
+  }
+  const furniture = new IntersectionFurniture()
+  try {
+    furniture.setPlan([crossing], R)
+    for (const clock of [0, 11, 14, 16, 27, 30, 32]) {
+      furniture.update(.7, 0, 0, clock)
+      const lamps = furniture.group.getObjectByName('intersection-signal-lamps') as THREE.InstancedMesh
+      expect(lamps.count).toBe(layout.heads.length * 3)
+      for (let head = 0; head < layout.heads.length; head++) {
+        let lit = 0
+        for (let lamp = 0; lamp < 3; lamp++) {
+          const color = new THREE.Color(); lamps.getColorAt(head * 3 + lamp, color)
+          if (Math.max(color.r, color.g, color.b) > .5) lit++
+        }
+        expect(lit).toBe(1)
+      }
+    }
+    furniture.setPlan([], 18)
+    furniture.update(0, 0, .1, 99)
+    for (const part of furniture.group.children as THREE.InstancedMesh[]) expect(part.count).toBe(0)
+  } finally { furniture.dispose() }
 })
 
 describe('selectNearbyIntersections', () => {

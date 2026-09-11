@@ -6,7 +6,9 @@ import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {createLandscapeCrown,createMeadowTexture} from './landscapeVegetation'
 import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
-import { advanceTraffic, crossingGap, type CrossingGate } from './trafficMotion'
+import { advanceTraffic, crossingGap, fillLaneLeaderGaps, type CrossingGate } from './trafficMotion'
+import { mergeTrafficRoadSpans } from './trafficRoadSpans'
+import { createTrafficSignalIndex, routeTrafficSignals, trafficSignalGap, type TrafficSignalStop } from './intersectionSignals'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
 import { planNyaanApartment } from './nyaanApartment'
 import { planCoffeeStation, type CoffeeStation } from '../app/coffeeService'
@@ -460,6 +462,7 @@ type TrafficRoute = {
   speedMetersPerSecond: number
   phaseMeters: number
   motion?: { progress: number; speed: number }
+  signals?: readonly TrafficSignalStop[]
   scale: number
 }
 
@@ -1940,6 +1943,8 @@ export class Cityscape {
   private kenneyCarGeometries: KenneyCarGeometryPack | null = null
   private trafficRoutes: TrafficRoute[] = []
   private trafficTime = 0
+  private trafficSignals = createTrafficSignalIndex([])
+  getTrafficClock() { return this.trafficTime }
   private neighborhoodTurn:NeighborhoodTurn|null=null
   private turnMotion={progress:0,speed:0}
   setNeighborhoodTurn(j:NeighborhoodTurn|null){
@@ -2344,6 +2349,7 @@ export class Cityscape {
   // Advance the beacon strobe. Called once per frame from the render loop.
   update(deltaSeconds: number) {
     this.beaconTime.value += deltaSeconds
+    this.trafficTime += Math.max(0, deltaSeconds)
     this.updateTraffic(deltaSeconds)
   }
 
@@ -2354,7 +2360,6 @@ export class Cityscape {
       return
     }
 
-    this.trafficTime += deltaSeconds
     const junction=this.neighborhoodTurn
     const snapshot=this.getTrafficPositions()
     const ordinary=junction?snapshot.slice(0,-1):snapshot
@@ -2381,14 +2386,16 @@ export class Cityscape {
     const leaderGaps = new Map<number,number>()
     this.trafficRoutes.forEach((r,index) => {
       if(junction&&index===this.trafficRoutes.length-1)return
-      const key=[r.kind,r.laneAzimuth,r.laneAxial,r.surfaceRadius,r.direction].join(':')
+      const key=[r.kind,r.laneAzimuth,r.laneAxial,r.surfaceRadius,r.direction,r.spanStart,r.spanLength].join(':')
       const progress=THREE.MathUtils.euclideanModulo(r.motion?.progress??r.phaseMeters,r.spanLength)
-      const along=(r.direction===1?r.spanStart+progress:r.spanStart+r.spanLength-progress)*r.direction
+      const period = r.kind === 'street' ? Math.min(r.spanLength, fullTurn * this.radius) : r.spanLength
+      const along=THREE.MathUtils.euclideanModulo((r.direction===1?r.spanStart+progress:r.spanStart+r.spanLength-progress)*r.direction,period)
       const lane=lanes.get(key)??[];lane.push({index,along});lanes.set(key,lane)
     })
     for(const lane of lanes.values()){
-      lane.sort((a,b)=>a.along-b.along)
-      for(let i=0;i<lane.length-1;i++)leaderGaps.set(lane[i].index,Math.max(0,lane[i+1].along-lane[i].along-2))
+      const route = this.trafficRoutes[lane[0].index]
+      const period = route.kind === 'street' ? Math.min(route.spanLength, fullTurn * this.radius) : route.spanLength
+      fillLaneLeaderGaps(lane, period, leaderGaps)
     }
 
     for (let index = 0; index < this.trafficRoutes.length; index += 1) {
@@ -2415,6 +2422,11 @@ export class Cityscape {
         gap = Math.min(gap, crossingGap(this.crossingGate, this.radius, route.kind,
           route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth+previousAlong/this.radius,
           route.kind === 'avenue' ? previousAlong : route.laneAxial, route.direction))
+      }
+      if (!isTurn && this.radius - route.surfaceRadius < 1) {
+        gap = Math.min(gap, trafficSignalGap(route.signals ?? [], route.kind, previousAlong,
+          route.direction, route.motion.speed, this.trafficTime,
+          route.kind === 'street' && route.spanLength >= fullTurn * this.radius - 1 ? fullTurn * this.radius : 0))
       }
       route.motion = advanceTraffic(route.motion, deltaSeconds, route.speedMetersPerSecond, gap)
       const progress = THREE.MathUtils.euclideanModulo(route.motion.progress, route.spanLength)
@@ -2558,6 +2570,7 @@ export class Cityscape {
     this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
     this.cityPlanRoads = plan.roads
     this.cityPlan = plan
+    this.trafficSignals = createTrafficSignalIndex(this.habitatType === 'ring' ? [] : plan.intersections)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.roads, radius)
@@ -2956,6 +2969,7 @@ export class Cityscape {
     this.cityPlanRoads = []
     this.cityPlan = null
     this.trafficRoutes = []
+    this.trafficSignals = createTrafficSignalIndex([])
     this.cityExpressway = null
 
     if (this.expresswayGroup !== null) {
@@ -3703,7 +3717,7 @@ export class Cityscape {
       spanStart: number
       spanLength: number
     }
-    const candidates: Candidate[] = []
+    let candidates: Candidate[] = []
     let totalSpan = 0
 
     for (const road of this.cityPlanRoads) {
@@ -3745,18 +3759,22 @@ export class Cityscape {
           continue
         }
 
-        // Arc metres relative to the road's centre azimuth.
+        // A full-circle road includes a small mesh overlap at its seam. The
+        // cars repeat after one actual circumference, not after that overlap.
+        const spanLength = Math.min(road.tangentWidth, fullTurn * this.radius)
         candidates.push({
           road,
           isAvenue,
-          spanStart: -road.tangentWidth * 0.5,
-          spanLength: road.tangentWidth
+          spanStart: -spanLength * 0.5,
+          spanLength
         })
       }
 
       totalSpan += candidates[candidates.length - 1].spanLength
     }
 
+    candidates = mergeTrafficRoadSpans(candidates)
+    totalSpan = candidates.reduce((sum, candidate) => sum + candidate.spanLength, 0)
     if (candidates.length === 0 || totalSpan <= 0) {
       for (const mesh of fleet) {
         mesh.count = 0
@@ -3817,6 +3835,7 @@ export class Cityscape {
         1,
         Math.round((this.maxTraffic * candidate.spanLength) / totalSpan)
       )
+      const signals = routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength)
 
       for (let i = 0; i < share && count < this.maxTraffic; i += 1) {
         const direction = random() < 0.5 ? 1 : -1
@@ -3839,6 +3858,7 @@ export class Cityscape {
           direction,
           speedMetersPerSecond: candidate.road.kind === 'local' ? 5 + random() * 3 : 8 + random() * 5,
           phaseMeters: random() * candidate.spanLength,
+          signals,
           scale: 0.97 + random() * 0.06,
           })
 

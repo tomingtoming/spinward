@@ -209,7 +209,7 @@ bench-link boot, the temporary introduction also obscures part of the seat.
 These visual limits remain documented rather than expanding into a character
 art overhaul. Next: cross-cutting input interruption and navigation reliability.
 
-## Eleventh increment — input interruption and keyboard focus (02:55)
+## Eleventh increment — input interruption and keyboard focus (02:52)
 
 Lost key/pointer releases on window blur, page hiding or field focus now cancel
 desktop movement, touch stick/jump/brake and queued jump/throw/drive intent.
@@ -228,3 +228,36 @@ all pass with no page errors. A released accelerator lets the rover slow from
 about 11.1 to 8.2–8.7 m/s rather than imposing a brake or retaining the throttle.
 These are browser-delivered interruption events, not a mobile OS lifecycle test.
 Next: connect junction signals to ambient traffic and survey the resulting flow.
+
+## Twelfth increment — signal-controlled street traffic (03:29)
+
+Both axes of arterial junctions now have correctly facing three-lens signal
+heads, a shared 32-second vehicle/render clock, alternating green/amber phases,
+all-red clearance and painted approach stop lines. Ordinary ground traffic
+brakes before those lines and resumes on green; nearby cars can clear on amber.
+The 2.7 m centre setback also clears the longest 5 m truck's scaled nose.
+Existing instanced batches carry the extra arms/lenses/paint without new lights.
+Empty-plan switches now clear the previous intersection instances.
+
+Natural-flow observation caught two cars overlapping near block boundaries:
+contiguous avenue artwork was being treated as independent short repeating
+routes. Continuous same-width/profile spans now form one route, lane following
+also respects the repeating endpoint, and circular roads exclude the artwork's
+seam overlap from their travel length. Real road gaps remain separate.
+
+737 tests and the production build pass. Eight controlled day/night, road-axis
+and direction cases stop at 2.7 m and travel about 8.1 m after green. Independent
+image review verifies attached signal heads and readable painted lines; exact
+motion/distances come from runtime probes. Two 85-second normal-fleet probes
+(420 desktop Izma / 120 phone-tier Cooper vehicles) detect 22 line entries,
+zero red entries, zero overlaps and matching lamp/traffic clocks. Minimum
+observed same-lane centre gaps are 5.2 / 10.58 m. The pedestrian crossing has
+zero unsafe samples and the priority-turn regression waits/releases correctly.
+The older crossing probe also logs unrelated analytics CORS/HTTP errors; the
+new signal and turn probes have no page errors. These are sampled local runs,
+not full traffic-network or target-hardware certification. Player rovers remain
+manually driven; the authored neighbourhood turn keeps its existing yield rules.
+
+Next: make everyday places reachable from the normal travel controls and repair
+keyboard menus and travel while driving. Dropdown source work is prepared but
+excluded from this traffic commit.

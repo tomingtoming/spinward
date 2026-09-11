@@ -1507,6 +1507,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardWalkers = streetWalkers
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
+    ;(window as unknown as Record<string, unknown>).__spinwardIntersections = intersectionFurniture
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,
@@ -2261,11 +2262,6 @@ export const bootstrapApp = async () => {
         ? playerTraversal.groundHeight + 1.8
         : habitatConfig.radius - Math.hypot(playerFixedColliderPosition.x, playerFixedColliderPosition.z)
     )
-    intersectionFurniture.update(
-      drive.driving ? drive.surface.azimuth : playerAzimuth,
-      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
-      deltaSeconds
-    )
     parkedCars.setPack(cityscape.getKenneyCarPack())
     parkedCars.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
@@ -2739,6 +2735,12 @@ export const bootstrapApp = async () => {
       altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
       drive.driving ? { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition } : null)
     cityscape.update(deltaSeconds)
+    intersectionFurniture.update(
+      drive.driving ? drive.surface.azimuth : playerAzimuth,
+      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
+      deltaSeconds,
+      cityscape.getTrafficClock()
+    )
     // Aviation beacons: keep them at least ~1.3 CSS px in radius however far
     // they are (the far-side towers are 6 km up). In XR the drawing buffer is
     // the per-eye framebuffer, so its height is the right denominator there.
