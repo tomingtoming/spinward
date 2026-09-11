@@ -80,6 +80,84 @@
   {
     "model": "office",
     "building": {
+      "azimuth": -0.29964561371645765,
+      "axial": -135.9079448992427,
+      "width": 24.220406283947195,
+      "depth": 37.28900807805604,
+      "height": 43.8653306498521,
+      "tone": 0.07232485061332697,
+      "kind": "setback",
+      "urban": 0.49795643431190517,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.23318413301493024,
+        "tangentExtent": 24.538184240376882,
+        "axialExtent": 37.75537634408587
+      },
+      "access": {
+        "roadId": "road-908",
+        "roadIndex": 908,
+        "entrance": {
+          "azimuth": -0.29964561371645765,
+          "axial": -117.26344086021467
+        },
+        "roadEdge": {
+          "azimuth": -0.29964561371645765,
+          "axial": -115.26344086021467
+        },
+        "width": 2,
+        "length": 2
+      }
+    },
+    "offsetZ": 1.8855968103839515
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.33425465650662917,
+      "axial": 1155.9214845232243,
+      "width": 21.276767117389287,
+      "depth": 34.286063211619336,
+      "height": 42.553534234778574,
+      "tone": 0.39308108119132956,
+      "kind": "block",
+      "urban": 0.4950642850673337,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.2513232329001767,
+        "tangentExtent": 22.471517573709253,
+        "axialExtent": 38.78870967741969
+      },
+      "access": {
+        "roadId": "road-920",
+        "roadIndex": 920,
+        "entrance": {
+          "azimuth": -0.33425465650662917,
+          "axial": 1173.064516129034
+        },
+        "roadEdge": {
+          "azimuth": -0.33425465650662917,
+          "axial": 1175.064516129034
+        },
+        "width": 2,
+        "length": 2.0000000000000426
+      }
+    },
+    "offsetZ": 0.3841243771655982
+  },
+  {
+    "model": "office",
+    "building": {
       "azimuth": -0.33425465650662917,
       "axial": 1414.1510692459378,
       "width": 22.496530837653314,
@@ -159,6 +237,84 @@
     "model": "residential",
     "building": {
       "azimuth": -0.2628490709262862,
+      "axial": -882.4514523294091,
+      "width": 24.201901381058562,
+      "depth": 36.187850895378794,
+      "height": 47.52664993846049,
+      "tone": 0.8241540200133235,
+      "kind": "setback",
+      "urban": 0.6949577101821057,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.7837627243537781,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.755376344086336
+      },
+      "access": {
+        "roadId": "road-1222",
+        "roadIndex": 1222,
+        "entrance": {
+          "azimuth": -0.2628490709262862,
+          "axial": -864.3575268817198
+        },
+        "roadEdge": {
+          "azimuth": -0.2628490709262862,
+          "axial": -862.3575268817198
+        },
+        "width": 2,
+        "length": 1.9999999999999467
+      }
+    },
+    "offsetZ": 1.3486174595646965
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.2628490709262862,
+      "axial": -554.0225097110911,
+      "width": 24.445298216359433,
+      "depth": 37.41061082003546,
+      "height": 48,
+      "tone": 0.9637385536832126,
+      "kind": "block",
+      "urban": 0.6949035839705268,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.1723827620251086,
+        "tangentExtent": 24.538184240376996,
+        "axialExtent": 37.75537634408588
+      },
+      "access": {
+        "roadId": "road-1225",
+        "roadIndex": 1225,
+        "entrance": {
+          "azimuth": -0.2628490709262862,
+          "axial": -535.3172043010734
+        },
+        "roadEdge": {
+          "azimuth": -0.2628490709262862,
+          "axial": -533.3172043010734
+        },
+        "width": 2,
+        "length": 2.000000000000057
+      }
+    },
+    "offsetZ": 1.9599974218930285
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.2628490709262862,
       "axial": -193.4527338462665,
       "width": 22.60033133746522,
       "depth": 36.64829574832565,
@@ -193,6 +349,162 @@
       }
     },
     "offsetZ": 1.578839886038125
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.2282400281361147,
+      "axial": -29.501665284753464,
+      "width": 22.942984722400773,
+      "depth": 33.5033305695069,
+      "height": 45.885969444801546,
+      "tone": 0.5942188316477041,
+      "kind": "block",
+      "urban": 0.694248845578034,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.1260228872894835,
+        "tangentExtent": 24.538184240376996,
+        "axialExtent": 37.75537634408587
+      },
+      "access": {
+        "roadId": "road-77",
+        "roadIndex": 77,
+        "entrance": {
+          "azimuth": -0.2282400281361147,
+          "axial": -12.750000000000014
+        },
+        "roadEdge": {
+          "azimuth": -0.2282400281361147,
+          "axial": -9.75
+        },
+        "width": 2,
+        "length": 3.000000000000014
+      }
+    },
+    "offsetZ": 0.006357296628749509
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.2282400281361147,
+      "axial": 298.5048586394446,
+      "width": 23.35095468567544,
+      "depth": 35.57092788240612,
+      "height": 46.70190937135088,
+      "tone": 0.8453099410620774,
+      "kind": "setback",
+      "urban": 0.6935881220387154,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.092224230840145,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.75537634408635
+      },
+      "access": {
+        "roadId": "road-78",
+        "roadIndex": 78,
+        "entrance": {
+          "azimuth": -0.2282400281361147,
+          "axial": 316.2903225806476
+        },
+        "roadEdge": {
+          "azimuth": -0.2282400281361147,
+          "axial": 318.2903225806476
+        },
+        "width": 2,
+        "length": 1.9999999999999751
+      }
+    },
+    "offsetZ": 1.026556712558989
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.2282400281361147,
+      "axial": 1475.7730279570012,
+      "width": 21.26141605471616,
+      "depth": 37.16362150535631,
+      "height": 42.52283210943232,
+      "tone": 0.0038272680257976214,
+      "kind": "setback",
+      "urban": 0.6874176599172341,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.8125440860314939,
+        "tangentExtent": 22.471517573710162,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-1238",
+        "roadIndex": 1238,
+        "entrance": {
+          "azimuth": -0.2282400281361147,
+          "axial": 1494.3548387096794
+        },
+        "roadEdge": {
+          "azimuth": -0.2282400281361147,
+          "axial": 1496.3548387096791
+        },
+        "width": 2,
+        "length": 1.9999999999997833
+      }
+    },
+    "offsetZ": 1.8229035240340856
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.2282400281361147,
+      "axial": 1795.3409942198969,
+      "width": 21.47533456870447,
+      "depth": 35.941667474186126,
+      "height": 42.95066913740894,
+      "tone": 0.6162906965744427,
+      "kind": "block",
+      "urban": 0.684365252925665,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.1901877682832946,
+        "tangentExtent": 23.404850907043556,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1241",
+        "roadIndex": 1241,
+        "entrance": {
+          "azimuth": -0.2282400281361147,
+          "axial": 1813.3118279569899
+        },
+        "roadEdge": {
+          "azimuth": -0.2282400281361147,
+          "axial": 1815.3118279569899
+        },
+        "width": 2,
+        "length": 1.9999999999999538
+      }
+    },
+    "offsetZ": 1.2119265084489932
   },
   {
     "model": "office",
@@ -236,6 +548,45 @@
   {
     "model": "office",
     "building": {
+      "azimuth": -0.19335754784594317,
+      "axial": -1308.5875877994492,
+      "width": 22.283010450532004,
+      "depth": 36.85259495373947,
+      "height": 44.56602090106401,
+      "tone": 0.8547317173459408,
+      "kind": "block",
+      "urban": 0.8673569444400827,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.9680573618400103,
+        "tangentExtent": 24.221517573710162,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-73",
+        "roadIndex": 73,
+        "entrance": {
+          "azimuth": -0.19335754784594317,
+          "axial": -1290.1612903225796
+        },
+        "roadEdge": {
+          "azimuth": -0.19335754784594317,
+          "axial": -1288.1612903225796
+        },
+        "width": 2,
+        "length": 1.9999999999999147
+      }
+    },
+    "offsetZ": 1.667390248225665
+  },
+  {
+    "model": "office",
+    "building": {
       "azimuth": -0.15820163005577167,
       "axial": -1583.1251542348955,
       "width": 23.354955882594936,
@@ -271,6 +622,45 @@
       }
     },
     "offsetZ": 1.5675514396840349
+  },
+  {
+    "model": "commercial",
+    "building": {
+      "azimuth": -0.19335754784594317,
+      "axial": -1202.1431934154061,
+      "width": 23.23114408670168,
+      "depth": 38.15735457274929,
+      "height": 46.46228817340336,
+      "tone": 0.3215587817415499,
+      "kind": "setback",
+      "urban": 0.8695035299475427,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.31567755233504613,
+        "tangentExtent": 24.221517573710162,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-1517",
+        "roadIndex": 1517,
+        "entrance": {
+          "azimuth": -0.19335754784594317,
+          "axial": -1183.0645161290315
+        },
+        "roadEdge": {
+          "azimuth": -0.19335754784594317,
+          "axial": -1181.0645161290315
+        },
+        "width": 2,
+        "length": 1.999999999999968
+      }
+    },
+    "offsetZ": 0.6988643319664085
   },
   {
     "model": "residential",
@@ -310,6 +700,45 @@
       }
     },
     "offsetZ": 0.25120338005246623
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.19335754784594317,
+      "axial": -778.0347249529182,
+      "width": 24.366983705061983,
+      "depth": 36.381277862828455,
+      "height": 45.005947692692295,
+      "tone": 0.31055906282518037,
+      "kind": "setback",
+      "urban": 0.8707888340517934,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.6870492406288804,
+        "tangentExtent": 26.288184240376086,
+        "axialExtent": 37.755376344086336
+      },
+      "access": {
+        "roadId": "road-1521",
+        "roadIndex": 1521,
+        "entrance": {
+          "azimuth": -0.19335754784594317,
+          "axial": -759.8440860215039
+        },
+        "roadEdge": {
+          "azimuth": -0.19335754784594317,
+          "axial": -757.8440860215038
+        },
+        "width": 2,
+        "length": 2.000000000000128
+      }
+    },
+    "offsetZ": 1.4453309432895267
   },
   {
     "model": "office",
@@ -390,6 +819,45 @@
     "offsetZ": 0.7161072284478252
   },
   {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.15820163005577167,
+      "axial": 405.1217178339558,
+      "width": 24.650556006066793,
+      "depth": 34.19742454714629,
+      "height": 49.301112012133586,
+      "tone": 0.5417173538686981,
+      "kind": "setback",
+      "urban": 0.8693087737379884,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.0623092318031127,
+        "tangentExtent": 25.15485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1526",
+        "roadIndex": 1526,
+        "entrance": {
+          "azimuth": -0.15820163005577167,
+          "axial": 422.22043010752895
+        },
+        "roadEdge": {
+          "azimuth": -0.15820163005577167,
+          "axial": 424.22043010752895
+        },
+        "width": 2,
+        "length": 1.9999999999999964
+      }
+    },
+    "offsetZ": 0.3534042854484447
+  },
+  {
     "model": "office",
     "building": {
       "azimuth": -0.19335754784594317,
@@ -466,6 +934,45 @@
       }
     },
     "offsetZ": 0.0705200296645323
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.15820163005577167,
+      "axial": 1155.8793775252118,
+      "width": 22.57593467957191,
+      "depth": 34.37027720764458,
+      "height": 45.15186935914382,
+      "tone": 0.44376372183760715,
+      "kind": "lshape",
+      "urban": 0.8649874009152846,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.2092162348876627,
+        "tangentExtent": 24.221517573709367,
+        "axialExtent": 38.78870967741969
+      },
+      "access": {
+        "roadId": "road-1530",
+        "roadIndex": 1530,
+        "entrance": {
+          "azimuth": -0.15820163005577167,
+          "axial": 1173.064516129034
+        },
+        "roadEdge": {
+          "azimuth": -0.15820163005577167,
+          "axial": 1175.064516129034
+        },
+        "width": 2,
+        "length": 1.999999999999936
+      }
+    },
+    "offsetZ": 0.42623137517821874
   },
   {
     "model": "office",
@@ -663,6 +1170,45 @@
     "offsetZ": 1.381171404173596
   },
   {
+    "model": "office",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": -986.4097398533105,
+      "width": 22.447543887522112,
+      "depth": 35.077544222749474,
+      "height": 44.895087775044225,
+      "tone": 0.8182095977985788,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.8555827273347631,
+        "tangentExtent": 22.47151757371039,
+        "axialExtent": 38.78870967741919
+      },
+      "access": {
+        "roadId": "road-74",
+        "roadIndex": 74,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": -968.8709677419357
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": -966.8709677419356
+        },
+        "width": 2,
+        "length": 2.00000000000016
+      }
+    },
+    "offsetZ": 0.7798648827306671
+  },
+  {
     "model": "residential",
     "building": {
       "azimuth": -0.1233191497656002,
@@ -700,6 +1246,45 @@
       }
     },
     "offsetZ": 0.23155310663400286
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": -881.459708365516,
+      "width": 24.693540681978398,
+      "depth": 34.20436296759253,
+      "height": 49.387081363956796,
+      "tone": 0.13694441554531092,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.7755066882468782,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.755376344086336
+      },
+      "access": {
+        "roadId": "road-1828",
+        "roadIndex": 1828,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": -864.3575268817198
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": -862.3575268817198
+        },
+        "width": 2,
+        "length": 1.9999999999999787
+      }
+    },
+    "offsetZ": 0.35687349567156446
   },
   {
     "model": "office",
@@ -819,6 +1404,240 @@
     "offsetZ": 1.615977231498185
   },
   {
+    "model": "office",
+    "building": {
+      "azimuth": -0.08871010697542873,
+      "axial": -449.5842945633051,
+      "width": 22.324085425136232,
+      "depth": 37.561062244892916,
+      "height": 44.648170850272464,
+      "tone": 0.1601844563056213,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.09715704959648974,
+        "tangentExtent": 24.538184240376996,
+        "axialExtent": 37.75537634408586
+      },
+      "access": {
+        "roadId": "road-1832",
+        "roadIndex": 1832,
+        "entrance": {
+          "azimuth": -0.08871010697542873,
+          "axial": -430.80376344085863
+        },
+        "roadEdge": {
+          "azimuth": -0.08871010697542873,
+          "axial": -428.8037634408587
+        },
+        "width": 2,
+        "length": 1.9999999999999467
+      }
+    },
+    "offsetZ": 2.0216238938023885
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": -239.67015682952618,
+      "width": 22.947989209359633,
+      "depth": 35.78655021819368,
+      "height": 45.89597841871927,
+      "tone": 0.5387680149960257,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.9844130629460892,
+        "tangentExtent": 24.538184240376996,
+        "axialExtent": 37.75537634408586
+      },
+      "access": {
+        "roadId": "road-1834",
+        "roadIndex": 1834,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": -221.77688172042934
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": -219.77688172042934
+        },
+        "width": 2,
+        "length": 1.999999999999993
+      }
+    },
+    "offsetZ": 1.1479671209721403
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": -134.98325447329407,
+      "width": 23.904304381226428,
+      "depth": 35.43962722615876,
+      "height": 47.808608762452856,
+      "tone": 0.7734781673116325,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.157874558963556,
+        "tangentExtent": 24.538184240376996,
+        "axialExtent": 37.75537634408587
+      },
+      "access": {
+        "roadId": "road-1835",
+        "roadIndex": 1835,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": -117.26344086021469
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": -115.26344086021467
+        },
+        "width": 2,
+        "length": 2.000000000000014
+      }
+    },
+    "offsetZ": 0.9609063844353116
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": 510.54296257450574,
+      "width": 22.88278638881938,
+      "depth": 35.215150119809074,
+      "height": 45.76557277763876,
+      "tone": 0.4632307473717329,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.5534464454717067,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1838",
+        "roadIndex": 1838,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": 528.1505376344103
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": 530.1505376344103
+        },
+        "width": 2,
+        "length": 2.0000000000000107
+      }
+    },
+    "offsetZ": 0.8622670717798364
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.08871010697542873,
+      "axial": 404.4163404110341,
+      "width": 21.3114601668488,
+      "depth": 35.60817939298965,
+      "height": 42.6229203336976,
+      "tone": 0.8691480846305257,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.356931808881427,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1837",
+        "roadIndex": 1837,
+        "entrance": {
+          "azimuth": -0.08871010697542873,
+          "axial": 422.22043010752895
+        },
+        "roadEdge": {
+          "azimuth": -0.08871010697542873,
+          "axial": 424.22043010752895
+        },
+        "width": 2,
+        "length": 2.0000000000000036
+      }
+    },
+    "offsetZ": 1.0451824678507542
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.08871010697542873,
+      "axial": 509.6118477848197,
+      "width": 21.685625386215822,
+      "depth": 37.07737969918111,
+      "height": 43.371250772431644,
+      "tone": 0.1296651033055189,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.622331655785672,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1838",
+        "roadIndex": 1838,
+        "entrance": {
+          "azimuth": -0.08871010697542873,
+          "axial": 528.1505376344103
+        },
+        "roadEdge": {
+          "azimuth": -0.08871010697542873,
+          "axial": 530.1505376344103
+        },
+        "width": 2,
+        "length": 2.0000000000000284
+      }
+    },
+    "offsetZ": 1.7797826209464844
+  },
+  {
     "model": "residential",
     "building": {
       "azimuth": -0.08871010697542873,
@@ -856,6 +1675,45 @@
       }
     },
     "offsetZ": 0.27867544558923285
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": 835.1246557612374,
+      "width": 23.453918846713766,
+      "depth": 35.63240890763389,
+      "height": 46.90783769342753,
+      "tone": 0.8340572858774237,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.344817051559403,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1841",
+        "roadIndex": 1841,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": 852.9408602150543
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": 854.9408602150543
+        },
+        "width": 2,
+        "length": 1.9999999999999645
+      }
+    },
+    "offsetZ": 1.0708964656922433
   },
   {
     "model": "office",
@@ -900,6 +1758,45 @@
     "model": "office",
     "building": {
       "azimuth": -0.08871010697542873,
+      "axial": 728.6160810159844,
+      "width": 21.622186033156474,
+      "depth": 36.789343344377215,
+      "height": 43.24437206631295,
+      "tone": 0.06375451131345576,
+      "kind": "lshape",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.7663498331877463,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1840",
+        "roadIndex": 1840,
+        "entrance": {
+          "azimuth": -0.08871010697542873,
+          "axial": 747.0107526881729
+        },
+        "roadEdge": {
+          "azimuth": -0.08871010697542873,
+          "axial": 749.0107526881729
+        },
+        "width": 2,
+        "length": 1.9999999999999574
+      }
+    },
+    "offsetZ": 1.635764443544538
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.08871010697542873,
       "axial": 775.4855302070024,
       "width": 22.294398725515453,
       "depth": 36.94955503765897,
@@ -934,6 +1831,162 @@
       }
     },
     "offsetZ": 1.7158702901854141
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": 1048.03702906821,
+      "width": 22.105299826979547,
+      "depth": 35.86142573454977,
+      "height": 44.21059965395909,
+      "tone": 0.28294073517502766,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.4636419714349813,
+        "tangentExtent": 22.471517573709367,
+        "axialExtent": 38.78870967741969
+      },
+      "access": {
+        "roadId": "road-1843",
+        "roadIndex": 1843,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1065.9677419354848
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1067.9677419354848
+        },
+        "width": 2,
+        "length": 2.0000000000000213
+      }
+    },
+    "offsetZ": 1.1718056386308149
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": 1369.9125338497406,
+      "width": 22.001582902541408,
+      "depth": 34.69106133278135,
+      "height": 44.003165805082816,
+      "tone": 0.821037637959476,
+      "kind": "setback",
+      "urban": 0.9981112036153061,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.048824172318973,
+        "tangentExtent": 22.471517573710276,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-1846",
+        "roadIndex": 1846,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1387.2580645161313
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1389.2580645161313
+        },
+        "width": 2,
+        "length": 2.0000000000000107
+      }
+    },
+    "offsetZ": 0.5866234377466064
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.08871010697542873,
+      "axial": 1584.0245072856692,
+      "width": 22.431654274814893,
+      "depth": 34.85421123511598,
+      "height": 44.863308549629785,
+      "tone": 0.8682259451291119,
+      "kind": "setback",
+      "urban": 0.9981112036153061,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.9672492211516328,
+        "tangentExtent": 22.471517573710276,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-82",
+        "roadIndex": 82,
+        "entrance": {
+          "azimuth": -0.08871010697542873,
+          "axial": 1601.4516129032272
+        },
+        "roadEdge": {
+          "azimuth": -0.08871010697542873,
+          "axial": 1603.4516129032272
+        },
+        "width": 2,
+        "length": 2.0000000000000355
+      }
+    },
+    "offsetZ": 0.6681983889139218
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": -0.1233191497656002,
+      "axial": 1688.2510202382005,
+      "width": 23.498643790724763,
+      "depth": 38.26140038381624,
+      "height": 42.556961765885156,
+      "tone": 0.3293826706543059,
+      "kind": "block",
+      "urban": 0.9927862727876442,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.03032131346822098,
+        "tangentExtent": 23.40485090704367,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-1849",
+        "roadIndex": 1849,
+        "entrance": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1707.3817204301085
+        },
+        "roadEdge": {
+          "azimuth": -0.1233191497656002,
+          "axial": 1709.3817204301085
+        },
+        "width": 2,
+        "length": 1.9999999999999716
+      }
+    },
+    "offsetZ": 2.371792963264049
   },
   {
     "model": "residential",
@@ -973,6 +2026,45 @@
       }
     },
     "offsetZ": 1.9877449875771411
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.01939436514508575,
+      "axial": -1630.1852717562097,
+      "width": 21.47755474150716,
+      "depth": 37.46731770597233,
+      "height": 42.95510948301432,
+      "tone": 0.11707103930345528,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.4273626523904568,
+        "tangentExtent": 21.279850907042817,
+        "axialExtent": 38.32204301075299
+      },
+      "access": {
+        "roadId": "road-72",
+        "roadIndex": 72,
+        "entrance": {
+          "azimuth": 0.01939436514508575,
+          "axial": -1611.4516129032236
+        },
+        "roadEdge": {
+          "azimuth": 0.01939436514508575,
+          "axial": -1609.4516129032236
+        },
+        "width": 2,
+        "length": 1.9999999999999183
+      }
+    },
+    "offsetZ": 1.974751624342094
   },
   {
     "model": "office",
@@ -1094,6 +2186,45 @@
   {
     "model": "office",
     "building": {
+      "azimuth": 0.01939436514508575,
+      "axial": -29.888773122317648,
+      "width": 22.281012893749043,
+      "depth": 34.27754624463527,
+      "height": 44.56202578749809,
+      "tone": 0.2223078581090802,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.7389150497252999,
+        "tangentExtent": 22.413184240377074,
+        "axialExtent": 37.75537634408587
+      },
+      "access": {
+        "roadId": "road-77",
+        "roadIndex": 77,
+        "entrance": {
+          "azimuth": 0.01939436514508575,
+          "axial": -12.750000000000014
+        },
+        "roadEdge": {
+          "azimuth": 0.01939436514508575,
+          "axial": -9.75
+        },
+        "width": 2,
+        "length": 3.000000000000014
+      }
+    },
+    "offsetZ": 0.37986589367356416
+  },
+  {
+    "model": "office",
+    "building": {
       "azimuth": 0.05333934543525725,
       "axial": -298.53117350836305,
       "width": 21.43277128395964,
@@ -1129,6 +2260,45 @@
       }
     },
     "offsetZ": 1.0002418436368465
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.01939436514508575,
+      "axial": 193.46459413186088,
+      "width": 21.313089827043278,
+      "depth": 36.624575177141786,
+      "height": 42.626179654086556,
+      "tone": 0.4738886764910744,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.5654005834722966,
+        "tangentExtent": 22.413184240376086,
+        "axialExtent": 37.75537634408636
+      },
+      "access": {
+        "roadId": "road-2524",
+        "roadIndex": 2524,
+        "entrance": {
+          "azimuth": 0.01939436514508575,
+          "axial": 211.77688172043176
+        },
+        "roadEdge": {
+          "azimuth": 0.01939436514508575,
+          "axial": 213.77688172043176
+        },
+        "width": 2,
+        "length": 1.9999999999999893
+      }
+    },
+    "offsetZ": 1.5533803599268232
   },
   {
     "model": "office",
@@ -1172,6 +2342,123 @@
   {
     "model": "office",
     "building": {
+      "azimuth": 0.05333934543525725,
+      "axial": 941.0241125102713,
+      "width": 21.46216067379107,
+      "depth": 35.69371046332857,
+      "height": 42.92432134758214,
+      "tone": 0.39101055110595434,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.314166273711976,
+        "tangentExtent": 21.279850907043784,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-80",
+        "roadIndex": 80,
+        "entrance": {
+          "azimuth": 0.05333934543525725,
+          "axial": 958.8709677419356
+        },
+        "roadEdge": {
+          "azimuth": 0.05333934543525725,
+          "axial": 960.8709677419356
+        },
+        "width": 2,
+        "length": 2.0000000000000497
+      }
+    },
+    "offsetZ": 1.087948003020216
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.08761635697542874,
+      "axial": -1736.4726686258039,
+      "width": 23.369303331622042,
+      "depth": 38.18189639139529,
+      "height": 46.738606663244084,
+      "tone": 0.4169738081789049,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.07007330967894632,
+        "tangentExtent": 23.404850907042874,
+        "axialExtent": 38.32204301075299
+      },
+      "access": {
+        "roadId": "road-2820",
+        "roadIndex": 2820,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1717.3817204301063
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1715.381720430106
+        },
+        "width": 2,
+        "length": 2.000000000000174
+      }
+    },
+    "offsetZ": 2.332040967053576
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.08761635697542874,
+      "axial": -1630.22697963457,
+      "width": 21.43522353048478,
+      "depth": 37.55073346269281,
+      "height": 42.87044706096956,
+      "tone": 0.7099165920424081,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.3856547740301721,
+        "tangentExtent": 23.404850907042874,
+        "axialExtent": 38.32204301075299
+      },
+      "access": {
+        "roadId": "road-72",
+        "roadIndex": 72,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1611.4516129032236
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1609.4516129032236
+        },
+        "width": 2,
+        "length": 1.999999999999961
+      }
+    },
+    "offsetZ": 2.016459502702336
+  },
+  {
+    "model": "office",
+    "building": {
       "azimuth": 0.12222539976560025,
       "axial": -1689.8722599791463,
       "width": 23.406695559448057,
@@ -1207,6 +2494,45 @@
       }
     },
     "offsetZ": 0.750553222315741
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": -1628.9048425833143,
+      "width": 23.025790298126314,
+      "depth": 34.90645936018169,
+      "height": 46.05158059625263,
+      "tone": 0.7978607764928277,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.7077918252857671,
+        "tangentExtent": 23.404850907042874,
+        "axialExtent": 38.32204301075299
+      },
+      "access": {
+        "roadId": "road-72",
+        "roadIndex": 72,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": -1611.4516129032236
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": -1609.4516129032236
+        },
+        "width": 2,
+        "length": 1.9999999999999254
+      }
+    },
+    "offsetZ": 0.7079216919661455
   },
   {
     "model": "office",
@@ -1329,6 +2655,84 @@
     "model": "office",
     "building": {
       "azimuth": 0.08761635697542874,
+      "axial": -1092.7449902180254,
+      "width": 22.326428185959166,
+      "depth": 33.55449656508394,
+      "height": 44.65285637191833,
+      "tone": 0.923912432027029,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.617106556167755,
+        "tangentExtent": 22.47151757371039,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-2826",
+        "roadIndex": 2826,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1075.9677419354834
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": -1073.9677419354837
+        },
+        "width": 2,
+        "length": 1.9999999999997087
+      }
+    },
+    "offsetZ": 0.018341053897898973
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": -1201.2532577283632,
+      "width": 21.71137714931556,
+      "depth": 36.377483198663214,
+      "height": 43.42275429863112,
+      "tone": 0.20629371125397591,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.2056132393779535,
+        "tangentExtent": 22.47151757371039,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-2825",
+        "roadIndex": 2825,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": -1183.0645161290315
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": -1181.0645161290315
+        },
+        "width": 2,
+        "length": 2.0000000000000995
+      }
+    },
+    "offsetZ": 1.4298343706875372
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.08761635697542874,
       "axial": -941.0982283141263,
       "width": 22.75572084772593,
       "depth": 35.5454788556185,
@@ -1363,6 +2767,84 @@
       }
     },
     "offsetZ": 1.0138321991651793
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": 0.08761635697542874,
+      "axial": -883.0527183699267,
+      "width": 24.568808931763588,
+      "depth": 37.39038297641379,
+      "height": 49.137617863527176,
+      "tone": 0.6429298069893685,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.1824966838362343,
+        "tangentExtent": 24.5381842403762,
+        "axialExtent": 37.755376344086336
+      },
+      "access": {
+        "roadId": "road-2828",
+        "roadIndex": 2828,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": -864.3575268817198
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": -862.3575268817198
+        },
+        "width": 2,
+        "length": 1.999999999999993
+      }
+    },
+    "offsetZ": 1.9498835000821941
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": 0.08761635697542874,
+      "axial": -778.3932681896639,
+      "width": 22.51206744526295,
+      "depth": 37.09836433631987,
+      "height": 45.0241348905259,
+      "tone": 0.8803449298442213,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.3285060038831489,
+        "tangentExtent": 24.5381842403762,
+        "axialExtent": 37.755376344086336
+      },
+      "access": {
+        "roadId": "road-2829",
+        "roadIndex": 2829,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": -759.8440860215039
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": -757.8440860215038
+        },
+        "width": 2,
+        "length": 2.0000000000001528
+      }
+    },
+    "offsetZ": 1.8038741800352334
   },
   {
     "model": "office",
@@ -1402,6 +2884,45 @@
       }
     },
     "offsetZ": 1.5630600403329744
+  },
+  {
+    "model": "commercial",
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": -240.29071593406908,
+      "width": 23.751888854186998,
+      "depth": 37.02766842727947,
+      "height": 47.503777708373995,
+      "tone": 0.5960408124597838,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.36385395840318324,
+        "tangentExtent": 24.53818424037711,
+        "axialExtent": 37.75537634408586
+      },
+      "access": {
+        "roadId": "road-2834",
+        "roadIndex": 2834,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": -221.77688172042934
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": -219.77688172042934
+        },
+        "width": 2,
+        "length": 2.0000000000000036
+      }
+    },
+    "offsetZ": 0.1340212592314991
   },
   {
     "model": "residential",
@@ -1524,6 +3045,45 @@
     "model": "residential",
     "building": {
       "azimuth": 0.12222539976560025,
+      "axial": 89.82330807340799,
+      "width": 23.544141336275846,
+      "depth": 34.88026557361579,
+      "height": 47.08828267255169,
+      "tone": 0.9946170402678235,
+      "kind": "block",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.4375553852352851,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.75537634408636
+      },
+      "access": {
+        "roadId": "road-2837",
+        "roadIndex": 2837,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": 107.26344086021588
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": 109.26344086021588
+        },
+        "width": 2,
+        "length": 2
+      }
+    },
+    "offsetZ": 0.694824798683193
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": 0.12222539976560025,
       "axial": 239.98879536995952,
       "width": 24.39649267357614,
       "depth": 36.42382729905553,
@@ -1641,6 +3201,84 @@
     "model": "office",
     "building": {
       "azimuth": 0.08761635697542874,
+      "axial": 615.6851882982091,
+      "width": 22.726873628000995,
+      "depth": 36.79091372616483,
+      "height": 45.45374725600199,
+      "tone": 0.06550960477104169,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.7655646422938389,
+        "tangentExtent": 23.404850907043784,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-79",
+        "roadIndex": 79,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": 634.0806451612916
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": 636.5806451612916
+        },
+        "width": 2,
+        "length": 2.500000000000057
+      }
+    },
+    "offsetZ": 1.636549634438346
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": 509.5043897936797,
+      "width": 21.828250756018946,
+      "depth": 37.292295681461205,
+      "height": 43.65650151203789,
+      "tone": 0.7405135712447841,
+      "kind": "setback",
+      "urban": 1,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.5148736646456769,
+        "tangentExtent": 23.404850907043784,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-2841",
+        "roadIndex": 2841,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": 528.1505376344103
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": 530.1505376344103
+        },
+        "width": 2,
+        "length": 1.9999999999999751
+      }
+    },
+    "offsetZ": 1.8872406120865328
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.08761635697542874,
       "axial": 880.5109129865964,
       "width": 22.187238657346658,
       "depth": 35.14010554308426,
@@ -1719,6 +3357,84 @@
     "model": "office",
     "building": {
       "azimuth": 0.08761635697542874,
+      "axial": 1475.9832997388773,
+      "width": 21.568034627306098,
+      "depth": 36.74307794160405,
+      "height": 43.136069254612195,
+      "tone": 0.7139325867672294,
+      "kind": "lshape",
+      "urban": 0.9998371533887396,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.0228158679076387,
+        "tangentExtent": 22.47151757371039,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-2850",
+        "roadIndex": 2850,
+        "entrance": {
+          "azimuth": 0.08761635697542874,
+          "axial": 1494.3548387096794
+        },
+        "roadEdge": {
+          "azimuth": 0.08761635697542874,
+          "axial": 1496.3548387096791
+        },
+        "width": 2,
+        "length": 1.999999999999769
+      }
+    },
+    "offsetZ": 1.612631742157955
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.12222539976560025,
+      "axial": 1475.9285629510027,
+      "width": 21.630251330029605,
+      "depth": 36.852551517353284,
+      "height": 43.26050266005921,
+      "tone": 0.4224037927161911,
+      "kind": "block",
+      "urban": 0.9998371533887396,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.9680790800330215,
+        "tangentExtent": 22.47151757371039,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-2850",
+        "roadIndex": 2850,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": 1494.3548387096794
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": 1496.3548387096791
+        },
+        "width": 2,
+        "length": 1.999999999999769
+      }
+    },
+    "offsetZ": 1.6673685300325722
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.08761635697542874,
       "axial": 1628.7687176292172,
       "width": 22.27376049437806,
       "depth": 34.63420945197987,
@@ -1758,6 +3474,45 @@
     "model": "office",
     "building": {
       "azimuth": 0.12222539976560025,
+      "axial": 1688.3592294694286,
+      "width": 22.73401264223876,
+      "depth": 38.04498192136017,
+      "height": 45.46802528447752,
+      "tone": 0.5505590761430932,
+      "kind": "block",
+      "urban": 0.9944972118204033,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.13853054469632298,
+        "tangentExtent": 23.404850907043784,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-2852",
+        "roadIndex": 2852,
+        "entrance": {
+          "azimuth": 0.12222539976560025,
+          "axial": 1707.3817204301085
+        },
+        "roadEdge": {
+          "azimuth": 0.12222539976560025,
+          "axial": 1709.3817204301085
+        },
+        "width": 2,
+        "length": 1.999999999999904
+      }
+    },
+    "offsetZ": 2.2635837320360146
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.12222539976560025,
       "axial": 1735.3669346023041,
       "width": 21.363370272245596,
       "depth": 35.97042834439133,
@@ -1792,6 +3547,45 @@
       }
     },
     "offsetZ": 1.2263069435515952
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.15902194255577176,
+      "axial": -552.1418874694706,
+      "width": 24.120885102842504,
+      "depth": 33.64936633679456,
+      "height": 48,
+      "tone": 0.6181753169787525,
+      "kind": "block",
+      "urban": 0.8699728472815456,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.0530050036455805,
+        "tangentExtent": 24.538184240377053,
+        "axialExtent": 37.75537634408588
+      },
+      "access": {
+        "roadId": "road-3148",
+        "roadIndex": 3148,
+        "entrance": {
+          "azimuth": 0.15902194255577176,
+          "axial": -535.3172043010733
+        },
+        "roadEdge": {
+          "azimuth": 0.15902194255577176,
+          "axial": -533.3172043010733
+        },
+        "width": 2,
+        "length": 2.0000000000000355
+      }
+    },
+    "offsetZ": 0.06577593975320895
   },
   {
     "model": "residential",
@@ -1913,6 +3707,123 @@
   {
     "model": "residential",
     "building": {
+      "azimuth": 0.15902194255577176,
+      "axial": 89.00906595452243,
+      "width": 24.48323777369432,
+      "depth": 36.508749811386906,
+      "height": 48.96647554738864,
+      "tone": 0.6615407158763941,
+      "kind": "setback",
+      "urban": 0.8688955360303242,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.6233132663497258,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.75537634408636
+      },
+      "access": {
+        "roadId": "road-3154",
+        "roadIndex": 3154,
+        "entrance": {
+          "azimuth": 0.15902194255577176,
+          "axial": 107.26344086021588
+        },
+        "roadEdge": {
+          "azimuth": 0.15902194255577176,
+          "axial": 109.26344086021588
+        },
+        "width": 2,
+        "length": 2
+      }
+    },
+    "offsetZ": 1.5090669175687523
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.19363098534594325,
+      "axial": 194.1878710834976,
+      "width": 23.326869237911218,
+      "depth": 35.178021273868296,
+      "height": 46.653738475822436,
+      "tone": 0.6293416571871707,
+      "kind": "setback",
+      "urban": 0.8688955360303242,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.2886775351090307,
+        "tangentExtent": 24.538184240376086,
+        "axialExtent": 37.75537634408636
+      },
+      "access": {
+        "roadId": "road-3155",
+        "roadIndex": 3155,
+        "entrance": {
+          "azimuth": 0.19363098534594325,
+          "axial": 211.77688172043176
+        },
+        "roadEdge": {
+          "azimuth": 0.19363098534594325,
+          "axial": 213.77688172043176
+        },
+        "width": 2,
+        "length": 2
+      }
+    },
+    "offsetZ": 0.8301034082900784
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.19363098534594325,
+      "axial": 833.8027021145559,
+      "width": 21.95961219375728,
+      "depth": 38.27631620099667,
+      "height": 43.91922438751456,
+      "tone": 0.7143853394580971,
+      "kind": "block",
+      "urban": 0.8663012017604402,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -0.022863404877966786,
+        "tangentExtent": 23.404850907043556,
+        "axialExtent": 38.32204301075254
+      },
+      "access": {
+        "roadId": "road-3161",
+        "roadIndex": 3161,
+        "entrance": {
+          "azimuth": 0.19363098534594325,
+          "axial": 852.9408602150543
+        },
+        "roadEdge": {
+          "azimuth": 0.19363098534594325,
+          "axial": 854.9408602150543
+        },
+        "width": 2,
+        "length": 2.0000000000000107
+      }
+    },
+    "offsetZ": 2.379250871854264
+  },
+  {
+    "model": "residential",
+    "building": {
       "azimuth": 0.19363098534594325,
       "axial": 879.9440641715736,
       "width": 22.66082023076416,
@@ -1952,6 +3863,162 @@
   {
     "model": "office",
     "building": {
+      "azimuth": 0.15902194255577173,
+      "axial": 1047.9641512545936,
+      "width": 21.20404258719446,
+      "depth": 36.00718136178227,
+      "height": 42.40808517438892,
+      "tone": 0.3651038912043683,
+      "kind": "lshape",
+      "urban": 0.8637323611485792,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.390764157818694,
+        "tangentExtent": 22.471517573709367,
+        "axialExtent": 38.78870967741969
+      },
+      "access": {
+        "roadId": "road-3163",
+        "roadIndex": 3163,
+        "entrance": {
+          "azimuth": 0.15902194255577173,
+          "axial": 1065.9677419354848
+        },
+        "roadEdge": {
+          "azimuth": 0.15902194255577173,
+          "axial": 1067.9677419354848
+        },
+        "width": 2,
+        "length": 2.000000000000057
+      }
+    },
+    "offsetZ": 1.2446834522470667
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.19363098534594325,
+      "axial": 1048.8249419060016,
+      "width": 21.3487210339307,
+      "depth": 34.285600058966445,
+      "height": 42.6974420678614,
+      "tone": 0.24726796807890478,
+      "kind": "setback",
+      "urban": 0.8637323611485792,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.251554809226718,
+        "tangentExtent": 22.471517573709253,
+        "axialExtent": 38.78870967741969
+      },
+      "access": {
+        "roadId": "road-3163",
+        "roadIndex": 3163,
+        "entrance": {
+          "azimuth": 0.19363098534594325,
+          "axial": 1065.9677419354848
+        },
+        "roadEdge": {
+          "azimuth": 0.19363098534594325,
+          "axial": 1067.9677419354848
+        },
+        "width": 2,
+        "length": 1.9999999999999467
+      }
+    },
+    "offsetZ": 0.38389280083915267
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.26366938342628626,
+      "axial": -1522.1912957619504,
+      "width": 22.704383283017304,
+      "depth": 35.67291410455004,
+      "height": 45.40876656603461,
+      "tone": 0.6293074452852149,
+      "kind": "block",
+      "urban": 0.6917694948666407,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.5578977864347507,
+        "tangentExtent": 24.221517573710162,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-3441",
+        "roadIndex": 3441,
+        "entrance": {
+          "azimuth": 0.26366938342628626,
+          "axial": -1504.3548387096755
+        },
+        "roadEdge": {
+          "azimuth": 0.26366938342628626,
+          "axial": -1502.3548387096755
+        },
+        "width": 2,
+        "length": 1.9999999999998899
+      }
+    },
+    "offsetZ": 1.0775498236309495
+  },
+  {
+    "model": "residential",
+    "building": {
+      "azimuth": 0.26366938342628626,
+      "axial": -1414.5240153761388,
+      "width": 23.016012797027432,
+      "depth": 34.53190172002256,
+      "height": 46.032025594054865,
+      "tone": 0.7585230238639105,
+      "kind": "setback",
+      "urban": 0.6917694948666407,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -2.1284039786983158,
+        "tangentExtent": 24.221517573710162,
+        "axialExtent": 38.788709677419234
+      },
+      "access": {
+        "roadId": "road-3442",
+        "roadIndex": 3442,
+        "entrance": {
+          "azimuth": 0.26366938342628626,
+          "axial": -1397.2580645161274
+        },
+        "roadEdge": {
+          "azimuth": 0.26366938342628626,
+          "axial": -1395.2580645161277
+        },
+        "width": 2,
+        "length": 1.9999999999998366
+      }
+    },
+    "offsetZ": 0.5206428718865794
+  },
+  {
+    "model": "office",
+    "building": {
       "azimuth": 0.26366938342628626,
       "axial": -942.1060726532612,
       "width": 26.182987014439867,
@@ -1987,6 +4054,45 @@
       }
     },
     "offsetZ": 0.0059878600302738505
+  },
+  {
+    "model": "office",
+    "building": {
+      "azimuth": 0.22851346563611474,
+      "axial": -552.7443615307931,
+      "width": 24.11899914170813,
+      "depth": 34.85431445943968,
+      "height": 44.53592026256156,
+      "tone": 0.28426107701013353,
+      "kind": "block",
+      "urban": 0.6934315225224931,
+      "oldTown": 0,
+      "front": {
+        "axis": "axial",
+        "side": 1
+      },
+      "parcel": {
+        "tangentOffset": 0,
+        "axialOffset": -1.4505309423230983,
+        "tangentExtent": 26.288184240376996,
+        "axialExtent": 37.75537634408588
+      },
+      "access": {
+        "roadId": "road-3450",
+        "roadIndex": 3450,
+        "entrance": {
+          "azimuth": 0.22851346563611474,
+          "axial": -535.3172043010733
+        },
+        "roadEdge": {
+          "azimuth": 0.22851346563611474,
+          "axial": -533.3172043010733
+        },
+        "width": 2,
+        "length": 1.9999999999999574
+      }
+    },
+    "offsetZ": 0.6682500010757693
   },
   {
     "model": "office",

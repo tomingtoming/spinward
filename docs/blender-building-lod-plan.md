@@ -939,3 +939,28 @@ samples do not establish hardware headroom or physical mobile/XR performance.
 The desktop and phone-profile visit checks pass with no JavaScript errors.
 Full suite remains 664 passed / zero failed; build passes with the existing
 chunk-size warning. Local changes only; no publishing.
+
+## Both street sides: 112 buildings (2026-09-11)
+
+Added 54 opposite-facing lots, for 112 buildings in the desktop plan and 68
+in the phone plan. The previous 58 placements and family choices remain intact.
+The search region and original metre-scale models are unchanged. The expansion
+script now accepts both sides of axial roads; circumferential-facing streets
+remain outside this pass.
+
+Render placement rotates the local across/front axes together by 180 degrees.
+Structural collision, courtyard clearance, camera-distance coordinates and
+shell footprints follow the same frontage side. Exact-lot lookup also checks
+frontage direction, preventing a different-facing lot from reusing the contract.
+The new regression exercises open approaches on both street sides and rejects
+an orientation mismatch. All 665 tests pass; build passes with the existing
+chunk warning. `city-block-facing.mjs` captures the nearest opposite-facing
+residential, office and commercial entrances in automatic LOD mode.
+
+The 400m comparison view reports 211 total draws for 112 buildings, with the
+same 48 geometries and three serialized requests. The six-second expanded
+sample measured median 16.7ms, p95 16.8ms and maximum 16.8ms (approximately
+60fps). The three-building baseline had a single 50ms interval; this comparison
+is not evidence that expansion improves frame time. Desktop and phone-profile
+visits complete without JavaScript errors. Physical-device performance and
+continuous walking over the full district remain unmeasured. Local only.

@@ -45,8 +45,8 @@ export class AuthoredCityBlock {
             const group = new THREE.Group();
             group.name = 'block-' + spec.id;
             group.position.set(Math.cos(b.azimuth) * radius, b.axial, Math.sin(b.azimuth) * radius);
-            const a=b.azimuth;
-            group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)),new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),new THREE.Vector3(0,-1,0)));
+            const a=b.azimuth,side=b.front?.side??-1;
+            group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a)),new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),new THREE.Vector3(0,side,0)));
             this.group.add(group);
             const e: Entry = { spec, group, levels: Array.from({ length: 4 }, () => new THREE.Group()), lod: 3, fades: Array.from({ length: 4 }, () => ({ value: 1 })), inverse: Array.from({ length: 4 }, () => ({ value: 0 })), transition: null, asset: false };
             e.levels.forEach((g, i) => { g.name = spec.id + '-level-' + i; group.add(g); });
