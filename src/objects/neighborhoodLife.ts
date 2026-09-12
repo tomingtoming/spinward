@@ -161,8 +161,7 @@ export class NeighborhoodLife {
    }
    if(this.phase==='waiting'){
     this.waiting+=step
-    const traffic=this.city.getTrafficPositions().filter(v=>v.height<1)
-    if(car)traffic.push({...car,height:0})
+    const traffic=[...this.city.getTrafficPositions().filter(v=>v.height<1),...(car?[{...car,height:0}]:[])]
     const clear=traffic.every(v=>{
      const t=wrap(v.azimuth-c.azimuth)*this.radius,a=v.axial-c.axial
      return Math.abs(c.axis==='axial'?t:a)>c.halfWidth+2||Math.abs(c.axis==='axial'?a:t)>4+Math.abs(v.speed)*2.2

@@ -282,3 +282,29 @@ bottoms are not judged from these images; metric geometry and live attachment
 matrices are checked separately by the unit/desktop probes. This adds exterior
 scenery, not a new traversable balcony or seat interaction. Native Quest
 rendering, performance and comfort remain unverified.
+
+## Riverside traffic — 2026-09-13
+
+`river-traffic.xr.mjs` enters through the actual Menu/VR route on the bridge,
+with the Quest city budget and 64mm stereo. It waits for ordinary traffic to
+arrive, without relocating a vehicle or advancing the city clock. At head roll
+0/±25°, the real car instance must agree with its road pose, remain inside the
+camera and fleet budget, and advance between captures. The measured movement
+was about 5.25m at 5.2m road height. The two 1280×960 eye views, 2560×960 canvas
+and screenshot metadata must agree with the active session. Exit uses that
+session's cursor and ID.
+
+The complete playwright-webxr 0.2.0 suite passed **eight tests, ten immersive
+sessions and ten exits** in 2.6 minutes, including wrist/controller interaction,
+exit/re-entry, balconies, river terrain, roofs, skyline and the rainy underpass.
+Hardware preflight: Apple M1 Pro / ANGLE Metal, Chrome 152.0.7977.83. The served
+production build stayed fixed throughout. Full-suite evidence is retained in
+`qa/webxr/evidence/river-traffic-20260913/` (ignored).
+
+Independent full-image and equal-scale crop review found the car in both eyes
+at all three rolls, with no obvious floating, road penetration, guardrail
+intrusion or opposite roll. Bridges, paths and railings remained present.
+Separate wrist images from the same suite retain the PLACES panel, labels and
+Courtyard selection through the three rolls. Exact tyre contact and every
+intermediate frame are not established by these images. Native Quest rendering,
+frame rate and comfort remain unverified.

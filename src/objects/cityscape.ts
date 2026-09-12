@@ -1,5 +1,6 @@
 import { planExpresswayRainRoofs, sampleRainShelter, type RainArcRoof, type RainRoof } from './rainShelter'
 import { RiverDistrictLayer } from './riverDistrict'
+import {planRiverTraffic, sampleRiverTraffic, trafficFollowingGap, riverTrafficYieldGap, type RiverTrafficLoop} from './riverTraffic'
 import { planRiverDistrict, sampleRiverRoad, type RiverDistrict } from './riverDistrictPlan'
 import {buildingRoofAttachment} from './buildingRoofAttachment'
 import {ColonyBuildings} from './colonyBuildings'
@@ -197,6 +198,7 @@ const buildUtilityPoleGeometry = () => {
 
 // Everything update() needs to place one car, precomputed at assignment time.
 type TrafficRoute = {
+  path?: RiverTrafficLoop
   id: string
   variant: number
   color: number
@@ -592,6 +594,7 @@ export class Cityscape {
   private readonly riverLayer = new RiverDistrictLayer(this.group)
   private readonly riverBuildings = new ColonyBuildings(this.group)
   private riverDistrict: RiverDistrict | null = null
+  private riverTraffic: RiverTrafficLoop | null = null
   private interiorRainSource: readonly RainRoof[] | null = null
   private combinedRainRoofs: readonly RainRoof[] = []
   private rainArcs: RainArcRoof[] = []
@@ -889,10 +892,12 @@ export class Cityscape {
   getTrafficPositions() {
     return this.trafficRoutes.map((route,index) => {
       if(this.neighborhoodTurn&&index===this.trafficRoutes.length-1)return {...sampleNeighborhoodTurn(this.neighborhoodTurn,this.turnMotion.progress),speed:this.turnMotion.speed}
+      if(route.path)return {...sampleRiverTraffic(route.path,route.motion?.progress??route.phaseMeters),speed:route.motion?.speed??0}
       const progress = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)
       const along = route.direction === 1 ? route.spanStart + progress : route.spanStart + route.spanLength - progress
       return { azimuth: route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth + along / this.radius,
-        axial: route.kind === 'avenue' ? along : route.laneAxial, height: this.radius-route.surfaceRadius, speed: route.motion?.speed ?? 0 }
+        axial: route.kind === 'avenue' ? along : route.laneAxial, heading:route.kind==='avenue'?(route.direction===1?0:Math.PI):route.direction*Math.PI/2,
+        height: this.radius-route.surfaceRadius, speed: route.motion?.speed ?? 0 }
     })
   }
   private cityPlanRoads: CityRoad[] = []
@@ -1171,6 +1176,7 @@ export class Cityscape {
 
     const junction=this.neighborhoodTurn
     const snapshot=this.getTrafficPositions()
+    const riverCars=snapshot.filter((_,i)=>!!this.trafficRoutes[i].path)
     const ordinary=junction?snapshot.slice(0,-1):snapshot
     const majorBusy=junction?junctionMajorBusy(junction,ordinary):false
     if(junction){
@@ -1215,7 +1221,13 @@ export class Cityscape {
       const previousAlong = route.direction === 1 ? route.spanStart + previous : route.spanStart + route.spanLength - previous
       let gap = leaderGaps.get(index) ?? Infinity
       const isTurn=!!junction&&index===this.trafficRoutes.length-1
-      if(junction&&!isTurn&&this.radius-route.surfaceRadius<1){
+      if(route.path){
+        const others=snapshot.filter((_,i)=>i!==index)
+        gap=Math.min(gap,trafficFollowingGap(snapshot[index],others,this.radius),riverTrafficYieldGap(route.path,route.motion.progress,others))
+      }else if(!isTurn){
+        gap=Math.min(gap,trafficFollowingGap(snapshot[index],riverCars,this.radius))
+      }
+      if(junction&&!isTurn&&!route.path&&this.radius-route.surfaceRadius<1){
         const own=snapshot[index],turn=sampleNeighborhoodTurn(junction,this.turnMotion.progress)
         const dx=wrapAngleToPi(turn.azimuth-own.azimuth)*this.radius,dz=turn.axial-own.axial
         const along=(route.kind==='avenue'?dz:dx)*route.direction,across=route.kind==='avenue'?dx:dz
@@ -1228,17 +1240,18 @@ export class Cityscape {
           if(ahead>junction.halfWidth+3.2&&(majorBusy||turnInJunction))gap=Math.min(gap,ahead-junction.halfWidth)
         }
       }
-      if (this.crossingGate && this.radius-route.surfaceRadius < 1) {
+      if (!route.path && this.crossingGate && this.radius-route.surfaceRadius < 1) {
         gap = Math.min(gap, crossingGap(this.crossingGate, this.radius, route.kind,
           route.kind === 'avenue' ? route.laneAzimuth : route.laneAzimuth+previousAlong/this.radius,
           route.kind === 'avenue' ? previousAlong : route.laneAxial, route.direction))
       }
-      if (!isTurn && this.radius - route.surfaceRadius < 1) {
+      if (!isTurn && !route.path && this.radius - route.surfaceRadius < 1) {
         gap = Math.min(gap, trafficSignalGap(route.signals ?? [], route.kind, previousAlong,
           route.direction, route.motion.speed, this.trafficTime,
           route.kind === 'street' && route.spanLength >= fullTurn * this.radius - 1 ? fullTurn * this.radius : 0))
       }
-      route.motion = advanceTraffic(route.motion, deltaSeconds, route.speedMetersPerSecond, gap)
+      const cruise=route.path?sampleRiverTraffic(route.path,route.motion.progress).cruise:route.speedMetersPerSecond
+      route.motion = advanceTraffic(route.motion, deltaSeconds, cruise, gap)
       const progress = THREE.MathUtils.euclideanModulo(route.motion.progress, route.spanLength)
       // Direction -1 runs the same span backwards, so both lanes wrap without
       // ever reversing mid-road.
@@ -1260,6 +1273,8 @@ export class Cityscape {
 
       const turn=isTurn?sampleNeighborhoodTurn(junction!,this.turnMotion.progress):null
       if(turn){azimuth=turn.azimuth;axial=turn.axial}
+      const river=route.path?sampleRiverTraffic(route.path,route.motion.progress):null
+      if(river){azimuth=river.azimuth;axial=river.axial}
       const cos = Math.cos(azimuth)
       const sin = Math.sin(azimuth)
       inward.set(-cos, 0, -sin)
@@ -1271,12 +1286,17 @@ export class Cityscape {
       }
 
       if(turn)trafficForward.set(-sin*Math.sin(turn.heading),Math.cos(turn.heading),cos*Math.sin(turn.heading))
+      if(river){
+        trafficForward.set(-sin*Math.sin(river.heading),Math.cos(river.heading),cos*Math.sin(river.heading))
+        trafficForward.multiplyScalar(Math.cos(river.slope)).addScaledVector(inward,Math.sin(river.slope))
+      }
       // Right-handed car frame: X = up × forward, Y = up (toward the axis),
       // Z = travel direction (the kit's nose).
-      trafficRight.copy(inward).cross(trafficForward)
+      trafficRight.copy(inward).cross(trafficForward).normalize()
+      if(river)inward.copy(trafficForward).cross(trafficRight).normalize()
       basis.makeBasis(trafficRight, inward, trafficForward)
       instanceQuaternion.setFromRotationMatrix(basis)
-      instancePosition.set(cos, 0, sin).multiplyScalar(turn?this.radius-.2:route.surfaceRadius).setY(axial)
+      instancePosition.set(cos, 0, sin).multiplyScalar(river?this.radius-river.height:turn?this.radius-.2:route.surfaceRadius).setY(axial)
       instanceScale.setScalar(route.scale)
       instanceMatrix.compose(instancePosition, instanceQuaternion, instanceScale)
       const variant = route.variant % fleet.length
@@ -1351,6 +1371,7 @@ export class Cityscape {
       topology: this.topology
     })
     this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
+    this.riverTraffic = planRiverTraffic(this.riverDistrict, plan, radius)
     if (this.riverDistrict) {
       const p = this.riverDistrict
       plan.patches = plan.patches.filter(patch => patch !== p.patch)
@@ -1679,6 +1700,7 @@ export class Cityscape {
     this.oldTownBlock.clear()
     this.riverLayer.clear()
     this.riverDistrict = null
+    this.riverTraffic = null
     this.interiorRainSource = null
     this.combinedRainRoofs = []
     this.rainArcs = []
@@ -1976,6 +1998,7 @@ export class Cityscape {
     const previousPositions = this.getTrafficPositions()
     const previousRoutes = new Map(this.trafficRoutes.map(r => [r.id, r]))
     const previouslyVisible = this.trafficRoutes.flatMap((route, index) => {
+      if(route.path)return []
       if (this.neighborhoodTurn && index === this.trafficRoutes.length - 1) return []
       const position = previousPositions[index]
       const distance = Math.hypot(wrapAngleToPi(position.azimuth - this.cityFocusAzimuth) * this.radius, position.axial - this.cityFocusAxial)
@@ -2208,10 +2231,33 @@ export class Cityscape {
     }
     // Keep existing traffic first. A newly visible/recycled car can wait for
     // another refresh rather than appear inside a moving car or stopped queue.
+    const loop=this.riverTraffic
+    if(loop&&Math.hypot(wrapAngleToPi(loop.azimuth-this.cityFocusAzimuth)*this.radius,loop.axial+200-this.cityFocusAxial)<800){
+      const budget=Math.min(3,Math.floor(this.maxTraffic/16))
+      for(let i=0;i<budget;i++){
+        let replace=-1,farthest=200
+        this.trafficRoutes.forEach((r,index)=>{if(r===pilot||r.path)return;const d=distanceFromFocus(r);if(d>farthest){farthest=d;replace=index}})
+        if(replace<0)break
+        const id=`river-loop:${i}`,previous=previousRoutes.get(id)
+        this.trafficRoutes[replace]={id,path:loop,variant:2,color:0x879596,kind:'avenue',laneAzimuth:loop.azimuth,laneAxial:loop.axial,
+          spanStart:0,spanLength:loop.length,surfaceRadius:this.radius-.2,direction:1,speedMetersPerSecond:5,
+          phaseMeters:loop.length*i/budget,motion:previous?.motion,scale:1}
+      }
+    }
     const occupiedLanes = new Map<string, number[]>(), admitted = new Set<TrafficRoute>()
+    const positions=this.getTrafficPositions(),spawnPositions=new Map(this.trafficRoutes.map((route,i)=>[route,positions[i]]))
     const spawnOrder = [...this.trafficRoutes].sort((a, b) => Number(!!b.motion) - Number(!!a.motion))
     for (const route of spawnOrder) {
       if (route === pilot) { admitted.add(route); continue }
+      if(!route.motion){
+        const own=spawnPositions.get(route)!
+        const blocked=this.trafficRoutes.some(other=>{
+          if(other===route||(!route.path&&!other.path))return false
+          const p=spawnPositions.get(other)!
+          return Math.abs(own.height-p.height)<1&&Math.hypot(wrapAngleToPi(own.azimuth-p.azimuth)*this.radius,own.axial-p.axial)<6.2
+        })
+        if(blocked)continue
+      }
       const key = [route.kind, route.laneAzimuth, route.laneAxial, route.surfaceRadius, route.direction, route.spanStart, route.spanLength].join(':')
       const lane = occupiedLanes.get(key) ?? []
       const progress = THREE.MathUtils.euclideanModulo(route.motion?.progress ?? route.phaseMeters, route.spanLength)

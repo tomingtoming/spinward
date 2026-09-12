@@ -16,6 +16,21 @@ const wrap = (x: number) => Math.atan2(Math.sin(x), Math.cos(x))
 export const riverCentre = (y: number) => 9 * Math.sin(y / 62)
 export const riverWalkHeight = (y: number) => 1.2 + 3.8 * clamp((Math.abs(y) - 50) / 45)
 
+/** The shared centreline drives pavement and traffic in the district's metric frame. */
+export function riverRoadGeometry(p: RiverDistrict, radius: number) {
+  const [west,east]=p.connections
+  const left=wrap(west.azimuth-p.azimuth)*radius+west.tangentWidth/2
+  const right=wrap(east.azimuth-p.azimuth)*radius-east.tangentWidth/2
+  const grade=(x:number)=>5*clamp((x<0?x-left:right-x)/(x<0?-72-left:right-72))
+  const point=(x:number,offset:number,lift=.2):RiverPoint=>{
+    const edge=x<0?left:right,sign=x<0?1:-1,t=clamp((sign*(x-edge)-4)/20)
+    const y=t<1?.25*(edge+sign*24*t*t*(13/6-7*t/6)):.25*x
+    const angle=Math.atan(t<1?.3*(13*t/3-3.5*t*t):.25)
+    return [x-Math.sin(angle)*offset,y+Math.cos(angle)*offset,grade(x)+lift]
+  }
+  return {left,right,grade,point}
+}
+
 /** One undeveloped block, with both bridge approaches connected to real roads.
  * The pressure hull stays continuous; soil and the water channel sit above it.
  * No generated occupied parcel or through-road is removed to force a fit. */
@@ -109,16 +124,9 @@ export function planRiverDistrict(city: CityPlan, radius: number): RiverDistrict
       }
     }
   }
-  const left = wrap(west.azimuth - azimuth) * radius + west.tangentWidth / 2
-  const right = wrap(east.azimuth - azimuth) * radius - east.tangentWidth / 2
-  const grade = (x: number) => 5 * clamp((x < 0 ? x - left : right - x) / (x < 0 ? -72 - left : right - 72))
-  const bend = (x: number) => {
-    const edge=x<0?left:right,sign=x<0?1:-1,t=clamp((sign*(x-edge)-4)/20)
-    return {y:t<1?.25*(edge+sign*24*t*t*(13/6-7*t/6)):.25*x,slope:t<1?.3*(13*t/3-3.5*t*t):.25}
-  }
+  const {left,right,point:roadPoint}=riverRoadGeometry(p,radius)
   for(const [edge,sign] of [[left,1],[right,-1]]) p.sidewalkCuts.push({azimuth:azimuth+(edge+sign*2)/radius,axial:axial+.25*edge,tangentWidth:4.4,axialLength:7,kind:'local'})
   const c = Math.cos(RIVER_BRIDGE_YAW), s = Math.sin(RIVER_BRIDGE_YAW)
-  const roadPoint = (x: number, offset: number, lift: number): RiverPoint => {const b=bend(x),angle=Math.atan(b.slope);return [x-Math.sin(angle)*offset,b.y+Math.cos(angle)*offset,grade(x)+lift]}
   const n = Math.ceil((right - left) / 2)
   for (let i = 0; i < n; i++) {
     const a = left + i * (right - left) / n, b = left + (i + 1) * (right - left) / n
