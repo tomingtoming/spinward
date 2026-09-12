@@ -6,7 +6,6 @@ import { getControlScheme, type ControlPlatform, type ControlSection } from '../
 import {
   closeEverything,
   createDropdownChip,
-  hideBackdrop,
   registerClose,
   showBackdrop
 } from './dropdownLayer'
@@ -39,12 +38,6 @@ export type HudHandle = {
   destroy: () => void
   setVisible: (visible: boolean) => void
   update: (snapshot: HudSnapshot) => void
-  // Flash the CONTROL bindings card as if the user had hovered/tapped it. The
-  // app fires this once after the intro tour card fades (shown together they
-  // overlap and both become unreadable), which matters on touch — no hover
-  // means it is the only unprompted look at the bindings.
-  peekControls: () => void
-  dismissAutomaticControls: () => void
 }
 
 const makeChip = (className: string) => {
@@ -52,11 +45,6 @@ const makeChip = (className: string) => {
   chip.className = `hud-chip ${className}`
   return chip
 }
-
-// How long the CONTROL card and each dropdown's helper text stay up before
-// fading — long enough to read, short enough not to feel stuck.
-const CONTROLS_CARD_VISIBLE_MS = 5000
-const CONTROLS_CARD_FADE_MS = 400
 
 const makeControlsRow = (input: string, action: string) => {
   const row = document.createElement('div')
@@ -90,23 +78,25 @@ export const createHud = (
   // separate settings surface just to switch either one.
   onSelectPreset: (presetId: string) => void,
   onSelectProjectile: (projectile: ProjectileType) => void,
-  onSelectThrowStyle: (style: BallThrowStyle) => void
+  onSelectThrowStyle: (style: BallThrowStyle) => void,
+  slots: { status: HTMLElement; equipment: HTMLElement }
 ): HudHandle => {
   const root = document.createElement('div')
   // display:contents — the wrapper exists only so setVisible can hide the group.
   root.className = 'hud'
 
-  // CONTROL shows a compact bindings card for a few seconds then fades —
-  // never a click-to-open panel to navigate. Works the same on touch (tap)
-  // as on PC (hover or click); the app also flashes it once via peekControls
-  // after the intro card fades, so touch — which has no hover — gets a look.
   const controlsToggle = document.createElement('button')
   controlsToggle.className = 'dock-toggle'
-  controlsToggle.textContent = 'CONTROL'
+  controlsToggle.textContent = 'Controls'
+  controlsToggle.setAttribute('aria-expanded', 'false')
 
   const controlsCard = document.createElement('div')
   controlsCard.className = 'controls-card'
   controlsCard.hidden = true
+  controlsCard.id = 'controls-help'
+  controlsCard.setAttribute('role', 'dialog')
+  controlsCard.setAttribute('aria-label', 'Controls')
+  controlsToggle.setAttribute('aria-controls', controlsCard.id)
   const controlsCardSummary = document.createElement('div')
   controlsCardSummary.className = 'controls-card__summary'
   const controlsCardLeft = document.createElement('div')
@@ -116,12 +106,17 @@ export const createHud = (
   const controlsCardColumns = document.createElement('div')
   controlsCardColumns.className = 'controls-card__columns'
   controlsCardColumns.append(controlsCardLeft, controlsCardRight)
-  controlsCard.append(controlsCardSummary, controlsCardColumns)
+  const controlsHeader = document.createElement('div')
+  controlsHeader.className = 'controls-card__header'
+  const controlsTitle = document.createElement('h2')
+  controlsTitle.textContent = 'Controls'
+  const controlsClose = document.createElement('button')
+  controlsClose.textContent = '×'
+  controlsClose.setAttribute('aria-label', 'Close controls')
+  controlsHeader.append(controlsTitle, controlsClose)
+  controlsCard.append(controlsHeader, controlsCardSummary, controlsCardColumns)
 
   let controlsPlatform: ControlPlatform = 'pc'
-  let controlsAutomatic = false
-  let controlsFadeTimeout: ReturnType<typeof setTimeout> | null = null
-  let controlsHideTimeout: ReturnType<typeof setTimeout> | null = null
 
   const renderControlsCard = () => {
     const { summary, sections } = getControlScheme(controlsPlatform)
@@ -135,88 +130,51 @@ export const createHud = (
 
   renderControlsCard()
 
-  // Touch taps synthesize compatibility mouse events (mouseenter included)
-  // after the pointerup, aimed at whatever the closing tap uncovered — which
-  // is the CONTROL chip itself when the tap landed on the backdrop over it.
-  // Ignore hover peeks for a beat after any close so that ghost hover cannot
-  // undo the dismissal it belongs to.
-  let suppressHoverPeekUntil = 0
-
+  const controlsOwner = () => {
+    const owner = controlsToggle.closest<HTMLElement>('[data-popup-owner]')?.dataset.popupOwner
+    return (owner ? document.getElementById(owner) : null) ?? controlsToggle
+  }
   const hideControlsCardNow = () => {
-    if (controlsFadeTimeout !== null) {
-      clearTimeout(controlsFadeTimeout)
-      controlsFadeTimeout = null
-    }
-    if (controlsHideTimeout !== null) {
-      clearTimeout(controlsHideTimeout)
-      controlsHideTimeout = null
-    }
     controlsCard.hidden = true
-    controlsAutomatic = false
-    controlsCard.classList.remove('is-fading')
-    suppressHoverPeekUntil = performance.now() + 500
+    controlsToggle.setAttribute('aria-expanded', 'false')
   }
   const unregisterControlsClose = registerClose(hideControlsCardNow)
-
-  const peekControlsCard = (automatic = false) => {
-    controlsAutomatic = automatic
-    if (controlsFadeTimeout !== null) {
-      clearTimeout(controlsFadeTimeout)
-    }
-    if (controlsHideTimeout !== null) {
-      clearTimeout(controlsHideTimeout)
-      controlsHideTimeout = null
-    }
-
-    // The intro may peek this card while narrow-screen secondary controls are
-    // collapsed. Anchor to the dock instead of a hidden button's zero rect.
-    const rect = controlsToggle.getClientRects().length
-      ? controlsToggle.getBoundingClientRect()
-      : (root.closest('.dock') ?? root).getBoundingClientRect()
-    controlsCard.style.left = `${rect.left}px`
+  const openControls = (keyboard: boolean) => {
+    const rect = controlsOwner().getBoundingClientRect()
+    closeEverything()
+    window.dispatchEvent(new Event('spinward-ui-open'))
     controlsCard.style.bottom = `${window.innerHeight - rect.top + 8}px`
+    controlsCard.style.maxHeight = `${Math.max(80, rect.top - 16)}px`
     controlsCard.hidden = false
-    controlsCard.classList.remove('is-fading')
-
-    controlsFadeTimeout = setTimeout(() => {
-      controlsCard.classList.add('is-fading')
-      controlsHideTimeout = setTimeout(() => {
-        controlsCard.hidden = true
-        controlsCard.classList.remove('is-fading')
-        // A tap-opened card raised the backdrop; when the card times out on
-        // its own, take the backdrop down with it. No menu can be open here —
-        // opening one closes the card and clears these timers.
-        hideBackdrop()
-      }, CONTROLS_CARD_FADE_MS)
-    }, CONTROLS_CARD_VISIBLE_MS)
+    controlsCard.scrollTop = 0
+    controlsCard.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - controlsCard.getBoundingClientRect().width - 8))}px`
+    controlsToggle.setAttribute('aria-expanded', 'true')
+    showBackdrop()
+    if (keyboard) controlsClose.focus()
   }
-
-  // Toggle on pointerdown, same reasoning as the dropdown chips: a click
-  // handler would race the backdrop's closing pointerdown and reopen the card
-  // in the same tap. Press shows the card (and the backdrop, so tapping
-  // anywhere dismisses it instead of throwing); press again hides it.
-  controlsToggle.addEventListener('pointerdown', (event) => {
+  controlsToggle.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return
     event.stopPropagation()
     event.preventDefault()
-
-    if (!controlsCard.hidden) {
-      hideControlsCardNow()
-      hideBackdrop()
-      return
-    }
-
-    peekControlsCard()
-    showBackdrop()
+    openControls(false)
   })
-  // Hover keeps the lightweight peek — no backdrop, so mousing over CONTROL
-  // never steals the next click from the game.
-  controlsToggle.addEventListener('mouseenter', () => {
-    if (performance.now() < suppressHoverPeekUntil) {
-      return
-    }
-
-    peekControlsCard()
+  controlsToggle.addEventListener('click', event => {
+    if (event.detail !== 0) return
+    event.preventDefault()
+    openControls(true)
   })
+  controlsClose.onclick = () => { closeEverything(); controlsOwner().focus() }
+  const dismissControls = (event: KeyboardEvent) => {
+    if (controlsCard.hidden || event.key !== 'Escape') return
+    event.preventDefault(); event.stopPropagation()
+    closeEverything(); controlsOwner().focus()
+  }
+  const dismissControlsFocus = (event: FocusEvent) => {
+    if (!controlsCard.hidden && !controlsCard.contains(event.target as Node)) closeEverything()
+  }
+  document.addEventListener('keydown', dismissControls)
+  document.addEventListener('focusin', dismissControlsFocus)
+  window.addEventListener('resize', closeEverything)
 
   // The live "felt g" is the readout that actually moves as you play; the
   // nominal target g lives in the settings panel, so it is not duplicated as
@@ -227,8 +185,12 @@ export const createHud = (
     onSelectPreset
   )
 
-  // Secondary readouts — first to be dropped when the window gets narrow.
-  const feltChip = makeChip('hud-chip--metric')
+  // The felt measurement stays on screen; nominal settings live in Menu.
+  const feltChip = document.createElement('div')
+  feltChip.className = 'hud-live'
+  const feltValue = document.createElement('strong')
+  const feltLabel = document.createElement('span')
+  feltChip.append(feltValue, feltLabel)
   const spinChip = makeChip('hud-chip--metric')
   const modeChip = makeChip('')
   const ballsChip = makeChip('hud-chip--metric')
@@ -259,23 +221,26 @@ export const createHud = (
   root.append(
     controlsToggle,
     presetDropdown.chip,
-    feltChip,
     spinChip,
     modeChip,
     ballsChip,
-    projectileDropdown.chip,
-    throwStyleDropdown.chip,
     reattachChip
   )
   // Anchored above the bar and fixed-positioned, so the card lives on body,
   // not in the display:contents wrapper (the dropdown menus do the same, from
   // dropdownLayer).
   document.body.append(controlsCard)
-  mount.append(root)
+  mount.prepend(root)
+  slots.status.append(feltChip)
+  slots.equipment.append(projectileDropdown.chip, throwStyleDropdown.chip)
 
   return {
     destroy: () => {
       root.remove()
+      feltChip.remove()
+      document.removeEventListener('keydown', dismissControls)
+      document.removeEventListener('focusin', dismissControlsFocus)
+      window.removeEventListener('resize', closeEverything)
       controlsCard.remove()
       unregisterControlsClose()
       presetDropdown.destroy()
@@ -284,19 +249,11 @@ export const createHud = (
     },
     setVisible: (visible: boolean) => {
       root.hidden = !visible
+      feltChip.hidden = !visible
+      slots.equipment.hidden = !visible
       if (!visible) {
         closeEverything()
       }
-    },
-    peekControls: () => {
-      // A collapsed dock still offers the initial hint; a hidden HUD/XR dock
-      // does not. The card uses the dock anchor when CONTROL is folded away.
-      if (!root.hidden && root.closest('.dock')?.getClientRects().length) {
-        peekControlsCard(true)
-      }
-    },
-    dismissAutomaticControls: () => {
-      if (controlsAutomatic) hideControlsCardNow()
     },
     update: (snapshot) => {
       if (snapshot.platform !== controlsPlatform) {
@@ -310,10 +267,10 @@ export const createHud = (
       }
 
       const feltG = snapshot.feltGravity / EARTH_GRAVITY
-      feltChip.textContent =
-        snapshot.feltSpeed >= 0
-          ? `felt ${feltG.toFixed(2)} g · ${(snapshot.feltSpeed * 3.6).toFixed(0)} km/h`
-          : `felt ${feltG.toFixed(2)} g`
+      const value = snapshot.feltSpeed >= 0 ? `${(snapshot.feltSpeed * 3.6).toFixed(0)} km/h` : `${feltG.toFixed(2)} g`
+      const label = snapshot.feltSpeed >= 0 ? `${feltG.toFixed(2)} g felt` : 'felt gravity'
+      if (feltValue.textContent !== value) feltValue.textContent = value
+      if (feltLabel.textContent !== label) feltLabel.textContent = label
       spinChip.textContent = `ω ${snapshot.rpm.toFixed(2)} rpm`
       modeChip.textContent = snapshot.playerMode === 'grounded' ? 'grounded' : 'free-fly'
       modeChip.className = `hud-chip ${

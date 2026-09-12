@@ -2,7 +2,7 @@
 export function createCoffeeAction(onActivate: () => void, reservedBottom: () => number) {
   const root=document.createElement('button');root.className='coffee-action';root.type='button';root.hidden=true
   const style=document.createElement('style')
-  style.textContent=`.coffee-action{position:fixed;z-index:20;left:50%;transform:translateX(-50%);max-width:calc(100vw - 24px);padding:11px 18px;border:1px solid #c5a47799;border-radius:8px;background:#342a20ef;color:#f8ead1;font:500 14px system-ui;box-shadow:0 4px 20px #0005;cursor:pointer}.coffee-action[hidden]{display:none}.coffee-action:disabled{cursor:default;color:#dbcdb9}.coffee-action:focus-visible{outline:2px solid #eed4a7;outline-offset:3px}`
+  style.textContent=`.coffee-action{position:fixed;z-index:20;min-height:44px;box-sizing:border-box;left:50%;transform:translateX(-50%);max-width:calc(100vw - 24px);padding:11px 18px;border:1px solid #c5a47799;border-radius:8px;background:#342a20ef;color:#f8ead1;font:500 14px system-ui;box-shadow:0 4px 20px #0005;cursor:pointer}.coffee-action[hidden]{display:none}.coffee-action:disabled{cursor:default;color:#dbcdb9}.coffee-action:focus-visible{outline:2px solid #eed4a7;outline-offset:3px}`
   document.head.append(style);document.body.append(root)
   root.addEventListener('pointerdown',e=>e.stopPropagation())
   root.addEventListener('click',e=>{e.stopPropagation();onActivate();root.blur()})

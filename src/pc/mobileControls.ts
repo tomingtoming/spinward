@@ -15,7 +15,6 @@ export const isQuestBrowser = () =>
 type MobileControlHandlers = {
   onThrow: () => void
   onJump: () => void
-  onToggleDrive: () => void
   // True while a 2D UI should swallow canvas pointers.
   isUiPointerBlocked: () => boolean
   // Any touch or gyro input; lets the boot "look up" reveal bow out at once.
@@ -58,7 +57,6 @@ export class MobileControls {
   private readonly overlay: HTMLDivElement
   private readonly gyroButton: HTMLButtonElement
   private readonly jumpButton: HTMLButtonElement
-  private readonly driveButton: HTMLButtonElement
   private readonly brakeButton: HTMLButtonElement
   private readonly stickBase: HTMLDivElement
   private readonly stickNub: HTMLDivElement
@@ -87,7 +85,8 @@ export class MobileControls {
     private readonly handlers: MobileControlHandlers,
     // The dock bar this row must clear — its height varies with viewport
     // width and chip visibility, so the gap is measured, not guessed.
-    private readonly dockRoot: HTMLElement | null = null
+    private readonly dockRoot: HTMLElement | null = null,
+    settingsMount?: HTMLElement
   ) {
     this.overlay = document.createElement('div')
     // Styled via .mobile-controls, below the dock's popup/dismissal layer.
@@ -126,8 +125,6 @@ export class MobileControls {
     this.jumpButton.addEventListener('pointercancel', releaseJump)
     this.jumpButton.addEventListener('pointerleave', releaseJump)
     // Travel (Surface/Overlook/Axis) now lives in the always-visible beat bar.
-    this.driveButton = makeButton('Drive', () => this.handlers.onToggleDrive())
-    this.driveButton.classList.add('is-hidden')
     this.brakeButton = makeButton('Brake', () => {})
     this.brakeButton.classList.add('is-hidden')
     this.brakeButton.addEventListener('pointerdown', (event) => {
@@ -140,7 +137,9 @@ export class MobileControls {
     this.brakeButton.addEventListener('pointerup', releaseBrake)
     this.brakeButton.addEventListener('pointercancel', releaseBrake)
     this.brakeButton.addEventListener('pointerleave', releaseBrake)
-    this.gyroButton = makeButton('Gyro', () => this.toggleGyro())
+    this.gyroButton = makeButton('Motion look', () => this.toggleGyro())
+    this.gyroButton.setAttribute('aria-pressed', 'false')
+    settingsMount?.append(this.gyroButton)
     // No ⚙ here: presets/projectile switch from the dock's chips, spin from
     // the beat bar, and the remaining tunables live behind the ?debug GUI.
 
@@ -162,6 +161,7 @@ export class MobileControls {
     this.cancelHeldInput()
     this.removeInputInterruption()
     this.overlay.remove()
+    this.gyroButton.remove()
     this.stickBase.remove()
     this.element.removeEventListener('pointerdown', this.handlePointerDown)
     window.removeEventListener('pointermove', this.handlePointerMove)
@@ -275,10 +275,6 @@ export class MobileControls {
     this.hideStick()
   }
 
-  setDriveAvailable(available: boolean) {
-    this.driveButton.classList.toggle('is-hidden', !available && !this.driving)
-  }
-
   setDriving(driving: boolean) {
     if (this.driving === driving) {
       return
@@ -288,7 +284,6 @@ export class MobileControls {
     this.jumpHeld = false
     this.brakeHeld = false
     this.jumpButton.classList.remove('is-active')
-    this.driveButton.textContent = driving ? 'Exit' : 'Drive'
     this.jumpButton.classList.toggle('is-hidden', driving)
     this.brakeButton.classList.toggle('is-hidden', !driving)
 
@@ -301,15 +296,18 @@ export class MobileControls {
     if (this.gyroEnabled) {
       this.gyroEnabled = false
       this.gyroButton.classList.remove('is-active')
+      this.gyroButton.setAttribute('aria-pressed', 'false')
       window.removeEventListener('deviceorientation', this.handleDeviceOrientation)
       return
     }
 
+    if (typeof DeviceOrientationEvent === 'undefined') return
     const requester = DeviceOrientationEvent as unknown as DeviceOrientationPermissionRequester
 
     const enable = () => {
       this.gyroEnabled = true
       this.gyroButton.classList.add('is-active')
+      this.gyroButton.setAttribute('aria-pressed', 'true')
       window.addEventListener('deviceorientation', this.handleDeviceOrientation)
     }
 

@@ -160,11 +160,11 @@ import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
 import { PLACE_DESTINATIONS, resolvePlaceVisit, type PlaceVisitAction } from './placeVisits'
-import { isCompactDock } from '../ui/viewportLayout'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
 import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
 import { createHud } from '../ui/hud'
+import { createTourNotice } from '../ui/tourNotice'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
@@ -430,11 +430,8 @@ export const bootstrapApp = async () => {
     notifyTourEvent(tourGuide, event)
     metrics?.milestone(event)
   }
-  // Whether the one-time boot flash of the CONTROL card has fired — armed by
-  // the game loop the first time no tour card is on screen.
-  let controlsBootFlashDone = false
-  let gameplayStarted = false
   const tourCardPanel = new TourCardPanel()
+  const tourNotice = createTourNotice()
   const tourOverlayScene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(
     70,
@@ -553,73 +550,58 @@ export const bootstrapApp = async () => {
         {
           onThrow: () => requestDesktopThrow(),
           onJump: () => {
-            gameplayStarted = true
             desktopJumpQueued = true
           },
-          onToggleDrive: () => { gameplayStarted = true; tryToggleDrive() },
           isUiPointerBlocked: () => false,
-          onUserInput: () => { gameplayStarted = true; desktopLookControls.cancelIntroReveal() }
+          onUserInput: () => { desktopLookControls.cancelIntroReveal() }
         },
-        dock.root
+        dock.root,
+        dock.left
       )
     : null
 
-  // VR entry + fullscreen affordances, by device class:
-  //  · A corner fullscreen toggle on every non-Quest device that supports it
-  //    (createFullscreenToggle returns null on iPhone Safari, which has no
-  //    element Fullscreen API).
-  //  · PC (pointer) mounts the VR button immediately; touch devices only once a
-  //    session is actually possible — a permanent "VR NOT SUPPORTED" pill is
-  //    just clutter. On Quest a supported session goes VR-first: a big centered
-  //    "ENTER VR" call-to-action with the unreachable touch stick switched off.
-  //    If immersive VR is unavailable the touch controls stay, so the headset
-  //    is never a dead end.
-
-  // VR is a right-hand action → right cluster. Fullscreen is a system toggle →
-  // it leads the left cluster, ahead of the HUD chips.
-  const mountVrButton = () => dock.right.appendChild(VRButton.createButton(renderer))
+  // Offer immersive entry only when supported. Quest keeps its first-entry
+  // CTA above the flat UI; all other display controls live in Menu.
+  const mountVrButton = () => {
+    const button = VRButton.createButton(renderer)
+    dock.system.appendChild(button)
+    // Quest keeps its first-entry CTA outside the closed menu.
+    if (onQuest) {
+      document.body.appendChild(button)
+      renderer.xr.addEventListener('sessionstart', () => dock.system.appendChild(button))
+    }
+  }
   let fullscreenToggle: ReturnType<typeof createFullscreenToggle> = null
 
   if (!onQuest) {
     fullscreenToggle = createFullscreenToggle()
 
     if (fullscreenToggle !== null) {
-      dock.left.appendChild(fullscreenToggle.button)
+      dock.system.appendChild(fullscreenToggle.button)
     }
   }
 
-  if (!isTouchDevice()) {
-    // Without navigator.xr at all (desktop Safari / Firefox), three's VRButton
-    // returns a bare "WEBXR NOT AVAILABLE" <a> that lacks the #VRButton id, so
-    // the dock CSS cannot capture it and it floats over the scene. Mount
-    // nothing, matching how unsupported touch devices are handled below.
-    if ('xr' in navigator) {
+  navigator.xr
+    ?.isSessionSupported('immersive-vr')
+    .then((supported) => {
+      if (!supported) {
+        return
+      }
+
       mountVrButton()
-    }
-  } else {
-    navigator.xr
-      ?.isSessionSupported('immersive-vr')
-      .then((supported) => {
-        if (!supported) {
-          return
-        }
 
-        mountVrButton()
-
-        if (onQuest) {
-          document.body.classList.add('is-vr-entry')
-          mobileControls?.setEnabled(false)
-          // Demote the CTA to a compact pill after the first entry, so it stops
-          // covering the flat-view scene once the user exits VR.
-          renderer.xr.addEventListener('sessionstart', () =>
-            document.body.classList.remove('is-vr-entry')
-          )
-        }
-      })
-      .catch(() => {})
-  }
+      if (onQuest) {
+        document.body.classList.add('is-vr-entry')
+        mobileControls?.setEnabled(false)
+        // Demote the CTA to a compact pill after the first entry, so it stops
+        // covering the flat-view scene once the user exits VR.
+        renderer.xr.addEventListener('sessionstart', () =>
+          document.body.classList.remove('is-vr-entry')
+        )
+      }
+    })
+    .catch(() => {})
   renderer.xr.addEventListener('sessionstart', () => {
-    gameplayStarted = true
     audioSession = renderer.xr.getSession()
     audioSession?.addEventListener('visibilitychange', syncAudioActivity)
     syncAudioActivity()
@@ -728,7 +710,6 @@ export const bootstrapApp = async () => {
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
   const toggleRoomSeat = () => {
     if (drive.driving || renderer.xr.isPresenting) return false
-    gameplayStarted = true
     audio.unlock()
     roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
     if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
@@ -760,7 +741,6 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius, blocked: drive.driving || renderer.xr.isPresenting })
   const activateCoffee = () => {
     if (!coffeeService.activate(coffeeContext())) return
-    gameplayStarted = true
     audio.unlock(); audio.playClick()
   }
   const coffeeAction = createCoffeeAction(activateCoffee, () => Math.max(
@@ -1200,7 +1180,7 @@ export const bootstrapApp = async () => {
   function handleWatchAction(action: WatchActionId) {
     if(action==='guide-car' && drive.driving)return false
     if(OUTING_DESTINATIONS.some(d=>d.id===action)) {
-      gameplayStarted=true;desktopLookControls.cancelIntroReveal()
+      desktopLookControls.cancelIntroReveal()
       if(tourGuide.activeEvent==='start'){tourGuide.activeEvent=null;tourGuide.remainingSeconds=0}
       journey.action=action as GuideAction;refreshJourney();audio.playClick();return true
     }
@@ -1398,11 +1378,9 @@ export const bootstrapApp = async () => {
     // used to dispatch, so there is one reset sequence, not two.
     (presetId) => handleWatchAction(`preset-apply-${presetId}` as WatchActionId),
     (projectile) => selectProjectile(projectile),
-    (style) => { ballThrowStyle = style }
+    (style) => { ballThrowStyle = style },
+    { status: dock.status, equipment: dock.equipment }
   )
-  // Always-visible self-driving nav (non-VR): Travel + Spin so the demo's
-  // payoff beats don't hide behind 1/2/3 and Tab. These are right-hand actions,
-  // so they live in the right cluster (prepended before the VR button).
   const setRaining = (raining: boolean) => {
     weather.raining = raining
     if (raining) {
@@ -1410,14 +1388,10 @@ export const bootstrapApp = async () => {
     }
   }
   const outingPanel=createOutingPanel(action=>handleWatchAction(action))
-  dock.right.append(outingPanel.modeChip)
+  dock.driving.append(outingPanel.modeChip)
   const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
-    setRaining(!weather.raining)
+    setRaining(!weather.raining), dock.primary
   )
-  // Phones collapse the five Travel pills into one; without it the dock wraps
-  // to four rows and the bottom UI eats 29% of a 390px-wide screen (measured).
-  const syncDockArrangement = () => beatBar.setCompact(isCompactDock(window.innerWidth))
-  syncDockArrangement()
   let placesPlan: ReturnType<typeof cityscape.getCityPlan> | undefined
   const availablePlaces = new Set<PlaceVisitAction>()
 
@@ -1580,7 +1554,7 @@ export const bootstrapApp = async () => {
           filename: `spinward-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png`
         }
       )
-  const shareBar = createShareBar(dock.right, {
+  const shareBar = createShareBar(dock.system, {
     onShareLink: shareLinkAction,
     onPhoto: photoAction
   })
@@ -1912,8 +1886,6 @@ export const bootstrapApp = async () => {
 
   window.addEventListener('keydown', (event) => {
     if (!isGameplayKeyboardEvent(event)) return
-    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyC', 'KeyQ', 'KeyF', 'KeyB', 'KeyX',
-      'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(event.code)) gameplayStarted = true
     audio.unlock()
 
     if (event.code === 'KeyM' && !event.repeat) {
@@ -2036,7 +2008,6 @@ export const bootstrapApp = async () => {
   renderer.xr.addEventListener('sessionstart', cancelDesktopIntent)
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
-    gameplayStarted = true
     audio.unlock()
 
     if (event.button !== 0) {
@@ -2625,6 +2596,7 @@ export const bootstrapApp = async () => {
     if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
     if(journey.status==='arrived' && journey.action==='guide-park' && roomSeating.seat)outingDetail='Take a break · Your car in Places'
     if(outingCanPark)outingDetail='Bay reached · Park to step out'
+    dock.driving.parentElement!.hidden = !drive.driving
     outingPanel.update({label:journey.label,detail:outingDetail,angle:journey.status==='active'?outingAngle:NaN,active:journey.status!=='idle',driving:drive.driving,mode:drive.mode,canPark:outingCanPark,hidden:renderer.xr.isPresenting})
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
       outing:{text:journey.action?`${journey.label} · ${outingDetail}`:'Choose a place; travel there on foot or by car.',mode:drive.mode,canPark:outingCanPark,active:!!journey.action},
@@ -2989,37 +2961,21 @@ export const bootstrapApp = async () => {
     if (mobileControls !== null) {
       mobileControls.update(renderer.xr.isPresenting)
       mobileControls.setDriving(drive.driving)
-      mobileControls.setDriveAvailable(
-        drive.driving ||
-          (playerTraversal.mode === 'grounded' &&
-            drive.isPlayerNear(
-              playerTraversal.surface.azimuth,
-              playerTraversal.surface.axialPosition,
-              habitatConfig.radius
-            ))
-      )
     }
     const activeTourCard = stepTourGuide(tourGuide, deltaSeconds)
-    // Boot flash of the CONTROL bindings card, held until the intro card has
-    // left the screen — shown together they overlap and both turn unreadable.
-    // Keyed off the tour state (game time), not a wall-clock timer: on a slow
-    // device the card outlives its nominal duration and a timer would fire
-    // straight into the overlap this exists to avoid.
-    // Once someone is walking, looking, or using a room, a delayed generic
-    // hint interrupts the activity it was meant to introduce. Manual CONTROL
-    // peeks remain available and are never dismissed by gameplay input.
-    if (gameplayStarted) hud.dismissAutomaticControls()
-    if (!gameplayStarted && !controlsBootFlashDone && activeTourCard === null &&
-      coffeeService.prompt(coffeeCtx) === null && nearSeat === null && !roomSeating.seat) {
-      controlsBootFlashDone = true
-      hud.peekControls()
-    }
     // Let the current room action teach itself. The large generic welcome
     // card otherwise covers the held cup and the seated body on portrait screens.
     const roomInteraction = !!roomSeating.seat || coffeeService.phase !== 'idle'
     const practiceCard = !drive.driving && !roomInteraction ? throwTarget.getCard(rotatingCameraPosition, selectedProjectile === 'ball') : null
     const visibleTourCard = practiceCard ?? (roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard)
-    tourCardPanel.update(resolveTourCard(visibleTourCard, currentControlPlatform()), {
+    const resolvedTourCard = resolveTourCard(visibleTourCard, currentControlPlatform())
+    const flatTourCard = tourGuide.activeEvent === 'start' && visibleTourCard === activeTourCard && resolvedTourCard
+      ? { ...resolvedTourCard, title: 'Welcome to Spinward', body: [
+        'Look up — the city wraps overhead. The floor’s push is your gravity.',
+        'Choose Places for a destination. Movement controls and settings are in Menu.'
+      ] } : resolvedTourCard
+    tourNotice.update(flatTourCard, renderer.xr.isPresenting || journey.status !== 'idle' || drive.driving)
+    tourCardPanel.update(renderer.xr.isPresenting ? resolvedTourCard : null, {
       camera: desktopUiCamera,
       deltaSeconds,
       xrActive: renderer.xr.isPresenting,
@@ -3085,7 +3041,6 @@ export const bootstrapApp = async () => {
     inertialObserverCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
     bloomComposer?.setSize(window.innerWidth, window.innerHeight)
-    syncDockArrangement()
   })
 
   let appDisposed = false
@@ -3119,6 +3074,7 @@ export const bootstrapApp = async () => {
     starfield.dispose()
     atmosphereGlow.dispose()
     tourCardPanel.dispose()
+    tourNotice.destroy()
     mobileControls?.dispose()
     fullscreenToggle?.dispose()
     roomAction.dispose()

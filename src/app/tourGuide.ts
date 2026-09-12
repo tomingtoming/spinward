@@ -92,7 +92,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     body: [
       'You float freely while the habitat turns.',
       'The spinning floor supplies the push that residents feel as gravity.',
-      'Travel → Surface takes you back inside.'
+      'Choose Surface to go back inside.'
     ],
     durationSeconds: 10
   },

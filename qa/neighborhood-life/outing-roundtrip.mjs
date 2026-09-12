@@ -87,10 +87,11 @@ try{
  await shot('returned-car')
  // Phone layout uses the same route action through Travel.
  await page.setViewportSize({width:390,height:844});await sleep(300)
- await page.getByRole('button',{name:'Travel ▾',exact:true}).click()
- await page.locator('.preset-menu:not([hidden])').getByRole('button',{name:'Park',exact:true}).first().click()
+ await page.getByRole('button',{name:'Places',exact:true}).click()
+ await page.locator('.preset-menu:not([hidden])').getByRole('button',{name:'Directions to Park',exact:true}).click()
  await sleep(400);await shot('phone-directions')
  const dimensions=await page.locator('.outing-panel').boundingBox();if(dimensions.x<0||dimensions.x+dimensions.width>391)throw Error('Phone route card overflow')
+ await page.getByRole('button',{name:'Menu',exact:true}).click()
  await page.getByRole('button',{name:'Street ▾',exact:true}).click()
  await page.getByRole('button',{name:'Switch Street / Experiment',exact:true}).click()
  await page.waitForFunction(()=>window.__spinward.drive.mode==='experiment')

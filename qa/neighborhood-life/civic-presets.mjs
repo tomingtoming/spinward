@@ -14,10 +14,9 @@ try {
     await page.waitForFunction(() => window.__spinwardCar.group.userData.ready)
     await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
     for (const label of ['Cooper Station', 'Elysium', 'Playground Colony', 'Izma Colony']) {
-      if (phone) await page.locator('.dock-more').click()
+      await page.getByRole('button', { name: 'Menu', exact: true }).click()
       await page.locator('.hud-chip--preset').focus(); await page.keyboard.press('Space')
       await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: label, exact: true }).click()
-      if (phone) await page.locator('.dock-more').click()
       await page.waitForTimeout(1800)
       const snapshot = await page.evaluate(() => ({ radius: window.__spinward.radius, mode: window.__spinward.mode,
         bay: window.__spinwardCity.getCarShareBay(), drive: window.__spinward.drive,
@@ -31,8 +30,8 @@ try {
         if (!snapshot.practice || !snapshot.car || !snapshot.bay) throw Error('City lost its everyday destinations')
         if (Math.abs(snapshot.drive.azimuth - snapshot.bay.azimuth) > 1e-8 || Math.abs(snapshot.drive.axial - snapshot.bay.axial) > 1e-7) throw Error('Car retained the old colony parking pose')
         for (const place of ['Ball practice', 'Car share']) {
-          await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
-          await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: place, exact: true }).click()
+          await page.getByRole('button', { name: 'Places', exact: true }).click()
+          await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: `Go now to ${place}`, exact: true }).click()
           await page.waitForTimeout(900)
           if (await page.evaluate(() => window.__spinward.mode !== 'grounded')) throw Error('Place did not arrive grounded')
         }

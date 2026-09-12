@@ -35,6 +35,7 @@ const ensureBackdrop = (): HTMLElement => {
 }
 
 export const closeEverything = () => {
+  document.body.classList.remove('has-ui-popup')
   if (backdrop !== null) {
     backdrop.hidden = true
   }
@@ -44,13 +45,8 @@ export const closeEverything = () => {
 }
 
 export const showBackdrop = () => {
+  document.body.classList.add('has-ui-popup')
   ensureBackdrop().hidden = false
-}
-
-export const hideBackdrop = () => {
-  if (backdrop !== null) {
-    backdrop.hidden = true
-  }
 }
 
 export const registerClose = (close: () => void): (() => void) => {
@@ -123,14 +119,18 @@ export const createDropdownChip = <T extends string>(
     item.addEventListener('click', (event) => {
       event.preventDefault()
       closeEverything()
-      if (event.detail === 0) chip.focus()
+      if (event.detail === 0) focusOwner().focus()
       onSelect(id)
     })
     menu.append(item)
     return { id, element: item }
   })
 
-  const availableItems = () => menuItems.filter(({ element }) => !element.hidden && !element.disabled).map(({ element }) => element)
+  const focusOwner = () => {
+    const owner = chip.closest<HTMLElement>('[data-popup-owner]')?.dataset.popupOwner
+    return owner ? document.getElementById(owner) ?? chip : chip
+  }
+  const availableItems = () => Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).filter(el => !el.disabled && el.getClientRects().length > 0)
   const open = (keyboard = false, last = false) => {
     if (!menu.hidden) {
       // Unreachable while the backdrop is up (it covers the chip); kept as a
@@ -139,14 +139,16 @@ export const createDropdownChip = <T extends string>(
       return
     }
 
+    const rect = focusOwner().getBoundingClientRect()
     closeEverything()
+    window.dispatchEvent(new Event('spinward-ui-open'))
     // Anchored to the chip's live position rather than a fixed offset — the
     // clusters' widths vary with which pills are visible.
-    const rect = chip.getBoundingClientRect()
     menu.style.left = `${rect.left}px`
     menu.style.bottom = `${window.innerHeight - rect.top + 8}px`
     menu.style.maxHeight = `${Math.max(80, rect.top - 16)}px`
     menu.hidden = false
+    menu.scrollTop = 0
     menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menu.getBoundingClientRect().width - 8))}px`
     chip.classList.add('is-active')
     chip.setAttribute('aria-expanded', 'true')
@@ -183,11 +185,12 @@ export const createDropdownChip = <T extends string>(
   const dismissKey = (event: KeyboardEvent) => {
     if (menu.hidden || event.key !== 'Escape') return
     event.preventDefault(); event.stopPropagation()
-    closeEverything(); chip.focus()
+    closeEverything(); focusOwner().focus()
   }
   const dismissFocus = (event: FocusEvent) => {
     if (!menu.hidden && event.target !== chip && !menu.contains(event.target as Node)) closeEverything()
   }
+  window.addEventListener('resize', closeEverything)
   document.addEventListener('keydown', dismissKey)
   document.addEventListener('focusin', dismissFocus)
 
@@ -202,6 +205,8 @@ export const createDropdownChip = <T extends string>(
     close,
     destroy: () => {
       unregister()
+      window.removeEventListener('resize', closeEverything)
+      chip.remove()
       document.removeEventListener('keydown', dismissKey)
       document.removeEventListener('focusin', dismissFocus)
       menu.remove()

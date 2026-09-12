@@ -11,7 +11,7 @@ try {
   await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 720, height: 390 }, { width: 320, height: 568 }]) {
     await page.setViewportSize(viewport); await page.waitForTimeout(250)
-    const chip = page.getByRole('button', { name: viewport.width > 720 ? 'Places ▾' : 'Travel ▾', exact: true })
+    const chip = page.getByRole('button', { name: 'Places', exact: true })
     const before = await page.evaluate(() => ({ ...window.__spinward }))
     await chip.focus(); await page.keyboard.press('Space')
     if (await chip.getAttribute('aria-expanded') !== 'true') throw Error('Space did not open the menu')

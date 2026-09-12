@@ -101,7 +101,7 @@ export const PC_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'Click view', action: 'Mouse look (Esc frees) · or right-drag / arrows' },
       { input: 'Space', action: 'Jump → fly' },
       { input: 'Click', action: 'Throw at a fixed speed' },
-      { input: 'Throw menu / X', action: 'Choose Ball / Beam / Firework' },
+      { input: 'Menu → Throwing / X', action: 'Choose Ball / Beam / Firework' },
       { input: '1–4', action: 'Travel / warp' },
       { input: 'E', action: 'Sit / stand, drive nearby' },
       { input: '− / +', action: 'Spin rpm' },
@@ -145,7 +145,7 @@ export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'Drag', action: 'Look' },
       { input: 'Tap', action: 'Throw' },
       { input: 'Buttons', action: 'Jump / travel' },
-      { input: 'Gyro btn', action: 'Tilt-look' }
+      { input: 'Menu → Motion look', action: 'Tilt-look' }
     ]
   },
   {
@@ -155,7 +155,7 @@ export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
       { input: 'L stick', action: 'Move' },
       { input: 'Drag', action: 'Look' },
       { input: 'Tap', action: 'Fire / throw' },
-      { input: 'Buttons', action: 'Travel / warp' }
+      { input: 'Explore', action: 'Travel / warp' }
     ]
   },
   {
@@ -169,9 +169,9 @@ export const SP_CONTROL_LEGEND: readonly ControlSection[] = [
 ]
 
 export const PC_CONTROL_SUMMARY =
-  'WASD + mouse · click the view to look (Esc frees) · click throws · Throw menu selects projectile · 1–4 travel'
+  'WASD + mouse · click the view to look (Esc frees) · click throws · Menu → Throwing selects projectile · 1–4 travel'
 export const SP_CONTROL_SUMMARY =
-  'Left stick walks · drag to look · tap throws · Throw menu selects projectile · buttons jump / travel'
+  'Left stick walks · drag to look · tap throws · Menu → Throwing selects projectile · buttons jump / travel'
 
 export type ControlPlatform = 'pc' | 'sp' | 'vr'
 

@@ -114,3 +114,16 @@ test('focused fields cancel held input and disposed listeners do not retain thei
     expect(calls).toBe(1)
   })
 })
+
+
+test('opening a UI panel cancels held walking intent until a fresh press', () => {
+  withControls((controls, events) => {
+    dispatch(events, 'keydown', { code: 'KeyW' })
+    expect(Math.abs(controls.update(.1, false).groundedTangent)).toBeGreaterThan(0)
+    dispatch(events, 'spinward-ui-open')
+    expect(controls.update(.1, false).groundedTangent).toBe(0)
+    expect(controls.update(.1, false).groundedTangent).toBe(0)
+    dispatch(events, 'keydown', { code: 'KeyW' })
+    expect(Math.abs(controls.update(.1, false).groundedTangent)).toBeGreaterThan(0)
+  })
+})

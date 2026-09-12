@@ -15,7 +15,7 @@ try {
   const snapshot=async(name)=>{
     await page.waitForTimeout(100)
     const state=await page.evaluate(name=>{
-      const dock=document.querySelector('.dock'),rect=dock.getBoundingClientRect(),more=document.querySelector('.dock-more')
+      const dock=document.querySelector('.dock'),rect=dock.getBoundingClientRect(),more=document.querySelector('.dock-menu-button')
       const buttons=[...dock.querySelectorAll('button')].filter(b=>b.getClientRects().length).map(b=>({label:b.textContent,rect:b.getBoundingClientRect().toJSON()}))
       const mobile=document.querySelector('.mobile-controls').getBoundingClientRect()
       return {name,width:innerWidth,height:innerHeight,dock:rect.toJSON(),expanded:more.getAttribute('aria-expanded'),buttons,mobile:mobile.toJSON()}
@@ -27,23 +27,23 @@ try {
   for(const width of [320,390,720]){
     await page.setViewportSize({width,height:844})
     const collapsed=await snapshot('collapsed-'+width)
-    if(collapsed.dock.height>50||collapsed.expanded!=='false'||!collapsed.buttons.some(b=>b.label==='Travel ▾'))throw Error('Dock not compact')
-    await page.getByRole('button',{name:'More controls',exact:true}).tap()
+    if(collapsed.dock.height>50||collapsed.expanded!=='false'||!collapsed.buttons.some(b=>b.label==='Explore'))throw Error('Dock not compact')
+    await page.getByRole('button',{name:'Menu',exact:true}).tap()
     const expanded=await snapshot('expanded-'+width)
-    if(expanded.dock.height<90||expanded.expanded!=='true'||!expanded.buttons.some(b=>b.label==='Photo'))throw Error('Controls inaccessible')
+    if(expanded.dock.height!==collapsed.dock.height||expanded.expanded!=='true'||!await page.getByRole('button',{name:'Photo',exact:true}).isVisible())throw Error('Controls inaccessible')
     await page.getByRole('button',{name:'Sound on',exact:true}).tap();await page.waitForFunction(()=>window.__spinward.room.audio.muted)
     await page.getByRole('button',{name:'Sound off',exact:true}).tap();await page.waitForFunction(()=>!window.__spinward.room.audio.muted)
     await page.getByRole('button',{name:'Rain',exact:true}).tap();await page.waitForFunction(()=>window.__spinward.raining)
     await page.getByRole('button',{name:'Rain',exact:true}).tap();await page.waitForFunction(()=>!window.__spinward.raining)
     await page.keyboard.press('Escape')
-    if(await page.getByRole('button',{name:'More controls',exact:true}).getAttribute('aria-expanded')!=='false')throw Error('Escape failed')
-    await page.getByRole('button',{name:'Travel ▾',exact:true}).tap()
-    if(!await page.locator('.preset-menu:not([hidden])').getByRole('button',{name:'Exterior',exact:true}).isVisible())throw Error('Travel menu lost')
+    if(await page.getByRole('button',{name:'Menu',exact:true}).getAttribute('aria-expanded')!=='false')throw Error('Escape failed')
+    await page.getByRole('button',{name:'Explore',exact:true}).tap()
+    if(!await page.locator('.preset-menu:not([hidden])').getByRole('button',{name:'Exterior · see the whole colony',exact:true}).isVisible())throw Error('Travel menu lost')
     await page.locator('.dropdown-backdrop').tap({position:{x:10,y:20}})
   }
   await page.setViewportSize({width:1280,height:900});await snapshot('wide')
-  if(await page.locator('.dock-more').isVisible())throw Error('Wide-screen toggle should be hidden')
-  if(!await page.getByRole('button',{name:'Surface',exact:true}).isVisible())throw Error('Wide Travel buttons lost')
+  if(!await page.getByRole('button',{name:'Menu',exact:true}).isVisible())throw Error('Menu missing on wide screens')
+  if(!await page.getByRole('button',{name:'Explore',exact:true}).isVisible())throw Error('Explore missing on wide screens')
   if(errors.length)throw Error(JSON.stringify(errors))
   fs.writeFileSync(out+prefix+'-layout.json',JSON.stringify({errors,samples},null,2));console.log(JSON.stringify({errors,heights:samples.map(s=>[s.name,s.dock.height])}))
 }finally{await browser.close()}

@@ -1,10 +1,10 @@
 # Neighbourhood outing — 2026-09-12
 
 A resident can choose Central Square, Café, Park or their parked car from
-Places → Directions, travel there, park, walk through the entrance and return
-to the same car. Phone uses Travel → Directions. The wrist has
-Places → Directions. Immediate visits remain explicitly under Visit now on
-screen and on the wrist's original Places page.
+Places, travel there, park, walk through the entrance and return
+to the same car. PC and phone use the place name for directions and a distinct
+Go now button for immediate visits. The wrist retains Places → Directions
+and its original Places page for immediate visits. See [UI refinement](ui-refinement-2026-09-12.md).
 
 ## Behavior
 
@@ -13,7 +13,7 @@ screen and on the wrist's original Places page.
   depends on the car's own rotating-gravity load. The locked sphere uses zero
   engine friction in Street so the gentle engine can move it across real wall
   seams; explicit tire forces supply lateral grip and rolling resistance.
-- Street / Experiment is selectable in the driving dock or wrist. Experiment
+- Street / Experiment is selectable in Menu → Driving or the wrist. Experiment
   preserves the existing 36 m/s² engine, 178 m/s cap and 0.3 contact friction.
   Selecting Street while moving removes excess engine power without abruptly
   clipping current momentum. This is not a calibrated road-car simulation.

@@ -332,9 +332,7 @@ button {
   background: transparent;
 }
 
-/* ── CONTROL card: a glance at the bindings, not a screen to navigate. Shows
-   for a few seconds then fades — never stays stuck open. Read-only, so it
-   never captures the pointer (pointer-events: none). ── */
+/* Controls reference. Opening, dismissal and focus share the menu layer. */
 
 .controls-card {
   position: fixed;
@@ -353,10 +351,6 @@ button {
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.4s ease;
-}
-
-.controls-card.is-fading {
-  opacity: 0;
 }
 
 .controls-card__summary {
@@ -644,7 +638,7 @@ body.is-vr-entry #VRButton {
   left: 50% !important;
   top: 50% !important;
   bottom: auto !important;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) !important;
   width: auto !important;
   min-width: 240px !important;
   padding: 20px 32px !important;
@@ -655,76 +649,6 @@ body.is-vr-entry #VRButton {
   background: rgba(8, 24, 38, 0.92) !important;
   box-shadow: 0 0 44px rgba(103, 232, 249, 0.28);
   z-index: 1200 !important;
-}
-
-/* Tiny windows: drop the least-essential bits (advanced toggles + secondary
-   readouts) so the dock stays within two rows. */
-@media (max-width: 680px) {
-  .hud-chip--metric,
-  .beat-bar .beat-label {
-    display: none;
-  }
-}
-
-/* ── Touch devices up to landscape-phone width ── */
-
-/* Narrow screens keep one row while exploring. Expanding More restores every
-   secondary action, with the two clusters each using the available width. */
-@media (max-width: 720px) {
-  .dock {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-
-  .dock__right {
-    justify-content: flex-start;
-  }
-
-  .beat-bar .beat-btn {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
-
-  .dock-more {
-    display: block;
-    align-self: flex-end;
-    min-width: 54px;
-    min-height: 44px;
-    letter-spacing: .02em;
-    text-transform: none;
-  }
-
-  .dock:not(.is-expanded) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-  }
-
-  .dock:not(.is-expanded) .dock__cluster {
-    display: contents;
-  }
-
-  .dock:not(.is-expanded) .hud > :not(.hud-chip--preset),
-  .dock:not(.is-expanded) .beat-bar > :not(.beat-btn--travel),
-  body:not(.is-vr-entry) .dock:not(.is-expanded) #VRButton {
-    display: none;
-  }
-
-  .dock:not(.is-expanded) .fullscreen-toggle,
-  .dock:not(.is-expanded) .hud-chip--preset,
-  .dock:not(.is-expanded) .beat-btn--travel {
-    min-height: 44px;
-    min-width: 40px;
-    box-sizing: border-box;
-  }
-
-  .dock:not(.is-expanded) .hud-chip--preset {
-    max-width: min(36vw, 180px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 @media (pointer: coarse) and (max-width: 1100px) {
@@ -764,3 +688,127 @@ body.is-vr-entry #VRButton {
 .outing-panel button,.outing-mode{min-height:40px;padding:8px 12px;background:#2a4039;color:#f7ead3;border:1px solid #acbca650;border-radius:8px;cursor:pointer}
 .outing-panel button:focus-visible,.outing-mode:focus-visible{outline:2px solid #eed4a7;outline-offset:2px}
 @media(max-width:600px){.outing-panel{top:max(10px,env(safe-area-inset-top));gap:8px;padding:8px}.outing-panel strong{font-size:13px}.outing-panel div>span{font-size:11px}.outing-panel button{padding:8px;min-width:40px}}
+
+/* Flat-screen navigation: stable footer, readable secondary panels. */
+:root {
+  --ui-surface: rgba(22, 30, 29, .95);
+  --ui-line: rgba(192, 204, 184, .24);
+  --ui-text: #f1eee4;
+  --ui-muted: #b9c3ba;
+  --ui-accent: #d8e7b9;
+}
+.dock--quiet {
+  align-items: center;
+  flex-direction: row;
+  gap: 6px;
+  color: var(--ui-text);
+  font: 13px system-ui, sans-serif;
+}
+.dock__status { margin-right: auto; }
+.dock__primary { display: flex; gap: 4px; }
+.dock--quiet button, .ui-panel button, .controls-card button {
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  font: 500 13px system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+.dock--quiet button:hover, .ui-panel button:hover, .controls-card button:hover { background: #35443a; }
+.dock--quiet button.is-active, .ui-panel button.is-active, .ui-panel button[aria-pressed=true] {
+  background: #364537;
+  color: var(--ui-accent);
+  border-color: #b4c89180;
+}
+.dock--quiet button:focus-visible, .preset-menu button:focus-visible, .controls-card button:focus-visible,
+.tour-notice button:focus-visible, .mobile-controls button:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+.hud-live {
+  box-sizing: border-box;
+  min-width: 88px;
+  padding: 6px 12px;
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  font-variant-numeric: tabular-nums;
+}
+.hud-live strong { display: block; font-size: 14px; font-weight: 550; line-height: 18px; }
+.hud-live span { display: block; color: var(--ui-muted); font-size: 10px; line-height: 13px; }
+.preset-menu, .controls-card {
+  background: var(--ui-surface);
+  border-color: var(--ui-line);
+  color: var(--ui-text);
+  box-shadow: 0 8px 32px #0005;
+  font-family: system-ui, sans-serif;
+}
+.preset-menu__item { flex-shrink: 0; font-size: 13px; color: var(--ui-text); }
+.preset-menu__item:hover, .preset-menu__item.is-active { background: #35443a; color: var(--ui-accent); }
+.preset-menu__item:disabled { opacity: .4; cursor: default; }
+.ui-panel { width: 340px; padding: 16px; gap: 6px; }
+.ui-panel h2, .controls-card h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+.ui-panel__hint { margin: 0 0 8px; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.ui-section { padding: 12px 0; border-bottom: 1px solid var(--ui-line); }
+.ui-section:last-child { padding-bottom: 0; border-bottom: 0; }
+.ui-section h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ui-muted); margin: 0 0 8px; }
+.ui-panel .dock__cluster { pointer-events: auto; gap: 6px; }
+.ui-panel .hud-chip:not(button) { display: inline-block; background: none; border: none; border-radius: 0; color: var(--ui-muted); padding: 6px 4px; font-size: 11px; }
+.ui-panel .beat-label { display: none; }
+.ui-panel .environment-label { font-size: 12px; margin-right: 2px; color: var(--ui-muted); }
+.ui-panel button { background: #ffffff06; padding: 10px 12px; flex-shrink: 0; }
+.ui-panel button:disabled { opacity: .4; cursor: default; }
+.ui-panel .preset-menu__item { border: 0; text-align: left; }
+.place-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #c0ccb814; flex-shrink: 0; }
+.place-row:last-child { border-bottom: 0; }
+.ui-panel .place-guide, .place-label { flex: 1; min-width: 0; text-align: left; padding: 12px 4px; border: 0; background: transparent; }
+.place-label { color: var(--ui-muted); font-size: 13px; }
+.place-guide span { float: right; padding-left: 8px; color: var(--ui-accent); }
+.ui-panel .place-visit { font-size: 11px; padding: 10px; background: transparent; }
+.ui-panel .fullscreen-toggle { width: 44px; height: 44px; }
+.ui-panel #VRButton { min-height: 44px !important; background: transparent !important; color: var(--ui-text) !important; border-color: var(--ui-line) !important; }
+.controls-card { box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; padding: 16px; }
+.controls-card__header { display: flex; justify-content: space-between; align-items: center; }
+.controls-card__header h2 { margin: 0; }
+.controls-card__summary { text-align: left; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.controls-card__column h4 { color: var(--ui-accent); }
+.controls-card__row { line-height: 1.5; }
+.controls-card__row span:first-child { color: var(--ui-muted); }
+.tour-notice { box-sizing: border-box; position: fixed; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top));
+  width: min(330px, calc(100vw - 28px)); padding: 16px 48px 16px 16px; z-index: 18; color: var(--ui-text);
+  background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: 12px; font: 13px/1.55 system-ui, sans-serif; }
+.tour-notice strong { display: block; font-size: 13px; margin-bottom: 6px; }
+.tour-notice p { margin: 0 0 4px; color: var(--ui-muted); }
+.tour-notice p:last-child { margin: 0; }
+.tour-notice button { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-muted); font-size: 20px; cursor: pointer; }
+.tour-notice button:hover { color: var(--ui-text); background: #ffffff0b; }
+.mobile-controls button { background: var(--ui-surface); color: var(--ui-text); border-color: var(--ui-line); }
+.outing-panel button { min-width: 44px; min-height: 44px; }
+.ui-panel [hidden], .hud-live[hidden], .tour-notice[hidden], .dock--quiet [hidden] { display: none !important; }
+@media (max-width: 400px) {
+  .dock--quiet button { padding: 10px 11px; font-size: 12px; }
+  .hud-live { min-width: 80px; padding: 6px 9px; }
+  .controls-card__columns { flex-direction: column; gap: 14px; }
+}
+@media (max-height: 460px) {
+  .tour-notice { max-height: 46vh; overflow-y: auto; }
+}
+
+.ui-panel .beat-bar .beat-btn { background: #ffffff06; border-color: var(--ui-line); color: var(--ui-text); font-size: 13px; padding: 10px 12px; }
+.ui-panel .beat-bar .beat-btn:hover { background: #35443a; }
+.ui-panel .beat-bar .beat-btn[aria-pressed=true] { background: #364537; border-color: #b4c89180; color: var(--ui-accent); }
+body.has-ui-popup .tour-notice { visibility: hidden; }
+
+.controls-card { width: min(560px, calc(100vw - 24px)); }
+.controls-card__columns { gap: 24px; }
+.controls-card__row span:first-child { flex-shrink: 0; max-width: 90px; }
+.ui-panel > h2 { position: sticky; top: -16px; z-index: 1; background: var(--ui-surface); padding: 6px 0; }
+@media (max-width: 600px) { .controls-card__columns { flex-direction: column; gap: 14px; } }
