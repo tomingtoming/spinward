@@ -153,6 +153,27 @@ comfort. Desktop walking with ordinary spin is checked separately by the
 `roof-walk` view in `qa/neighborhood-life/old-town-block.mjs`. The accompanying
 production change passed all 822 unit tests and the TypeScript/production build.
 
+## City massing — 2026-09-12
+
+`skyline.xr.mjs` adds a district view using the Quest city budget and the same
+public share pose as the desktop comparison. It enters VR through Menu, waits
+for the introductory card, and captures stereo at 0/±25° roll. Thirty nearby
+buildings' actual instance matrices must remain unchanged. It verifies the
+0.2.0 diagnostics, both 1280×960 eye viewports, screenshot/session metadata and
+the session-ID-scoped exit. No gameplay handlers or placements are written.
+
+The combined suite passed **four tests, six immersive sessions and six exits**
+with no browser errors: rooftops, city massing and the two wrist routes. Unit
+verification passed 823 tests and the TypeScript/production build. Reviewed
+city captures and diagnostics are retained in the ignored directory
+`qa/webxr/evidence/skyline-20260912/`. The district uses zero spin in free flight
+for a repeatable visual inspection, not as a native locomotion/comfort test.
+Hardware and rendering limits are the same as the rooftop run above.
+Independent review confirmed the major masses in both eyes at all three rolls.
+The lower Quest building budget remains visibly sparser than desktop; preserving
+shape does not imply equal density. The edge-on wrist in the district capture
+is not a readability check; wrist interaction and panel text have separate tests.
+
 ## Limits
 
 The integration run uses Apple M1 Pro / ANGLE Metal, Three.js r180 and

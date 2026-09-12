@@ -4,6 +4,39 @@ import {planCity} from './cityLayout'
 import {colonyBuildingSpec,colonyWindowGrid,fitColonyHouse} from './colonyBuildingPlan'
 import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import {planBuildingInteriors,interiorCollisionBuildings} from './buildingInteriors'
+import {buildingRoofAttachment} from './buildingRoofAttachment'
+
+test('varied upper floors are supported, non-overlapping and bounded by the original lot and height',()=>{
+ for(const maxBuildings of [16000,18000,64000]){
+  const plan=planCity({radius:3200,length:40000,maxBuildings}),families=new Set<string>()
+  let changed=0
+  for(const b of plan.buildings){
+   if(!['slab','setback'].includes(b.kind)||b.industrial||(b.oldTown??0)>=.5||b.height<24||Math.min(b.width,b.depth)<16||cityBlockSpec(b,3200))continue
+   const before=JSON.stringify(b),spec=colonyBuildingSpec(b),[base,...upper]=spec.volumes
+   expect(spec.volumes).toHaveLength(3)
+   expect(colonyBuildingSpec(b)).toEqual(spec);expect(JSON.stringify(b)).toBe(before)
+   expect(base.y-base.h/2).toBeCloseTo(0,8)
+   expect(base.w*base.d).toBeCloseTo(b.width*b.depth,6)
+   expect(Math.max(...upper.map(v=>v.y+v.h/2))).toBeCloseTo(b.height,8)
+   for(const v of upper){
+    expect(Math.min(v.w,v.h,v.d)).toBeGreaterThan(2)
+    const floor=v.y-v.h/2
+    expect(spec.volumes.some(s=>s!==v&&Math.abs(s.y+s.h/2-floor)<1e-6&&
+     Math.abs(v.x-s.x)+v.w/2<=s.w/2+1e-6&&Math.abs(v.z-s.z)+v.d/2<=s.d/2+1e-6)).toBe(true)
+   }
+   for(let i=0;i<spec.volumes.length;i++)for(let j=0;j<i;j++){
+    const a=spec.volumes[i],c=spec.volumes[j]
+    expect(Math.abs(a.x-c.x)>=(a.w+c.w)/2-1e-6||Math.abs(a.y-c.y)>=(a.h+c.h)/2-1e-6||Math.abs(a.z-c.z)>=(a.d+c.d)/2-1e-6).toBe(true)
+   }
+   const roof=buildingRoofAttachment(spec,3200)
+   expect(upper.some(v=>Math.abs(v.y+v.h/2-roof.local.y)<1e-6&&Math.abs(roof.local.x-v.x)<v.w/2&&Math.abs(roof.local.z-v.z)<v.d/2)).toBe(true)
+   families.add(upper[0].y-upper[0].h/2>base.h+1e-6||upper[1].y-upper[1].h/2>base.h+1e-6?'terraced':Math.abs(upper[0].d-upper[1].d)<1e-6||Math.abs(upper[0].w-upper[1].w)<1e-6?'residential-bar':'shaft-and-wing')
+   changed++
+  }
+  expect(changed).toBeGreaterThan(100)
+  expect(families.size).toBe(3)
+ }
+})
 
 test('every planned lot has a bounded replacement at all habitat sizes and quality budgets',()=>{
  for(const radius of [250,800,3200])for(const maxBuildings of [16000,64000]){
