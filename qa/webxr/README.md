@@ -393,3 +393,36 @@ outside the wrist capture's view. The small place name and secondary destination
 remain thinner than the main hint. Physical Quest readability, performance and
 comfort remain unverified. Normal desktop W input separately traversed the
 entrance, covered link and exit; see `qa/neighborhood-life/covered-directions.md`.
+
+## Distant night districts — 2026-09-13
+
+`night-districts.xr.mjs` enters through the real Menu/VR path at a free-flight
+view of a secondary district, with the Quest city budget and 64mm stereo. It
+aims at the district in the real tracking frame and requires that target to
+remain in the camera at 0/±25° head roll. The installed shell texture identity,
+size, upload version, fade distances and city transform stay fixed. Captures
+must belong to the current session and contain two 1280×960 views; exit waits
+for that session's cursor and ID.
+
+The night-bake change uses the replacement buildings' existing uses, glazing,
+occupancy and district gain. It adds no light or render pass. Desktop comparison
+separately checks that the city plan, daytime bake and per-view mesh counts
+match the baseline. The near-window GLSL remains byte-identical. This test
+checks emulated world attachment, not physical illumination, hardware Quest
+performance or whether a user can identify building uses at that distance.
+Wrist interaction, controllers and exit/re-entry are exercised by the existing
+UI scenarios in the full suite.
+
+The complete playwright-webxr 0.2.0 suite passed **13 tests, 15 immersive
+sessions and 15 exits** in 3.6 minutes. Hardware preflight: Apple M1 Pro / ANGLE
+Metal, Chrome 152.0.7977.83. The served build stayed fixed. Evidence is kept in
+`qa/webxr/evidence/night-districts-20260913/` (ignored).
+
+Independent stereo review found matching city lights, roads and window bands
+in both eyes at all three rolls, with no observed one-eye disappearance or
+lights detached from the world. The scenery view leaves the wrist panel at a
+grazing angle and partly outside the frame; wrist legibility is not judged from
+those images. Desktop comparisons show a subtle colour change with no obvious
+daytime or nearby-window regression. Building use cannot be identified from
+these distant images alone, and the road grid remains prominent at the Quest
+budget. Native headset performance and comfort remain unverified.

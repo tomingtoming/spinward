@@ -8,6 +8,12 @@ export function colonyWindowAppearance(use:ColonyUse,seed:number){
  return {kind,tint:((seed>>>21)&255)/255,occupied}
 }
 
+// Linear RGB averages used once individual rooms are smaller than a pixel.
+// Keep the shell bake and the filtered facade on the same use-based palette.
+export const COLONY_AVERAGE_LAMPS = [[.92,.84,.76],[.76,.86,1.],[1.,.83,.59]] as const
+export const colonyAverageLamp = (kind:number) => COLONY_AVERAGE_LAMPS[kind<.5?0:kind<2.5?1:2]
+const lampGLSL=(index:number)=>COLONY_AVERAGE_LAMPS[index].map(v=>Number.isInteger(v)?`${v}.`:String(v).replace(/^0\./,'.')).join(',')
+
 // Inputs use window-local coordinates. Derivatives are supplied by the caller
 // before divergent glass/detail branches, so thin blinds can fade without aliasing.
 export const COLONY_WINDOW_GLSL=`
@@ -17,7 +23,7 @@ float colonyWindowHash(vec2 p) {
  return fract((p3.x+p3.y)*p3.z);
 }
 vec3 colonyLamp(float kind) {
- return kind<.5?vec3(.92,.84,.76):kind<2.5?vec3(.76,.86,1.):vec3(1.,.83,.59);
+ return kind<.5?vec3(${lampGLSL(0)}):kind<2.5?vec3(${lampGLSL(1)}):vec3(${lampGLSL(2)});
 }
 vec3 colonyRoomLamp(float kind,float pick) {
  if(kind>=.5)return colonyLamp(kind);

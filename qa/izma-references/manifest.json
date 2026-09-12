@@ -129,10 +129,13 @@
       "sha256": "97393bb397f4f811f1375a010b184a0e486193ae452001937b1d9dbb05d4ef91",
       "size": 2453738,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "night-city",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "2026-09-13: Re-viewed at source resolution. Civilian night districts contain clusters of small lights separated by dark areas. Exclude the mobile suits and blue exhaust in ep02-0004; do not infer the cause of clouds or coloured haze in 0012.",
+      "applied": "Restore use-based light colour, glazing, occupancy and existing district gain in the far shell bake for replacement colony buildings. See qa/neighborhood-life/night-districts.md.",
+      "remaining": "Actual city density, road topology, atmosphere and authored signage. Reference images are not bundled; physical lighting and nearby room windows are unchanged."
     },
     {
       "id": "izma-0013",
@@ -667,10 +670,13 @@
       "sha256": "c452bfc821ccb6c4aa95a3a17ededbf8ae9d1ee6013e90042a1e9ee4d8d01b8d",
       "size": 1949029,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "night-city",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "2026-09-13: Re-viewed at source resolution. Civilian night districts contain clusters of small lights separated by dark areas. Exclude the mobile suits and blue exhaust in ep02-0004; do not infer the cause of clouds or coloured haze in 0012.",
+      "applied": "Restore use-based light colour, glazing, occupancy and existing district gain in the far shell bake for replacement colony buildings. See qa/neighborhood-life/night-districts.md.",
+      "remaining": "Actual city density, road topology, atmosphere and authored signage. Reference images are not bundled; physical lighting and nearby room windows are unchanged."
     },
     {
       "id": "izma-ep02-0009",

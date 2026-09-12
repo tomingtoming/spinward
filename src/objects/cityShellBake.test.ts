@@ -5,9 +5,13 @@ import {
   CITY_SHELL_MIN_RADIUS,
   axialToShellYFraction,
   azimuthToShellU,
-  createCityShellTextureSet
+  createCityShellTextureSet,
+  shellBuildingEmission,
+  SHELL_VEIN_COLOR
 } from './cityShellBake'
-import type { CityPlan } from './cityLayout'
+import type { CityBuilding, CityPlan } from './cityLayout'
+import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {CITY_BLOCK_PLACEMENTS} from './authoredCityBlockPlan'
 import { splitCylinderShellArcs } from './cylinder'
 
 const TWO_PI = Math.PI * 2
@@ -83,4 +87,55 @@ test('createCityShellTextureSet skips empty plans', () => {
   }
 
   expect(createCityShellTextureSet(plan, 3200, 40000)).toBeNull()
+})
+
+const lightFixture:CityBuilding={azimuth:.2,axial:500,width:24,depth:20,height:40,tone:.5,kind:'tower',urban:.8,front:{axis:'axial',side:1},streetKind:'arterial'}
+test('unresolved windows retain use, glazing and occupancy instead of a uniform warm footprint',()=>{
+ const colours=new Map<string,THREE.Color>(),alphas=new Set<number>()
+ for(let i=0;i<400;i++){
+  const b={...lightFixture,axial:i*17},design=colonyBuildingDesign(b),light=shellBuildingEmission(b,design,null)
+  expect(light.alpha).toBeGreaterThan(0);expect(light.alpha).toBeLessThanOrEqual(.3)
+  expect(shellBuildingEmission({...b},colonyBuildingDesign({...b}),null)).toEqual(light)
+  colours.set(design.use.primary,light.color);alphas.add(light.alpha)
+ }
+ expect(alphas.size).toBeGreaterThan(100)
+ const office=colours.get('office')!,home=colours.get('apartments')!
+ expect(office.b).toBeGreaterThan(office.r);expect(home.r).toBeGreaterThan(home.b)
+ const d=colonyBuildingDesign(lightFixture,'apartment'),base=shellBuildingEmission(lightFixture,d,null).alpha
+ expect(shellBuildingEmission(lightFixture,{...d,windows:{...d.windows,occupied:d.windows.occupied/2}},null).alpha).toBeCloseTo(base/2)
+ expect(shellBuildingEmission(lightFixture,{...d,profile:{...d.profile,paneHeight:d.profile.paneHeight/2}},null).alpha).toBeCloseTo(base/2)
+})
+
+test('the same building dims in a district hollow and retains the secondary core',()=>{
+ const b={...lightFixture,urban:0},d=colonyBuildingDesign(b,'apartment')
+ const plain=shellBuildingEmission(b,d,{tangent:.9,axial:0}).alpha
+ expect(shellBuildingEmission(b,d,{tangent:-.35,axial:-.55}).alpha).toBeGreaterThan(plain*2)
+ expect(shellBuildingEmission(b,d,{tangent:.05,axial:-.12}).alpha).toBeLessThan(plain*.3)
+})
+
+test('the actual shell bake varies generated lights while preserving pilot lights and road exposure',()=>{
+ type Draw={color:string;alpha:number;rect:number[]}
+ const passes:Draw[][]=[],previous=globalThis.document
+ globalThis.document={createElement:()=>{
+  const draws:Draw[]=[];passes.push(draws)
+  const context={fillStyle:'',globalAlpha:1,clearRect:()=>{},fillRect:(...rect:number[])=>draws.push({color:context.fillStyle,alpha:context.globalAlpha,rect})}
+  return {width:0,height:0,getContext:()=>context}
+ }} as unknown as Document
+ try{
+  const pilot=CITY_BLOCK_PLACEMENTS[0].building
+  const plan:CityPlan={roads:[{azimuth:1,axial:5000,tangentWidth:20,axialLength:200,kind:'arterial'}],buildings:[pilot,...Array.from({length:40},(_,i)=>({...lightFixture,azimuth:1,axial:1000+i*90}))],patches:[],trees:[],tower:null,expressway:null}
+  const textures=createCityShellTextureSet(plan,3200,40000,1024)!
+  const emissive=passes[0],road=emissive.filter(d=>d.color==='#'+SHELL_VEIN_COLOR.getHexString())
+  expect(road.length).toBe(6)
+  expect(road[0].alpha).toBeCloseTo(.044);expect(road[3].alpha).toBeCloseTo(.19)
+  const windows=emissive.filter(d=>d.color!=='#000000'&&!road.includes(d))
+  expect(windows.some(d=>d.color==='#ffd89b'&&d.alpha===.12)).toBe(true)
+  expect(new Set(windows.map(d=>d.color)).size).toBeGreaterThan(4)
+  expect(new Set(windows.map(d=>d.alpha)).size).toBeGreaterThan(30)
+  expect(windows.every(d=>d.alpha>0&&d.alpha<=.3)).toBe(true)
+  textures.albedo.dispose();textures.emissive.dispose()
+ }finally{
+  if(previous===undefined)delete (globalThis as {document?:Document}).document
+  else globalThis.document=previous
+ }
 })

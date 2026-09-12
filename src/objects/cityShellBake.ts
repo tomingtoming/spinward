@@ -2,6 +2,8 @@ import {planBuildingInteriors} from './buildingInteriors'
 import {planNyaanApartment} from './nyaanApartment'
 import type {BlockSpec} from './authoredCityBlockPlan'
 import {colonyBuildingSpec} from './colonyBuildingPlan'
+import {colonyBuildingDesign} from './colonyBuildingDesign'
+import {colonyAverageLamp} from './colonyWindowAppearance'
 import {cityBlockSpec,cityBlockCollision} from './authoredCityBlockPlan'
 import * as THREE from 'three'
 import { nightDistrictGain, nightSpeckle, stripFrameAt } from './districtIdentity'
@@ -23,9 +25,9 @@ import {
 // (emissive). Beyond the angular-size cull the far batch drops buildings and
 // the painted roads finish their fade — this bake returns that mass to the
 // shell, so the far side never has holes. It is generated at city-build time
-// from the SAME CityPlan the geometry uses and from the SAME shared palette
-// (buildingTone / KENNEY_ROOF_TONES / FACADE_LIT_CHANCE), so a future facade
-// restyle propagates here without touching this file.
+// from the same CityPlan, structural recipes and colonyBuildingDesign as the
+// rendered buildings.
+// Legacy fallbacks retain the shared palette and lit-window probability.
 
 const TWO_PI = Math.PI * 2
 
@@ -226,9 +228,9 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan, recipes:Map<CityBuilding,
 }
 
 // ── Emissive night field ────────────────────────────────────────────────
-// The glow grid (arterial/local/expressway) plus one lit-window blob per lit
-// building. Relative brightness between roads and windows is baked into the
-// texel alpha; the day/night curve is a single uniform on the shell material.
+// Road glow plus unresolved window light within each structural footprint.
+// Relative brightness is baked into texel alpha; the day/night curve is one
+// uniform on the shell material. Courtyard voids retain their dark ground.
 
 const shellWindowGain = (building: CityBuilding) => {
   switch (building.kind) {
@@ -241,6 +243,22 @@ const shellWindowGain = (building: CityBuilding) => {
     default:
       return 0.75
   }
+}
+
+/** An unresolved footprint represents many rooms, not one randomly lit house.
+ * Use the facade's glazing/occupancy and preserve the existing district field.
+ * The factor converts this low-resolution ground proxy to a bounded exposure;
+ * it is not an extra physical light or a change to the room lighting. */
+export function shellBuildingEmission(building:CityBuilding,design:ReturnType<typeof colonyBuildingDesign>,frame:ReturnType<typeof stripFrameAt>){
+  const {profile,windows,use}=design
+  const lower=Math.min(1,use.groundHeight/Math.max(1,building.height))
+  const upper=windows.occupied*profile.paneWidth*profile.paneHeight*.75
+  const retail=use.ground==='retail'
+  const average=upper*(1-lower)+(retail?.12:.05)*lower
+  const color=new THREE.Color(...colonyAverageLamp(windows.kind))
+  if(retail)color.lerp(new THREE.Color(1,.76,.50),lower)
+  const district=nightDistrictGain(building.urban??.4,building.industrial===true,frame)
+  return {color,alpha:Math.min(.3,average*2.5)*district.gain*nightSpeckle(building.azimuth,building.axial)}
 }
 
 // Texel alpha of the baked road glow at scale 1, relative to the lit-window
@@ -281,7 +299,8 @@ const bakeEmissive = (
   plan: CityPlan,
   roadGlowScale: number,
   landArcs: LandArc[] | null,
-  recipes:Map<CityBuilding,BlockSpec>
+  recipes:Map<CityBuilding,BlockSpec>,
+  interiors:ReturnType<typeof planBuildingInteriors>
 ) => {
   const { ctx } = bake
   const random = createSeededRandom(0x9e11ba25)
@@ -327,13 +346,20 @@ const bakeEmissive = (
   }
 
   for (const building of plan.buildings) {
+    const block=recipes.get(building)
+    if(block){
+      const design=cityBlockSpec(building,bake.radius)?null:colonyBuildingDesign(building,interiors.get(building)?.kind)
+      const emission=design?shellBuildingEmission(building,design,stripFrameAt(landArcs,bake.length,building.azimuth,building.axial)):null
+      // Pilot GLBs keep their authored warm light; generated buildings share
+      // their actual use and window settings with the remote light field.
+      ctx.fillStyle=emission?cssColor(emission.color):'#ffd89b'
+      ctx.globalAlpha=emission?.alpha??.12
+      // Draw only occupied structural footprints, leaving courtyards dark.
+      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      continue
+    }
     const litChance = FACADE_LIT_CHANCE * (building.industrial === true ? 0.4 : 1)
     if (random() >= litChance) {
-      const block=recipes.get(building)
-      if(block){
-        ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
-        for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
-      }
       continue
     }
 
@@ -360,14 +386,6 @@ const bakeEmissive = (
     const speckle = nightSpeckle(building.azimuth, building.axial)
     ctx.fillStyle = cssColor(scratchColor)
     ctx.globalAlpha = gain * (0.38 + heightNorm * 0.55) * speckle
-    const block=recipes.get(building)
-    if(block){
-      ctx.fillStyle='#ffd89b';ctx.globalAlpha=.12
-      // One bounded roof/light footprint per structural volume; the courtyard
-      // stays dark. The ordinary whole-lot glow must not fill it back in.
-      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
-      continue
-    }
     bakeRect(bake, building.azimuth, building.axial, building.width, building.depth, 1)
 
     // Street-level commerce: urban non-house blocks carry the shop-band glow,
@@ -435,7 +453,7 @@ export const createCityShellTextureSet = (
   if(apartment)interiors.set(apartment.building,apartment)
   const recipes=new Map(plan.buildings.map(b=>[b,cityBlockSpec(b,radius)??colonyBuildingSpec(b,interiors.get(b))]))
   bakeAlbedo(albedoBake, plan,recipes)
-  bakeEmissive(emissiveBake, plan, roadGlowScale, landArcs,recipes)
+  bakeEmissive(emissiveBake, plan, roadGlowScale, landArcs,recipes,interiors)
 
   return {
     albedo: finishCityTexture(albedoBake.ctx.canvas),
