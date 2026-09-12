@@ -18,7 +18,7 @@ try {
   await page.goto(`${base}/?${params}`)
   await page.waitForSelector('#splash', { state: 'detached' })
   await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
-  await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Park', exact: true }).click()
+  await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Park', exact: true }).last().click()
   await page.waitForTimeout(1800)
   await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
   const arrival = await page.evaluate(() => ({ state: window.__spinward, park: window.__spinwardCity.getPublicPark(), visit: window.__spinwardCity.getInteriorVisit('park') }))

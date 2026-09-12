@@ -1,3 +1,5 @@
+import { NeighborhoodJourney, OUTING_DESTINATIONS, planNeighborhoodRoute, pavementExit, canParkAt, wrapAngle, type GuideAction, type OutingDestination } from './neighborhoodRoute'
+import { createOutingPanel } from '../ui/outingPanel'
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
 import { sampleTrackedBodyPose } from '../xr/trackedBodyPose'
@@ -103,7 +105,7 @@ import { Explosions } from '../objects/explosion'
 import { PROJECTILES, cycleProjectile, type ProjectileType } from '../gameplay/projectileTypes'
 import { Car } from '../objects/car'
 import { centralPlazaArrival } from '../objects/civicArrival'
-import { CarShareStation } from '../objects/carShare'
+import { CarShareStation, planCarShareBay } from '../objects/carShare'
 import {
   getArrivalSquare,
   getCityExpressway,
@@ -684,6 +686,16 @@ export const bootstrapApp = async () => {
   })
   const car = new Car()
   nearLayer.add(car.group)
+  const journey = new NeighborhoodJourney()
+  const outingDestinations = new Map<GuideAction, OutingDestination>()
+  const destinationStations: CarShareStation[] = []
+  let outingPlan: ReturnType<typeof cityscape.getCityPlan> | undefined
+  let outingDetail = ''
+  let outingAngle = 0
+  let outingCanPark = false
+  let routeRetry = 0
+  let driveExitHint = ''
+  let routeOrigin = {azimuth:0,axial:0}
   const carShareStation = new CarShareStation()
   nearLayer.add(carShareStation.group)
   let carLayoutKey = ''
@@ -762,10 +774,28 @@ export const bootstrapApp = async () => {
   const parkCarNearPlaza = () => {
     const bay = cityscape.getCarShareBay()
     const key = JSON.stringify([habitatConfig.radius, getHabitatSpanMeters(), bay])
+    const plan=cityscape.getCityPlan()
+    if (plan !== outingPlan) {
+      outingPlan=plan;journey.cancel();outingDestinations.clear()
+      for(const station of destinationStations)station.dispose()
+      destinationStations.length=0
+      if(plan && bay) {
+        const square=centralPlazaArrival(habitatConfig.radius)
+        outingDestinations.set('guide-square',{label:'Central Square',entrance:{azimuth:square.azimuth,axial:square.axialPosition},bay})
+        const bays=[bay]
+        for(const kind of ['cafe','park'] as const) {
+          const entrance=cityscape.getInteriorVisit(kind)
+          if(!entrance)continue
+          const parking=planCarShareBay(plan,habitatConfig.radius,{azimuth:entrance.azimuth,axialPosition:entrance.axial},bays)
+          outingDestinations.set(`guide-${kind}`,{label:kind==='cafe'?'Café':'Park',entrance,bay:parking})
+          if(parking){const station=new CarShareStation();station.configure(parking,habitatConfig.radius,kind==='cafe'?'Café · 02':'Park · 03');nearLayer.add(station.group);destinationStations.push(station);bays.push(parking)}
+        }
+        parkedCars.reserve(bays)
+      } else parkedCars.reserve(bay)
+    }
     if (key === carLayoutKey) return
     carLayoutKey = key
     carShareStation.configure(bay, habitatConfig.radius)
-    parkedCars.reserve(bay)
     drive.parkAt(bay?.azimuth ?? Math.min(4.5, habitatConfig.radius * .2) / habitatConfig.radius,
       bay?.axial ?? 0, bay?.heading ?? 0, bay ? .2 : 0)
     car.setPose(drive.surface.azimuth, drive.surface.axialPosition, drive.heading, habitatConfig.radius - drive.parkedElevation)
@@ -1043,8 +1073,15 @@ export const bootstrapApp = async () => {
   const carExitPosition = new THREE.Vector3()
   const PLAYER_DISMOUNT_HEIGHT = 1.1
 
-  const exitDrive = () => {
+  const exitDrive = (atBay = false) => {
+    const streetExit=drive.mode==='street'||atBay
     const omega = rpmToOmega(habitatConfig.rpm)
+    const plan=cityscape.getCityPlan()
+    const pavement=plan && streetExit && drive.lastElevation<.8
+      ? pavementExit(plan,habitatConfig.radius,{azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition},drive.heading) : null
+    if(streetExit && (drive.lastSpeed>.8 || !drive.lastGrounded))return
+    if(streetExit && drive.lastElevation<.8 && !pavement){driveExitHint='Pull over beside the pavement';return}
+    driveExitHint=''
     // Step off carrying the car's momentum: leave on foot in free-fly with the
     // car's rotating-frame velocity. A near-stopped car re-attaches next frame
     // (the ground-contact gate sees a low relative speed); a moving one flings
@@ -1053,8 +1090,8 @@ export const bootstrapApp = async () => {
     drive.exit()
     if (tourGuide.activeEvent === 'drive') { tourGuide.activeEvent = null; tourGuide.remainingSeconds = 0 }
     const baySide = carShareStation.bay && Math.hypot((drive.surface.azimuth-carShareStation.bay.azimuth)*habitatConfig.radius, drive.surface.axialPosition-carShareStation.bay.axial) < 4 ? carShareStation.bay.signSide : 1
-    const exitAzimuth = drive.surface.azimuth - Math.cos(drive.heading) * baySide * 2.6 / habitatConfig.radius
-    const exitAxial = drive.surface.axialPosition + Math.sin(drive.heading) * baySide * 2.6
+    const exitAzimuth = pavement?.azimuth ?? drive.surface.azimuth - Math.cos(drive.heading) * baySide * 2.6 / habitatConfig.radius
+    const exitAxial = pavement?.axial ?? drive.surface.axialPosition + Math.sin(drive.heading) * baySide * 2.6
     carExitPosition
       .set(Math.cos(exitAzimuth), 0, Math.sin(exitAzimuth))
       .multiplyScalar(
@@ -1130,6 +1167,7 @@ export const bootstrapApp = async () => {
   }
 
   const prepareTravel = () => {
+    journey.cancel()
     // Travel leaves the old attachment before placing the new body. Otherwise
     // the next driving/seating update can pull the player back to the old spot.
     if (drive.driving) drive.exit()
@@ -1144,7 +1182,40 @@ export const bootstrapApp = async () => {
     cancelDesktopIntent()
   }
 
+  function refreshJourney() {
+    if(!journey.action)return
+    const plan=cityscape.getCityPlan(), radius=habitatConfig.radius
+    const position=drive.driving?drive.surface:playerTraversal.surface
+    routeOrigin={azimuth:position.azimuth,axial:position.axialPosition}
+    const carPoint={azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition}
+    const destination=journey.action==='guide-car'
+      ? {label:'Your car',entrance:carPoint,bay:null} : outingDestinations.get(journey.action)
+    if(!plan||!destination){journey.setRoute(null,drive.driving,'Directions unavailable');return}
+    const goal=drive.driving ? destination.bay : destination.entrance
+    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition},goal,drive.driving,cityscape.getPublicPark()) : null,
+      drive.driving, destination.label)
+    routeRetry=0
+  }
+
   function handleWatchAction(action: WatchActionId) {
+    if(action==='guide-car' && drive.driving)return false
+    if(OUTING_DESTINATIONS.some(d=>d.id===action)) {
+      gameplayStarted=true;desktopLookControls.cancelIntroReveal()
+      if(tourGuide.activeEvent==='start'){tourGuide.activeEvent=null;tourGuide.remainingSeconds=0}
+      journey.action=action as GuideAction;refreshJourney();audio.playClick();return true
+    }
+    if(action==='guide-cancel'){journey.cancel();return true}
+    if(action==='drive-mode-toggle'){drive.mode=drive.mode==='street'?'experiment':'street';audio.playClick();return true}
+    if(action==='park-car') {
+      const bay=journey.action ? outingDestinations.get(journey.action)?.bay : null
+      if(!bay || !drive.driving || !drive.lastGrounded || !canParkAt({azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition},drive.heading,drive.lastSpeed,drive.lastElevation,bay,habitatConfig.radius))return false
+      const plan=cityscape.getCityPlan()
+      if(!plan || !pavementExit(plan,habitatConfig.radius,bay,drive.heading))return false
+      // A deliberate parking action assists only the final two metres.
+      drive.parkAt(bay.azimuth,bay.axial,drive.heading,.2)
+      drive.lastRotatingVelocity.set(0,0,0);drive.lastSpeed=0
+      exitDrive(true);refreshJourney();return true
+    }
     if (applyWatchAction(settingsStore, action)) {
       audio.playClick()
       if (action.startsWith('rpm-')) {
@@ -1338,6 +1409,8 @@ export const bootstrapApp = async () => {
       reportTour('rain')
     }
   }
+  const outingPanel=createOutingPanel(action=>handleWatchAction(action))
+  dock.right.append(outingPanel.modeChip)
   const beatBar = createBeatBar((action) => handleWatchAction(action), dock.right, () =>
     setRaining(!weather.raining)
   )
@@ -1551,6 +1624,16 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardStreetLamps = streetLamps
     ;(window as unknown as Record<string, unknown>).__spinwardTraffic = () => cityscape.getTrafficPositions()
     ;(window as unknown as Record<string, unknown>).__spinwardIntersections = intersectionFurniture
+    ;(window as unknown as Record<string, unknown>).__spinwardOuting = {journey,destinations:outingDestinations,action:handleWatchAction,
+      face:(heading:number)=>{
+        const a=playerTraversal.surface.azimuth
+        const direction=new THREE.Vector3(-Math.sin(a)*Math.sin(heading),Math.cos(heading),Math.cos(a)*Math.sin(heading))
+        cityscape.group.updateWorldMatrix(true,false)
+        direction.transformDirection(cityscape.group.matrixWorld)
+        const up=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)).transformDirection(cityscape.group.matrixWorld)
+        desktopLookControls.cancelIntroReveal();desktopLookControls.faceDirection(direction,up)
+      },
+      route:(start:{azimuth:number;axial:number},goal:{azimuth:number;axial:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark())}
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,
@@ -1572,6 +1655,7 @@ export const bootstrapApp = async () => {
         })
         applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
         desktopLookControls.resetLook()
+        vrLocomotion?.faceForward()
       }
     }
   }
@@ -2525,7 +2609,25 @@ export const bootstrapApp = async () => {
         if (resolvePlaceVisit(place.id, kind => cityscape.getInteriorVisit(kind))) availablePlaces.add(place.id)
       }
     }
+    const outingSurface=drive.driving?drive.surface:playerTraversal.surface
+    if(journey.action==='guide-car' && drive.driving)journey.cancel()
+    if(journey.action && journey.driving!==drive.driving)refreshJourney()
+    journey.update({azimuth:outingSurface.azimuth,axial:outingSurface.axialPosition},habitatConfig.radius,deltaSeconds)
+    routeRetry+=deltaSeconds
+    if(journey.action && routeRetry>3 && (journey.offRoute>1.5 || journey.status==='unavailable' && Math.hypot(wrapAngle(outingSurface.azimuth-routeOrigin.azimuth)*habitatConfig.radius,outingSurface.axialPosition-routeOrigin.axial)>5))refreshJourney()
+    const destinationBay=journey.action?outingDestinations.get(journey.action)?.bay:null
+    outingCanPark=!!(drive.driving && drive.lastGrounded && destinationBay && canParkAt({azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition},drive.heading,drive.lastSpeed,drive.lastElevation,destinationBay,habitatConfig.radius))
+    outingAngle=wrapAngle(journey.bearing-bodyHeading)
+    const turn=Math.abs(outingAngle)<.35?'Ahead':Math.abs(outingAngle)>2.6?'Behind':outingAngle>0?'Right':'Left'
+    outingDetail=journey.status==='unavailable'?'No local route · move nearer a street'
+      : journey.status==='arrived'?(drive.driving?'Brake in the bay, then Park':journey.action==='guide-car'?'Your car is here · E to enter':journey.action==='guide-cafe'?'Café entrance · step inside for coffee':journey.action==='guide-park'?'Park entrance · follow the path to a bench':'Central Square · welcome back')
+      : `${turn} ${Math.ceil(journey.nextDistance)} m · ${Math.ceil(journey.remaining)} m ${drive.driving?'to parking':'on foot'}`
+    if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
+    if(journey.status==='arrived' && journey.action==='guide-park' && roomSeating.seat)outingDetail='Take a break · Your car in Places'
+    if(outingCanPark)outingDetail='Bay reached · Park to step out'
+    outingPanel.update({label:journey.label,detail:outingDetail,angle:journey.status==='active'?outingAngle:NaN,active:journey.status!=='idle',driving:drive.driving,mode:drive.mode,canPark:outingCanPark,hidden:renderer.xr.isPresenting})
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
+      outing:{text:journey.action?`${journey.label} · ${outingDetail}`:'Choose a place; travel there on foot or by car.',mode:drive.mode,canPark:outingCanPark,active:!!journey.action},
       playerMode: playerTraversal.mode,
       platform: currentControlPlatform(),
       region: playerRegion,
@@ -2572,6 +2674,7 @@ export const bootstrapApp = async () => {
     // The whole dock hides in VR; Travel/Spin stay reachable while driving.
     dock.setVisible(!renderer.xr.isPresenting)
     beatBar.update({
+      driving: drive.driving,
       rpm: habitatConfig.rpm,
       feltGravity,
       axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
@@ -2835,7 +2938,9 @@ export const bootstrapApp = async () => {
       frameAngle,
       groundHeight: playerTraversal.groundHeight,
       dip: landDipOffset,
+      outing: {action:journey.action,status:journey.status,label:journey.label,remaining:journey.remaining,nextDistance:journey.nextDistance,index:journey.index,detail:outingDetail,canPark:outingCanPark},
       drive: {
+        mode: drive.mode,
         driving: drive.driving,
         azimuth: drive.surface.azimuth,
         axial: drive.surface.axialPosition,
@@ -2852,7 +2957,7 @@ export const bootstrapApp = async () => {
     const nearCar = car.group.visible && !nearSeat && !roomSeating.seat && playerTraversal.mode === 'grounded' &&
       drive.isPlayerNear(playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition, habitatConfig.radius)
     roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice(),
-      drive.driving ? 'Leave car' : nearCar ? 'Use car share' : null)
+      drive.driving ? (drive.mode==='street' && drive.lastSpeed>.8 ? 'Brake before leaving' : driveExitHint || 'Leave car') : nearCar ? 'Use car share' : null)
     const coffeeCtx = coffeeContext()
     coffeeService.update(deltaSeconds, coffeeCtx)
     coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
@@ -2865,7 +2970,8 @@ export const bootstrapApp = async () => {
     const trackedBody = renderer.xr.isPresenting
       ? sampleTrackedBodyPose(renderer, viewRig, cityscape.group, habitatConfig.radius, bodyHeading) : null
     const bodyAzimuth = trackedBody?.azimuth ?? playerTraversal.surface.azimuth
-    const facingTangent = -Math.sin(bodyAzimuth) * bodyDirection.x + Math.cos(bodyAzimuth) * bodyDirection.z
+    const facingAzimuth=drive.driving?drive.surface.azimuth:bodyAzimuth
+    const facingTangent = -Math.sin(facingAzimuth) * bodyDirection.x + Math.cos(facingAzimuth) * bodyDirection.z
     if (Math.hypot(facingTangent, bodyDirection.y) > .02) bodyHeading = Math.atan2(facingTangent, bodyDirection.y)
     if (trackedBody) bodyHeading = trackedBody.heading
     const stepped = playerBodyView.update({

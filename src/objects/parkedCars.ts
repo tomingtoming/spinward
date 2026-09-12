@@ -196,8 +196,8 @@ export class ParkedCars {
   private radius = 0;
   private sidewalk = 0;
   private pack: KenneyCarGeometryPack | null = null;
-  private reserved: { azimuth: number; axial: number } | null = null;
-  reserve(bay: { azimuth: number; axial: number } | null) { this.reserved = bay; this.focusAzimuth = Number.NaN; }
+  private reserved: readonly { azimuth: number; axial: number }[] = [];
+  reserve(bay: { azimuth: number; axial: number } | readonly { azimuth: number; axial: number }[] | null) { this.reserved = bay ? Array.isArray(bay) ? bay : [bay as { azimuth: number; axial: number }] : []; this.focusAzimuth = Number.NaN; }
   private meshes: THREE.InstancedMesh[] = [];
   private focusAzimuth = Number.NaN;
   private focusAxial = Number.NaN;
@@ -304,7 +304,7 @@ export class ParkedCars {
         this.meshes.length,
       )) {
         slots += 1;
-        if (this.reserved && Math.hypot(wrapToPi(slot.azimuth - this.reserved.azimuth) * this.radius, slot.axial - this.reserved.axial) < 6.5) continue;
+        if (this.reserved.some(b => Math.hypot(wrapToPi(slot.azimuth - b.azimuth) * this.radius, slot.axial - b.axial) < 6.5)) continue;
         if (!isSlotOccupied(slot, building)) continue;
         occupied += 1;
         const mesh = this.meshes[slot.variant];

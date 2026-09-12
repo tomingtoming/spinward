@@ -1,3 +1,4 @@
+import { OUTING_DESTINATIONS, type OutingAction } from '../../app/neighborhoodRoute'
 import * as THREE from 'three'
 import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../../app/placeVisits'
 import {
@@ -10,11 +11,12 @@ import {
 // The wrist keeps travel and spin on HOME, with everyday places, settings and
 // controls one page away. Each page has a Back target and uses the same canvas
 // bounds for drawing and laser hit-testing.
-export type WatchScreen = 'home' | 'places' | 'habitat' | 'tweaks' | 'legend'
+export type WatchScreen = 'home' | 'outing' | 'places' | 'habitat' | 'tweaks' | 'legend'
 
 export type WatchNavActionId =
   | 'nav-home'
   | 'nav-places'
+  | 'nav-outing'
   | 'nav-habitat'
   | 'nav-tweaks'
   | 'nav-legend'
@@ -22,6 +24,7 @@ export type WatchNavActionId =
 export type WatchActionId =
   | WatchNavActionId
   | PlaceVisitAction
+  | OutingAction
   | WatchParameterActionId
   | 'preset-apply-playground'
   | 'preset-apply-izma'
@@ -160,6 +163,8 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
   switch (id) {
     case 'nav-home':
       return 'home'
+    case 'nav-outing':
+      return 'outing'
     case 'nav-places':
       return 'places'
     case 'nav-habitat':
@@ -229,7 +234,7 @@ const createPlacesLayout = (width: number, height: number): WatchScreenLayout =>
     placesSection.top + 84 + Math.floor(i / 2) * 104, 290, 80
   ))
   return { screen: 'places', width, height, backButton, title: 'PLACES',
-    placesSection, placeButtons, buttons: [backButton, ...placeButtons] }
+    placesSection, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons] }
 }
 
 const createHabitatLayout = (width: number, height: number): WatchScreenLayout => {
@@ -323,6 +328,13 @@ const createLegendLayout = (width: number, height: number): WatchScreenLayout =>
   }
 }
 
+const createOutingLayout = (width:number,height:number):WatchScreenLayout => {
+  const backButton=makeBackButton()
+  const placeButtons=[...OUTING_DESTINATIONS,{id:'guide-cancel' as const,label:'Cancel directions'}, {id:'drive-mode-toggle' as const,label:'Street / Experiment'}, {id:'park-car' as const,label:'Park car'}]
+    .map((p,i)=>makeActionButton(p.id,p.label,50+(i%2)*330,160+Math.floor(i/2)*104,290,80))
+  return {screen:'outing',width,height,backButton,title:'DIRECTIONS',placeButtons,buttons:[backButton,...placeButtons]}
+}
+
 export const createWatchLayout = (
   screen: WatchScreen,
   width = WATCH_CANVAS_SIZE.width,
@@ -331,6 +343,8 @@ export const createWatchLayout = (
   switch (screen) {
     case 'home':
       return createHomeLayout(width, height)
+    case 'outing':
+      return createOutingLayout(width,height)
     case 'places':
       return createPlacesLayout(width, height)
     case 'habitat':
@@ -351,6 +365,7 @@ export const createAllWatchLayouts = (
   height = WATCH_CANVAS_SIZE.height
 ): Record<WatchScreen, WatchScreenLayout> => ({
   home: createWatchLayout('home', width, height),
+  outing: createWatchLayout('outing', width, height),
   places: createWatchLayout('places', width, height),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),

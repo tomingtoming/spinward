@@ -65,7 +65,7 @@ try {
   await page.evaluate(() => { for (const s of window.__spinwardStreetLamps.lighting.slots) s.light.visible = true })
   if (phone) await page.getByRole('button', { name: 'Travel ▾', exact: true }).click()
   else await page.getByRole('button', { name: 'Places ▾', exact: true }).click()
-  await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Café', exact: true }).click()
+  await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Café', exact: true }).last().click()
   await page.waitForTimeout(600)
   await page.keyboard.down('w')
   try { await page.waitForFunction(() => window.__spinward.room.shelter > .95, undefined, { timeout: 10000 }) }

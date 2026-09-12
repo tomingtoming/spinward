@@ -18,6 +18,7 @@ import {
 } from '../sim/frameTransforms'
 import {
   stepVehicleDynamics,
+  type DriveMode,
   type VehicleInput
 } from '../gameplay/vehicle'
 import type { UnitsContext } from '../units/units'
@@ -60,6 +61,7 @@ const wrapDelta = (angle: number) => {
 }
 
 export class DriveRuntime {
+  mode: DriveMode = 'street'
   driving = false
   readonly surface = { azimuth: 0, axialPosition: 0 }
   heading = 0
@@ -83,6 +85,7 @@ export class DriveRuntime {
   readonly lastInertialVelocity = new THREE.Vector3()
   readonly lastInertialPosition = new THREE.Vector3()
 
+  private appliedContactMode: DriveMode | null = null
   private body: RigidBody | null = null
   private world: World | null = null
   // Previous frame's planar speed, to spot a crash as a hard one-frame drop.
@@ -96,6 +99,7 @@ export class DriveRuntime {
     }
 
     this.world = physics.world
+    this.appliedContactMode = null
     this.driving = false
     this.body = createRigidBodyAtRealPose(
       physics.world,
@@ -118,9 +122,9 @@ export class DriveRuntime {
       physics.rapier.ColliderDesc.ball(
         scaleLengthForRapier(CAR_COLLIDER_RADIUS, physics.units)
       )
-        // Tire grip lives in the vehicle model; keep engine friction below
-        // the engine's drive accel even with two contacts at a panel seam.
-        .setFriction(0.3)
+        // Tire forces live in the vehicle model. Friction on a rotation-locked
+        // sphere otherwise consumes a gentle street engine's entire thrust.
+        .setFriction(0)
         .setFrictionCombineRule(physics.rapier.CoefficientCombineRule.Min)
         .setCollisionGroups(CAR_COLLISION_GROUPS)
         .setDensity(0.6)
@@ -203,6 +207,13 @@ export class DriveRuntime {
       return null
     }
 
+    if(this.appliedContactMode!==this.mode) {
+      // Keep the established experimental contact response (including its
+      // near-float stability); Street uses only the explicit tyre forces.
+      this.body.collider(0).setFriction(this.mode==='experiment' ? .3 : 0)
+      this.appliedContactMode=this.mode
+    }
+
     // Pre-step pose corresponds to the frame angle BEFORE this frame's
     // advance; converting with the end angle skews the azimuth by omega*dt.
     const frameAngleStart = config.frameAngle - config.omega * config.deltaSeconds
@@ -254,7 +265,8 @@ export class DriveRuntime {
       {
         deltaSeconds: config.deltaSeconds,
         surfaceGravity: effectiveGravity,
-        grounded
+        grounded,
+        mode: this.mode
       }
     )
 

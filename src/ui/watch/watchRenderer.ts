@@ -447,7 +447,16 @@ export const renderWatch = (
 
   drawSubHeader(ctx, layout, snapshot, hoveredAction)
 
+  if (layout.screen === 'outing') {
+    for(const button of layout.placeButtons ?? []) drawButton(ctx,button,hoveredAction,{disabled:isWatchActionDisabled(snapshot,button.id)})
+    ctx.textAlign='left';ctx.textBaseline='top'
+    ctx.fillStyle=TEXT_DIM;ctx.font='500 19px \"Avenir Next\", sans-serif'
+    ctx.fillText(snapshot.outing?.text ?? 'Choose a place and follow the streets.',50,604,620)
+    ctx.fillText(`Driving: ${snapshot.outing?.mode ?? 'Street'} · Park at a marked bay`,50,641,620)
+  }
   if (layout.screen === 'places' && layout.placesSection) {
+    const directions=layout.buttons.find(b=>b.id==='nav-outing')
+    if(directions) drawButton(ctx,directions,hoveredAction,{accent:true})
     drawSectionCard(ctx, layout.width, layout.placesSection, 'Arrive at the entrance, ready to explore')
     for (const button of layout.placeButtons ?? []) drawButton(ctx, button, hoveredAction, {
       accent: true, disabled: isWatchActionDisabled(snapshot, button.id)

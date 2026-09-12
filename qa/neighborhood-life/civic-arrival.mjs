@@ -20,7 +20,7 @@ try {
     const shot = async label => page.screenshot({ path: `${out}civic-${phone ? 'phone' : 'desktop'}-${label}.png` })
     const visit = async label => {
       await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
-      await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: label, exact: true }).click()
+      await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: label, exact: true }).last().click()
       await page.waitForTimeout(1500)
     }
     await goto('t=.42')

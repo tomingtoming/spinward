@@ -126,6 +126,7 @@ test('entering the car settles to 1g without a freefall slam', async () => {
 test('flooring the car against the spin drains the felt-G toward a real float', async () => {
   const rapier = await initRapier()
   const { world, units, wall, drive } = buildDriveWorld(rapier)
+  drive.mode = 'experiment'
 
   let frameAngle = 0
   drive.parkAt(0, 0, Math.PI / 2) // heading along +tangent: against the spin
@@ -200,6 +201,7 @@ test('the car stops at a streamed building via real contact (P1), not an analyti
     })
 
     const drive = new DriveRuntime()
+    drive.mode = 'experiment'
     drive.rebuild({ rapier, world, units })
     let frameAngle = 0
     drive.parkAt(0, 0, Math.PI / 2) // heading +tangent, toward the building
@@ -245,4 +247,27 @@ test('the car stops at a streamed building via real contact (P1), not an analyti
   expect(clear.maxActive).toBe(0)
   expect(clear.crashedFrames).toBe(0)
   expect(clear.maxTangential).toBeGreaterThan(200)
+})
+
+
+test('street engine moves against real contact, brakes, and retains parked position on re-entry', async () => {
+  const rapier=await initRapier(), {world,units,wall,drive}=buildDriveWorld(rapier)
+  let frameAngle=0
+  drive.parkAt(0,0,0);drive.enter(frameAngle,IZMA_OMEGA,IZMA_RADIUS,{rapier,world,units})
+  const tick=(throttle:number,brake:number,seconds:number)=>{
+    for(let i=0;i<60*seconds;i++){
+      frameAngle+=IZMA_OMEGA/60
+      drive.preStep({throttle,steer:0,brake},{deltaSeconds:1/60,frameAngle,omega:IZMA_OMEGA,radius:IZMA_RADIUS,units})
+      world.timestep=1/60;world.step();drive.postStep({frameAngle,units})
+    }
+  }
+  tick(1,0,3)
+  expect(drive.lastSpeed).toBeGreaterThan(7)
+  expect(drive.lastSpeed).toBeLessThan(11)
+  tick(1,0,8);expect(drive.lastSpeed).toBeLessThan(14.2)
+  tick(0,1,3);expect(drive.lastSpeed).toBeLessThan(.2)
+  drive.exit();const parked={...drive.surface}
+  drive.enter(frameAngle,IZMA_OMEGA,IZMA_RADIUS,{rapier,world,units});tick(0,1,1)
+  expect(Math.abs(drive.surface.axialPosition-parked.axialPosition)).toBeLessThan(.1)
+  wall.dispose();drive.dispose();world.free()
 })

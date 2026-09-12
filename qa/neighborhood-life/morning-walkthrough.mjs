@@ -72,7 +72,7 @@ try {
   })
   await run('park-seat', 't=.42', async ({ page, goto }) => {
     await page.getByRole('button', { name: 'Places ▾', exact: true }).click()
-    await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Park', exact: true }).click()
+    await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Park', exact: true }).last().click()
     const seat = await page.evaluate(() => window.__spinward.room.seats.find(s => s.id.startsWith('park-bench')))
     if (!seat) throw Error('Missing real park seat')
     await goto(`t=.42&${pose(seat.azimuth, seat.exit.axialPosition + .3, 1.8, .8, seat.axialPosition - .18)}`)

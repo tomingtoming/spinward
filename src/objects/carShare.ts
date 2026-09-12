@@ -9,9 +9,9 @@ const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 
 /** Reserve a real kerb slot, clear of junctions, rather than placing the
  * player's car in the pedestrian arrival square. */
-export function planCarShareBay(plan: CityPlan, radius: number): CarShareBay | null {
+export function planCarShareBay(plan: CityPlan, radius: number, anchor = centralPlazaArrival(radius), excluded: readonly CarShareBay[] = []): CarShareBay | null {
   if (radius < 800) return null
-  const arrival = centralPlazaArrival(radius)
+  const arrival = anchor
   const nearby = plan.buildings.filter(b => Math.hypot(wrap(b.azimuth - arrival.azimuth) * radius, b.axial - arrival.axialPosition) < 300)
     .sort((a, b) => Math.hypot(wrap(a.azimuth - arrival.azimuth) * radius, a.axial - arrival.axialPosition) - Math.hypot(wrap(b.azimuth - arrival.azimuth) * radius, b.axial - arrival.axialPosition)).slice(0, 64)
   const slots = nearby.flatMap(b => parkingSlotsFor(b, radius, plan.roads, getSidewalkWidth(radius), 6))
@@ -22,7 +22,7 @@ export function planCarShareBay(plan: CityPlan, radius: number): CarShareBay | n
     }))
   const distance = (s: ParkingSlot) => Math.hypot(wrap(s.azimuth - arrival.azimuth) * radius, s.axial - arrival.axialPosition)
   slots.sort((a, b) => distance(a) - distance(b))
-  const slot = slots[0]
+  const slot = slots.find(s => excluded.every(b => Math.hypot(wrap(s.azimuth-b.azimuth)*radius, s.axial-b.axial) > 8))
   if (!slot) return null
   const road = plan.roads.find(r => r.kind !== 'alley' && (r.axialLength > r.tangentWidth) === (slot.along === 'axial') &&
     Math.abs(wrap(slot.azimuth - r.azimuth) * radius) < r.tangentWidth / 2 && Math.abs(slot.axial - r.axial) < r.axialLength / 2)!
@@ -38,7 +38,7 @@ export class CarShareStation {
   private sign: THREE.Group | null = null
   private readonly paint = new THREE.MeshStandardMaterial({ color: 0xd6d2bb, roughness: .95 })
 
-  configure(bay: CarShareBay | null, radius: number) {
+  configure(bay: CarShareBay | null, radius: number, label = 'Central square · 01') {
     this.clear(); this.bay = bay
     this.group.visible = !!bay
     if (!bay) return
@@ -54,7 +54,7 @@ export class CarShareStation {
         mesh.position.set(x + dx, .008, z + dz); this.group.add(mesh)
       }
     }
-    this.sign = civicSign('CAR SHARE', ['Central square · 01', 'Return to a marked bay'], .9)
+    this.sign = civicSign('CAR SHARE', [label, 'Return to a marked bay'], .9)
     this.sign.position.set(bay.signSide * 2.5, .12, -2.6)
     this.sign.rotation.y = -bay.signSide * Math.PI / 2
     this.group.add(this.sign)

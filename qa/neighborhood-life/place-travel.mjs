@@ -27,7 +27,7 @@ try {
         // availability after an in-page rebuild, not just fresh page loads.
         if (phone) await page.locator('.dock-more').click()
         await page.locator('.hud-chip--preset').focus(); await page.keyboard.press('Space')
-        await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: label, exact: true }).click()
+        await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: label, exact: true }).last().click()
         if (phone) await page.locator('.dock-more').click()
         await page.waitForTimeout(1400)
       }
@@ -41,14 +41,14 @@ try {
         await chip.click()
         const menu = page.locator('.preset-menu:not([hidden])')
         for (const place of destinations) {
-          if (await menu.getByRole('button', { name: place.label, exact: true }).isVisible() !== !!place.anchor) throw Error('Invalid visible destination: ' + preset + '/' + place.id)
+          if (await menu.getByRole('button', { name: place.label, exact: true }).last().isVisible() !== !!place.anchor) throw Error('Invalid visible destination: ' + preset + '/' + place.id)
         }
         await page.keyboard.press('Escape')
       }
       const results = []
       for (const place of available) {
         await chip.click()
-        await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: place.label, exact: true }).click()
+        await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: place.label, exact: true }).last().click()
         await page.waitForTimeout(1800)
         const state = await page.evaluate(() => ({ ...window.__spinward, body: window.__spinwardBody.group.userData }))
         const offset = Math.hypot(Math.atan2(Math.sin(state.azimuth-place.anchor.azimuth), Math.cos(state.azimuth-place.anchor.azimuth))*state.radius, state.axial-place.anchor.axial)
@@ -73,7 +73,7 @@ try {
     // normal frames run, instead of the driving update restoring the car pose.
     const travel = async label => {
       if (phone) await page.getByRole('button', { name: 'Travel ▾', exact: true }).click()
-      await page.getByRole('button', { name: label, exact: true }).click()
+      await page.getByRole('button', { name: label, exact: true }).last().click()
     }
     await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
     await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Car share', exact: true }).click()
@@ -92,7 +92,7 @@ try {
     await page.waitForSelector('#splash', { state: 'detached' })
     await page.keyboard.press('e'); await page.waitForFunction(() => !!window.__spinward.room.seat)
     await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
-    await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Café', exact: true }).click()
+    await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Café', exact: true }).last().click()
     await page.waitForTimeout(1400)
     const unseated = await page.evaluate(() => ({ seat: window.__spinward.room.seat, sensor: window.__spinward.room.sensor, tour: window.__spinward.tour, mode: window.__spinward.mode }))
     if (unseated.seat || unseated.sensor || unseated.mode !== 'grounded' || unseated.tour !== 'visit-cafe') throw Error('Travel retained the bench attachment')

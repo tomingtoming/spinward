@@ -210,3 +210,17 @@ describe('stepVehicleDynamics', () => {
     expect(feltG() / EARTH_GRAVITY).toBeLessThan(0.1)
   })
 })
+
+
+test('Street cruise limits forward and reverse power without deleting overspeed momentum', () => {
+  const basis=basisAtAzimuthZero(), state={heading:0}, velocity=new THREE.Vector3()
+  const step=(throttle:number,brake=0)=>stepVehicleDynamics(state,velocity,basis,{throttle,brake,steer:0},{deltaSeconds:1/60,surfaceGravity:EARTH_GRAVITY,grounded:true,mode:'street'})
+  for(let i=0;i<1800;i++)step(1)
+  expect(velocity.y).toBeGreaterThan(13);expect(velocity.y).toBeLessThan(14.1)
+  for(let i=0;i<180;i++)step(0,1)
+  expect(Math.abs(velocity.y)).toBeLessThan(.01)
+  for(let i=0;i<600;i++)step(-1)
+  expect(velocity.y).toBeGreaterThan(-3.1);expect(velocity.y).toBeLessThan(-2.8)
+  velocity.set(2,100,0);step(1)
+  expect(velocity.y).toBeGreaterThan(99);expect(velocity.x).toBe(2)
+})

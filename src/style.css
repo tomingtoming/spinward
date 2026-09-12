@@ -754,3 +754,13 @@ body.is-vr-entry #VRButton {
     font-size: 14px;
   }
 }
+
+/* Quiet, screen-bound directions; no marker suspended over the city. */
+.outing-panel{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:19;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 28px);padding:9px 12px;background:#172422e8;color:#f7ead3;border:1px solid #acbca650;border-radius:10px;font:13px system-ui;box-shadow:0 4px 20px #0003;pointer-events:auto}
+.outing-panel[hidden],.outing-panel [hidden],.outing-mode[hidden]{display:none}
+.outing-panel strong,.outing-panel span:not(.outing-arrow){display:block;white-space:nowrap}
+.outing-panel strong{font-size:14px;margin-bottom:3px}.outing-panel div>span{color:#ccd5c6;font-size:12px}
+.outing-arrow{font-size:27px;line-height:1;width:24px;text-align:center}
+.outing-panel button,.outing-mode{min-height:40px;padding:8px 12px;background:#2a4039;color:#f7ead3;border:1px solid #acbca650;border-radius:8px;cursor:pointer}
+.outing-panel button:focus-visible,.outing-mode:focus-visible{outline:2px solid #eed4a7;outline-offset:2px}
+@media(max-width:600px){.outing-panel{top:max(10px,env(safe-area-inset-top));gap:8px;padding:8px}.outing-panel strong{font-size:13px}.outing-panel div>span{font-size:11px}.outing-panel button{padding:8px;min-width:40px}}

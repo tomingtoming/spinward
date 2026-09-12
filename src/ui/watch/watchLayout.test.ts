@@ -124,6 +124,7 @@ test('createAllWatchLayouts returns one layout per screen', () => {
     'habitat',
     'home',
     'legend',
+    'outing',
     'places',
     'tweaks'
   ])

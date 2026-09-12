@@ -1,3 +1,4 @@
+import { OUTING_DESTINATIONS, type OutingAction } from '../app/neighborhoodRoute'
 import { createDropdownChip } from './dropdownLayer'
 import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../app/placeVisits'
 
@@ -9,6 +10,7 @@ import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../app/placeVisits'
 
 export type BeatBarAction =
   | PlaceVisitAction
+  | OutingAction
   | 'respawn-inner-wall'
   | 'respawn-old-town'
   | 'respawn-overlook'
@@ -19,6 +21,7 @@ export type BeatBarAction =
   | 'audio-mute-toggle'
 
 export type BeatBarSnapshot = {
+  driving?: boolean
   rpm: number
   feltGravity: number
   axisAvailable: boolean
@@ -108,13 +111,14 @@ export const createBeatBar = (
   const travelDropdown = createDropdownChip<BeatBarAction>(
     'beat-btn beat-btn--travel',
     [...TRAVEL_DESTINATIONS.map(item => ({ ...item, section: 'Colony' })),
-      ...PLACE_DESTINATIONS.map(item => ({ ...item, section: 'Street life' }))],
+      ...OUTING_DESTINATIONS.map(item => ({ ...item, section: 'Directions' })),
+      ...PLACE_DESTINATIONS.map(item => ({ ...item, section: 'Visit now' }))],
     (action) => onAction(action),
     'Travel ▾'
   )
   travelDropdown.chip.hidden = true
-  const placesDropdown = createDropdownChip<PlaceVisitAction>(
-    'beat-btn beat-btn--places', PLACE_DESTINATIONS, onAction, 'Places ▾'
+  const placesDropdown = createDropdownChip<BeatBarAction>(
+    'beat-btn beat-btn--places', [...OUTING_DESTINATIONS.map(item=>({...item,section:'Directions'})),...PLACE_DESTINATIONS.map(item=>({...item,section:'Visit now'}))], onAction, 'Places ▾'
   )
 
   const travelLabel = makeLabel('Travel')
@@ -175,10 +179,12 @@ export const createBeatBar = (
       axis.disabled = !snapshot.axisAvailable
       oldTownAvailable = snapshot.oldTownAvailable
       placesAvailable = snapshot.availablePlaces.size > 0
-      for (const item of placesDropdown.menuItems) item.element.hidden = !snapshot.availablePlaces.has(item.id)
+      for (const item of placesDropdown.menuItems) item.element.hidden = !(item.id.startsWith('guide-') ? snapshot.availablePlaces.size > 0 && (item.id !== 'guide-cafe' || snapshot.availablePlaces.has('visit-cafe')) && (item.id !== 'guide-park' || snapshot.availablePlaces.has('visit-park')) : snapshot.availablePlaces.has(item.id as PlaceVisitAction))
+      for(const item of [...placesDropdown.menuItems,...travelDropdown.menuItems]) if(item.id==='guide-car')item.element.disabled=!!snapshot.driving
       // Same two rules in the menu, so the compact list never offers a
       // destination the wide bar hides or greys out.
       for (const item of travelDropdown.menuItems) {
+        if (item.id.startsWith('guide-')) item.element.hidden = !snapshot.availablePlaces.size || (item.id === 'guide-cafe' && !snapshot.availablePlaces.has('visit-cafe')) || (item.id === 'guide-park' && !snapshot.availablePlaces.has('visit-park'))
         if (item.id.startsWith('visit-')) item.element.hidden = !snapshot.availablePlaces.has(item.id as PlaceVisitAction)
         if (item.id === 'respawn-old-town') {
           item.element.hidden = !snapshot.oldTownAvailable
@@ -187,8 +193,10 @@ export const createBeatBar = (
           item.element.disabled = !snapshot.axisAvailable
         }
       }
-      const streetHeading = travelDropdown.menu.querySelector<HTMLElement>('[data-section="Street life"]')
+      const streetHeading = travelDropdown.menu.querySelector<HTMLElement>('[data-section="Visit now"]')
       if (streetHeading) streetHeading.hidden = !placesAvailable
+      const directionsHeading=travelDropdown.menu.querySelector<HTMLElement>('[data-section="Directions"]')
+      if(directionsHeading)directionsHeading.hidden=!placesAvailable
       applyArrangement()
       rain.classList.toggle('beat-btn--on', snapshot.raining)
       const soundLabel = snapshot.muted ? 'Sound off' : 'Sound on'

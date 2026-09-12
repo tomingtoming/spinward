@@ -13,6 +13,7 @@ import type { WatchActionId } from './watchLayout'
 import { parseWatchParameterAction } from './watchSchema'
 
 export type WatchRenderSnapshot = {
+  outing?: {text:string;mode:string;canPark:boolean;active:boolean}
   playerMode: PlayerTraversalMode
   // Which control scheme the legend should show (PC / SP / VR).
   platform: ControlPlatform
@@ -74,6 +75,7 @@ export type WatchRenderSnapshot = {
 export const createWatchRenderSnapshot = (
   settingsStore: SettingsStore,
   runtime: {
+    outing?: {text:string;mode:string;canPark:boolean;active:boolean}
     playerMode: PlayerTraversalMode
     platform: ControlPlatform
     region: 'inside' | 'outside'
@@ -95,6 +97,7 @@ export const createWatchRenderSnapshot = (
     }
   }
 ): WatchRenderSnapshot => ({
+  outing: runtime.outing,
   playerMode: runtime.playerMode,
   platform: runtime.platform,
   region: runtime.region,
@@ -163,6 +166,12 @@ export const isWatchActionDisabled = (
     return !snapshot.oldTownRespawnEnabled
   }
 
+  if (action === 'park-car') return !snapshot.outing?.canPark
+  if (action === 'guide-cancel') return !snapshot.outing?.active
+  if (action === 'guide-cafe') return !snapshot.availablePlaces.has('visit-cafe')
+  if (action === 'guide-park') return !snapshot.availablePlaces.has('visit-park')
+  if (action === 'guide-car' && snapshot.feltSpeed>=0) return true
+  if (action === 'guide-square' || action === 'guide-car') return !snapshot.availablePlaces.has('visit-car-share')
   if (action.startsWith('visit-')) return !snapshot.availablePlaces.has(action as PlaceVisitAction)
 
   return false

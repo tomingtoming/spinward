@@ -56,10 +56,27 @@ bug: please open an issue.
 - The usable car shares the city's ordinary sedan geometry and palette. Its
   near cabin adds seats, dashboard, steering wheel and inner pillars, with a
   seated camera. The exterior mesh is not the physical collision shape.
-- Driving retains the existing sphere contact body and rotating-gravity grip
-  model. Its acceleration and top speed are deliberately tuned for spin
-  experiments, including cancelling the wall's motion; it is not a calibrated
-  road-car simulation. One reserved kerb bay and one usable car exist per city.
+- Driving retains the sphere contact body and rotating-gravity grip model.
+  Street mode starts by default: 3.8 m/s² nominal acceleration, 7 m/s² braking,
+  an approximately 14 m/s forward governor and 3 m/s reverse governor. These
+  are gameplay values. Experiment mode retains the original acceleration,
+  contact friction and 178 m/s limit, including cancelling the wall's motion.
+  Changing modes never instantly discards existing street-mode overspeed.
+- One usable car remains where it was left. Central Square, the café and park
+  have reserved kerb bays when suitable slots exist. A deliberate Park action
+  assists alignment within two metres, below 0.6 m/s, already parallel to the
+  bay. Street-mode dismounts require a near stop and a clear pavement within
+  reach. Experimental dismounts retain the existing momentum-carrying behavior.
+- Places → Directions guides a local outing without teleporting. Walking
+  routes favour pavements; driving routes use the road footprint and end at
+  parking. Dismounting changes the destination to the entrance. Your car uses
+  the actual parked position. Visit now retains the immediate travel actions.
+- Directions use a bounded two-metre street grid, exclude building footprints,
+  and leave an indoor start through its certified entrance. They are not lane
+  guidance or traffic-signal instructions, and do not account for pedestrians
+  or every indoor furnishing. Routes beyond the local search bound report
+  unavailable. Signs and bay markings are visual; the car keeps its sphere
+  collision body, not a full vehicle chassis.
 
 ## Spin rate and the gravity gradient
 

@@ -18,6 +18,12 @@ export const VEHICLE_TUNING = {
   rollingDragRate: 0.18
 } as const
 
+export type DriveMode = 'street' | 'experiment'
+export const STREET_TUNING = {
+  maxSpeed: 14, maxAcceleration: 3.8, brakeAcceleration: 7,
+  steerRate: 1.25, lateralGripRate: 7, rollingDragRate: .08
+} as const
+
 export const EARTH_GRAVITY = 9.80665
 
 export type VehicleInput = {
@@ -36,6 +42,7 @@ export type VehicleStepConfig = {
   deltaSeconds: number
   surfaceGravity: number
   grounded: boolean
+  mode?: DriveMode
 }
 
 const headingDir = new THREE.Vector3()
@@ -54,6 +61,7 @@ export const stepVehicleDynamics = (
   input: VehicleInput,
   config: VehicleStepConfig
 ): number => {
+  const tuning = config.mode === 'street' ? STREET_TUNING : VEHICLE_TUNING
   const grip = getVehicleGrip(config.surfaceGravity)
   const dt = Math.max(0, config.deltaSeconds)
 
@@ -83,7 +91,7 @@ export const stepVehicleDynamics = (
   // sideways. At full speed the turning radius opens up; at low gravity
   // the car ploughs straight no matter how hard you steer.
   const requestedYawRate =
-    VEHICLE_TUNING.steerRate * steerScale * grip
+    tuning.steerRate * steerScale * grip
   const lateralBudget = grip * EARTH_GRAVITY
   const maxYawRate =
     Math.abs(along) > 1e-6 ? lateralBudget / Math.abs(along) : requestedYawRate
@@ -91,22 +99,27 @@ export const stepVehicleDynamics = (
     input.steer * Math.min(requestedYawRate, maxYawRate) * direction * dt
 
   // Engine and brakes push through the tire contact patch.
-  along += input.throttle * VEHICLE_TUNING.maxAcceleration * grip * dt
+  const limit = config.mode === 'street' && input.throttle < 0 ? 3 : tuning.maxSpeed
+  // A governor removes engine power, never existing momentum. Switching to
+  // Street at speed must not teleport velocity down to the cruise limit.
+  if (config.mode !== 'street' || Math.abs(along) < limit || Math.sign(input.throttle) !== Math.sign(along)) {
+    along += input.throttle * tuning.maxAcceleration * grip * dt
+  }
 
   if (input.brake > 0) {
-    const brakeDelta = input.brake * VEHICLE_TUNING.brakeAcceleration * grip * dt
+    const brakeDelta = input.brake * tuning.brakeAcceleration * grip * dt
     along = Math.sign(along) * Math.max(0, Math.abs(along) - brakeDelta)
   }
 
   // Rolling resistance is proportional to the normal load (grip), like the
   // lateral slip below: as spin-gravity fades toward the wall speed the tyres
   // unload, drag melts with it, and momentum can carry the car to a true float.
-  along *= Math.exp(-VEHICLE_TUNING.rollingDragRate * grip * dt)
-  along = THREE.MathUtils.clamp(along, -VEHICLE_TUNING.maxSpeed, VEHICLE_TUNING.maxSpeed)
+  along *= Math.exp(-tuning.rollingDragRate * grip * dt)
+  if (config.mode !== 'street') along = THREE.MathUtils.clamp(along, -tuning.maxSpeed, tuning.maxSpeed)
 
   // Lateral slip dies at a rate proportional to grip: at 1g the car corners
   // on rails, near 0g it drifts like it is on ice.
-  lateral *= Math.exp(-VEHICLE_TUNING.lateralGripRate * grip * dt)
+  lateral *= Math.exp(-tuning.lateralGripRate * grip * dt)
 
   rotatingVelocity
     .copy(headingDir)
