@@ -13,3 +13,7 @@ qa/neighborhood-life/*.json
 qa/neighborhood-life/*.mp4
 qa/neighborhood-life/*.webm
 assets/blender/*.blend1
+
+# WebXR test captures, traces and reports.
+qa/webxr/artifacts/
+qa/webxr/evidence/

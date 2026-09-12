@@ -39,4 +39,4 @@ to Cloudflare Pages only when both pass.
 
 ## VR UI verification
 
-When modifying or verifying VR UI, consider [playwright-webxr](https://www.npmjs.com/package/playwright-webxr) for automated XR-session, headset/controller pose, input and screenshot checks (user direction, 2026-09-12). Start with the app's actual VR entry and wrist-menu interaction. Check the active GPU before running the full colony. Report emulation and physical-headset results separately. Integration considerations: [UI refinement — VR verification](docs/ui-refinement-2026-09-12.md#vr-verification-follow-up).
+When modifying or verifying VR UI, use the [playwright-webxr](https://www.npmjs.com/package/playwright-webxr) suite added at the user's direction (2026-09-12): `SPINWARD_URL=<running-production-preview-url> bun run test:xr`. Run the app's actual VR entry and wrist-menu interaction; preserve the hardware-GPU preflight. Keep the served build unchanged while testing. Report emulation and physical-headset results separately. Setup, coverage and limitations: [WebXR UI checks](qa/webxr/README.md).

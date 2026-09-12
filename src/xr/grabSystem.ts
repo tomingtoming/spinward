@@ -106,7 +106,11 @@ export class GrabSystem {
     for (const controllerState of this.controllers) {
       // Each controller now owns its own grab slot, so both hands can hold/throw independently.
       const isHolding = this.grabbedByController.has(controllerState.controller)
-      const hoveredTarget = isHolding ? null : this.findHoveredTarget(controllerState.controller)
+      const blocked = this.options.shouldBlockSelectStart?.(controllerState.controller) ?? false
+      const hoveredTarget = isHolding || blocked ? null : this.findHoveredTarget(controllerState.controller)
+      // A hand reserved for locomotion or wrist UI must not show a second,
+      // longer grab ray through a panel it cannot select through.
+      controllerState.ray.visible = !blocked
 
       this.setHoveredTarget(controllerState, hoveredTarget)
 

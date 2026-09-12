@@ -817,6 +817,7 @@ export const bootstrapApp = async () => {
   let frameAngle = 0
   let settingsDirty = false
   let watchUiHot = false
+  let watchUiFocusRemaining = 0
   let rightLaserOverCar = false
   let throwDebugTimer = 0
   const THROW_DEBUG_DURATION = 1.5
@@ -851,7 +852,8 @@ export const bootstrapApp = async () => {
       const handedness = vrLocomotion?.getHandedness(controller)
       return (
         handedness === 'left' ||
-        (watchUiHot && handedness === 'right')
+        (handedness === 'right' && watchPanel.group.visible &&
+          laserPointer.hitTest(controller, watchPanel.interactiveObject) !== null)
       )
     },
     onEmptySelectStart: (controller) => {
@@ -2698,13 +2700,12 @@ export const bootstrapApp = async () => {
       xrWatchInput.leftController
     )
     laserPointer.setController(renderer.xr.isPresenting ? xrWatchInput.rightController : null)
-    watchPanel.updateHover(
-      laserPointer.update(
-        watchPanel.interactiveObject,
-        renderer.xr.isPresenting
-      )?.uv ?? null
-    )
-    watchUiHot = renderer.xr.isPresenting && watchPanel.hasHover
+    const watchHit = laserPointer.update(watchPanel.interactiveObject, renderer.xr.isPresenting)
+    watchPanel.updateHover(watchHit?.uv ?? null)
+    watchUiHot = renderer.xr.isPresenting && watchHit !== null
+    // Give wrist interaction priority over transient teaching cards. Keep a
+    // brief grace period while the pointer crosses gaps between buttons.
+    watchUiFocusRemaining = watchUiHot ? 1.5 : Math.max(0, watchUiFocusRemaining - deltaSeconds)
 
     // Aim the right pointer at the car to highlight it; pull the trigger to
     // climb in. Gated off while the watch UI owns the laser or while driving.
@@ -2975,7 +2976,7 @@ export const bootstrapApp = async () => {
         'Choose Places for a destination. Movement controls and settings are in Menu.'
       ] } : resolvedTourCard
     tourNotice.update(flatTourCard, renderer.xr.isPresenting || journey.status !== 'idle' || drive.driving)
-    tourCardPanel.update(renderer.xr.isPresenting ? resolvedTourCard : null, {
+    tourCardPanel.update(renderer.xr.isPresenting && watchUiFocusRemaining === 0 ? resolvedTourCard : null, {
       camera: desktopUiCamera,
       deltaSeconds,
       xrActive: renderer.xr.isPresenting,

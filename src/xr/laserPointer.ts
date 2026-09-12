@@ -39,20 +39,22 @@ export class LaserPointer {
     }
 
     this.line.visible = true
-    this.raycaster.far = DEFAULT_LENGTH
-    this.raycaster.setFromXRController(this.controller)
-
-    const hit = target === null ? undefined : this.raycaster.intersectObject(target, false)[0]
+    const hit = this.hitTest(this.controller, target)
     this.line.scale.z = hit?.distance ?? DEFAULT_LENGTH
-    this.line.material.color.set(hit === undefined ? 0x67e8f9 : 0xd9fbff)
+    this.line.material.color.set(hit === null ? 0x67e8f9 : 0xd9fbff)
 
-    if (hit === undefined || hit.uv === undefined) {
-      return null
-    }
+    return hit
+  }
 
-    return {
-      distance: hit.distance,
-      uv: hit.uv.clone()
-    }
+  /** Also queried at selectstart, before the next render-loop hover update.
+   * The whole panel owns its input, including disabled controls and padding. */
+  hitTest(controller: THREE.XRTargetRaySpace, target: THREE.Object3D | null): LaserHit | null {
+    if (!target) return null
+    controller.updateWorldMatrix(true, false)
+    target.updateWorldMatrix(true, false)
+    this.raycaster.far = DEFAULT_LENGTH
+    this.raycaster.setFromXRController(controller)
+    const hit = this.raycaster.intersectObject(target, false)[0]
+    return hit?.uv ? { distance: hit.distance, uv: hit.uv.clone() } : null
   }
 }

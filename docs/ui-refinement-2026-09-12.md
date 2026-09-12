@@ -62,7 +62,8 @@ The npm registry reports 0.1.0 (published 2026-07-31), depending on IWER ^2.3.0
 and peer @playwright/test >=1.40. The [upstream README](https://github.com/tomingtoming/playwright-webxr#readme)
 describes an IWER fixture for immersive sessions, head/controller poses,
 controller buttons/axes and frame capture. This is a suitable candidate for
-Spinward's next VR UI verification; it has not yet been installed or run here.
+Spinward's VR UI verification. This initial assessment preceded installation;
+the user then approved integration on the same date.
 
 Integration checks:
 
@@ -78,4 +79,6 @@ Integration checks:
   polyfill caveats. Emulation success does not certify native compositor,
   multiview/MSAA, hardware performance or comfort.
 
-No new dependency or emulated-XR test result is claimed by this assessment.
+The follow-up now includes locked development dependencies and real controller-input
+checks. See [WebXR UI checks](../qa/webxr/README.md) for the implementation,
+reproduced defects, invocation and limits.

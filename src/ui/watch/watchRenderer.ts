@@ -241,7 +241,10 @@ const drawSubHeader = (
   ctx.font = '500 17px "Avenir Next", sans-serif'
   ctx.textAlign = 'right'
   ctx.textBaseline = 'middle'
-  ctx.fillText(snapshot.currentPresetName, layout.width - SECTION_PADDING.right - 18, 53)
+  // Places uses this corner for its Directions action.
+  if (layout.screen !== 'places') {
+    ctx.fillText(snapshot.currentPresetName, layout.width - SECTION_PADDING.right - 18, 53)
+  }
 }
 
 const drawGravityGauge = (
@@ -350,7 +353,8 @@ const drawLegendGroup = (
   sections: readonly ControlSection[],
   mode: 'grounded' | 'free-fly' | 'driving',
   x: number,
-  top: number
+  top: number,
+  width: number
 ) => {
   const group = sections.find((section) => section.mode === mode)
   if (group === undefined) {
@@ -370,8 +374,20 @@ const drawLegendGroup = (
     ctx.fillText(binding.input, x, y)
     ctx.fillStyle = TEXT_BRIGHT
     ctx.font = '500 18px "Avenir Next", sans-serif'
-    ctx.fillText(binding.action, x + 134, y)
-    y += 40
+    // Keep long bindings readable without shrinking the whole controls page.
+    const actionX = x + 108
+    const lines: string[] = []
+    let line = ''
+    for (const word of binding.action.split(' ')) {
+      const candidate = line ? `${line} ${word}` : word
+      if (line && ctx.measureText(candidate).width > width - 108) {
+        lines.push(line)
+        line = word
+      } else line = candidate
+    }
+    lines.push(line)
+    lines.forEach((text, index) => ctx.fillText(text, actionX, y + index * 22))
+    y += Math.max(40, lines.length * 22 + 10)
   }
 }
 
@@ -390,9 +406,11 @@ const drawLegend = (
   ctx.fillText(summary, layout.width * 0.5, 90)
 
   // Two main modes side by side, driving across the bottom.
-  drawLegendGroup(ctx, sections, 'grounded', SECTION_PADDING.left + 20, 130)
-  drawLegendGroup(ctx, sections, 'free-fly', layout.width * 0.5 + 16, 130)
-  drawLegendGroup(ctx, sections, 'driving', SECTION_PADDING.left + 20, 462)
+  const left = SECTION_PADDING.left + 20
+  const columnWidth = layout.width * 0.5 - left - 16
+  drawLegendGroup(ctx, sections, 'grounded', left, 130, columnWidth)
+  drawLegendGroup(ctx, sections, 'free-fly', layout.width * 0.5 + 16, 130, columnWidth)
+  drawLegendGroup(ctx, sections, 'driving', left, 462, layout.width - left * 2)
 }
 
 export const renderWatch = (
@@ -465,8 +483,8 @@ export const renderWatch = (
     ctx.font = '500 19px "Avenir Next", sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, layout.placesSection.top + layout.placesSection.height + 36)
-    ctx.fillText('Surface returns to Central Square.', 50, layout.placesSection.top + layout.placesSection.height + 72)
+    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, layout.placesSection.top + layout.placesSection.height + 22)
+    ctx.fillText('Surface returns to Central Square.', 50, layout.placesSection.top + layout.placesSection.height + 50)
     return
   }
 
