@@ -37,6 +37,9 @@ try {
     { name: 'laundry', at: [.02163, -17473.82, 17], aim: [.02092, -17482.3, 15.5], flight: true },
     { name: 'block', at: [-.022, square + 20, 80], aim: [.030, square - 90, 15], flight: true },
     { name: 'distant', at: [-.100, square + 80, 150], aim: [.030, square - 90, 15], flight: true },
+    { name: 'distant-night', at: [-.100, square + 80, 150], aim: [.030, square - 90, 15], flight: true, phase: .02 },
+    { name: 'entry-day', at: [.0194, -17417.5, 1.8], aim: [.01963, -17421.9, 1.65], flight: false },
+    { name: 'entry-night', at: [.0194, -17417.5, 1.8], aim: [.01963, -17421.9, 1.65], flight: false, phase: .02 },
     { name: 'night', at: [.0194, square - 57, 1.8], aim: [.0194, square - 89, 7], flight: false, phase: .02 },
   ]
   for (const view of views.filter(v => !process.env.VIEWS || process.env.VIEWS.split(',').includes(v.name))) {
@@ -65,7 +68,7 @@ try {
             for (const e of layer.entries) {
               const local = e.matrix.clone().invert().multiply(matrix), m = local.elements
               const part = e.parts.find(p => {
-                const module = mesh.name.replace('old-town-', '').replace('_lod', '')
+                const module = mesh.name.replace('old-town-', '').replace('_lod', '').replace(/^(wash|diffuser)$/, 'box')
                 const y = p.y + (p.module !== 'box' && module === 'box' ? p.h / 2 : 0)
                 return (module === p.module || module === 'box') && Math.hypot(m[12] - p.x, m[13] - y, m[14] - p.z) < .003
               })

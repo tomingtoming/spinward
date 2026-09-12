@@ -56,7 +56,7 @@ framing issue. Head/controller poses otherwise match between the runs.
 
 ## Integration findings — 2026-09-12
 
-Locked development versions: playwright-webxr 0.1.0, @playwright/test 1.63.0,
+Original integration versions: playwright-webxr 0.1.0, @playwright/test 1.63.0,
 IWER 2.4.0. Production dependencies are unchanged.
 
 The original build reproduced a disabled Park press spawning a ball (0 → 1).
@@ -93,10 +93,49 @@ and re-entry checks remain in the suite to detect a recurrence.
 - Reviewed images are saved locally as `qa/webxr/evidence/final-*`; the latest
   generated execution evidence remains under `qa/webxr/artifacts/`.
 
+## 0.2.0 integration — 2026-09-12
+
+Development dependency now pins **playwright-webxr 0.2.0**, with Playwright
+1.63.0 and IWER 2.4.0 unchanged. This is a real application integration run,
+not a test of every package failure branch.
+
+- Stereo and 64 mm IPD now use the public fixture options. This removed our
+  direct writes to `window.__xrDevice.stereoEnabled` and `.ipd`.
+- `xr.diagnostics()` replaced the custom session/rendering probe, and records
+  package/runtime/browser version, hardware GPU, active session, both viewports
+  and canvas/base-layer dimensions. Its explicit null/reason fields corrected
+  our earlier claim that unavailable projection layers meant zero layers.
+- `sessionCursor()` and session-ID-scoped event waits distinguish both entries
+  and exits. `sessionMode()` must become null after each end. The former check
+  counted only the first exit; the new check requires both ends and distinct IDs.
+- `xr.screenshot(..., {canvas, timeout, metadata:true})` records and checks the
+  actual pixel dimensions, capture kind and active session ID. PNGs and raw
+  panel textures still get independent visual inspection.
+- Both routes passed on the initial migration and again after correcting the
+  Controls summary found during image review: “B = menu” conflicted with its
+  own binding table. The summary now says R B travels and L B recentres, and
+  the corrected wording fits the panel in both routes.
+
+Latest UI verification: two tests, four immersive sessions, four exits, zero
+browser errors or failed HTTP resources. Apple M1 Pro / ANGLE Metal, Chrome
+152.0.7977.83; mono 1280×960, stereo 2560×960 with two 1280×960 eye viewports.
+Wrist/rig roll error below 1e-12. Review captures are retained locally in
+`qa/webxr/evidence/0.2.0-20260912/` (ignored). The active suite's output directory
+is disposable and may hold a newer execution.
+
+Feedback from use: the new APIs eliminated our ad-hoc probing and made unknown
+rendering capabilities explicit. No 0.2.0 package failure was observed in these
+successful flows. A public session-ending helper could remove the last direct
+emulator access, currently the genuine `XRSession.end()` call. Diagnostics are
+clear about their limits; they do not prove native headset/compositor behavior.
+Failure cases such as a rejected session, a missing canvas, or a zero IPD stereo
+override were not exercised by this application suite.
+
 ## Limits
 
 The integration run uses Apple M1 Pro / ANGLE Metal, Three.js r180 and
-XRWebGLLayer (base layer present, projection layers absent). IWER's mono mode
+XRWebGLLayer (base layer present; renderState.layers is unavailable, so
+projection-layer count is unknown). IWER's mono mode
 still exposes left/right views, but the right viewport has width zero; stereo
 uses two equal viewports with 64 mm eye separation. Tests assert those view
 properties rather than assuming one viewer view in mono mode.

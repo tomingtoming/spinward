@@ -40,6 +40,21 @@ describe('Old Town services', () => {
       const door = lot.parts.find(p => p.module === 'box' && p.h === 2.06)
       if (door) for (const pipe of lot.parts.filter(p => p.h === .035))
         expect(Math.abs(pipe.x - door.x) - pipe.w / 2).toBeGreaterThan(door.w / 2 + .1)
+      const canopy = lot.parts.find(p => p.module === 'entry_canopy')
+      if (canopy) {
+        expect(door).toBeDefined()
+        expect(canopy.y).toBeGreaterThan(2.1)
+        expect(canopy.y + canopy.h).toBeLessThan(colonyBuildingDesign(b).use.groundHeight)
+        const wallBack = door!.z + .065
+        expect(canopy.z + canopy.d / 2).toBeGreaterThanOrEqual(wallBack)
+        expect(canopy.x).toBe(door!.x)
+      }
+      for (const light of lot.parts.filter(p => p.light)) {
+        expect(door).toBeDefined()
+        expect(light.y + light.h / 2).toBeLessThan(colonyBuildingDesign(b).use.groundHeight)
+        expect(light.range).toBe('street')
+        if (light.light === 'wash') expect(light.x - light.w / 2).toBeGreaterThan(door!.x + .53)
+      }
       const solid = lot.parts.filter(p => p.solid), colliders = oldTownColliders([lot], radius)
       solid.forEach((p, i) => {
         const c = colliders[i], side = b.front!.side, tangent = b.front!.axis === 'tangent'
@@ -92,7 +107,7 @@ describe('Old Town services', () => {
     const bytes = readFileSync(new URL('../../public/assets/buildings/old-town-services.glb', import.meta.url))
     expect(bytes.length).toBeLessThan(100_000)
     const json = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString())
-    const names = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry']
+    const names = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy']
     for (const name of names) {
       const node = json.nodes.find((n: { name: string }) => n.name === name)
       expect(node).toBeDefined()

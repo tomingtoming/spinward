@@ -22,7 +22,7 @@
     "@playwright/test": "1.63.0",
     "@types/three": "^0.180.0",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
-    "playwright-webxr": "0.1.0",
+    "playwright-webxr": "0.2.0",
     "typescript": "^5.9.2",
     "vite": "^6.0.0",
     "wrangler": "^4.104.0"

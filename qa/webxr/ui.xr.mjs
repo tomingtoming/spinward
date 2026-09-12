@@ -42,7 +42,12 @@ async function press(page, xr, id, options) {
 }
 async function capture(xr, info, name) {
   const path = info.outputPath(name+'.png')
-  await xr.screenshot(path)
+  const metadata = await xr.screenshot(path, { canvas: 'canvas', timeout: 5000, metadata: true })
+  expect(metadata.width).toBe(info.titlePath.includes('quest-entry') ? 2560 : 1280)
+  expect(metadata.height).toBe(960)
+  expect(metadata.capture).toBe('canvas')
+  expect(metadata.sessionId).toBe((await xr.diagnostics()).session.id)
+  await info.attach(name+'-metadata', { body: JSON.stringify(metadata), contentType: 'application/json' })
   expect((await fs.stat(path)).size, 'XR frame is not an empty canvas').toBeGreaterThan(25_000)
   await info.attach(name, { path, contentType: 'image/png' })
 }
@@ -64,6 +69,8 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
   test.describe(entry, () => {
     if (entry === 'quest-entry') test.use({
       hasTouch: true,
+      xrStereoEnabled: true,
+      xrIpd: .064,
       viewport: { width: 2560, height: 960 },
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) OculusBrowser/40.0.0.0'
     })
@@ -97,29 +104,33 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
         const box = await page.locator('#VRButton').boundingBox()
         expect(box.x).toBeGreaterThanOrEqual(0); expect(box.y).toBeGreaterThanOrEqual(0)
         expect(Math.abs(box.x+box.width/2-page.viewportSize().width/2)).toBeLessThan(2)
-        // A second run exercises two eye views as well as the fixture's mono default.
-        await page.evaluate(() => { window.__xrDevice.stereoEnabled = true; window.__xrDevice.ipd = .064 })
       }
       await expect(page.locator('#VRButton')).toBeVisible()
+      const firstCursor = await xr.sessionCursor()
       await xr.enterVR()
+      const [firstGrant] = await xr.waitForSessionEvent('granted', { after: firstCursor, timeout: 5000 })
+      expect(await xr.sessionMode()).toBe('immersive-vr')
       await page.waitForFunction(() => window.__spinwardWatch?.group.visible)
       expect((await xr.sessionLog()).some(e => e.event === 'granted' && e.detail === 'immersive-vr')).toBe(true)
       await expect(page.locator('.dock')).toBeHidden()
       await expect(page.locator('.tour-notice')).toBeHidden()
-      evidence.session = await page.evaluate(async () => {
-        const session = window.__xrDevice.activeSession, reference = await session.requestReferenceSpace('local-floor')
-        return new Promise(resolve => session.requestAnimationFrame((_, frame) => resolve({
-          baseLayer: !!session.renderState.baseLayer,
-          projectionLayers: session.renderState.layers?.length ?? 0,
-          views: frame.getViewerPose(reference).views.map(v => { const vp = session.renderState.baseLayer?.getViewport(v); return { eye: v.eye, x: v.transform.position.x, viewport: vp ? { x: vp.x, y: vp.y, width: vp.width, height: vp.height } : null } }),
-          controllers: [...session.inputSources].map(s => s.handedness)
-        })))
-      })
-      expect(evidence.session.views.map(v => v.eye)).toEqual(['left', 'right'])
-      expect(Math.abs(evidence.session.views[1].x-evidence.session.views[0].x)).toBeCloseTo(entry === 'quest-entry' ? .064 : 0, 5)
-      expect(evidence.session.controllers.sort()).toEqual(['left', 'right'])
-      expect(evidence.session.views[0].viewport).toEqual({ x: 0, y: 0, width: 1280, height: 960 })
-      expect(evidence.session.views[1].viewport.width).toBe(entry === 'quest-entry' ? 1280 : 0)
+      evidence.session = await xr.diagnostics({ canvas: 'canvas', timeout: 2000 })
+      const { runtime, rendering, inputSources, session } = evidence.session
+      expect(runtime.playwrightWebxrVersion).toBe('0.2.0')
+      expect(runtime.stereoEnabled).toBe(entry === 'quest-entry')
+      expect(runtime.ipd).toBeCloseTo(entry === 'quest-entry' ? .064 : 0, 5)
+      expect(session.id).toBe(firstGrant.sessionId)
+      expect(rendering.baseLayer.type).toBe('XRWebGLLayer')
+      expect(rendering.canvas.matchesBaseLayer).toBe(true)
+      // Unavailable layers are unknown, never silently equated to zero.
+      if (rendering.layers === null) {
+        expect(rendering.projectionLayerCount).toBeNull()
+        expect(rendering.layersReason).toBeTruthy()
+      }
+      expect(rendering.views.map(v => v.eye)).toEqual(['left', 'right'])
+      expect(inputSources.map(s => s.handedness).sort()).toEqual(['left', 'right'])
+      expect(rendering.views[0].viewport).toEqual({ x: 0, y: 0, width: 1280, height: 960 })
+      expect(rendering.views[1].viewport.width).toBe(entry === 'quest-entry' ? 1280 : 0)
       await xr.setHeadPose({ position: [0, 1.6, 0], euler: [-.22, 0, 0] })
       await xr.setControllerPose('left', leftPose)
       await xr.setControllerPose('right', { position: rightPosition, quaternion: [0, 0, 0, 1] })
@@ -177,17 +188,27 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await xr.pressButton('right', 'trigger')
       await expect.poll(ballCount).toBe(initialBalls+1)
       // End as the headset system would; the in-session DOM VR button is hidden.
+      const endCursor = await xr.sessionCursor()
       await page.evaluate(() => window.__xrDevice.activeSession.end())
+      await xr.waitForSessionEvent('end', { after: endCursor, sessionId: firstGrant.sessionId, timeout: 5000 })
+      expect(await xr.sessionMode()).toBeNull()
       await expect(page.locator('.dock')).toBeVisible()
       await page.waitForFunction(() => !window.__spinwardWatch.group.visible)
+      const secondCursor = await xr.sessionCursor()
       await page.getByRole('button', { name: 'Menu', exact: true }).click(); await xr.enterVR()
+      const [secondGrant] = await xr.waitForSessionEvent('granted', { after: secondCursor, timeout: 5000 })
+      expect(secondGrant.sessionId).not.toBe(firstGrant.sessionId)
+      expect(await xr.sessionMode()).toBe('immersive-vr')
       await page.waitForFunction(() => window.__spinwardWatch.group.visible)
       await expect(page.locator('.dock')).toBeHidden()
       await press(page, xr, 'nav-places'); await page.waitForFunction(() => window.__spinwardWatch.screen === 'places')
+      const secondEndCursor = await xr.sessionCursor()
+      await page.evaluate(() => window.__xrDevice.activeSession.end())
+      await xr.waitForSessionEvent('end', { after: secondEndCursor, sessionId: secondGrant.sessionId, timeout: 5000 })
+      expect(await xr.sessionMode()).toBeNull()
       evidence.sessionLog = await xr.sessionLog()
       expect(evidence.sessionLog.filter(e => e.event === 'granted')).toHaveLength(2)
-      expect(evidence.sessionLog.filter(e => e.event === 'end')).toHaveLength(1)
-      await page.evaluate(() => window.__xrDevice.activeSession.end())
+      expect(evidence.sessionLog.filter(e => e.event === 'end')).toHaveLength(2)
       await expect(page.locator('.dock')).toBeVisible()
       expect(errors).toEqual([]); expect(failedResources).toEqual([])
       await fs.writeFile(info.outputPath('evidence.json'), JSON.stringify({ ...evidence, errors, failedResources }, null, 2))

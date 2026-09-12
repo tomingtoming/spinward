@@ -7,8 +7,8 @@ import { colonyRoofSurface, colonyRoofUnits } from './colonyRoofs'
 import { SurfaceIndex } from './streetAccess'
 
 export const OLD_TOWN_LOT_LIMIT = 16
-export type OldTownModule = 'water_tank' | 'header_tank' | 'meter_bank' | 'laundry'
-export type OldTownPart = BlockVolume & { module: OldTownModule | 'box'; tint: string; range: 'street' | 'roof'; solid?: boolean }
+export type OldTownModule = 'water_tank' | 'header_tank' | 'meter_bank' | 'laundry' | 'entry_canopy'
+export type OldTownPart = BlockVolume & { module: OldTownModule | 'box'; tint: string; range: 'street' | 'roof'; solid?: boolean; light?: 'diffuser' | 'wash' }
 export type OldTownLot = { spec: BlockSpec; parts: OldTownPart[] }
 export type OldTownPaving = { azimuth: number; axial: number; tangentWidth: number; axialLength: number }
 
@@ -90,6 +90,17 @@ function oldTownLot(spec: BlockSpec): OldTownLot {
       add('box', { x: wall.x, y: 1.09, z: z - .025, w: 1.06, h: 2.18, d: .06 }, '9c9e91', 'street')
       add('box', { x: wall.x, y: 1.04, z: z - .065, w: .9, h: 2.06, d: .025 }, '596c69', 'street')
       add('box', { x: wall.x + .32, y: 1.06, z: z - .095, w: .045, h: .19, d: .04 }, 'b1b1a0', 'street')
+      // Keep the service door closed. A small supported shelter and wall light
+      // identify its everyday use without inviting entry into a solid shell.
+      if (colonyBuildingDesign(spec.building).use.groundHeight >= 2.7)
+        add('entry_canopy', { x: wall.x, y: 2.2, z: z - .34, w: 1.5, h: .24, d: .72 }, 'ffffff', 'street')
+      add('box', { x: wall.x + .98, y: 1.72, z: z - .075, w: .16, h: .50, d: .16 }, '424e49', 'street')
+      parts.push({ module: 'box', range: 'street', x: wall.x + .98, y: 1.72, z: z - .167,
+        w: .095, h: .36, d: .025, tint: 'ffffff', light: 'diffuser' })
+      // A bounded diffuse wall wash, entirely on the flat wall beside the frame.
+      // No point lights, sprites or light floating above the public roadway.
+      parts.push({ module: 'box', range: 'street', x: wall.x + .98, y: 1.72, z: z - .041,
+        w: .8, h: 1.3, d: 1, tint: 'ffffff', light: 'wash' })
     }
   }
 

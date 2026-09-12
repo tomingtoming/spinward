@@ -7,7 +7,7 @@
 //      controls text render from.
 //
 // Scheme "C": Left hand flies you, right hand touches the world.
-// A is "up" on both hands, B is "menu" on both hands.
+// A ascends; right B travels and left B recentres.
 
 // xr-standard gamepad button layout (Meta Quest Touch):
 //   0 trigger · 1 grip/squeeze · 2 (unused) · 3 thumbstick press · 4 A/X · 5 B/Y
@@ -75,7 +75,7 @@ export const VR_CONTROL_LEGEND: readonly ControlSection[] = [
 
 // One-liner mental model, shown at the top of the legend and reused in the HUD.
 export const VR_CONTROL_SUMMARY =
-  'Left hand flies you · right hand touches the world · A = up · B = menu'
+  'Move with left · interact with right · R B: travel · L B: recenter'
 
 export const legendForMode = (mode: ControlMode): ControlSection =>
   VR_CONTROL_LEGEND.find((section) => section.mode === mode) ?? VR_CONTROL_LEGEND[0]

@@ -40,3 +40,8 @@ to Cloudflare Pages only when both pass.
 ## VR UI verification
 
 When modifying or verifying VR UI, use the [playwright-webxr](https://www.npmjs.com/package/playwright-webxr) suite added at the user's direction (2026-09-12): `SPINWARD_URL=<running-production-preview-url> bun run test:xr`. Run the app's actual VR entry and wrist-menu interaction; preserve the hardware-GPU preflight. Keep the served build unchanged while testing. Report emulation and physical-headset results separately. Setup, coverage and limitations: [WebXR UI checks](qa/webxr/README.md).
+
+
+## Continuing Izma scenery references
+
+At the user's direction (2026-09-12), new screenshots in `/Users/toming/Pictures/Screenshots/` inform ongoing Spinward development. Follow [the reference program](docs/izma-reference-program.md) and run `node qa/izma-references/scan.mjs` when resuming it. Inspect new content before recording it as viewed; keep observation and implementation status separate. Exclude Mobile Suits and combat effects, preserve source files, and balance civilian streets, buildings, distant scenery and colony infrastructure. This workflow authorizes local implementation/testing/commits; it does not add publication, push, merge or deployment authorization.

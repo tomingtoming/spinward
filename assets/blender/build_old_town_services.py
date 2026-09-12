@@ -108,6 +108,16 @@ for x, y, h, rgb in [(-.85, 1.38, .94, (.71, .64, .50)), (-.14, 1.22, 1.26, (.66
     objects += [box(x + dx, 1.88, .44, .025, .06, .035, (.38, .31, .21)) for dx in [-.2, .2]]
 module('laundry', objects)
 
+# A shallow folded-metal service canopy, supported by two wall brackets.
+# Front is +Z, like the meter bank; runtime turns both towards the rear yard.
+objects = [box(0, .225, 0, 1.5, .03, .72, (.43, .46, .38)),
+           box(0, .185, .35, 1.5, .08, .02, metal),
+           box(0, .13, -.35, 1.5, .22, .02, metal)]
+for x in [-.55, .55]:
+    objects += [box(x, .11, -.30, .045, .22, .08, metal),
+                box(x, .17, -.03, .045, .04, .60, metal)]
+module('entry_canopy', objects)
+
 try:
     bpy.ops.object.select_all(action='SELECT')
     path = ROOT / 'public/assets/buildings/old-town-services.glb'

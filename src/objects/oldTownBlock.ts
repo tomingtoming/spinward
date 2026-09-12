@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { type CityBuilding, type CityRoad } from './cityLayout'
 import { planOldTownBlock, planOldTownCourt, oldTownColliders, oldTownPavingColliders, oldTownLod, type OldTownLot, type OldTownModule, type OldTownPaving } from './oldTownBlockPlan'
 
-const names: (OldTownModule | 'water_tank_lod')[] = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry']
+const names: (OldTownModule | 'water_tank_lod')[] = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy']
 type Entry = OldTownLot & { matrix: THREE.Matrix4; level: number }
 
 /** A bounded, instanced detail layer for one Old Town block. Permanent tank
@@ -16,6 +16,17 @@ export class OldTownBlock {
   private box = new THREE.BoxGeometry(1, 1, 1)
   private material = new THREE.MeshStandardMaterial({ roughness: .88 })
   private coloured = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .86 })
+  private lamp = new THREE.MeshStandardMaterial({ color: '#ffdda0', emissive: '#ffbb68', roughness: .65 })
+  private washPlane = new THREE.PlaneGeometry(1, 1).rotateY(Math.PI)
+  private washTexture = (() => {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64
+    const ctx = canvas.getContext('2d')!, gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+    gradient.addColorStop(0, 'rgba(255,255,255,1)'); gradient.addColorStop(.3, 'rgba(255,255,255,.6)'); gradient.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 64, 64)
+    return new THREE.CanvasTexture(canvas)
+  })()
+  private wash = new THREE.MeshBasicMaterial({ color: '#ffbf7b', map: this.washTexture, transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false })
   private modules = new Map<string, THREE.BufferGeometry>()
   private batches = new Map<string, THREE.InstancedMesh>()
   private paving: THREE.Mesh | null = null
@@ -82,6 +93,11 @@ export class OldTownBlock {
       this.paving.receiveShadow = true; this.group.add(this.paving)
     }
   }
+  setDaylight(daylight: number) {
+    const night = 1 - THREE.MathUtils.smoothstep(daylight, .05, .6)
+    this.lamp.emissiveIntensity = night * .8
+    this.wash.opacity = night * .22
+  }
   getColliders() { return [...oldTownColliders(this.entries, this.radius), ...oldTownPavingColliders(this.pavingPlan)] }
   private batch(key: string, geometry: THREE.BufferGeometry, material: THREE.Material) {
     let mesh = this.batches.get(key)
@@ -112,9 +128,12 @@ export class OldTownBlock {
         const module = e.level === 2 && p.module === 'water_tank' ? 'water_tank_lod' : p.module
         const geometry = e.level < 2 || module === 'water_tank_lod' ? this.modules.get(module) : undefined
         if (!geometry && p.module === 'laundry') continue
-        const key = geometry ? module : 'box', mesh = this.batch(key, geometry ?? this.box, geometry ? this.coloured : this.material)
+        const key = p.light ?? (geometry ? module : 'box')
+        const mesh = this.batch(key, p.light === 'wash' ? this.washPlane : geometry ?? this.box,
+          p.light === 'wash' ? this.wash : p.light === 'diffuser' ? this.lamp : geometry ? this.coloured : this.material)
+        if (p.light) mesh.castShadow = false
         const y = p.y + (p.module !== 'box' && !geometry ? p.h / 2 : 0)
-        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.module === 'meter_bank' ? Math.PI : 0)
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.module === 'meter_bank' || p.module === 'entry_canopy' ? Math.PI : 0)
         local.compose(point.set(p.x, y, p.z), q, size.set(p.w, p.h, p.d))
         world.multiplyMatrices(e.matrix, local); mesh.setMatrixAt(mesh.count, world)
         tint.set('#' + (geometry || p.module === 'box' ? p.tint : p.module === 'water_tank' ? 'a1a99a' : '82948a'))
@@ -135,7 +154,7 @@ export class OldTownBlock {
     if (this.paving) { this.paving.geometry.dispose(); this.paving.removeFromParent(); this.paving = null }
   }
   dispose() {
-    this.disposed = true; this.clear(); this.box.dispose(); this.material.dispose(); this.coloured.dispose()
+    this.disposed = true; this.clear(); this.box.dispose(); this.material.dispose(); this.coloured.dispose(); this.lamp.dispose(); this.wash.dispose(); this.washTexture.dispose(); this.washPlane.dispose()
     for (const g of this.modules.values()) g.dispose()
     this.modules.clear(); this.group.removeFromParent()
   }

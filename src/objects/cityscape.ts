@@ -1530,6 +1530,7 @@ export class Cityscape {
     this.colonyBuildings.setDaylight(daylight)
     this.interiorLayer.setDaylight(daylight)
     this.neighborhoodFronts.setDaylight(daylight)
+    this.oldTownBlock.setDaylight(daylight)
     const night = 1 - daylight
     // The facet array BLAZES when it catches the sun: the day tint (sky grade
     // lifted toward white) is pushed deep into HDR by the sun catch, so the
