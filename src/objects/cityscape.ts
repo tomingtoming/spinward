@@ -17,6 +17,7 @@ import { BuildingInteriorLayer } from './buildingInteriorLayer'
 import { LOBBY_PILOT, matchesAuthoredPilot } from './cafePilot'
 import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
+import { OldTownBlock } from './oldTownBlock'
 import { planCarShareBay, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
 import { planPublicPark } from './publicPark'
@@ -707,6 +708,7 @@ export class Cityscape {
   })
 
   readonly colonyBuildings=new ColonyBuildings(this.group)
+  readonly oldTownBlock = new OldTownBlock(this.group)
   readonly authoredBlock=new AuthoredCityBlock(this.group)
   setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian)}
 
@@ -1344,6 +1346,8 @@ export class Cityscape {
     if (apartment) this.interiors.set(apartment.building, apartment)
     this.authoredBlock.rebuild(plan.buildings,radius)
     this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors,plan.roads)
+    this.oldTownBlock.rebuild(plan.buildings, plan.roads, radius, length, this.interiors,
+      [...this.colonyBuildings.getForecourtColliders(), ...this.colonyBuildings.getStairColliders()])
     this.civicDetails.rebuild({ ...plan, buildings: [] }, radius, planPublicPark(plan, radius)) // Retire old building facade overlays.
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.seats = [...this.roomSeats, ...this.civicDetails.seats]
@@ -1358,6 +1362,7 @@ export class Cityscape {
 
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
+    this.collisionBuildings.push(...this.oldTownBlock.getColliders())
     this.collisionBuildings.push(...this.civicDetails.colliders)
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
@@ -1581,6 +1586,7 @@ export class Cityscape {
     this.clear()
     this.authoredBlock.dispose()
     this.colonyBuildings.dispose()
+    this.oldTownBlock.dispose()
     this.civicDetails.dispose()
     this.interiorLayer.dispose()
     this.neighborhoodFronts.dispose()
@@ -1625,6 +1631,7 @@ export class Cityscape {
   }
 
   private clear() {
+    this.oldTownBlock.clear()
     this.civicDetails.clear()
     this.interiorLayer.clear()
     this.neighborhoodFronts.clear()
@@ -1777,6 +1784,7 @@ export class Cityscape {
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.authoredBlock.update(azimuth,axial,altitude)
     this.colonyBuildings.update(azimuth,axial,altitude)
+    this.oldTownBlock.update(azimuth, axial, altitude)
     this.updateBeaconVisibility()
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)
