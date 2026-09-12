@@ -23,7 +23,9 @@ test('river bank and bridge remain on screen and world-fixed through stereo head
  const before=await probe();expect(before.h).toBeCloseTo(1.2,2)
  for(const degrees of [0,25,-25]){
   await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(200)
-  expect(await probe()).toEqual(before)
+  const current=await probe()
+  expect(current.matrix).toEqual(before.matrix);expect(current.ready).toBe(before.ready)
+  expect(current.h).toBeCloseTo(before.h,6)
   const projected=await page.evaluate(()=>{const c=window.__spinwardCity,p=c.riverDistrict,camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0];return [[0,0,4.6],[12,8,1.2]].map(([x,y,h])=>{const a=p.azimuth+x/3200,point=camera.position.clone().set(Math.cos(a)*(3200-h),p.axial+y,Math.sin(a)*(3200-h));return c.group.localToWorld(point).project(camera).toArray()})})
   for(const [x,y,z]of projected){expect(Math.abs(x)).toBeLessThan(.98);expect(Math.abs(y)).toBeLessThan(.98);expect(z).toBeGreaterThan(-1);expect(z).toBeLessThan(1)}
   const path=info.outputPath(`river-roll-${degrees}.png`),capture=await xr.screenshot(path,{metadata:true,canvas:'canvas',timeout:5000})

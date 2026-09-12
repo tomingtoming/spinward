@@ -2764,9 +2764,12 @@ export const bootstrapApp = async () => {
       cameraVelocity: carrierRotatingVelocity,
       deltaSeconds,
       intensity: rainStrength,
-      roofs: cityscape.getRainRoofs()
+      roofs: cityscape.getRainRoofs(),
+      arcs: cityscape.getRainArcs()
     })
-    audio.setRainLevel(rainStrength * (1 - roomEnvironment.shelter * .85))
+    const rainShelter = carrierInAir && rainStrength > .002 ? cityscape.sampleRainShelter(carrierRotatingPosition) : 0
+    const rainAudibility = 1 - Math.max(roomEnvironment.shelter * .85, rainShelter * .55)
+    audio.setRainLevel(rainStrength * rainAudibility)
 
     dayNightPhase = stepDayNightPhase(
       dayNightPhase,
@@ -2904,6 +2907,7 @@ export const bootstrapApp = async () => {
       pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
+      rain: { strength: rainStrength, shelter: rainShelter, audibility: rainAudibility },
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,

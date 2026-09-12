@@ -233,3 +233,30 @@ the water, banks, paths, railings and bridge in both eyes at every roll, with no
 observed separation or floating parts. The bridge deck/upper junction is
 occluded at this low viewpoint and was reviewed separately in desktop captures.
 Native Quest performance, comfort and VR seated interaction remain unverified.
+
+## Rain shelter — 2026-09-13
+
+The covered public walk now runs with `&rain`, asserting a full rain field,
+shelter one and the public-cover sound multiplier .45. It retains the actual
+Menu/VR entry, Quest city budget, stereo 64mm IPD, head roll 0/±25°, on-camera
+path probes, fixed terrain and session-scoped exit checks. Audio state is
+measured; listening through a headset is not part of this test.
+
+The final complete 0.2.0 suite passed **six tests, eight immersive sessions and
+eight exits** in 1.7 minutes on Apple M1 Pro / ANGLE Metal, Chrome 152.0.7977.83.
+The rainy underpass has two 1280×960 eye views and a 2560×960 canvas, with
+matching screenshot/session metadata and no recorded page errors. Evidence
+is retained in `qa/webxr/evidence/rain-20260913/` (ignored).
+
+The initial attempt passed five tests and failed the river fixture because
+it compared 1.2000000000000002 with 1.2 metres exactly. Ground height now uses
+sub-micrometre tolerance; the district matrix and asset readiness still require
+exact equality. This corrects test precision, not terrain or a 0.2.0 package
+defect. The initial trace remains in `qa/webxr/evidence/rain-initial-20260913/`.
+Native headset rendering, performance, sound and comfort remain unverified.
+
+Independent review confirmed dry near paving/ceiling, visible outdoor rain and
+connected walkway/columns/rails in both eyes at all three rolls. A suspected
+fine dotted paving seam is present in both earlier golden sets as well; it
+appears brighter in rain and was not a new geometry defect. These findings
+apply to the captured views, not every frame or every roof in the colony.

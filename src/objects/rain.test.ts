@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Vector3 } from 'three'
 import { RainStreaks } from './rain'
-import { MAX_RAIN_ROOFS, type RainRoof } from './rainShelter'
+import { MAX_RAIN_ROOFS, planExpresswayRainRoofs, type RainRoof } from './rainShelter'
+import { getCityExpressway } from './cityLayout'
 
 const roof = (axial: number): RainRoof => ({ cos: 1, sin: 0, axial, radial: 970, halfWidth: 2, halfDepth: .4 })
 const update = { cameraPosition: new Vector3(998, 0, 0), rainVelocity: new Vector3(8, 0, 0), cameraVelocity: new Vector3(), deltaSeconds: .016, intensity: 1 }
@@ -30,5 +31,18 @@ test('travel clears stale rain roofs and bounds the apparent streak after a fast
   expect(uniforms.uStreak.value.length()).toBeLessThanOrEqual(60 * .35 + 1e-9)
   rain.update({ ...update, intensity: 0, roofs: [] })
   expect(rain.lines.visible).toBe(false)
+  rain.dispose()
+})
+
+test('a preset without a viaduct clears its cylindrical rain masks', () => {
+  const rain=new RainStreaks(10),arcs=planExpresswayRainRoofs(getCityExpressway(3200,40000),3200)
+  rain.setBounds(3200,40000)
+  rain.update({...update,roofs:[],arcs})
+  const uniforms=(rain.lines.material as import('three').ShaderMaterial).uniforms
+  expect(uniforms.uArcCount.value).toBe(7)
+  expect(uniforms.uArcFrames.value[0].toArray()).toEqual([0,Math.PI*2,arcs[0].axial,arcs[0].halfDepth])
+  rain.setBounds(100,400)
+  rain.update({...update,roofs:[]})
+  expect(uniforms.uArcCount.value).toBe(0)
   rain.dispose()
 })

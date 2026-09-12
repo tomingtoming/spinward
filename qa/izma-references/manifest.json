@@ -787,10 +787,11 @@
       "sha256": "6fe65b007a07710e9ed9b41e29f75da0042d47bfe3024c616794c440fdbb3ae5",
       "size": 1862435,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "covered-walk",
       "duplicateOf": null,
-      "implementation": "partial"
+      "implementation": "partial",
+      "observation": "高架下面と支持柱、隣接する公共通路を再確認。画面自体は降雨を示していない。雨宿りは既存構造を天候へつなぐSpinward側の機能改善で、資料の雨を再現したという意味ではない。"
     },
     {
       "id": "izma-ep03-0021",
@@ -1408,10 +1409,11 @@
       "sha256": "a7b3244b1643b61ded5e116ba71d3f978bbbcda89eb050bb67e2916d1bf6dd9b",
       "size": 1942460,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "小さな公共空間の屋根、樹木、柵と光を反射する舗装を元解像度で確認。降雨中かは断定しない。固有の祠や鳥居は今回追加しない。"
     },
     {
       "id": "izma-ep06-0078",

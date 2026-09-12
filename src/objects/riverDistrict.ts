@@ -108,10 +108,10 @@ export class RiverDistrictLayer {
       add(material, g)
     }
     this.colliders.push(...plan.colliders)
-    // Inscribed rectangles cover the oblique deck without sheltering open sky.
-    // Twelve local masks fit the existing sixteen-roof rain budget.
-    for (let x=-22;x<=22;x+=4) {const a=plan.azimuth+x/radius;this.rainRoofs.push({cos:Math.cos(a),sin:Math.sin(a),axial:plan.axial+.25*x,
-      radial:radius-5.12,halfWidth:2,halfDepth:5.8/Math.cos(RIVER_BRIDGE_YAW)-.5})}
+    // One rotated footprint covers the full oblique deck, including the slim
+    // edge wedges that a staircase of inscribed rectangles would leave wet.
+    this.rainRoofs.push({cos:Math.cos(plan.azimuth),sin:Math.sin(plan.azimuth),axial:plan.axial,
+      radial:radius-5.12,halfWidth:25,halfDepth:5.8,yaw:RIVER_BRIDGE_YAW})
     const box = (b: RiverBox, solid = false) => {
       const g = new THREE.BoxGeometry(b.w, b.height, b.d).rotateZ(b.pitch??0).translate(0, b.height / 2, 0).applyMatrix4(this.frame(b.x, b.y, b.h, b.yaw))
       this.stoneUV(g); add(b.material, g)

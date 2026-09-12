@@ -23,11 +23,11 @@ try{
   await page.waitForTimeout(1800);await page.keyboard.press('Escape')
   const probe=await page.evaluate(()=>({player:window.__spinward,stats:window.__spinwardCity.riverLayer.group.userData,buildings:window.__spinwardCity.riverBuildings.group.userData,
    plan:{a:window.__spinwardCity.riverDistrict.azimuth,ax:window.__spinwardCity.riverDistrict.axial,width:window.__spinwardCity.riverDistrict.width},
-   rain:(()=>{const c=window.__spinwardCity,p=c.riverDistrict,roofs=c.getRainRoofs();const covered=(x,y)=>{const a=p.azimuth+x/3200,r=3198.8;return roofs.some(t=>r*Math.cos(a)*t.cos+r*Math.sin(a)*t.sin>=t.radial&&Math.abs(-r*Math.cos(a)*t.sin+r*Math.sin(a)*t.cos)<=t.halfWidth&&Math.abs(p.axial+y-t.axial)<=t.halfDepth)};return {masks:c.riverLayer.rainRoofs.length,under:covered(13.5,3.375),outside:covered(13.5,20)}})(),
+   rain:(()=>{const c=window.__spinwardCity,p=c.riverDistrict,roofs=c.getRainRoofs();const covered=(x,y)=>{const a=p.azimuth+x/3200,r=3198.8;return roofs.some(t=>r*Math.cos(a)*t.cos+r*Math.sin(a)*t.sin>=t.radial&&Math.abs((-r*Math.cos(a)*t.sin+r*Math.sin(a)*t.cos)*Math.cos(t.yaw??0)+(p.axial+y-t.axial)*Math.sin(t.yaw??0))<=t.halfWidth&&Math.abs(-(-r*Math.cos(a)*t.sin+r*Math.sin(a)*t.cos)*Math.sin(t.yaw??0)+(p.axial+y-t.axial)*Math.cos(t.yaw??0))<=t.halfDepth)};return {masks:c.riverLayer.rainRoofs.length,under:covered(13.5,3.375),outside:covered(13.5,20)}})(),
    fallback:window.__spinwardCity.riverLayer.fallback?.visible,
    meshes:window.__spinwardCity.riverLayer.group.children.map(o=>({name:o.name,visible:o.visible,triangles:o.geometry?(o.geometry.index?.count??o.geometry.getAttribute('position').count)/3:null})),
    asset:document.querySelector('script[src*="/assets/"]')?.src}))
-  if(probe.rain.masks!==12||!probe.rain.under||probe.rain.outside)throw Error('Bridge rain masking failed')
+  if(probe.rain.masks!==1||!probe.rain.under||probe.rain.outside)throw Error('Bridge rain masking failed')
   if(v.name==='far'&&probe.stats.bridgeLod!==2)throw Error('Expected distant bridge LOD')
   if(process.env.FALLBACK==='1'&&(!probe.fallback||probe.stats.blenderReady))throw Error('Bridge fallback failed')
   if(process.env.PERF==='1')probe.timing=await page.evaluate(()=>new Promise(resolve=>{const dt=[],start=performance.now();let previous=start;const frame=now=>{dt.push(now-previous);previous=now;if(now-start<6000)requestAnimationFrame(frame);else{dt.sort((a,b)=>a-b);resolve({duration:now-start,frames:dt.length,fps:dt.length*1000/(now-start),p50:dt[Math.floor(dt.length*.5)],p95:dt[Math.floor(dt.length*.95)]})}};requestAnimationFrame(frame)}))

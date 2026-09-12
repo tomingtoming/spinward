@@ -1,4 +1,4 @@
-import type { RainRoof } from './rainShelter'
+import { planExpresswayRainRoofs, sampleRainShelter, type RainArcRoof, type RainRoof } from './rainShelter'
 import { RiverDistrictLayer } from './riverDistrict'
 import { planRiverDistrict, sampleRiverRoad, type RiverDistrict } from './riverDistrictPlan'
 import {buildingRoofAttachment} from './buildingRoofAttachment'
@@ -594,6 +594,7 @@ export class Cityscape {
   private riverDistrict: RiverDistrict | null = null
   private interiorRainSource: readonly RainRoof[] | null = null
   private combinedRainRoofs: readonly RainRoof[] = []
+  private rainArcs: RainArcRoof[] = []
   private readonly interiorLayer = new BuildingInteriorLayer(this.group)
   private readonly neighborhoodFronts = new NeighborhoodFronts(this.group)
   private coffeeStation: CoffeeStation | null = null
@@ -1423,6 +1424,7 @@ export class Cityscape {
     }
 
     this.cityExpressway = plan.expressway
+    this.rainArcs = planExpresswayRainRoofs(plan.expressway, radius)
 
     if (plan.expressway !== null) {
       this.buildExpressway(plan.expressway, radius)
@@ -1444,6 +1446,8 @@ export class Cityscape {
     if(source!==this.interiorRainSource){this.interiorRainSource=source;this.combinedRainRoofs=[...source,...this.riverLayer.rainRoofs]}
     return this.combinedRainRoofs
   }
+  getRainArcs() { return this.rainArcs }
+  sampleRainShelter(point: THREE.Vector3) { return sampleRainShelter(this.getRainRoofs(), this.rainArcs, point) }
   getSeats(): readonly RoomSeat[] { return this.seats }
   getCarShareBay() { return this.carShareBay }
   getPublicPark() { return this.civicDetails.park }
@@ -1677,6 +1681,7 @@ export class Cityscape {
     this.riverDistrict = null
     this.interiorRainSource = null
     this.combinedRainRoofs = []
+    this.rainArcs = []
     this.riverBuildings.rebuild([], this.radius, new Map(), [], false)
     this.civicDetails.clear()
     this.interiorLayer.clear()

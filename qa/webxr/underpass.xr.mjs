@@ -17,7 +17,7 @@ test('covered walk stays grounded and world-fixed in stereo through head roll', 
   })
   expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
   await page.route('https://static.cloudflareinsights.com/**', r => r.fulfill({ status: 200, body: '', contentType: 'application/javascript' }))
-  await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose(underpassViews[1])}`)
+  await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&rain&${underpassPose(underpassViews[1])}`)
   await page.waitForSelector('#splash', { state: 'detached' })
   await page.waitForFunction(() => !!window.__spinwardCity?.civicDetails.underpass)
   await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
@@ -43,6 +43,9 @@ test('covered walk stays grounded and world-fixed in stereo through head roll', 
     h: window.__spinward.groundHeight,
     triangles: window.__spinwardCity.civicDetails.group.userData.underpassTriangles
   }))
+  await page.waitForFunction(()=>window.__spinward.rain?.strength===1)
+  const rain=await page.evaluate(()=>window.__spinward.rain)
+  expect(rain.shelter).toBe(1);expect(rain.audibility).toBeCloseTo(.45)
   const before = await probe()
   expect(before.h).toBeCloseTo(.34, 2)
   expect(before.triangles).toBeGreaterThan(0)
@@ -75,5 +78,5 @@ test('covered walk stays grounded and world-fixed in stereo through head roll', 
   await xr.waitForSessionEvent('end', { after, sessionId: diagnostics.session.id, timeout: 5000 })
   expect(await xr.sessionMode()).toBeNull()
   expect(errors).toEqual([])
-  await fs.writeFile(info.outputPath('underpass-evidence.json'), JSON.stringify({ diagnostics, gpu, frames, before, errors }, null, 2))
+  await fs.writeFile(info.outputPath('underpass-evidence.json'), JSON.stringify({ diagnostics, gpu, frames, before, rain, errors }, null, 2))
 })

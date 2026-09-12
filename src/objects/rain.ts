@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { MAX_RAIN_ROOFS, rainRoofNearBox, type RainRoof } from './rainShelter'
+import { MAX_RAIN_ARCS, MAX_RAIN_ROOFS, rainRoofNearBox, type RainArcRoof, type RainRoof } from './rainShelter'
 
 // GPU rain streaks. One LineSegments draw call: every drop is two vertices
 // whose positions the vertex shader derives from a per-drop seed, a shared
@@ -27,17 +27,27 @@ const rainVertexShader = /* glsl */ `
   uniform int uRoofCount;
   uniform vec4 uRoofFrames[${MAX_RAIN_ROOFS}];
   uniform vec4 uRoofBounds[${MAX_RAIN_ROOFS}];
+  uniform int uArcCount;
+  uniform vec4 uArcFrames[${MAX_RAIN_ARCS}];
+  uniform vec2 uArcRadii[${MAX_RAIN_ARCS}];
   varying float vAlpha;
 
   bool underRoof(vec3 point, vec4 frame, vec4 bounds) {
+    vec2 offset = vec2(dot(point.xz, vec2(-frame.y, frame.x)), point.y - frame.z);
+    vec2 local = vec2(dot(offset, bounds.zw), dot(offset, vec2(-bounds.w, bounds.z)));
     return dot(point.xz, frame.xy) >= frame.w &&
-      abs(dot(point.xz, vec2(-frame.y, frame.x))) <= bounds.x &&
-      abs(point.y - frame.z) <= bounds.y;
+      abs(local.x) <= bounds.x && abs(local.y) <= bounds.y;
   }
 
   bool outsideHabitat(vec3 point) {
     return dot(point.xz, point.xz) > uHabitat.x * uHabitat.x ||
       abs(point.y) > uHabitat.y;
+  }
+
+  bool underArc(vec3 polar, vec4 frame, vec2 radii) {
+    float along = mod(polar.x - frame.x, PI2);
+    return along <= frame.y && abs(polar.y - frame.z) <= frame.w &&
+      polar.z >= mix(radii.x, radii.y, along / frame.y);
   }
 
   void main() {
@@ -66,6 +76,15 @@ const rainVertexShader = /* glsl */ `
       if (i >= uRoofCount || hidden) break;
       hidden = underRoof(head, uRoofFrames[i], uRoofBounds[i]) ||
         underRoof(tail, uRoofFrames[i], uRoofBounds[i]);
+    }
+    if (!hidden && uArcCount > 0) {
+      vec3 h = vec3(atan(head.z, head.x), head.y, length(head.xz));
+      vec3 t = vec3(atan(tail.z, tail.x), tail.y, length(tail.xz));
+      for (int i = 0; i < ${MAX_RAIN_ARCS}; i++) {
+        if (i >= uArcCount || hidden) break;
+        hidden = underArc(h, uArcFrames[i], uArcRadii[i]) ||
+          underArc(t, uArcFrames[i], uArcRadii[i]);
+      }
     }
     if (hidden) vAlpha = 0.0;
 
@@ -101,6 +120,7 @@ export type RainUpdate = {
   // 0..1 shower strength (weather ramp × cloud-deck fade).
   intensity: number
   roofs: readonly RainRoof[]
+  arcs?: readonly RainArcRoof[]
 }
 
 export class RainStreaks {
@@ -120,6 +140,9 @@ export class RainStreaks {
     uRoofCount: { value: number }
     uRoofFrames: { value: THREE.Vector4[] }
     uRoofBounds: { value: THREE.Vector4[] }
+    uArcCount: { value: number }
+    uArcFrames: { value: THREE.Vector4[] }
+    uArcRadii: { value: THREE.Vector2[] }
   }
   private readonly apparentVelocity = new THREE.Vector3()
   private readonly nearbyRoofs: RainRoof[] = []
@@ -161,7 +184,10 @@ export class RainStreaks {
       uHabitat: { value: new THREE.Vector2(1, 1) },
       uRoofCount: { value: 0 },
       uRoofFrames: { value: Array.from({ length: MAX_RAIN_ROOFS }, () => new THREE.Vector4()) },
-      uRoofBounds: { value: Array.from({ length: MAX_RAIN_ROOFS }, () => new THREE.Vector4()) }
+      uRoofBounds: { value: Array.from({ length: MAX_RAIN_ROOFS }, () => new THREE.Vector4()) },
+      uArcCount: { value: 0 },
+      uArcFrames: { value: Array.from({ length: MAX_RAIN_ARCS }, () => new THREE.Vector4()) },
+      uArcRadii: { value: Array.from({ length: MAX_RAIN_ARCS }, () => new THREE.Vector2()) }
     }
 
     this.material = new THREE.ShaderMaterial({
@@ -187,7 +213,7 @@ export class RainStreaks {
     this.uniforms.uHabitat.value.set(habitatRadius, habitatLength / 2)
   }
 
-  update({ cameraPosition, rainVelocity, cameraVelocity, deltaSeconds, intensity, roofs }: RainUpdate) {
+  update({ cameraPosition, rainVelocity, cameraVelocity, deltaSeconds, intensity, roofs, arcs = [] }: RainUpdate) {
     this.uniforms.uIntensity.value = intensity
     this.lines.visible = intensity > 0.002
 
@@ -225,8 +251,9 @@ export class RainStreaks {
     // nearest the observer first. Typical rooms use one roof; courts use four.
     const distance = (roof: RainRoof) => {
       const tangent = -cameraPosition.x * roof.sin + cameraPosition.z * roof.cos
-      return Math.max(0, Math.abs(tangent) - roof.halfWidth) ** 2 +
-        Math.max(0, Math.abs(cameraPosition.y - roof.axial) - roof.halfDepth) ** 2
+      const axial=cameraPosition.y-roof.axial,c=Math.cos(roof.yaw??0),s=Math.sin(roof.yaw??0)
+      return Math.max(0, Math.abs(tangent*c+axial*s) - roof.halfWidth) ** 2 +
+        Math.max(0, Math.abs(-tangent*s+axial*c) - roof.halfDepth) ** 2
     }
     if (this.nearbyRoofs.length > MAX_RAIN_ROOFS) this.nearbyRoofs.sort((a, b) => distance(a) - distance(b))
     const count = Math.min(this.nearbyRoofs.length, MAX_RAIN_ROOFS)
@@ -234,7 +261,13 @@ export class RainStreaks {
     for (let i = 0; i < count; i++) {
       const roof = this.nearbyRoofs[i]
       this.uniforms.uRoofFrames.value[i].set(roof.cos, roof.sin, roof.axial, roof.radial)
-      this.uniforms.uRoofBounds.value[i].set(roof.halfWidth, roof.halfDepth, 0, 0)
+      this.uniforms.uRoofBounds.value[i].set(roof.halfWidth, roof.halfDepth, Math.cos(roof.yaw??0), Math.sin(roof.yaw??0))
+    }
+    this.uniforms.uArcCount.value = Math.min(arcs.length, MAX_RAIN_ARCS)
+    for (let i = 0; i < this.uniforms.uArcCount.value; i++) {
+      const roof = arcs[i]
+      this.uniforms.uArcFrames.value[i].set(roof.start, roof.span, roof.axial, roof.halfDepth)
+      this.uniforms.uArcRadii.value[i].set(roof.radiusStart, roof.radiusEnd)
     }
   }
 
