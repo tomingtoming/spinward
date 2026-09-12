@@ -20,6 +20,7 @@ import * as THREE from 'three'
 import { OldTownBlock } from './oldTownBlock'
 import { planCarShareBay, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
+import { planPublicUnderpass } from './publicUnderpass'
 import { planPublicPark } from './publicPark'
 import { StreetAccessLayer } from './streetAccessLayer'
 import { STREET_PROFILES, streetLaneCenters, streetLaneDividers } from './streetProfile'
@@ -1348,7 +1349,8 @@ export class Cityscape {
     this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors,plan.roads)
     this.oldTownBlock.rebuild(plan.buildings, plan.roads, radius, length, this.interiors,
       [...this.colonyBuildings.getForecourtColliders(), ...this.colonyBuildings.getStairColliders()])
-    this.civicDetails.rebuild({ ...plan, buildings: [] }, radius, planPublicPark(plan, radius)) // Retire old building facade overlays.
+    // Keep the retired facade overlays disabled; public plans see actual lots.
+    this.civicDetails.rebuild({ ...plan, buildings: [] }, radius, planPublicPark(plan, radius), planPublicUnderpass(plan, radius))
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
     this.seats = [...this.roomSeats, ...this.civicDetails.seats]
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)

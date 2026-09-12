@@ -188,3 +188,28 @@ hand tracking, performance, stereo comfort, readability through lenses, or
 motion sickness. Those require a physical headset. Review wrist text in the
 saved textures as well as the full scene; an emulator screenshot alone can hide
 small typography defects.
+
+## Covered public walk — 2026-09-12
+
+`underpass.xr.mjs` adds the actual downtown covered walkway at ground level,
+with stereo, 64mm IPD and head roll 0/±25°. The public layer and plan remain
+fixed in the rotating colony; the ground stays at 0.34m, below the 18m road
+deck. Diagnostics and screenshot metadata agree on two 1280×960 views, a
+2560×960 canvas and the active session ID. Entry and exit use the real app/runtime.
+
+All five tests passed: seven sessions and seven successful exits, including the
+existing wrist/controller/exit/re-entry routes and roof/skyline checks. Hardware
+preflight: Apple M1 Pro / ANGLE Metal, Chrome 152.0.7977.83, playwright-webxr
+0.2.0. Evidence is retained in `qa/webxr/evidence/underpass-20260912/` (ignored).
+This is emulation; native headset performance, comfort and seated VR are not
+verified by this increment. Raised-paving sit/stand input and the 1.57m seated
+eye height were checked separately in ordinary browser locomotion.
+
+Independent image review caught an off-camera scenery test: grounded XR entry
+faces along its own tracking heading, not the desktop URL's look quaternion.
+The fixture now aims the head from the real tracking transform and checks that
+points 10m and 35m down the path project inside the camera for every roll.
+The corrected scenery test passed again on the same build (six test executions,
+eight sessions/exits across the full suite and this repeat). The retained
+underpass images/diagnostics were replaced with the correctly framed captures;
+this was a test-framing defect, not a playwright-webxr package failure.

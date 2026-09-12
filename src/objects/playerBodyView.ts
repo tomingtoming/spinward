@@ -73,7 +73,7 @@ export class PlayerBodyView {
         seat.axialPosition - Math.cos(heading) * .18, seat.radius, heading, 0)
       poseResident(root, 0, false, true)
       fitSeatedBody(root, seat.seatHeight ?? .6,
-        this.surfaces.sample(seat.azimuth, seat.axialPosition, 0, frame.indoors))
+        this.surfaces.sample(seat.azimuth, seat.axialPosition, seat.groundHeight ?? 0, frame.indoors))
     } else if (airborne) {
       poseResident(root, this.time, false, false)
       poseAirborneBody(root, frame.airborneView!)

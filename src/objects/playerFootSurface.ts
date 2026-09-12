@@ -28,7 +28,9 @@ export class PlayerFootSurface {
   sample(azimuth: number, axial: number, groundHeight: number, indoors: boolean) {
     if (groundHeight > .5) return groundHeight + .015
     if (indoors) return .25
-    let height = .1
+    // Low physical paving/steps also support feet. Previously any unlisted
+    // surface below .5m fell back to grass and buried the shoes in its top.
+    let height = Math.max(.1, groundHeight)
     for (const i of this.index.query({ azimuth, axial, tangentWidth: .01, axialLength: .01 })) {
       const s = this.surfaces[i]
       if (Math.abs(Math.atan2(Math.sin(azimuth - s.azimuth), Math.cos(azimuth - s.azimuth))) * this.radius <= s.tangentWidth / 2 &&

@@ -7,6 +7,7 @@ import type { RoomSeat } from '../app/roomSeating'
 import { createLandscapeCrown } from './landscapeVegetation'
 import { PARK_PATH_HEIGHT, parkPathTiles, planPublicPark, type PublicPark } from './publicPark'
 import type { StreetLampSource } from './streetLampLighting'
+import { UNDERPASS_HEIGHT, underpassGroundAndRail, type PublicUnderpass } from './publicUnderpass'
 
 // A small authored layer around the plaza, public garden and observation deck. All
 // pieces merge by material; no lights, textures or per-frame object creation.
@@ -18,6 +19,7 @@ export class CivicDetails {
   readonly colliders: CityBuilding[] = []
   readonly lamps: StreetLampSource[] = []
   park: PublicPark | null = null
+  underpass: PublicUnderpass | null = null
   private signs: THREE.Group[] = []
   private readonly materials = [
     new THREE.MeshStandardMaterial({ color: 0xb5b5a4, roughness: 0.86 }),
@@ -30,11 +32,12 @@ export class CivicDetails {
 
   constructor(parent: THREE.Group) { parent.add(this.group) }
 
-  rebuild(plan: CityPlan, radius: number, park = planPublicPark(plan, radius)) {
+  rebuild(plan: CityPlan, radius: number, park = planPublicPark(plan, radius), underpass: PublicUnderpass | null = null) {
     this.clear()
     // Small physics playgrounds need open space; keep city dressing at city scale.
     if (radius < 800) return
     this.park = park
+    this.underpass = underpass
     const parts: THREE.BufferGeometry[][] = this.materials.map(() => [])
     const surface = (azimuth: number, axial: number, height = 0) => {
       const c = Math.cos(azimuth), s = Math.sin(azimuth)
@@ -64,6 +67,56 @@ export class CivicDetails {
             width, depth, height, baseHeight: baseHeight + y - height / 2, collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block' })
         }
       }
+    }
+
+    if (underpass) {
+      const p = underpass, triangleStart = parts.flat().reduce((n, g) => n + (g.index?.count ?? 0) / 3, 0)
+      const frame = (x: number, y: number) => surface(p.azimuth + x / radius, p.axial + y, UNDERPASS_HEIGHT)
+      // The curb and sitting pockets meet the through path edge-to-edge.
+      // Avoid slicing its full length into thin strips at every pocket corner.
+      for (const tile of p.paths) {
+        const count = Math.ceil(tile.width / 3.2), span = tile.width / count
+        for (let i = 0; i < count; i++) {
+          const x = tile.x - tile.width / 2 + (i + .5) * span
+          const g = new THREE.BoxGeometry(span - .018, UNDERPASS_HEIGHT, tile.depth)
+          const pos = g.getAttribute('position')
+          for (let v = 0; v < pos.count; v++) {
+            const a = p.azimuth + (x + pos.getX(v)) / radius, h = UNDERPASS_HEIGHT / 2 + pos.getY(v)
+            pos.setXYZ(v, Math.cos(a) * (radius - h), p.axial + tile.y - pos.getZ(v), Math.sin(a) * (radius - h))
+          }
+          g.computeVertexNormals(); parts[0].push(g)
+        }
+      }
+      this.colliders.push(...underpassGroundAndRail(p, radius))
+      const rail = p.rail, count = Math.ceil(rail.length / 3), span = rail.length / count
+      for (let i = 0; i <= count; i++) {
+        const f = frame(rail.x - rail.length / 2 + i * span, rail.y)
+        box(f, 1, 0, .53, 0, .07, 1.06, .07)
+        box(f, 1, 0, .035, 0, .2, .07, .2)
+      }
+      for (let i = 0; i < count; i++) {
+        const f = frame(rail.x - rail.length / 2 + (i + .5) * span, rail.y)
+        for (const y of [.52, 1.05]) box(f, 1, 0, y, 0, span + .025, .06, .06)
+      }
+      for (const [i, b] of p.benches.entries()) {
+        bench(frame(b.x, b.y), 0, 0, true, UNDERPASS_HEIGHT)
+        this.seats.push({ id: `underpass-bench-${i}`, label: 'Covered walk bench', radius,
+          azimuth: p.azimuth + b.x / radius, axialPosition: p.axial + b.y + .18,
+          seatHeight: UNDERPASS_HEIGHT + .53, groundHeight: UNDERPASS_HEIGHT,
+          exit: { azimuth: p.azimuth + b.x / radius, axialPosition: p.axial + b.y + 1.4 } })
+      }
+      for (const [i, l] of p.lamps.entries()) {
+        const f = frame(l.x, l.y), a = p.azimuth + l.x / radius
+        box(f, 1, 0, 1.58, 0, .1, 3.16, .1)
+        box(f, 1, 0, 3.12, .22, .14, .12, .52)
+        box(f, 5, 0, 3.08, .4, .3, .045, .38)
+        box(f, 1, 0, 3.16, .4, .4, .09, .48)
+        this.lamps.push({ id: `underpass-${i}`, position: new THREE.Vector3(0, 3.08, .4).applyMatrix4(f),
+          down: new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), intensity: 28, distance: 13, angle: Math.PI / 2.4 })
+        this.colliders.push({ azimuth: a, axial: p.axial + l.y, width: .1, depth: .1, height: 3.25,
+          baseHeight: UNDERPASS_HEIGHT, groundMargin: 0, collisionMargin: 0, kind: 'block', tone: .5 })
+      }
+      this.group.userData.underpassTriangles = parts.flat().reduce((n, g) => n + (g.index?.count ?? 0) / 3, 0) - triangleStart
     }
 
     if (park) {
@@ -231,6 +284,8 @@ export class CivicDetails {
     for (const sign of this.signs) sign.userData.dispose()
     this.signs = []
     this.park = null
+    this.underpass = null
+    this.group.userData.underpassTriangles = 0
     this.lamps.length = 0
     this.seats.length = 0
     this.colliders.length = 0

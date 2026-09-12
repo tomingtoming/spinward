@@ -112,3 +112,25 @@ test('seat height drives the eye and remains available during standing recovery'
  expect(seating.standingProgress).toBeCloseTo(.5,6)
  expect(seating.stepDeparture(.2)).toBe(false)
 })
+
+test('a bench on raised paving preserves the support, eye level and exit across the rotating frame',()=>{
+ const seat={...seats[0],groundHeight:.34,seatHeight:.87},seating=new RoomSeating()
+ const state=createPlayerTraversalState(seat.exit,radius,1,.03)
+ expect(nearestRoomSeat([seat],state,radius)).toBeNull()
+ resetPlayerToGrounded(state,{...seat.exit,...frame,groundHeight:.34})
+ expect(seating.enter(seat,state,frame)).toBe(true)
+ expect(state.groundHeight).toBeCloseTo(.34)
+ expect(state.groundHeight+seating.eyeHeight).toBeCloseTo(1.57)
+ for(const angle of [1.1,2.5,5.9]){
+  seating.update(state,{...frame,frameAngle:angle},[seat])
+  expect(seating.seat).toBe(seat)
+  const point=inertialPositionToRotating(state.inertialPosition,angle,new THREE.Vector3())
+  // Traversal stores the collision sphere centre, .4m above the foot anchor.
+  expect(radius-Math.hypot(point.x,point.z)).toBeCloseTo(.34+.4)
+ }
+ expect(seating.leave(state,frame)).toBe(true)
+ expect(state.groundHeight).toBeCloseTo(.34)
+ expect(state.surface).toEqual(seat.exit)
+ state.groundHeight=18
+ expect(nearestRoomSeat([seat],state,radius)).toBeNull()
+})

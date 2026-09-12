@@ -788,9 +788,9 @@
       "size": 1862435,
       "review": "viewed",
       "reviewedOn": "2026-09-12",
-      "finding": "public-scale",
+      "finding": "covered-walk",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial"
     },
     {
       "id": "izma-ep03-0021",
@@ -1175,9 +1175,9 @@
       "size": 1704198,
       "review": "viewed",
       "reviewedOn": "2026-09-12",
-      "finding": "public-scale",
+      "finding": "covered-walk",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial"
     },
     {
       "id": "izma-ep06-0056",
@@ -1374,6 +1374,292 @@
       "review": "viewed",
       "reviewedOn": "2026-09-12",
       "finding": "street",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0074",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0074.png",
+      "sha256": "80df802da1762dd70ef7a109ebdfaf7904aaa409149272c48d32a297a69c4009",
+      "size": 1888193,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "roofs-and-utilities",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0075",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0075.png",
+      "sha256": "7cfc27ddc271b56b69a3229868ade853a2ee3b13c194ccc9862ff0193bb7d400",
+      "size": 695184,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "residential-terraces",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0077",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0077.png",
+      "sha256": "a7b3244b1643b61ded5e116ba71d3f978bbbcda89eb050bb67e2916d1bf6dd9b",
+      "size": 1942460,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "public-scale",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0078",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0078.png",
+      "sha256": "eb89b59044d615cff7149f4f423cca80ca5da174be937fe9a6d8d094cdc8c96a",
+      "size": 1627689,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "public-scale",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0079",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0079.png",
+      "sha256": "374baf666ee25e2611ac5540841f1330b4f6ce3eaf29fb131cb9f536f1168867",
+      "size": 1345482,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "street",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep06-0080",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 06 [1080p] [AMZN]-0080.png",
+      "sha256": "f0721fff7e9e6bbecb5e1b1628644396aa48ad11ba6054449a38c25415ca2a19",
+      "size": 1334829,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "shell",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0081",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0081.png",
+      "sha256": "b98bb04d81b4c4cac4693ac8a7becd5d420c12f17dc01e376309aa4a7cfaee1b",
+      "size": 1049464,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "covered-walk",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0082",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0082.png",
+      "sha256": "4d2db07621e8a152e52a6bb6bb4f7004dde7ec6f093b65a7d781ce05ec8e73c1",
+      "size": 1675040,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0084",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0084.png",
+      "sha256": "c0e475451c81c5ee2405b78653435be06a3288e32281d92889748af63dae7951",
+      "size": 2015381,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0085",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0085.png",
+      "sha256": "ed7c97c6047e1ba3d0efd198d91629c7110eef2ef2aebd949ea0aa15e46615c0",
+      "size": 1670206,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0086",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0086.png",
+      "sha256": "e52a272f16aa79a8dcc0527ddb1750e2dcb24f95eadcbb1232616ba68ddf8ecb",
+      "size": 2443142,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0087",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0087.png",
+      "sha256": "40cf37ec78e95d9a7f101111600f70c2de9f79894e3a742f61bc1fd334b3dfc3",
+      "size": 1453948,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0088",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0088.png",
+      "sha256": "19226828b721a0092e472b14a4fc8c34238b143331dde3404255e6ac5aa4a52e",
+      "size": 1785073,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "combat-excluded",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0089",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0089.png",
+      "sha256": "e88ee82a2cf2d576e4c2dc8398bc084bf085e7116bf1cdb02f7fea5f4e8692ad",
+      "size": 1682293,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "combat-excluded",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0090",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0090.png",
+      "sha256": "e2507f85344f31722a32d9fbcc6651e63ae6964c52ba8bd064b605569b8f79c3",
+      "size": 2047695,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0091",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0091.png",
+      "sha256": "fcc68706de0fb3be0b18069c5ff76c97293453b41b89f6f7dcbf34e697220a23",
+      "size": 2223194,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0092",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0092.png",
+      "sha256": "3d436a496f758f8aa88f392078f5038e78ca33ad8b50fb4c3fe073da4dfc9a28",
+      "size": 1161253,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "street-signals",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0093",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0093.png",
+      "sha256": "1a212cf59f0d23e015ffebc406f60046913623ab40ab0a7c910ffb92d89b7bea",
+      "size": 1357849,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "combat-excluded",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0094",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0094.png",
+      "sha256": "12c1bda0b5107cba5294a42de3d3e034582e742131423ff1672b790cd534b6fa",
+      "size": 1477943,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "combat-excluded",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0095",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0095.png",
+      "sha256": "784c38771abe02b8bcc394df29fda96e2c38edb4316b3c75e51ffaa90444a0d6",
+      "size": 2436144,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "roof-landing-use-unconfirmed",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0096",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0096.png",
+      "sha256": "b00945be76a7b2c0d295a8ce063325c6125e7f263d5202a5aacc6113c2391dca",
+      "size": 3008109,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "combat-excluded",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0097",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0097.png",
+      "sha256": "5eba8a076b2dcd482c656bb3517cf3f2f92327c09de045f8d9bf938b9b829ade",
+      "size": 2908006,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0098",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0098.png",
+      "sha256": "52cce1a531cc1799c529dfeee3bb80164004d7856759f4538632f0b976789f84",
+      "size": 2124490,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0099",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0099.png",
+      "sha256": "c8f0f712d5cf69a31cf748db6cfddcbe5dbce601fab35b03693e188682cf715c",
+      "size": 959877,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "night-city",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0100",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0100.png",
+      "sha256": "d4f311426b16925179a6bd0dffc41d0bd7df51286f676e2951c88e28d8196465",
+      "size": 1328174,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "street",
+      "duplicateOf": null,
+      "implementation": "pending"
+    },
+    {
+      "id": "izma-ep07-0101",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 07 [1080p] [AMZN]-0101.png",
+      "sha256": "c94cba22c4ecec043d0821b105078a54a1f3a44e61a5d47a982ba2406677135d",
+      "size": 739375,
+      "review": "viewed",
+      "reviewedOn": "2026-09-12",
+      "finding": "shell",
       "duplicateOf": null,
       "implementation": "pending"
     }

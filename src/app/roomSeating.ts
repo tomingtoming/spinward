@@ -6,8 +6,10 @@ import { resetPlayerToGrounded, type PlayerTraversalState } from './playerTraver
 export type RoomSeat = {
   id: string; label: string; radius: number
   azimuth: number; axialPosition: number
-  // Seat support above the physical ground; authored room benches use 0.6 m.
+  // Absolute cushion height above the cylinder floor; room benches use 0.6m.
   seatHeight?: number
+  // Physical surface at the seat/exit, separate from the cushion's absolute height.
+  groundHeight?: number
   exit: { azimuth: number; axialPosition: number }
 }
 type SeatFrame = { radius: number; frameAngle: number; omega: number }
@@ -33,10 +35,10 @@ export function planRoomSeats(interiors: Iterable<BuildingInterior>, radius: num
   return result
 }
 export function nearestRoomSeat(seats: readonly RoomSeat[], state: PlayerTraversalState, radius: number) {
-  if(state.mode!=='grounded'||Math.abs(state.groundHeight)>.2)return null
+  if(state.mode!=='grounded')return null
   let best:RoomSeat|null=null,bestDistance=1.25
   for(const seat of seats) {
-    if(seat.radius!==radius)continue
+    if(seat.radius!==radius||Math.abs(state.groundHeight-(seat.groundHeight??0))>.2)continue
     const d=distance(state.surface,seat.exit,radius)
     if(d<bestDistance){best=seat;bestDistance=d}
   }
@@ -53,7 +55,7 @@ export class RoomSeating {
   get seat(){return this.active?.seat??null}
   enter(seat:RoomSeat,state:PlayerTraversalState,frame:SeatFrame){
     if(this.active||nearestRoomSeat([seat],state,frame.radius)!==seat)return false
-    this.supportHeight=seat.seatHeight??.6
+    this.supportHeight=(seat.seatHeight??.6)-(seat.groundHeight??0)
     this.departure=0;this.active={seat,state};this.setSensor(state,true);this.pin(state,frame);return true
   }
   // Keep the anchor in the rotating habitat, not in inertial world space.
@@ -65,13 +67,13 @@ export class RoomSeating {
     if(body)for(let i=0;i<body.numColliders();i++)body.collider(i).setSensor(sensor)
   }
   private pin(state:PlayerTraversalState,frame:SeatFrame){
-    resetPlayerToGrounded(state,{...this.active!.seat,...frame,groundHeight:0})
+    resetPlayerToGrounded(state,{...this.active!.seat,...frame,groundHeight:this.active!.seat.groundHeight??0})
   }
   update(state:PlayerTraversalState,frame:SeatFrame,seats:readonly RoomSeat[]){
     if(!this.active)return
     const a=this.active
     if(state!==a.state){this.active=null;return} // Previous body was disposed by a rebuild.
-    if(frame.radius!==a.seat.radius||Math.abs(state.groundHeight)>.2||state.mode!=='grounded'||distance(state.surface,a.seat,frame.radius)>.03){
+    if(frame.radius!==a.seat.radius||Math.abs(state.groundHeight-(a.seat.groundHeight??0))>.2||state.mode!=='grounded'||distance(state.surface,a.seat,frame.radius)>.03){
       this.setSensor(state,false);this.active=null;return
     }
     if(!seats.includes(a.seat)){this.leave(state,frame);return}
@@ -80,7 +82,7 @@ export class RoomSeating {
   leave(state:PlayerTraversalState,frame:SeatFrame){
     if(!this.active)return false
     const a=this.active;this.active=null;this.departure=.3
-    if(a.state===state){this.setSensor(state,false);resetPlayerToGrounded(state,{...a.seat.exit,...frame,groundHeight:0})}
+    if(a.state===state){this.setSensor(state,false);resetPlayerToGrounded(state,{...a.seat.exit,...frame,groundHeight:a.seat.groundHeight??0})}
     return true
   }
 }
