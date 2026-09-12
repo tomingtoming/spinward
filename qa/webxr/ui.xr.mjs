@@ -13,6 +13,7 @@ const distance = (a, b) => Math.hypot(Math.atan2(Math.sin(a.azimuth-b.azimuth), 
 
 for(const scenario of [
   {id:'crosswalk',title:'wrist directions use the real crossing and retain a readable approach hint',at:[-12/3200,316,1.8],aim:[12/3200,316,1.8],hint:'Crosswalk · check traffic'},
+  {id:'river',action:'guide-river',height:5.34,title:'wrist directions descend to the river through the actual end ramp',at:[.1763264639508575,1450.4564516129053,7.14],aim:[.18,1453.4,7.14],hint:'Bridge sidewalk'},
   {id:'covered',title:'wrist directions leave the covered walk through its supported path',at:[-.025,-351.5403225806452,1.8],aim:[-.008,-351.5403225806452,1.8],hint:'Covered walk'}
 ])test.describe(`${scenario.id}-directions`, () => {
   test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
@@ -27,9 +28,9 @@ for(const scenario of [
     })
     expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
     await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:'',contentType:'application/javascript'}))
-    await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose({at:scenario.at,aim:scenario.aim,ground:true})}`)
+    await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose({at:scenario.at,aim:scenario.aim,ground:true})}${scenario.height===undefined?'':`&gh=${scenario.height}`}`)
     await page.waitForSelector('#splash',{state:'detached'})
-    await page.waitForFunction(()=>window.__spinwardOuting.destinations.size===3)
+    await page.waitForFunction(()=>['guide-square','guide-cafe','guide-park'].every(id=>window.__spinwardOuting.destinations.has(id)))
     await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
     const diagnostics=await xr.diagnostics()
     expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
@@ -40,11 +41,16 @@ for(const scenario of [
     await xr.settle(180)
     await press(page,xr,'nav-places');await press(page,xr,'nav-outing')
     const before=await page.evaluate(()=>window.__spinward)
-    await press(page,xr,'guide-square')
+    await press(page,xr,scenario.action??'guide-square')
     await page.waitForFunction(hint=>window.__spinward.outing.detail.includes(hint),scenario.hint)
     const route=await page.evaluate(()=>window.__spinwardOuting.journey.points)
     if(scenario.id==='crosswalk')expect(route.some(p=>p.crosswalk&&p.axial>310)).toBe(true)
-    else {
+    else if(scenario.id==='river'){
+      expect(route.some(p=>p.riverWalk==='ramp')).toBe(true)
+      expect(route.some(p=>p.groundHeight<1.21)).toBe(true)
+      expect(route.some(p=>p.groundHeight>5.3)).toBe(true)
+      expect(before.groundHeight).toBeCloseTo(5.34,2)
+    }else {
       expect(route.some(p=>p.coveredWalk)).toBe(true)
       expect(before.groundHeight).toBeCloseTo(.34,2)
       const link=await page.evaluate(()=>window.__spinwardCity.getPublicUnderpass())

@@ -770,6 +770,8 @@ export const bootstrapApp = async () => {
           outingDestinations.set(`guide-${kind}`,{label:kind==='cafe'?'Café':'Park',entrance,bay:parking})
           if(parking){const station=new CarShareStation();station.configure(parking,habitatConfig.radius,kind==='cafe'?'Café · 02':'Park · 03');nearLayer.add(station.group);destinationStations.push(station);bays.push(parking)}
         }
+        const riverEntrance=cityscape.getInteriorVisit('river')
+        if(riverEntrance)outingDestinations.set('guide-river',{label:'Riverside',entrance:riverEntrance,bay:null})
         parkedCars.reserve(bays)
       } else parkedCars.reserve(bay)
     }
@@ -1174,7 +1176,7 @@ export const bootstrapApp = async () => {
       ? {label:'Your car',entrance:carPoint,bay:null} : outingDestinations.get(journey.action)
     if(!plan||!destination){journey.setRoute(null,drive.driving,'Directions unavailable');return}
     const goal=drive.driving ? destination.bay : destination.entrance
-    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition,groundHeight:playerTraversal.groundHeight},goal,drive.driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass()) : null,
+    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition,groundHeight:playerTraversal.groundHeight},goal,drive.driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict()) : null,
       drive.driving, destination.label)
     routeRetry=0
   }
@@ -1610,7 +1612,7 @@ export const bootstrapApp = async () => {
         const up=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)).transformDirection(cityscape.group.matrixWorld)
         desktopLookControls.cancelIntroReveal();desktopLookControls.faceDirection(direction,up)
       },
-      route:(start:{azimuth:number;axial:number;groundHeight?:number},goal:{azimuth:number;axial:number;groundHeight?:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass())}
+      route:(start:{azimuth:number;axial:number;groundHeight?:number},goal:{azimuth:number;axial:number;groundHeight?:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict())}
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,
@@ -2586,7 +2588,7 @@ export const bootstrapApp = async () => {
     const outingSurface=drive.driving?drive.surface:playerTraversal.surface
     if(journey.action==='guide-car' && drive.driving)journey.cancel()
     if(journey.action && journey.driving!==drive.driving)refreshJourney()
-    journey.update({azimuth:outingSurface.azimuth,axial:outingSurface.axialPosition},habitatConfig.radius,deltaSeconds)
+    journey.update({azimuth:outingSurface.azimuth,axial:outingSurface.axialPosition,groundHeight:playerTraversal.groundHeight},habitatConfig.radius,deltaSeconds)
     routeRetry+=deltaSeconds
     if(journey.action && routeRetry>3 && (journey.offRoute>1.5 || journey.status==='unavailable' && Math.hypot(wrapAngle(outingSurface.azimuth-routeOrigin.azimuth)*habitatConfig.radius,outingSurface.axialPosition-routeOrigin.axial)>5))refreshJourney()
     const destinationBay=journey.action?outingDestinations.get(journey.action)?.bay:null
@@ -2594,13 +2596,15 @@ export const bootstrapApp = async () => {
     outingAngle=wrapAngle(journey.bearing-bodyHeading)
     const turn=Math.abs(outingAngle)<.35?'Ahead':Math.abs(outingAngle)>2.6?'Behind':outingAngle>0?'Right':'Left'
     outingDetail=journey.status==='unavailable'?'No local route · move nearer a street'
-      : journey.status==='arrived'?(drive.driving?'Brake in the bay, then Park':journey.action==='guide-car'?'Your car is here · E to enter':journey.action==='guide-cafe'?'Café entrance · step inside for coffee':journey.action==='guide-park'?'Park entrance · follow the path to a bench':'Central Square · welcome back')
+      : journey.status==='arrived'?(drive.driving?'Brake in the bay, then Park':journey.action==='guide-car'?'Your car is here · E to enter':journey.action==='guide-cafe'?'Café entrance · step inside for coffee':journey.action==='guide-park'?'Park entrance · follow the path to a bench':journey.action==='guide-river'?'Riverside · follow the water to a bench':'Central Square · welcome back')
       : `${turn} ${Math.ceil(journey.nextDistance)} m · ${Math.ceil(journey.remaining)} m ${drive.driving?'to parking':'on foot'}`
     if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.crosswalk &&
       (journey.nextDistance<12 || journey.points[journey.index-1]?.crosswalk))
       outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Crosswalk · check traffic`
     else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.coveredWalk)
       outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Covered walk`
+    else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.riverWalk)
+      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · ${{bridge:'Bridge sidewalk',upper:'Upper promenade',ramp:'Riverside ramp',bank:'Riverside walk'}[journey.points[journey.index].riverWalk!]}`
     if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
     if(journey.status==='arrived' && journey.action==='guide-park' && roomSeating.seat)outingDetail='Take a break · Your car in Places'
     if(outingCanPark)outingDetail='Bay reached · Park to step out'

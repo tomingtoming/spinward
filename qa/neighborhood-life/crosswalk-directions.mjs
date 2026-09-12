@@ -17,7 +17,7 @@ try {
   const pose=underpassPose({at:[-12/3200,y,1.8],aim:[12/3200,y+5,1.8],ground:true,phase})
   await page.goto(`${base}/?debug&metrics=off&lock=0&dpr=1&tier=${tier}&${pose}`)
   await page.waitForSelector('#splash',{state:'detached',timeout:60000})
-  await page.waitForFunction(()=>window.__spinwardOuting.destinations.size===3)
+  await page.waitForFunction(()=>['guide-square','guide-cafe','guide-park'].every(id=>window.__spinwardOuting.destinations.has(id)))
   await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
   if(await page.locator('.tour-notice button').count())await page.locator('.tour-notice button').first().click()
   await page.keyboard.press('Escape')
@@ -27,7 +27,7 @@ try {
  }
  await open(180)
  report.routes=await page.evaluate(()=>{
-  const n=window.__spinwardOuting,d=[...n.destinations],r=window.__spinward.radius
+  const n=window.__spinwardOuting,d=[...n.destinations].filter(([id])=>['guide-square','guide-cafe','guide-park'].includes(id)),r=window.__spinward.radius
   return d.flatMap(([from,a])=>d.flatMap(([to,b])=>[false,true].map(driving=>{
    const start=driving?a.bay:a.entrance,goal=driving?b.bay:b.entrance,t=performance.now(),route=n.route(start,goal,driving)
    return {from,to,driving,route,ms:performance.now()-t}

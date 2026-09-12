@@ -16,7 +16,7 @@ try{
  const open=async(a=-.025,y=-351.5403225806452,phase=.42,destination='Central Square')=>{
   await page.goto(`${base}/?debug&metrics=off&lock=0&dpr=1&tier=${tier}&${underpassPose({at:[a,y,1.8],aim:[a+.02,y,1.8],ground:true,phase})}`)
   await page.waitForSelector('#splash',{state:'detached',timeout:60000})
-  await page.waitForFunction(()=>window.__spinwardOuting.destinations.size===3)
+  await page.waitForFunction(()=>['guide-square','guide-cafe','guide-park'].every(id=>window.__spinwardOuting.destinations.has(id)))
   await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
   if(await page.locator('.tour-notice button').count())await page.locator('.tour-notice button').first().click()
   await page.keyboard.press('Escape')
@@ -29,7 +29,7 @@ try{
  const shot=async(name)=>{const file=`covered-directions-${tier}-${label}-${name}.png`;await page.screenshot({path:out+file});report.views.push({name,file,url:page.url(),state:await state()})}
  await open()
  report.routes=await page.evaluate(()=>{
-  const n=window.__spinwardOuting,p=window.__spinwardCity.civicDetails.underpass,r=window.__spinward.radius,d=[...n.destinations]
+  const n=window.__spinwardOuting,p=window.__spinwardCity.civicDetails.underpass,r=window.__spinward.radius,d=[...n.destinations].filter(([id])=>['guide-square','guide-cafe','guide-park'].includes(id))
   const routes=d.flatMap(([from,a])=>d.flatMap(([to,b])=>[false,true].map(driving=>{const t=performance.now(),route=n.route(driving?a.bay:a.entrance,driving?b.bay:b.entrance,driving);return{from,to,driving,route,ms:performance.now()-t}})))
   return {p,routes,active:n.journey.points,status:n.journey.status}
  })

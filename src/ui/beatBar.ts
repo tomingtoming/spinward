@@ -20,8 +20,9 @@ const PLACE_ROWS: {label:string; guide?:BeatBarAction; visit?:BeatBarAction; ava
   {label:'Central Square',guide:'guide-square',visit:'respawn-inner-wall',available:'visit-car-share'},
   {label:'Café',guide:'guide-cafe',visit:'visit-cafe',available:'visit-cafe'},
   {label:'Park',guide:'guide-park',visit:'visit-park',available:'visit-park'},
+  {label:'Riverside',guide:'guide-river',visit:'visit-river',available:'visit-river'},
   {label:'Your car',guide:'guide-car',available:'visit-car-share'},
-  ...PLACE_DESTINATIONS.filter(p=>!['visit-cafe','visit-park'].includes(p.id)).map(p=>({label:p.label,visit:p.id,available:p.id}))
+  ...PLACE_DESTINATIONS.filter(p=>!['visit-cafe','visit-park','visit-river'].includes(p.id)).map(p=>({label:p.label,visit:p.id,available:p.id}))
 ]
 export const createBeatBar = (onAction:(action:BeatBarAction)=>void, mount:HTMLElement,
   onToggleRain?:()=>void, primary:HTMLElement=mount):BeatBarHandle => {
@@ -75,7 +76,7 @@ export const createBeatBar = (onAction:(action:BeatBarAction)=>void, mount:HTMLE
     destroy(){places.destroy();explore.destroy();places.chip.remove();explore.chip.remove();root.remove()},
     setVisible(v){root.hidden=!v;places.chip.hidden=!v;explore.chip.hidden=!v},
     update(s){
-      for(const {place,row,label} of rows){row.hidden=!s.availablePlaces.has(place.available);if(place.guide) (label as HTMLButtonElement).disabled=place.guide==='guide-car'&&!!s.driving}
+      for(const {place,row,label} of rows){row.hidden=!s.availablePlaces.has(place.available);if(place.guide) (label as HTMLButtonElement).disabled=(place.guide==='guide-car'||place.guide==='guide-river')&&!!s.driving}
       places.chip.hidden=s.availablePlaces.size===0
       for(const item of explore.menuItems){
         if(item.id==='respawn-old-town')item.element.hidden=!s.oldTownAvailable

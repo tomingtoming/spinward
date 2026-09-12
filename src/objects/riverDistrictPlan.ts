@@ -145,8 +145,27 @@ export function planRiverDistrict(city: CityPlan, radius: number): RiverDistrict
     surface('arch', points)
   }
   for (const side of [-1, 1]) {
-    for (let x = -25; x < 25; x += 2) addBox({ x: (x + 1) * c - side * 5.94 * s, y: (x + 1) * s + side * 5.94 * c,
-      h: 5.2, w: 2, d: .3, height: 1.05, yaw: RIVER_BRIDGE_YAW, material: 'stone' })
+    // Open the parapet where the supported upper promenade meets the bridge.
+    // Retain it over the channel and the lower bank's retaining drop.
+    const bankOffset = (u: number) => u * c - side * 5.94 * s - riverCentre(u * s + side * 5.94 * c)
+    const crossing = (offset: number) => {
+      let lo = -40, hi = 40
+      for (let i = 0; i < 35; i++) {
+        const mid = (lo + hi) / 2
+        if (bankOffset(mid) < offset) lo = mid; else hi = mid
+      }
+      return (lo + hi) / 2
+    }
+    const cuts = [-23, -19, 19, 23].map(crossing)
+    for (let x = -25; x < 25; x += 2) {
+      const ends = [x, ...cuts.filter(u => u > x && u < x + 2), x + 2]
+      for (let i = 1; i < ends.length; i++) {
+        const u = (ends[i - 1] + ends[i]) / 2, offset = Math.abs(bankOffset(u))
+        if (offset > 19 && offset < 23) continue
+        addBox({ x: u * c - side * 5.94 * s, y: u * s + side * 5.94 * c,
+          h: 5.2, w: ends[i] - ends[i - 1], d: .3, height: 1.05, yaw: RIVER_BRIDGE_YAW, material: 'stone' })
+      }
+    }
     // Culvert headwalls close the visible reach into the colony's water circuit.
     const y = side * 110
     addBox({ x: riverCentre(y), y, h: .12, w: 19, d: .8, height: 4.4, yaw: 0, material: 'stone' })
@@ -183,6 +202,12 @@ export function planRiverDistrict(city: CityPlan, radius: number): RiverDistrict
       for(let i=1;i<clipped.length-1;i++)triangles.push(clipped[0],clipped[i],clipped[i+1])
       surface('stone',triangles)
     }
+  }
+  // At each end, the two paths meet on level soil. Bevel their short crossing
+  // across the one-metre verge so a paved route does not end at a grass kerb.
+  for (const bank of [-1, 1]) for (const end of [-100, 100]) for (let y = end - 2; y < end + 2; y += 2) {
+    const at = (offset: number, axial: number): RiverPoint => [riverCentre(axial) + bank * offset, axial, 5 + .14 * (offset - 18)]
+    surface('stone', quad(at(18, y), at(19, y), at(19, y + 2), at(18, y + 2)))
   }
   return p
 }

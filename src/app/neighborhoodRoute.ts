@@ -1,3 +1,5 @@
+import type { RiverDistrict } from '../objects/riverDistrictPlan'
+import { routeThroughRiver } from './riverWalkRoute'
 import { getStreetProfile } from '../objects/streetProfile'
 import type { CityPlan } from '../objects/cityLayout'
 import type { PublicPark } from '../objects/publicPark'
@@ -5,12 +7,13 @@ import type { CarShareBay } from '../objects/carShare'
 import { UNDERPASS_HEIGHT, type PublicUnderpass } from '../objects/publicUnderpass'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from '../objects/intersectionSignals'
 
-export type SurfacePoint = { azimuth: number; axial: number; groundHeight?: number; crosswalk?: boolean; coveredWalk?: boolean }
+export type SurfacePoint = { azimuth: number; axial: number; groundHeight?: number; crosswalk?: boolean; coveredWalk?: boolean; riverWalk?: 'bridge' | 'upper' | 'ramp' | 'bank' }
 export const OUTING_DESTINATIONS = [
   { id: 'guide-square', label: 'Central Square' },
   { id: 'guide-cafe', label: 'Café' },
   { id: 'guide-park', label: 'Park' },
-  { id: 'guide-car', label: 'Your car' }
+  { id: 'guide-car', label: 'Your car' },
+  { id: 'guide-river', label: 'Riverside' }
 ] as const
 export type GuideAction = typeof OUTING_DESTINATIONS[number]['id']
 export type OutingAction = GuideAction | 'guide-cancel' | 'drive-mode-toggle' | 'park-car'
@@ -23,7 +26,12 @@ export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number
  * Buildings remain obstacles; an indoor start leaves via its certified door.
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
-  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null): SurfacePoint[] | null {
+  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null): SurfacePoint[] | null {
+  if (river && !driving) {
+    const route = routeThroughRiver(river, radius, start, goal,
+      (a, b) => planNeighborhoodRoute(plan, radius, a, b, false, park, underpass))
+    if (route !== undefined) return route
+  }
   // The central square omits its junction markings, so the next crossing can
   // be a full city block away. Include that detour; the cell cap still applies.
   const step = 2, pad = driving ? 100 : 400
@@ -151,6 +159,7 @@ export class NeighborhoodJourney {
     this.points=points??[];this.index=1;this.driving=driving;this.label=label
     this.status=points?'active':'unavailable';this.offRoute=0;this.remaining=0
   }
+  private sameLevel(a:SurfacePoint,b:SurfacePoint){return b.groundHeight===undefined||a.groundHeight!==undefined&&Math.abs(a.groundHeight-b.groundHeight)<.65}
   cancel(){this.action=null;this.points=[];this.status='idle';this.remaining=0}
   update(position:SurfacePoint,radius:number,dt:number) {
     if(this.status!=='active')return
@@ -158,8 +167,8 @@ export class NeighborhoodJourney {
     // Keep crossing turns tight so the arrow does not cut outside the stripes.
     // Ordinary walking corners and final arrival retain their forgiving radius.
     while(this.index<this.points.length-1) {
-      const tight=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk||this.points[this.index].coveredWalk||this.points[this.index+1]?.coveredWalk
-      if(surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : tight ? .8 : threshold))break
+      const tight=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk||this.points[this.index].coveredWalk||this.points[this.index+1]?.coveredWalk||this.points[this.index].riverWalk||this.points[this.index+1]?.riverWalk
+      if(!this.sameLevel(position,this.points[this.index])||surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : tight ? .8 : threshold))break
       this.index++
     }
     const next=this.points[this.index];if(!next)return
@@ -167,13 +176,13 @@ export class NeighborhoodJourney {
     this.remaining=this.nextDistance
     for(let i=this.index;i<this.points.length-1;i++)this.remaining+=surfaceDistance(this.points[i],this.points[i+1],radius)
     this.bearing=Math.atan2(wrapAngle(next.azimuth-position.azimuth)*radius,next.axial-position.axial)
-    if(this.index===this.points.length-1&&this.nextDistance<threshold){this.status='arrived';this.remaining=0}
+    if(this.index===this.points.length-1&&this.nextDistance<threshold&&this.sameLevel(position,next)){this.status='arrived';this.remaining=0}
     const prev=this.points[this.index-1]
     const dx=wrapAngle(next.azimuth-prev.azimuth)*radius,dy=next.axial-prev.axial
     const px=wrapAngle(position.azimuth-prev.azimuth)*radius,py=position.axial-prev.axial
     const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy||1)))
     const offset=Math.hypot(px-t*dx,py-t*dy)
-    this.offRoute=offset>8?this.offRoute+dt:0
+    this.offRoute=offset>8||!this.sameLevel(position,{...next,groundHeight:prev.groundHeight===undefined||next.groundHeight===undefined?undefined:prev.groundHeight+(next.groundHeight-prev.groundHeight)*t})?this.offRoute+dt:0
   }
 }
 

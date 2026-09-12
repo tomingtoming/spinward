@@ -19,10 +19,11 @@
       "sha256": "a79e3e0b5f4db0fe1f594efd0a18b9a02fa0ee69d99021bd71fc7cc7a5935331",
       "size": 1904524,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。手前は人物の脚、背景は淡い頭上市街。手すり・階段のある公共構造は0003の観察であり、この画像には帰属させない。未実装。"
     },
     {
       "id": "izma-0003",
@@ -30,10 +31,11 @@
       "sha256": "b39c23e8b13328980cc279018f15dd1e2d6f83545508722731b07ca1fb5bb305",
       "size": 1867016,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。飛び込み台状の公共構造、外階段、踊り場、手すりと淡い頭上市街。構造と人物の尺度の参考に留め、今回の川沿い案内への新規採用とはしない。"
     },
     {
       "id": "izma-0004",
@@ -865,7 +867,8 @@
       "implementation": "partial",
       "observation": "水面より上の低い護岸歩行帯、アーチ橋と上部街路を元解像度で再確認。川・上下の動線・橋・柵・ベンチを独自形状で反映。舟・周辺街並み全体は未反映。",
       "applied": [
-        "川の橋を既存の街路へ接続する自動交通の周回。画像で車の周回を観察したものではなく、橋の地形を使うSpinward側の体験改善。docs/izma-reference-program.md の2026-09-13川沿い交通を参照。"
+        "川の橋を既存の街路へ接続する自動交通の周回。画像で車の周回を観察したものではなく、橋の地形を使うSpinward側の体験改善。docs/izma-reference-program.md の2026-09-13川沿い交通を参照。",
+        "橋上街路・下段護岸の高さの違いを保つ徒歩案内。実在する上段遊歩道と両端の坂を使い、橋の欄干は支持地盤のある接続部だけ開く。案内UIは画像に描かれたものではない。qa/neighborhood-life/river-directions.md を参照。"
       ]
     },
     {

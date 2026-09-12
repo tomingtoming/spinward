@@ -440,3 +440,27 @@ The suite passed 14 tests, 16 immersive sessions and 16 exits in 4.0 minutes on
 Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal with playwright-webxr 0.2.0.
 Evidence is preserved in `qa/webxr/evidence/court-life-20260913/`. No physical
 headset measurement is implied.
+
+
+## Riverside directions — 2026-09-13
+
+The Outing wrist panel now includes Riverside. The new stereo UI scenario
+enters VR on the bridge sidewalk at 5.34 m, selects Riverside with the real
+controller ray and trigger, and checks that the route includes the actual end
+ramp and the 1.2 m lower bank without moving the player. It captures the raw
+wrist texture and both eye viewports at 0/±25° roll, then cancels and exits.
+The eight-action panel and directions detail passed independent image review.
+
+The full 0.2.0 suite passed 15 tests, 17 sessions and 17 exits in 4.1 minutes.
+A later small paving correction at the ramp mouths passed a focused rerun of
+river, river traffic and UI: 7 tests, 9 sessions and 9 exits in 1.8 minutes.
+Both runs used separate fixed production builds, hardware ANGLE Metal on Apple
+M1 Pro, Chrome 152.0.7977.83, and reported no page errors. Existing desktop and
+Quest entry scenarios still cover exit and re-entry. These are emulated VR
+sessions; the continuous walk to the bank used actual desktop keyboard input.
+Physical Quest performance and comfort remain unmeasured.
+
+Reviewed captures, diagnostics and logs are saved locally under
+`qa/webxr/evidence/river-directions-20260913/`. Geometry, walking measurements,
+initial failures and the paving re-review are in
+[River directions](../neighborhood-life/river-directions.md).
