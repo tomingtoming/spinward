@@ -35,3 +35,8 @@ bun run build      # tsc --noEmit + vite build
 
 CI (`.github/workflows/ci.yml`) runs the same on every push and PR, and `main` deploys
 to Cloudflare Pages only when both pass.
+
+
+## VR UI verification
+
+When modifying or verifying VR UI, consider [playwright-webxr](https://www.npmjs.com/package/playwright-webxr) for automated XR-session, headset/controller pose, input and screenshot checks (user direction, 2026-09-12). Start with the app's actual VR entry and wrist-menu interaction. Check the active GPU before running the full colony. Report emulation and physical-headset results separately. Integration considerations: [UI refinement — VR verification](docs/ui-refinement-2026-09-12.md#vr-verification-follow-up).

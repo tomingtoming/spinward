@@ -52,3 +52,30 @@ No new point lights, geometry, assets or dependencies. The simulation continues
 behind menus. Hardware XR and phone orientation sensors were not tested;
 Chrome touch emulation checks the flat touch UI only. Existing Vite bundle-size
 warning remains.
+
+
+## VR verification follow-up
+
+On 2026-09-12 the user requested considering
+[playwright-webxr](https://www.npmjs.com/package/playwright-webxr) for VR UI.
+The npm registry reports 0.1.0 (published 2026-07-31), depending on IWER ^2.3.0
+and peer @playwright/test >=1.40. The [upstream README](https://github.com/tomingtoming/playwright-webxr#readme)
+describes an IWER fixture for immersive sessions, head/controller poses,
+controller buttons/axes and frame capture. This is a suitable candidate for
+Spinward's next VR UI verification; it has not yet been installed or run here.
+
+Integration checks:
+
+- Add it only to the development/test environment. Existing QA uses standalone
+  Playwright scripts, so the fixture needs a separate @playwright/test entry.
+- On desktop, open Menu before `xr.enterVR()` so the actual #VRButton is visible.
+  Assert immersive-vr, the hidden DOM dock, and visible spatial UI before taking
+  screenshots. Then test wrist-menu pointing/selection and head roll at 0/±25°.
+- Start on this host's verified Metal GPU. The README's software-rendering
+  example is not a performance baseline for the full colony.
+- Check the XR layer path actually exercised. Three.js r180 locally checks
+  for createProjectionLayer before using layers; upstream documents IWER layer
+  polyfill caveats. Emulation success does not certify native compositor,
+  multiview/MSAA, hardware performance or comfort.
+
+No new dependency or emulated-XR test result is claimed by this assessment.
