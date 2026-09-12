@@ -1,4 +1,4 @@
-# Spinward WebXR UI checks
+# Spinward WebXR UI and scenery checks
 
 Run the real VR entry, wrist laser and controller trigger through
 [playwright-webxr](https://github.com/tomingtoming/playwright-webxr). These are
@@ -130,6 +130,28 @@ emulator access, currently the genuine `XRSession.end()` call. Diagnostics are
 clear about their limits; they do not prove native headset/compositor behavior.
 Failure cases such as a rejected session, a missing canvas, or a zero IPD stereo
 override were not exercised by this application suite.
+
+## Rooftop scenery — 2026-09-12
+
+`roofs.xr.mjs` adds an inspection of the original Blender plant room under the
+Quest city budget. It enters VR through the actual desktop Menu, waits for the
+introductory card to finish, and captures both eyes at 0/±25° head roll. The
+room's instance matrix must stay fixed in the world, its centre stay in view,
+and capture metadata match the active session and 2560×960 stereo canvas.
+The real session then ends and the session-ID-scoped end event is checked.
+
+The combined suite passed three tests: this scenery check and the two wrist
+routes, totalling five immersive sessions and five exits. No browser errors
+were observed. Hardware was Apple M1 Pro / ANGLE Metal, Chrome 152.0.7977.83.
+Independent image review confirmed that the room remains attached to its roof
+in both eyes and through head roll. Reviewed captures and diagnostics are
+retained locally in `qa/webxr/evidence/roofs-20260912/` (ignored).
+
+This scenery view uses a public free-flight share URL with zero spin for a
+repeatable inspection; it does not test rooftop walking or native headset
+comfort. Desktop walking with ordinary spin is checked separately by the
+`roof-walk` view in `qa/neighborhood-life/old-town-block.mjs`. The accompanying
+production change passed all 822 unit tests and the TypeScript/production build.
 
 ## Limits
 

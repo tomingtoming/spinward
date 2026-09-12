@@ -7,8 +7,8 @@ import { colonyRoofSurface, colonyRoofUnits } from './colonyRoofs'
 import { SurfaceIndex } from './streetAccess'
 
 export const OLD_TOWN_LOT_LIMIT = 16
-export type OldTownModule = 'water_tank' | 'header_tank' | 'meter_bank' | 'laundry' | 'entry_canopy'
-export type OldTownPart = BlockVolume & { module: OldTownModule | 'box'; tint: string; range: 'street' | 'roof'; solid?: boolean; light?: 'diffuser' | 'wash' }
+export type OldTownModule = 'water_tank' | 'header_tank' | 'meter_bank' | 'laundry' | 'entry_canopy' | 'roof_stairwell' | 'roof_plant_room'
+export type OldTownPart = BlockVolume & { module: OldTownModule | 'box'; tint: string; range: 'street' | 'roof'; solid?: boolean; light?: 'diffuser' | 'wash'; yaw?: number; landing?: { x: number; z: number; w: number; d: number } }
 export type OldTownLot = { spec: BlockSpec; parts: OldTownPart[] }
 export type OldTownPaving = { azimuth: number; axial: number; tangentWidth: number; axialLength: number }
 
@@ -109,7 +109,7 @@ function oldTownLot(spec: BlockSpec): OldTownLot {
   const occupied = colonyRoofUnits(spec, colonyBuildingDesign(spec.building)).map(u =>
     ({ ...u, w: u.yaw ? u.d : u.w, d: u.yaw ? u.w : u.d }))
   const top = roof.y + roof.h / 2
-  const reserve = (module: OldTownModule, w: number, h: number, d: number, solid: boolean) => {
+  const reserve = (module: OldTownModule, w: number, h: number, d: number, solid: boolean, access = false) => {
     // Edge middles and quarter points: corners already house HVAC. Retain an
     // 80 cm equipment aisle, a metre at the parapet and the beacon at the centre.
     for (const [sx, sz] of [[0, -1], [1, 0], [0, 1], [-1, 0], [.5, -.5], [-.5, .5]]) {
@@ -118,8 +118,18 @@ function oldTownLot(spec: BlockSpec): OldTownLot {
       if (Math.abs(x - roof.x) + w / 2 > roof.w / 2 - 1 || Math.abs(z - roof.z) + d / 2 > roof.d / 2 - 1) continue
       if (Math.abs(x - roof.x) < w / 2 + 1.1 && Math.abs(z - roof.z) < d / 2 + 1.1) continue
       if (occupied.some(u => Math.abs(x - u.x) < (w + u.w) / 2 + .8 && Math.abs(z - u.z) < (d + u.d) / 2 + .8)) continue
+      const yaw = z > roof.z ? Math.PI : 0
+      const landing = { x, z: z + (yaw ? -1 : 1) * (d / 2 + .6), w, d: 1.2 }
+      if (access && (
+        Math.abs(landing.x - roof.x) + landing.w / 2 > roof.w / 2 - 1 ||
+        Math.abs(landing.z - roof.z) + landing.d / 2 > roof.d / 2 - 1 ||
+        occupied.some(u => Math.abs(landing.x - u.x) < (landing.w + u.w) / 2 + .1 && Math.abs(landing.z - u.z) < (landing.d + u.d) / 2 + .1) ||
+        (Math.abs(landing.x - roof.x) < landing.w / 2 + 1.1 && Math.abs(landing.z - roof.z) < landing.d / 2 + 1.1)
+      )) continue
       const v = { x, y: top, z, w, h, d }
-      add(module, v, 'ffffff', 'roof', solid); occupied.push({ ...v, kind: 'roof_hvac', yaw: 0, tint: 0 })
+      add(module, v, 'ffffff', 'roof', solid)
+      if (access) Object.assign(parts[parts.length - 1], { yaw, landing })
+      occupied.push({ ...v, kind: 'roof_hvac', yaw: 0, tint: 0 })
       return true
     }
     return false
@@ -128,6 +138,11 @@ function oldTownLot(spec: BlockSpec): OldTownLot {
   else reserve('water_tank', 2.4, 3.4, 2.4, true)
   if (colonyBuildingDesign(spec.building).use.primary === 'apartments' && seed % 2 === 0)
     reserve('laundry', 3.2, 1.9, 1.3, false)
+  // Added last: existing tanks, laundry and HVAC keep their certified positions.
+  // Compact stair access for apartments; a low, vented plant room for work uses.
+  if (colonyBuildingDesign(spec.building).use.primary === 'apartments')
+    reserve('roof_stairwell', 3, 2.9, 3.8, true, true)
+  else reserve('roof_plant_room', 4.4, 2.73, 3.2, true, true)
   return { spec, parts }
 }
 

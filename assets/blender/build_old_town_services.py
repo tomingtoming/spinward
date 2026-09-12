@@ -118,6 +118,35 @@ for x in [-.55, .55]:
                 box(x, .17, -.03, .045, .04, .60, metal)]
 module('entry_canopy', objects)
 
+# Roof access rooms have a human-size closed door and a projecting coping.
+# Their reduced meshes retain exactly the same metric bounds and silhouette.
+def stair_shell():
+    return [box(0, 1.36, 0, 2.8, 2.72, 3.6, (.58, .58, .50)),
+            box(0, 2.81, 0, 3, .18, 3.8, (.30, .36, .34))]
+objects = stair_shell()
+objects += [box(0, 1.09, 1.81, 1.04, 2.18, .06, metal),
+            box(0, 1.04, 1.85, .90, 2.08, .04, (.29, .38, .36)),
+            box(.32, 1.06, 1.88, .035, .18, .025, (.65, .66, .57)),
+            box(0, .16, 1.82, 1.1, .08, .15, concrete)]
+# A shallow ventilation grille on a side wall, with a physical frame.
+objects += [box(1.41, 2.06, -.8, .035, .52, .70, metal)]
+objects += [box(1.435, y, -.8, .025, .045, .64, (.39, .46, .43)) for y in [1.87, 1.97, 2.07, 2.17, 2.27]]
+module('roof_stairwell', objects)
+module('roof_stairwell_lod', stair_shell())
+
+def plant_shell():
+    return [box(0, 1.125, 0, 4, 2.25, 3, (.40, .47, .45)),
+            box(0, 2.34, 0, 4.4, .18, 3.2, metal),
+            box(.9, 2.58, -.2, 1.1, .30, 1.8, (.30, .34, .31))]
+objects = plant_shell()
+objects += [box(-1.05, 1.06, 1.51, 1.04, 2.12, .06, metal),
+            box(-1.05, 1.015, 1.55, .90, 2.03, .035, (.43, .49, .46)),
+            box(-.73, 1.04, 1.58, .035, .18, .025, (.65, .66, .57)),
+            box(.65, 1.2, 1.53, 1.9, 1.55, .08, (.14, .20, .19))]
+objects += [box(.65, y, 1.575, 1.82, .055, .025, (.34, .42, .39)) for y in [.58, .78, .98, 1.18, 1.38, 1.58, 1.78, 1.88]]
+module('roof_plant_room', objects)
+module('roof_plant_room_lod', plant_shell())
+
 try:
     bpy.ops.object.select_all(action='SELECT')
     path = ROOT / 'public/assets/buildings/old-town-services.glb'

@@ -16,7 +16,8 @@ describe('Old Town services', () => {
     expect(JSON.stringify(plan)).toBe(before)
     expect(lots).toEqual(planOldTownBlock(plan.buildings, plan.roads, radius, length))
     expect(planOldTownBlock(plan.buildings, plan.roads, radius, length, new Map(lots.map(l => [l.spec.building, true]))).every(l => !lots.some(x => x.spec.building === l.spec.building))).toBe(true)
-    let tanks = 0
+    let solids = 0
+    const roomTypes = new Set<string>()
     for (const lot of lots) {
       const b = lot.spec.building, roof = colonyRoofSurface(lot.spec), roofParts = lot.parts.filter(p => p.range === 'roof')
       expect(b.oldTown).toBeGreaterThan(.5)
@@ -29,7 +30,26 @@ describe('Old Town services', () => {
         expect(Math.abs(p.x - roof!.x) >= p.w / 2 + 1.1 || Math.abs(p.z - roof!.z) >= p.d / 2 + 1.1).toBe(true)
         for (const other of [...colonyRoofUnits(lot.spec, colonyBuildingDesign(b)).map(u => ({ ...u, w: u.yaw ? u.d : u.w, d: u.yaw ? u.w : u.d })), ...roofParts.filter(o => o !== p)])
           expect(Math.abs(p.x - other.x) >= (p.w + other.w) / 2 + .8 - 1e-8 || Math.abs(p.z - other.z) >= (p.d + other.d) / 2 + .8 - 1e-8).toBe(true)
-        if (p.solid) tanks++
+        if (p.solid) solids++
+        if (p.landing) {
+          roomTypes.add(p.module)
+          const landing = p.landing
+          expect(p.solid).toBe(true)
+          expect(p.yaw === 0 || p.yaw === Math.PI).toBe(true)
+          expect(landing.d).toBeGreaterThanOrEqual(1.2)
+          expect(Math.abs(landing.x - roof!.x) + landing.w / 2).toBeLessThanOrEqual(roof!.w / 2 - 1)
+          expect(Math.abs(landing.z - roof!.z) + landing.d / 2).toBeLessThanOrEqual(roof!.d / 2 - 1)
+          expect(Math.abs(landing.x - roof!.x) >= landing.w / 2 + 1.1 || Math.abs(landing.z - roof!.z) >= landing.d / 2 + 1.1).toBe(true)
+          for (const o of [...colonyRoofUnits(lot.spec, colonyBuildingDesign(b)).map(u => ({ ...u, w: u.yaw ? u.d : u.w, d: u.yaw ? u.w : u.d })), ...roofParts.filter(o => o !== p)])
+            expect(Math.abs(landing.x - o.x) >= (landing.w + o.w) / 2 + .1 - 1e-8 || Math.abs(landing.z - o.z) >= (landing.d + o.d) / 2 + .1 - 1e-8).toBe(true)
+          // The full-width landing remains outside the permanent room/tank
+          // collision volumes, independently of rendering LOD or asset loading.
+          const side = b.front!.side, tangent = b.front!.axis === 'tangent'
+          const across = side * (tangent ? landing.z : -landing.x), r = radius - p.y - 1
+          const centre = new THREE.Vector3(Math.cos(b.azimuth) * r - Math.sin(b.azimuth) * across,
+            b.axial + side * (tangent ? landing.x : landing.z), Math.sin(b.azimuth) * r + Math.cos(b.azimuth) * across)
+          expect(collideSphereWithBuildings(centre, new THREE.Vector3(), oldTownColliders([lot], radius), { habitatRadius: radius, sphereRadius: .25, restitution: 0 })).toBe(false)
+        }
       }
       // Details live on the rear wall, below sills or on the corner. They do
       // not extend into an entrance on the +Z frontage.
@@ -67,7 +87,8 @@ describe('Old Town services', () => {
       })
     }
     const colliders = oldTownColliders(lots, radius)
-    expect(colliders.length).toBe(tanks); expect(tanks).toBeGreaterThan(0)
+    expect(colliders.length).toBe(solids); expect(solids).toBeGreaterThan(0)
+    expect([...roomTypes].sort()).toEqual(['roof_plant_room', 'roof_stairwell'])
     for (const b of colliders) {
       const r = radius - b.baseHeight! - b.height / 2
       const p = new THREE.Vector3(Math.cos(b.azimuth) * r, b.axial, Math.sin(b.azimuth) * r)
@@ -105,9 +126,9 @@ describe('Old Town services', () => {
   })
   test('Blender export has metric-origin modules, vertex colours and a bounded mesh budget', () => {
     const bytes = readFileSync(new URL('../../public/assets/buildings/old-town-services.glb', import.meta.url))
-    expect(bytes.length).toBeLessThan(100_000)
+    expect(bytes.length).toBeLessThan(128_000)
     const json = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString())
-    const names = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy']
+    const names = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy', 'roof_stairwell', 'roof_stairwell_lod', 'roof_plant_room', 'roof_plant_room_lod']
     for (const name of names) {
       const node = json.nodes.find((n: { name: string }) => n.name === name)
       expect(node).toBeDefined()
@@ -120,6 +141,11 @@ describe('Old Town services', () => {
         expect(position.max[i]).toBeCloseTo(i === 1 ? 1 : .5, 5)
       }
       expect(json.accessors[p.indices].count / 3).toBeLessThanOrEqual(650)
+      if (name.startsWith('roof_') && name.endsWith('_lod')) {
+        const detailed = json.nodes.find((n: { name: string }) => n.name === name.replace('_lod', ''))
+        const near = json.meshes[detailed.mesh].primitives[0]
+        expect(json.accessors[p.indices].count).toBeLessThanOrEqual(json.accessors[near.indices].count / 4)
+      }
     }
   })
 })

@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { type CityBuilding, type CityRoad } from './cityLayout'
 import { planOldTownBlock, planOldTownCourt, oldTownColliders, oldTownPavingColliders, oldTownLod, type OldTownLot, type OldTownModule, type OldTownPaving } from './oldTownBlockPlan'
 
-const names: (OldTownModule | 'water_tank_lod')[] = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy']
+const names: (OldTownModule | 'water_tank_lod' | 'roof_stairwell_lod' | 'roof_plant_room_lod')[] = ['water_tank', 'water_tank_lod', 'header_tank', 'meter_bank', 'laundry', 'entry_canopy', 'roof_stairwell', 'roof_stairwell_lod', 'roof_plant_room', 'roof_plant_room_lod']
 type Entry = OldTownLot & { matrix: THREE.Matrix4; level: number }
 
 /** A bounded, instanced detail layer for one Old Town block. Permanent tank
@@ -125,15 +125,15 @@ export class OldTownBlock {
       e.level = oldTownLod(distance, e.level)
       for (const p of e.parts) {
         if (e.level === 3 || (p.range === 'street' && e.level > 0) || (p.module === 'laundry' && e.level > 0)) continue
-        const module = e.level === 2 && p.module === 'water_tank' ? 'water_tank_lod' : p.module
-        const geometry = e.level < 2 || module === 'water_tank_lod' ? this.modules.get(module) : undefined
+        const module = e.level === 2 && ['water_tank', 'roof_stairwell', 'roof_plant_room'].includes(p.module) ? p.module + '_lod' : p.module
+        const geometry = e.level < 2 || module.endsWith('_lod') ? this.modules.get(module) : undefined
         if (!geometry && p.module === 'laundry') continue
         const key = p.light ?? (geometry ? module : 'box')
         const mesh = this.batch(key, p.light === 'wash' ? this.washPlane : geometry ?? this.box,
           p.light === 'wash' ? this.wash : p.light === 'diffuser' ? this.lamp : geometry ? this.coloured : this.material)
         if (p.light) mesh.castShadow = false
         const y = p.y + (p.module !== 'box' && !geometry ? p.h / 2 : 0)
-        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.module === 'meter_bank' || p.module === 'entry_canopy' ? Math.PI : 0)
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw ?? (p.module === 'meter_bank' || p.module === 'entry_canopy' ? Math.PI : 0))
         local.compose(point.set(p.x, y, p.z), q, size.set(p.w, p.h, p.d))
         world.multiplyMatrices(e.matrix, local); mesh.setMatrixAt(mesh.count, world)
         tint.set('#' + (geometry || p.module === 'box' ? p.tint : p.module === 'water_tank' ? 'a1a99a' : '82948a'))

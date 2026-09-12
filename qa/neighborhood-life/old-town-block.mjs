@@ -34,6 +34,12 @@ try {
     { name: 'services', at: [.0225, -17418.5, 1.6], aim: [.02223, -17421.91, .6], flight: true },
     { name: 'outlook', at: [.019394, -17420.5, 1.8], aim: [.019394, square + 20, 9], flight: false },
     { name: 'roof', at: [.0186, square - 88, 21], aim: [.0194, square - 76, 20], flight: true },
+    { name: 'roof-access', at: [.01939436514508575, -17432.8, 20], aim: [.01939436514508575, -17440.5, 19.7], flight: true },
+    { name: 'roof-walk', at: [.01939436514508575, -17432.8, 20], aim: [.01939436514508575, -17440.5, 19.7], flight: false, groundHeight: 18.219320999022212 },
+    { name: 'roof-night', at: [.01939436514508575, -17432.8, 20], aim: [.01939436514508575, -17440.5, 19.7], flight: true, phase: .02 },
+    { name: 'plant-room', at: [.05299, -17377.7, 39], aim: [.05299, -17385.35, 38.8], flight: true },
+    { name: 'plant-side', at: [.0540, -17383.2, 39.3], aim: [.05299, -17385.35, 38.6], flight: true },
+    { name: 'plant-plan', at: [.05334, -17381.3, 45], aim: [.0532, -17383, 37.5], flight: true },
     { name: 'laundry', at: [.02163, -17473.82, 17], aim: [.02092, -17482.3, 15.5], flight: true },
     { name: 'block', at: [-.022, square + 20, 80], aim: [.030, square - 90, 15], flight: true },
     { name: 'distant', at: [-.100, square + 80, 150], aim: [.030, square - 90, 15], flight: true },
@@ -43,7 +49,7 @@ try {
     { name: 'night', at: [.0194, square - 57, 1.8], aim: [.0194, square - 89, 7], flight: false, phase: .02 },
   ]
   for (const view of views.filter(v => !process.env.VIEWS || process.env.VIEWS.split(',').includes(v.name))) {
-    const url = `${base}/?debug&lock=0&metrics=off&tier=${tier}&dpr=1&t=${view.phase ?? .42}&${pose(view.at, view.aim, view.flight)}`
+    const url = `${base}/?debug&lock=0&metrics=off&tier=${tier}&dpr=1&t=${view.phase ?? .42}&${pose(view.at, view.aim, view.flight)}${view.groundHeight === undefined ? '' : `&gh=${view.groundHeight}`}`
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await page.waitForSelector('#splash', { state: 'detached', timeout: 60000 })
     await page.waitForFunction(() => window.__spinwardBody?.group.userData.ready)
@@ -92,6 +98,16 @@ try {
       const start = await page.evaluate(() => window.__spinward)
       await page.keyboard.down('KeyW'); await page.waitForTimeout(2200); await page.keyboard.up('KeyW')
       evidence.walk = { start, end: await page.evaluate(() => window.__spinward) }
+    }
+    if (view.name === 'roof-walk') {
+      const start = await page.evaluate(() => window.__spinward)
+      await page.keyboard.down('KeyW')
+      try { await page.waitForTimeout(6500) } finally { await page.keyboard.up('KeyW') }
+      const end = await page.evaluate(() => window.__spinward)
+      evidence.roofWalk = { start, end }
+      if (start.mode !== 'grounded' || end.mode !== 'grounded' || Math.abs(end.groundHeight - view.groundHeight) > .05 ||
+          start.axial - end.axial < 4 || end.axial < -17438.7 || end.axial > -17437.8) throw Error('Roof walk must remain on the roof and stop in front of the closed stairwell')
+      await page.screenshot({ path: output + `old-town-${tier}-${label}-roof-stop.png` })
     }
   }
   if (process.env.WALK === '1') {
