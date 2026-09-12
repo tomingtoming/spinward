@@ -1,4 +1,6 @@
 import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
+import {planBalconyLife,balconyLifeLod,BALCONY_LIFE_BAY_LIMIT,type BalconyLifeBay} from './balconyLife'
+import {loadBalconyLifeAssets,type BalconyLifeAssets} from './balconyLifeAssets'
 import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
@@ -15,7 +17,7 @@ import { colonyFacadeMaterial, prepareColonyGeometry,writeColonyFacade, loadColo
 
 type StructureKind='structure'|'entrance-structure'|'mixed-structure'
 type StructurePart={volume:BlockVolume;kind:StructureKind;ground:number;slot:InstanceSlot;balcony:BalconyWindowRange}
-type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2}
+type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2;life:Array<BalconyLifeBay & {lod:0|1|2}>|null}
 /** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
 export class ColonyBuildings {
  readonly group=new THREE.Group()
@@ -26,6 +28,7 @@ export class ColonyBuildings {
  private entryByBuilding=new Map<CityBuilding,Entry>()
  private radius=1
  private modules:ColonyModules|null=null
+ private balconyAssets:BalconyLifeAssets|null=null
  private fallback=new THREE.BoxGeometry(1,1,1)
  private facade=colonyFacadeMaterial(false,true)
  private entranceFacade=colonyFacadeMaterial(true,true)
@@ -52,6 +55,7 @@ export class ColonyBuildings {
  constructor(parent:THREE.Group){
   this.group.name='blender-colony-buildings';parent.add(this.group)
   loadColonyModules().then(modules=>{if(this.disposed)return;this.modules=modules;this.clearBatches();this.invalidate()}).catch(e=>console.warn('Colony modules unavailable; retaining the new structural recipe.',e))
+  loadBalconyLifeAssets().then(asset=>{if(this.disposed)return;this.balconyAssets=asset;this.invalidate()}).catch(()=>console.warn('Balcony furniture unavailable; retaining the building and planting.'))
  }
  setProjection(value:number){if(Math.abs(value-this.projection)>1){this.projection=value;this.invalidate()}}
  private invalidate(){this.focus.set(Infinity,Infinity,Infinity)}
@@ -66,7 +70,7 @@ export class ColonyBuildings {
    const design=colonyBuildingDesign(b,interior?.kind)
    const balcony=colonyBalconies(spec,design)
    const parts:StructurePart[]=spec.volumes.map(volume=>{const ground=interior?0:colonyGroundHeight(volume,design);return {volume,ground,kind:ground>0?'mixed-structure':!interior&&volume.y-volume.h/2<.01&&Math.abs(volume.x)<volume.w/2?'entrance-structure':'structure',slot:{index:-1},balcony:colonyBalconyWindowRange(balcony,volume)}})
-   return {parts,design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height),roof:interior?null:colonyRoofSurface(spec),roofLod:2}
+   return {parts,design,trim:new THREE.Color('#'+design.trim),spec,matrix,color:new THREE.Color('#'+spec.wall),interior:!!interior,visible:false,size:Math.max(b.width,b.depth,b.height),roof:interior?null:colonyRoofSurface(spec),roofLod:2,life:null}
   })
   this.capacities={shell:0,entrance:0,mixed:0}
   for(const e of this.entries)for(const v of e.spec.volumes){
@@ -123,6 +127,12 @@ export class ColonyBuildings {
   const signs=this.batch('signs',this.signGeometry,this.signs,1024)
   const pots=this.batch('planters',this.modules?.planter??this.fallback,this.frame,320)
   const plants=this.batch('planting',this.modules?.planting??this.fallback,this.frame,320)
+  const furniture=this.balconyAssets?{
+   chair0:this.batch('balcony-chair-0',this.balconyAssets.chair0,this.frame,BALCONY_LIFE_BAY_LIMIT),
+   chair1:this.batch('balcony-chair-1',this.balconyAssets.chair1,this.frame,BALCONY_LIFE_BAY_LIMIT),
+   table0:this.batch('balcony-table-0',this.balconyAssets.table0,this.frame,BALCONY_LIFE_BAY_LIMIT),
+   table1:this.batch('balcony-table-1',this.balconyAssets.table1,this.frame,BALCONY_LIFE_BAY_LIMIT)
+  }:null
   const up=new THREE.Vector3(0,1,0),roll=new THREE.Vector3(0,0,1),local=new THREE.Matrix4(),world=new THREE.Matrix4(),q=new THREE.Quaternion(),tiltQ=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3()
   const mount=new THREE.Matrix4(),mx=new THREE.Vector3(),my=new THREE.Vector3(),mz=new THREE.Vector3()
   const add=(batch:THREE.InstancedMesh,e:Entry,v:BlockVolume,rotation=0,tint=e.trim,frame=e.matrix,tilt=0)=>{
@@ -137,6 +147,7 @@ export class ColonyBuildings {
   let visible=0,near=0,framed=0,balconyBuildings=0,retailBuildings=0,stairBuildings=0,enclosedStairs=0
   const close:Array<{e:Entry;distance:number}>=[]
   const roofClose:Array<{e:Entry;distance:number}>=[]
+  const lifeClose:Array<{e:Entry;bay:BalconyLifeBay & {lod:0|1|2};distance:number}>=[]
   for(const e of this.entries){
    const interiorOwned=e.interior&&this.nearInteriors.has(e.spec.building)
    const distance=Math.max(1,camera.distanceTo(p.setFromMatrixPosition(e.matrix))-e.size)
@@ -271,6 +282,12 @@ export class ColonyBuildings {
     const plan=colonyBalconies(e.spec,e.design),batch=plan.style==='rail'?railBalconies:balconies,parapet=e.color.clone().lerp(e.trim,.25),tint=plan.style==='rail'?e.trim:parapet
     for(const section of plan.sections)add(batch,e,{x:section.x,y:section.y,z:section.z,w:section.width,h:1,d:section.depth},0,tint)
     if(detailed)for(const divider of plan.dividers)add(trim,e,divider,0,parapet)
+    e.life??=planBalconyLife(e.spec,plan).map(bay=>({...bay,lod:2 as const}))
+    for(const bay of e.life){
+     const v=bay.props[0],distance=camera.distanceTo(p.set(v.x,v.y+.5,v.z).applyMatrix4(e.matrix))
+     bay.lod=balconyLifeLod(distance,bay.lod)
+     if(bay.lod<2)lifeClose.push({e,bay,distance})
+    }
    }
 
    for(const volume of e.spec.volumes){
@@ -299,6 +316,26 @@ export class ColonyBuildings {
     }
    }
   }
+  lifeClose.sort((a,b)=>a.distance-b.distance)
+  let balconyLifeBays=0,balconyLifePlants=0,balconyLifeChairs=0,balconyLifeTables=0
+  for(const {e,bay} of lifeClose.slice(0,BALCONY_LIFE_BAY_LIMIT)){
+   let rendered=false
+   for(const prop of bay.props){
+    if(prop.kind==='plant'){
+     if(pots.count>=pots.instanceMatrix.count||plants.count>=plants.instanceMatrix.count)continue
+     add(pots,e,{x:prop.x,y:prop.y+.1,z:prop.z,w:prop.width,h:.2,d:prop.depth},0,this.potColors[prop.tint])
+     const height=prop.height-.16
+     add(plants,e,{x:prop.x,y:prop.y+.16+height/2,z:prop.z,w:prop.width*.94,h:height,d:prop.depth*.94},0,this.leafColors[prop.tint])
+     balconyLifePlants++;rendered=true
+    }else if(furniture){
+     const batch=furniture[`${prop.kind}${bay.lod===0?0:1}`]
+     add(batch,e,{x:prop.x,y:prop.y,z:prop.z,w:1,h:1,d:1},0,this.potColors[prop.tint])
+     if(prop.kind==='chair')balconyLifeChairs++;else balconyLifeTables++
+     rendered=true
+    }
+   }
+   if(rendered)balconyLifeBays++
+  }
   ;(signs.geometry.getAttribute('aShopSign') as THREE.InstancedBufferAttribute).needsUpdate=true
   let structuralWrites=0
   for(const batch of this.structures.values())structuralWrites+=batch.flush()
@@ -306,7 +343,7 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0,roofBuildings,roofDetailed,roofUnits}
+  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0,roofBuildings,roofDetailed,roofUnits,balconyLifeBays,balconyLifePlants,balconyLifeChairs,balconyLifeTables}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}

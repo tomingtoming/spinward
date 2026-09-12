@@ -1,0 +1,10 @@
+{
+  "origin": "ai",
+  "created": "2026-09-13",
+  "triangles": {
+    "balcony_chair_lod0": 120,
+    "balcony_table_lod0": 60,
+    "balcony_chair_lod1": 96,
+    "balcony_table_lod1": 36
+  }
+}

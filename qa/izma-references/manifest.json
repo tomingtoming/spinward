@@ -1677,8 +1677,14 @@
       "reviewedOn": "2026-09-13",
       "finding": "night-residential-terrace",
       "duplicateOf": null,
-      "implementation": "pending",
-      "observation": "夜の傾斜した屋根窓と連続テラス。一住戸の暖色照明、隣戸の消灯、椅子・植栽が見える。人物や作品固有の造形は転用しない。"
+      "implementation": "partial",
+      "observation": "夜の傾斜した屋根窓と連続テラス。一住戸の暖色照明、隣戸の消灯、椅子・植栽が見える。人物や作品固有の造形は転用しない。",
+      "applied": [
+        "住戸ごとに空白を残した既存バルコニーの植栽と、小さな椅子・卓の配置。詳細は docs/izma-reference-program.md。"
+      ],
+      "remaining": [
+        "傾斜した屋根窓・連続テラスの建築構成は未実装。既存の住戸照明は今回の新規反映として数えない。入室・テラスへの歩行経路は追加していない。"
+      ]
     }
   ]
 }

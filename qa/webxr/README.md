@@ -260,3 +260,25 @@ connected walkway/columns/rails in both eyes at all three rolls. A suspected
 fine dotted paving seam is present in both earlier golden sets as well; it
 appears brighter in rain and was not a new geometry defect. These findings
 apply to the captured views, not every frame or every roof in the colony.
+
+## Residential balcony life — 2026-09-13
+
+`balcony.xr.mjs` selects a real furnished apartment in the Quest city budget,
+enters through the actual Menu/VR route and uses 64mm stereo with head roll
+0/±25°. The actual chair instance must remain fixed to its building and project
+inside the camera at each pose. Screenshot metadata must agree with the active
+session and the two 1280×960 eyes. Exit uses that session's cursor and ID.
+
+The complete playwright-webxr 0.2.0 suite passed **seven tests, nine immersive
+sessions and nine exits** in 2.2 minutes, including the wrist/controller actions
+and re-entry routes. Hardware preflight: Apple M1 Pro / ANGLE Metal, Chrome
+152.0.7977.83. The served production build stayed fixed throughout. Evidence is
+retained in `qa/webxr/evidence/balcony-life-20260913/` (ignored).
+
+Independent full-image and equal-scale crop review confirmed the chair/table
+in all six eye/roll views, fixed relative to the same windows, partitions and
+guard. Visible window bars remained present. Hidden furniture feet and pot
+bottoms are not judged from these images; metric geometry and live attachment
+matrices are checked separately by the unit/desktop probes. This adds exterior
+scenery, not a new traversable balcony or seat interaction. Native Quest
+rendering, performance and comfort remain unverified.
