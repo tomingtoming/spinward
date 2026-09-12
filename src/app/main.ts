@@ -1174,7 +1174,7 @@ export const bootstrapApp = async () => {
       ? {label:'Your car',entrance:carPoint,bay:null} : outingDestinations.get(journey.action)
     if(!plan||!destination){journey.setRoute(null,drive.driving,'Directions unavailable');return}
     const goal=drive.driving ? destination.bay : destination.entrance
-    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition},goal,drive.driving,cityscape.getPublicPark()) : null,
+    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition,groundHeight:playerTraversal.groundHeight},goal,drive.driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass()) : null,
       drive.driving, destination.label)
     routeRetry=0
   }
@@ -1610,7 +1610,7 @@ export const bootstrapApp = async () => {
         const up=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)).transformDirection(cityscape.group.matrixWorld)
         desktopLookControls.cancelIntroReveal();desktopLookControls.faceDirection(direction,up)
       },
-      route:(start:{azimuth:number;axial:number},goal:{azimuth:number;axial:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark())}
+      route:(start:{azimuth:number;axial:number;groundHeight?:number},goal:{azimuth:number;axial:number;groundHeight?:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass())}
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,
@@ -2599,6 +2599,8 @@ export const bootstrapApp = async () => {
     if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.crosswalk &&
       (journey.nextDistance<12 || journey.points[journey.index-1]?.crosswalk))
       outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Crosswalk · check traffic`
+    else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.coveredWalk)
+      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Covered walk`
     if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
     if(journey.status==='arrived' && journey.action==='guide-park' && roomSeating.seat)outingDetail='Take a break · Your car in Places'
     if(outingCanPark)outingDetail='Bay reached · Park to step out'

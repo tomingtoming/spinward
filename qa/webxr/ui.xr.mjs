@@ -11,9 +11,12 @@ const leftPose = {
 const rightPosition = [.22, 1.38, -.2]
 const distance = (a, b) => Math.hypot(Math.atan2(Math.sin(a.azimuth-b.azimuth), Math.cos(a.azimuth-b.azimuth))*b.radius, a.axial-b.axial)
 
-test.describe('crosswalk-directions', () => {
+for(const scenario of [
+  {id:'crosswalk',title:'wrist directions use the real crossing and retain a readable approach hint',at:[-12/3200,316,1.8],aim:[12/3200,316,1.8],hint:'Crosswalk · check traffic'},
+  {id:'covered',title:'wrist directions leave the covered walk through its supported path',at:[-.025,-351.5403225806452,1.8],aim:[-.008,-351.5403225806452,1.8],hint:'Covered walk'}
+])test.describe(`${scenario.id}-directions`, () => {
   test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-  test('wrist directions use the real crossing and retain a readable approach hint',async({page,xr},info)=>{
+  test(scenario.title,async({page,xr},info)=>{
     const errors=[],frames=[]
     page.on('pageerror',e=>errors.push(e.message))
     await page.goto('about:blank')
@@ -24,7 +27,7 @@ test.describe('crosswalk-directions', () => {
     })
     expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
     await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:'',contentType:'application/javascript'}))
-    await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose({at:[-12/3200,316,1.8],aim:[12/3200,316,1.8],ground:true})}`)
+    await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose({at:scenario.at,aim:scenario.aim,ground:true})}`)
     await page.waitForSelector('#splash',{state:'detached'})
     await page.waitForFunction(()=>window.__spinwardOuting.destinations.size===3)
     await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
@@ -38,18 +41,27 @@ test.describe('crosswalk-directions', () => {
     await press(page,xr,'nav-places');await press(page,xr,'nav-outing')
     const before=await page.evaluate(()=>window.__spinward)
     await press(page,xr,'guide-square')
-    await page.waitForFunction(()=>window.__spinward.outing.detail.includes('Crosswalk · check traffic'))
+    await page.waitForFunction(hint=>window.__spinward.outing.detail.includes(hint),scenario.hint)
     const route=await page.evaluate(()=>window.__spinwardOuting.journey.points)
-    expect(route.some(p=>p.crosswalk&&p.axial>310)).toBe(true)
+    if(scenario.id==='crosswalk')expect(route.some(p=>p.crosswalk&&p.axial>310)).toBe(true)
+    else {
+      expect(route.some(p=>p.coveredWalk)).toBe(true)
+      expect(before.groundHeight).toBeCloseTo(.34,2)
+      const link=await page.evaluate(()=>window.__spinwardCity.getPublicUnderpass())
+      for(const p of route.filter(p=>p.coveredWalk)){
+        expect(Math.abs(p.axial-link.axial)).toBeLessThan(.95)
+        expect(p.groundHeight).toBeCloseTo(.34)
+      }
+    }
     expect(distance(before,await page.evaluate(()=>window.__spinward))).toBeLessThan(.15)
-    await captureTexture(page,info,'crosswalk-directions')
+    await captureTexture(page,info,`${scenario.id}-directions`)
     for(const degrees of [0,25,-25]){
       await xr.setHeadPose({euler:[-.22,0,degrees*Math.PI/180]});await xr.settle(150)
-      const path=info.outputPath(`crosswalk-wrist-roll-${degrees}.png`)
+      const path=info.outputPath(`${scenario.id}-wrist-roll-${degrees}.png`)
       const capture=await xr.screenshot(path,{canvas:'canvas',metadata:true,timeout:5000})
       expect(capture.sessionId).toBe(diagnostics.session.id)
       expect([capture.width,capture.height]).toEqual([2560,960])
-      await info.attach(`crosswalk-wrist-roll-${degrees}`,{path,contentType:'image/png'});frames.push(capture)
+      await info.attach(`${scenario.id}-wrist-roll-${degrees}`,{path,contentType:'image/png'});frames.push(capture)
     }
     await xr.setHeadPose({euler:[-.22,0,0]})
     await press(page,xr,'guide-cancel')
@@ -58,7 +70,7 @@ test.describe('crosswalk-directions', () => {
     await page.evaluate(()=>window.__xrDevice.activeSession.end())
     await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
     expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
-    await fs.writeFile(info.outputPath('crosswalk-directions.json'),JSON.stringify({gpu,diagnostics,route,frames,errors},null,2))
+    await fs.writeFile(info.outputPath(`${scenario.id}-directions.json`),JSON.stringify({gpu,diagnostics,route,frames,errors},null,2))
   })
 })
 

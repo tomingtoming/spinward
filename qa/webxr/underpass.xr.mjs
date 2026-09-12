@@ -53,7 +53,12 @@ test('covered walk stays grounded and world-fixed in stereo through head roll', 
   for (const degrees of [0, 25, -25]) {
     await xr.setHeadPose({ position: [0, 1.6, 0], quaternion: head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), degrees * Math.PI / 180)).toArray() })
     await xr.settle(200)
-    expect(await probe()).toEqual(before)
+    const { h, ...fixed } = await probe()
+    const { h: initialHeight, ...initialFixed } = before
+    // Triangle interpolation can vary at the last floating-point digit as
+    // grounding settles. Keep geometry exact and bound height drift to <1 nm.
+    expect(fixed).toEqual(initialFixed)
+    expect(h).toBeCloseTo(initialHeight, 9)
     const projected = await page.evaluate(() => {
       const city = window.__spinwardCity, camera = window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera', true)[0]
       return [10, 35].map(distance => {

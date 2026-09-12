@@ -809,7 +809,8 @@
       "finding": "covered-walk",
       "duplicateOf": null,
       "implementation": "partial",
-      "observation": "高架下面と支持柱、隣接する公共通路を再確認。画面自体は降雨を示していない。雨宿りは既存構造を天候へつなぐSpinward側の機能改善で、資料の雨を再現したという意味ではない。"
+      "observation": "高架下面と支持柱、隣接する公共通路を再確認。画面自体は降雨を示していない。雨宿りは既存構造を天候へつなぐSpinward側の機能改善で、資料の雨を再現したという意味ではない。",
+      "applied": "2026-09-13: 既存高架下通路の主歩行帯を徒歩案内へ接続。これはSpinward側の機能改善で、原画の川沿いの地形や固有意匠を追加したものではない。qa/neighborhood-life/covered-directions.mdを参照。"
     },
     {
       "id": "izma-ep03-0021",

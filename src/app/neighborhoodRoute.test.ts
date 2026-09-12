@@ -1,9 +1,10 @@
 import {expect,test} from 'bun:test'
 import {planNeighborhoodRoute,NeighborhoodJourney,pavementExit,canParkAt,surfaceDistance} from './neighborhoodRoute'
-import {planCity, type CityPlan} from '../objects/cityLayout'
+import {planCity, getCityGroundHeight, resolveCitySurfaceCollision, type CityPlan} from '../objects/cityLayout'
 import {CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS} from '../objects/intersectionSignals'
 import {planPublicPark} from '../objects/publicPark'
 import {centralPlazaArrival} from '../objects/civicArrival'
+import {planPublicUnderpass,underpassGroundAndRail,UNDERPASS_HEIGHT} from '../objects/publicUnderpass'
 const r=3200
 const point=(x:number,y:number)=>({azimuth:x/r,axial:y})
 const empty:CityPlan={roads:[],buildings:[],patches:[],trees:[],intersections:[],tower:null,expressway:null}
@@ -121,4 +122,44 @@ test('the unmarked central square does not cut off directions to the public park
    expect(route).not.toBeNull();expect(route!.some(p=>p.crosswalk)).toBe(true)
   }
  }
+})
+
+test('walking uses the real covered link in both directions without grazing its rail or sitting pockets',()=>{
+ for(const maxBuildings of [64000,18000,16000]){
+  const city=planCity({radius:r,length:40000,maxBuildings}),link=planPublicUnderpass(city,r)!,colliders=underpassGroundAndRail(link,r)
+  const length=(route:ReturnType<typeof planNeighborhoodRoute>)=>route!.reduce((d,p,i)=>d+(i?surfaceDistance(route![i-1],p,r):0),0)
+  for(const phase of [0,.37,.97])for(const sign of [-1,1]){
+   const at=(x:number,y:number)=>({azimuth:link.azimuth+x/r,axial:link.axial+y,groundHeight:UNDERPASS_HEIGHT})
+   const start=at(sign*(link.length/2-1),8+phase),goal=at(-sign*(link.length/2-1),8+phase)
+   const before=planNeighborhoodRoute(city,r,start,goal,false),route=planNeighborhoodRoute(city,r,start,goal,false,null,link)!
+   expect(route).not.toBeNull();expect(route.some(p=>p.coveredWalk)).toBe(true)
+   expect(length(route)).toBeLessThan(length(before))
+   for(let i=1;i<route.length;i++){
+    if(!route[i-1].coveredWalk&&!route[i].coveredWalk)continue
+    const a=route[i-1],b=route[i],steps=Math.ceil(surfaceDistance(a,b,r)/.5)
+    for(let j=0;j<=steps;j++){
+     const t=j/steps,azimuth=a.azimuth+(b.azimuth-a.azimuth)*t,axialPosition=a.axial+(b.axial-a.axial)*t
+     if(Math.abs((azimuth-link.azimuth)*r)>link.length/2-5)continue
+     expect(Math.abs(axialPosition-link.axial)).toBeLessThanOrEqual((link.width-.7)/2)
+     expect(getCityGroundHeight(colliders,r,azimuth,axialPosition,UNDERPASS_HEIGHT)).toBeCloseTo(UNDERPASS_HEIGHT)
+     expect(resolveCitySurfaceCollision({azimuth,axialPosition},colliders,r,.4,UNDERPASS_HEIGHT)).toBe(false)
+    }
+   }
+   expect(planNeighborhoodRoute(city,r,start,goal,true,null,link)).toEqual(planNeighborhoodRoute(city,r,start,goal,true))
+  }
+ }
+})
+
+test('covered route endpoints cannot snap across a rail or down from the motorway',()=>{
+ const city=planCity({radius:r,length:40000,maxBuildings:4200}),link=planPublicUnderpass(city,r)!
+ const start={azimuth:link.azimuth,axial:link.axial,groundHeight:UNDERPASS_HEIGHT}
+ const goal={azimuth:link.azimuth+(link.length/2-1)/r,axial:link.axial+8}
+ expect(planNeighborhoodRoute(city,r,start,goal,false)).toBeNull()
+ expect(planNeighborhoodRoute(city,r,start,goal,false,null,link)?.some(p=>p.coveredWalk)).toBe(true)
+ expect(planNeighborhoodRoute(city,r,{...start,axial:start.axial+2},goal,false,null,link)).toBeNull()
+ expect(planNeighborhoodRoute(city,r,{...start,groundHeight:city.expressway!.deckHeight},goal,false,null,link)).toBeNull()
+ const journey=new NeighborhoodJourney()
+ journey.setRoute([point(0,0),point(0,10),{...point(20,10),coveredWalk:true}],false,'Square')
+ journey.update(point(0,8),r,.1);expect(journey.index).toBe(1)
+ journey.update(point(0,9.5),r,.1);expect(journey.index).toBe(2)
 })

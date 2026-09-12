@@ -7,7 +7,8 @@ import type { RoomSeat } from '../app/roomSeating'
 import { createLandscapeCrown } from './landscapeVegetation'
 import { PARK_PATH_HEIGHT, parkPathTiles, planPublicPark, type PublicPark } from './publicPark'
 import type { StreetLampSource } from './streetLampLighting'
-import { UNDERPASS_HEIGHT, underpassGroundAndRail, type PublicUnderpass } from './publicUnderpass'
+import { UNDERPASS_HEIGHT, underpassGroundAndRail, underpassWalkSurfaces, type PublicUnderpass } from './publicUnderpass'
+import { citySurfaceVertices } from './citySurfaceMesh'
 
 // A small authored layer around the plaza, public garden and observation deck. All
 // pieces merge by material; no lights, textures or per-frame object creation.
@@ -74,7 +75,13 @@ export class CivicDetails {
       const frame = (x: number, y: number) => surface(p.azimuth + x / radius, p.axial + y, UNDERPASS_HEIGHT)
       // The curb and sitting pockets meet the through path edge-to-edge.
       // Avoid slicing its full length into thin strips at every pocket corner.
-      for (const tile of p.paths) {
+      for(const floor of underpassWalkSurfaces(p,radius)){
+        const vertices=citySurfaceVertices(floor.surfaceMesh!,radius),g=new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(vertices,3))
+        g.setIndex(Array.from({length:vertices.length/3},(_,i)=>i));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(vertices.length/3*2),2))
+        g.rotateY(-floor.azimuth);g.translate(Math.cos(floor.azimuth)*radius,floor.axial,Math.sin(floor.azimuth)*radius)
+        g.computeVertexNormals();parts[0].push(g)
+      }
+      for (const tile of p.paths.slice(1)) {
         const count = Math.ceil(tile.width / 3.2), span = tile.width / count
         for (let i = 0; i < count; i++) {
           const x = tile.x - tile.width / 2 + (i + .5) * span

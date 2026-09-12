@@ -69,11 +69,20 @@ test('rendered paving, rails, seated exits and lamp supports share physical plac
     for (let x = -p.length / 2 + .2; x < p.length / 2; x += .71) for (const y of [-.8, 0, .8]) {
       const azimuth = p.azimuth + x / R, axialPosition = p.axial + y
       const height = getCityGroundHeight(details.colliders, R, azimuth, axialPosition, UNDERPASS_HEIGHT)
-      expect(height).toBeCloseTo(UNDERPASS_HEIGHT)
-      expect(feet.sample(azimuth, axialPosition, height, false)).toBeCloseTo(UNDERPASS_HEIGHT)
+      const expected=UNDERPASS_HEIGHT*Math.min(1,(x+p.length/2)/.6,(p.length/2-x)/.6)
+      expect(height).toBeCloseTo(expected)
+      expect(feet.sample(azimuth, axialPosition, height, false)).toBeCloseTo(Math.max(.1,expected))
       expect(resolveCitySurfaceCollision({ azimuth, axialPosition }, details.colliders, R, .4, height)).toBe(false)
     }
     for (const x of [-30.14, -9.19, 9.27, 30.31]) expect(rayHeight(p.azimuth + x / R, p.axial)).toBeCloseTo(UNDERPASS_HEIGHT, 2)
+    // Actual rendered entry slopes agree with the sampled/collision triangles.
+    for(const sign of [-1,1])for(const fraction of [.2,.5,.8]){
+      const x=sign*(p.length/2-.6*fraction),a=p.azimuth+x/R
+      expect(rayHeight(a,p.axial)).toBeCloseTo(UNDERPASS_HEIGHT*fraction,2)
+      expect(getCityGroundHeight(details.colliders,R,a,p.axial,UNDERPASS_HEIGHT)).toBeCloseTo(UNDERPASS_HEIGHT*fraction,3)
+      const sideX=sign*(p.length/2-1),sideA=p.azimuth+sideX/R,y=p.axial-p.width/2+.45*fraction
+      expect(rayHeight(sideA,y)).toBeCloseTo(UNDERPASS_HEIGHT*fraction,2)
+    }
     const railPosition = { azimuth: p.azimuth, axialPosition: p.axial + p.rail.y }
     expect(resolveCitySurfaceCollision(railPosition, details.colliders, R, .4, UNDERPASS_HEIGHT)).toBe(true)
     const seats = details.seats.filter(s => s.id.startsWith('underpass-'))

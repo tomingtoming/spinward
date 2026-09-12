@@ -1472,6 +1472,7 @@ export class Cityscape {
   getSeats(): readonly RoomSeat[] { return this.seats }
   getCarShareBay() { return this.carShareBay }
   getPublicPark() { return this.civicDetails.park }
+  getPublicUnderpass() { return this.civicDetails.underpass }
   getParkLamps() { return this.civicDetails.lamps }
   getCoffeeStation() { return this.coffeeStation }
   getRiverDistrict() { return this.riverDistrict }

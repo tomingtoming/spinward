@@ -364,3 +364,32 @@ obvious floating, large missing geometry or one-eye disappearance was found in
 these images. Fine edge aliasing remains. Precise contact is checked separately
 with geometry rays; continuous head motion and native Quest performance,
 legibility and comfort remain unverified.
+
+## Covered walking directions — 2026-09-13
+
+The covered scenario in `ui.xr.mjs` enters VR inside the existing underpass,
+selects Central Square using the real wrist target ray and trigger, verifies a
+route through the supported clear strip and the `Covered walk` hint, then
+cancels and exits. Selecting directions must not move the player. Captures use
+64mm IPD, two 1280×960 eye views and 0/±25° head roll, plus the raw wrist texture.
+
+The full playwright-webxr 0.2.0 suite passed **12 tests, 14 immersive sessions
+and 14 exits** in 3.3 minutes, including both entry/re-entry paths. Hardware
+preflight: Apple M1 Pro / ANGLE Metal, Chrome 152.0.7977.83. The production app
+build stayed fixed throughout. Evidence is retained in
+`qa/webxr/evidence/covered-directions-20260913/` (ignored).
+
+The first run passed the new wrist scenario but the existing underpass test
+rejected a ground-height difference of `0.33999999999999997` versus `0.34` after
+the floor changed to shared sloping triangles. Geometry, transforms and counts
+still use exact equality; sampled height drift now has a sub-nanometre bound.
+That run is preserved separately under `covered-directions-20260913-initial/`.
+
+Independent image-only review used that first run's unchanged app build:
+the raw texture and both eyes at all three rolls retain the destination, hint
+and buttons without clipping, overlap or one-eye disappearance. The visible
+floor and bench bases have no obvious holes or penetration; the railing is
+outside the wrist capture's view. The small place name and secondary destination
+remain thinner than the main hint. Physical Quest readability, performance and
+comfort remain unverified. Normal desktop W input separately traversed the
+entrance, covered link and exit; see `qa/neighborhood-life/covered-directions.md`.

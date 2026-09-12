@@ -2,9 +2,10 @@ import { getStreetProfile } from '../objects/streetProfile'
 import type { CityPlan } from '../objects/cityLayout'
 import type { PublicPark } from '../objects/publicPark'
 import type { CarShareBay } from '../objects/carShare'
+import { UNDERPASS_HEIGHT, type PublicUnderpass } from '../objects/publicUnderpass'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from '../objects/intersectionSignals'
 
-export type SurfacePoint = { azimuth: number; axial: number; crosswalk?: boolean }
+export type SurfacePoint = { azimuth: number; axial: number; groundHeight?: number; crosswalk?: boolean; coveredWalk?: boolean }
 export const OUTING_DESTINATIONS = [
   { id: 'guide-square', label: 'Central Square' },
   { id: 'guide-cafe', label: 'Café' },
@@ -22,14 +23,20 @@ export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number
  * Buildings remain obstacles; an indoor start leaves via its certified door.
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
-  driving: boolean, park: PublicPark | null = null): SurfacePoint[] | null {
+  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null): SurfacePoint[] | null {
   // The central square omits its junction markings, so the next crossing can
   // be a full city block away. Include that detour; the cell cap still applies.
   const step = 2, pad = driving ? 100 : 400
   const gx = wrapAngle(goal.azimuth-start.azimuth)*radius, gy = goal.axial-start.axial
   if (Math.abs(gx)>1600 || Math.abs(gy)>1600) return null
-  const minX = Math.floor((Math.min(0,gx)-pad)/step)*step, minY = Math.floor((Math.min(0,gy)-pad)/step)*step
-  const nx = Math.ceil((Math.abs(gx)+2*pad)/step)+1, ny = Math.ceil((Math.abs(gy)+2*pad)/step)+1
+  const linkX=underpass?wrapAngle(underpass.azimuth-start.azimuth)*radius:Infinity
+  const linkY=underpass?underpass.axial-start.axial:Infinity
+  const link=!driving&&underpass&&Math.abs(linkX-gx/2)<underpass.length/2+Math.abs(gx)/2+pad&&Math.abs(linkY-gy/2)<Math.abs(gy)/2+pad?underpass:null
+  // A 2.6 m walkway has a 1.9 m body-clear band. Align a grid row with its
+  // centre so sub-cell phase cannot erase it or push the route onto the rail.
+  const anchorY=link?linkY:0
+  const minX = Math.floor((Math.min(0,gx)-pad)/step)*step, minY = anchorY+Math.floor((Math.min(0,gy)-pad-anchorY)/step)*step
+  const nx = Math.ceil((Math.max(0,gx)+pad-minX)/step)+1, ny = Math.ceil((Math.max(0,gy)+pad-minY)/step)+1
   if (nx*ny>600000) return null
   const cost = new Uint8Array(nx*ny)
   const local = (p: SurfacePoint) => [wrapAngle(p.azimuth-start.azimuth)*radius, p.axial-start.axial]
@@ -45,6 +52,9 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     const pavement=getStreetProfile(road.kind,radius).sidewalk
     if(pavement)paint(x,y,road.tangentWidth+pavement*2,road.axialLength+pavement*2,1)
   }
+  // The certified plan already excludes buildings, trees and the access ramp.
+  // Only the main through path participates; seats and the rail plinth do not.
+  if(link)paint(linkX,linkY,link.length,link.width-.7,2)
   for(const {r,x,y} of roads) paint(x,y,r.tangentWidth-(driving?2.2:0),r.axialLength-(driving?2.2:0),driving?1:4)
   if (!driving) {
     // Apply after ALL roads: a side street must not punch an unmarked path
@@ -85,6 +95,10 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     let best=-1, distance=Infinity
     for(let j=iy-2;j<=iy+2;j++)for(let i=ix-2;i<=ix+2;i++) {
       if(i<0||j<0||i>=nx||j>=ny||!cost[j*nx+i]) continue
+      // Do not snap across the handrail, or from the motorway above, onto the
+      // new link. An endpoint must already be in the walk's clear strip.
+      if(cost[j*nx+i]===2&&link&&(Math.abs(x-linkX)>link.length/2||Math.abs(y-linkY)>(link.width-.7)/2||
+        p.groundHeight!==undefined&&Math.abs(p.groundHeight-UNDERPASS_HEIGHT)>.6))continue
       const d=Math.hypot(minX+i*step-x,minY+j*step-y)
       if(d<distance && d<4){best=j*nx+i;distance=d}
     }
@@ -97,6 +111,7 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   const push=(id:number,score:number)=>{let i=heap.length;heap.push({id,score});while(i){const p=(i-1)>>1;if(heap[p].score<=score)break;heap[i]=heap[p];i=p}heap[i]={id,score}}
   const pop=()=>{const first=heap[0],last=heap.pop()!;if(heap.length){let i=0;while(i*2+1<heap.length){let c=i*2+1;if(c+1<heap.length&&heap[c+1].score<heap[c].score)c++;if(heap[c].score>=last.score)break;heap[i]=heap[c];i=c}heap[i]=last}return first.id}
   const heuristic=(id:number)=>Math.hypot(id%nx-to%nx,Math.floor(id/nx)-Math.floor(to/nx))
+  const weight=(value:number)=>value===2?1:value
   distance[from]=0;push(from,heuristic(from))
   while(heap.length){
     const id=pop();if(closed[id])continue;if(id===to)break;closed[id]=1
@@ -105,7 +120,7 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
       const xx=x+dx,yy=y+dy, next=yy*nx+xx
       if(xx<0||xx>=nx||yy<0||yy>=ny||!cost[next]||closed[next])continue
       if(dx&&dy&&(!cost[y*nx+xx]||!cost[yy*nx+x]))continue
-      const d=distance[id]+Math.hypot(dx,dy)*(cost[id]+cost[next])/2
+      const d=distance[id]+Math.hypot(dx,dy)*(weight(cost[id])+weight(cost[next]))/2
       if(d<distance[next]){distance[next]=d;parent[next]=id;push(next,d+heuristic(next))}
     }
   }
@@ -114,9 +129,10 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   // Only collapse collinear cells: smoothing across a corner could cut a
   // building or turn an inexpensive pavement path into a road diagonal.
   const simplified=ids.filter((id,i)=>i===0||i===ids.length-1||id-ids[i-1]!==ids[i+1]-id||
-    (cost[id]===3)!==(cost[ids[i-1]]===3)||(cost[id]===3)!==(cost[ids[i+1]]===3))
+    (cost[id]===3)!==(cost[ids[i-1]]===3)||(cost[id]===3)!==(cost[ids[i+1]]===3)||
+    (cost[id]===2)!==(cost[ids[i-1]]===2)||(cost[id]===2)!==(cost[ids[i+1]]===2))
   const points=simplified.map(id=>({azimuth:start.azimuth+(minX+id%nx*step)/radius,axial:start.axial+minY+Math.floor(id/nx)*step,
-    ...(cost[id]===3?{crosswalk:true}:{})}))
+    ...(cost[id]===3?{crosswalk:true}:{}),...(cost[id]===2?{coveredWalk:true,groundHeight:UNDERPASS_HEIGHT}:{})}))
   return [...(indoorExit.length?indoorExit:[start]),...points,goal]
 }
 
@@ -142,8 +158,8 @@ export class NeighborhoodJourney {
     // Keep crossing turns tight so the arrow does not cut outside the stripes.
     // Ordinary walking corners and final arrival retain their forgiving radius.
     while(this.index<this.points.length-1) {
-      const crossing=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk
-      if(surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : crossing ? .8 : threshold))break
+      const tight=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk||this.points[this.index].coveredWalk||this.points[this.index+1]?.coveredWalk
+      if(surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : tight ? .8 : threshold))break
       this.index++
     }
     const next=this.points[this.index];if(!next)return

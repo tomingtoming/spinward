@@ -67,7 +67,7 @@ export function underpassGroundAndRail(plan: PublicUnderpass, radius: number): C
     azimuth: plan.azimuth + x / radius, axial: plan.axial + y, width, depth, height, baseHeight,
     collisionMargin: 0, groundMargin: 0, tone: .5, kind: 'block'
   })
-  const floors = plan.paths.map(p => part(p.x, p.y, p.width, p.depth, UNDERPASS_HEIGHT))
+  const floors = plan.paths.slice(1).map(p => part(p.x, p.y, p.width, p.depth, UNDERPASS_HEIGHT))
   const rail = plan.rail
   // Short envelopes follow the curved path, matching the rendered panels and
   // streamed rigid-body boxes instead of a single hundred-metre tangent box.
@@ -75,8 +75,44 @@ export function underpassGroundAndRail(plan: PublicUnderpass, radius: number): C
   const barriers = Array.from({ length: count }, (_, i) =>
     part(rail.x - rail.length / 2 + (i + .5) * span, rail.y, span, .08, 1.08, UNDERPASS_HEIGHT))
   // The ground sampler uses radial rectangles; physics needs short boxes too.
-  return [...floors.flatMap(f => {
+  return [...underpassWalkSurfaces(plan,radius),...floors.flatMap(f => {
     const count = Math.ceil(f.width / 4), w = f.width / count
     return Array.from({ length: count }, (_, i) => ({ ...f, azimuth: f.azimuth + (-f.width / 2 + (i + .5) * w) / radius, width: w }))
   }), ...barriers]
+}
+
+/** Bevel the mouths of the raised walk down to the street's physical floor.
+ * A 34 cm vertical face stops the dynamic 32 cm player sphere. Shared sloping
+ * triangles let contact lift it, without moving the player or changing gravity. */
+export function underpassWalkSurfaces(plan: PublicUnderpass, radius:number):CityBuilding[] {
+  const half=plan.length/2, lip=.6, mouth=3.5, transition=5
+  const xs=[...new Set([-half,-half+lip,-half+mouth,-half+transition,half-transition,half-mouth,half-lip,half,
+    ...Array.from({length:Math.ceil(plan.length/3.2)+1},(_,i)=>-half+i*plan.length/Math.ceil(plan.length/3.2))])].sort((a,b)=>a-b)
+  const ys=[-plan.width/2,-plan.width/2+.45,plan.width/2-.45,plan.width/2]
+  const clamp=(v:number)=>Math.max(0,Math.min(1,v))
+  const height=(x:number,y:number)=>{
+    const end=half-Math.abs(x),side=clamp((plan.width/2-Math.abs(y))/.45),fade=clamp((end-mouth)/(transition-mouth))
+    return UNDERPASS_HEIGHT*clamp(end/lip)*(side+(1-side)*fade)
+  }
+  const surfaces:CityBuilding[]=[]
+  for(let i=1;i<xs.length;i++){
+    const a=xs[i-1],b=xs[i];if(b-a<1e-7)continue
+    const x=(a+b)/2,mesh:number[]=[]
+    const point=(u:number,v:number)=>[u-x,v,height(u,v)]
+    const quad=(a:number[],b:number[],c:number[],d:number[])=>mesh.push(...a,...b,...c,...a,...c,...d)
+    for(let j=1;j<ys.length;j++)quad(point(a,ys[j-1]),point(b,ys[j-1]),point(b,ys[j]),point(a,ys[j]))
+    for(const side of [-1,1]){
+      const y=side*plan.width/2
+      const corners=[point(a,y),[a-x,y,0],[b-x,y,0],point(b,y)]
+      if(side>0)corners.reverse()
+      quad(corners[0],corners[1],corners[2],corners[3])
+    }
+    // Omit zero-area faces at the tapered edge.
+    const valid:number[]=[]
+    for(let k=0;k<mesh.length;k+=9){const [ax,ay,ah,bx,by,bh,cx,cy,ch]=mesh.slice(k,k+9)
+      if(Math.hypot((by-ay)*(ch-ah)-(bh-ah)*(cy-ay),(bh-ah)*(cx-ax)-(bx-ax)*(ch-ah),(bx-ax)*(cy-ay)-(by-ay)*(cx-ax))>1e-9)valid.push(...mesh.slice(k,k+9))}
+    surfaces.push({azimuth:plan.azimuth+x/radius,axial:plan.axial,width:b-a,depth:plan.width,height:UNDERPASS_HEIGHT,
+      baseHeight:0,groundSurface:true,groundMargin:0,collisionMargin:0,kind:'block',tone:.5,surfaceMesh:valid})
+  }
+  return surfaces
 }
