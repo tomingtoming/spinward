@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
+import {SignalVisors} from './signalVisors'
 
 import type { CityIntersection } from './cityLayout'
 import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
@@ -205,6 +207,7 @@ type Part = {
 
 export class IntersectionFurniture {
   readonly group = new THREE.Group()
+  private readonly visors = new SignalVisors(this.group)
 
   private intersections: CityIntersection[] = []
   private radius = 0
@@ -268,14 +271,17 @@ export class IntersectionFurniture {
     pole.translate(0, 0.5, 0)
     const arm = new THREE.CylinderGeometry(0.06, 0.06, 1, 8)
     arm.rotateX(Math.PI / 2)
-    const head = new THREE.BoxGeometry(0.36, 0.95, 0.3)
-    const lamp = new THREE.BoxGeometry(0.2, 0.2, 0.06)
-    lamp.translate(0, 0, 0.16)
+    const body = new THREE.BoxGeometry(0.36, 0.95, 0.3)
+    // A short hanger intersects both the housing and its supporting arm.
+    const hanger = new THREE.BoxGeometry(.1,.15,.1).translate(0,.5,0)
+    const head = mergeGeometries([body,hanger])!;body.dispose();hanger.dispose()
+    const lamp = new THREE.CircleGeometry(.105,12).translate(0,0,.156)
     const plate = new THREE.BoxGeometry(0.7, 0.24, 0.03)
     this.stripes = make(stripe, this.stripeMaterial, 4096)
     this.stripes.mesh.name = 'crosswalk-stripes'
     this.poles = make(pole, this.poleMaterial, 512)
     this.arms = make(arm, this.poleMaterial, 512)
+    this.arms.mesh.name = 'intersection-signal-arms'
     this.heads = make(head, this.headMaterial, 512)
     this.heads.mesh.name = 'intersection-signal-heads'
     this.lamps = make(lamp, this.lampMaterial, 512 * 3)
@@ -292,6 +298,7 @@ export class IntersectionFurniture {
     this.nearby = []
     this.headPhases.length = 0
     this.headRoads.length = 0
+    this.visors.setHeads(null)
     for (const part of [this.stripes, this.poles, this.arms, this.heads, this.lamps, this.plates]) part.mesh.count = 0
   }
 
@@ -320,6 +327,7 @@ export class IntersectionFurniture {
       this.relayout()
     }
     this.animateLamps()
+    this.visors.update(focusAzimuth,focusAxial,this.radius)
   }
 
   private place(part: Part, index: number, x: CityIntersection, transform: FurnitureTransform, surfaceDrop: number) {
@@ -394,6 +402,7 @@ export class IntersectionFurniture {
       part.mesh.count = count
       part.mesh.instanceMatrix.needsUpdate = true
     }
+    this.visors.setHeads(this.heads.mesh)
   }
 
   private animateLamps() {
@@ -410,6 +419,7 @@ export class IntersectionFurniture {
   }
 
   dispose() {
+    this.visors.dispose()
     for (const part of [this.stripes, this.poles, this.arms, this.heads, this.lamps, this.plates]) {
       part.mesh.geometry.dispose()
       part.mesh.dispose()

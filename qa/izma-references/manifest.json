@@ -749,8 +749,10 @@
       "reviewedOn": "2026-09-13",
       "finding": "street-signals",
       "duplicateOf": null,
-      "implementation": "pending",
-      "observation": "元解像度で再確認。円形灯器の遮光フード、取付ねじ、外枠に情報表示がある。表示された警告・制限値・番号は作品内の状態として扱い、Spinwardへ転記しない。灯具の造形反映は引き続き未実装。"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。円形灯器の遮光フード、取付ねじ、外枠に情報表示がある。表示された警告・制限値・番号は作品内の状態として扱い、Spinwardへ転記しない。",
+      "applied": "2026-09-13: 円形灯器の上・側面を覆う庇と取付金具をBlenderで独自制作し、既存の縦3灯へ近中距離LODで追加。円形の点灯面と、支持アームへつながる吊り金具も実装。qa/neighborhood-life/signal-visors.mdを参照。",
+      "remaining": "外枠の交通情報表示・支持付き案内板。作品の文字・警告・制限値は転記しない。"
     },
     {
       "id": "izma-ep03-0016",

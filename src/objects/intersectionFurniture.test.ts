@@ -84,7 +84,7 @@ test('signal lenses face approaching drivers on all four legs, with one lit lamp
     }
     furniture.setPlan([], 18)
     furniture.update(0, 0, .1, 99)
-    for (const part of furniture.group.children as THREE.InstancedMesh[]) expect(part.count).toBe(0)
+    for (const part of furniture.group.getObjectsByProperty('isInstancedMesh',true) as THREE.InstancedMesh[]) expect(part.count).toBe(0)
   } finally { furniture.dispose() }
 })
 

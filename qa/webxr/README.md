@@ -342,3 +342,25 @@ in navigation-light phase and reduced bloom do not indicate missing geometry.
 `ui.xr.mjs` also enters VR on the central avenue pavement, selects Central Square through the actual wrist target ray and trigger, checks the painted-crossing route and approach hint, captures stereo at 0/±25° roll plus the raw wrist texture, then cancels and exits. The instruction uses a bright 28px two-line area with the destination on a separate line. It does not interpret vehicle signals as pedestrian permission.
 
 The complete suite passed 10 tests / 12 sessions before the final wrist typography adjustment. The three affected UI tests were then repeated on the final build: 3 tests / 5 sessions, including both exit/re-entry paths. Scenery was unchanged by that adjustment. Evidence is under `evidence/crosswalk-directions-initial-20260913/` and `evidence/crosswalk-directions-final-20260913/`. These are hardware-GPU Chrome emulation results; physical Quest legibility and performance remain unverified.
+
+## Signal hoods and support — 2026-09-13
+
+`signals.xr.mjs` enters through the actual Menu/VR route near an existing signal,
+using the Quest city budget and 64mm stereo. It waits for the Blender asset,
+aims in the real tracking frame and verifies that the head and near visor
+instances stay fixed at head roll 0/±25°. The head's upper and lower bounds
+remain inside the camera. Screenshot metadata agrees with the current session
+and two 1280×960 eye views. Exit is checked with that session's cursor and ID.
+
+The complete playwright-webxr 0.2.0 suite passed **11 tests, 13 immersive sessions
+and 13 exits** in 3.2 minutes, including both controller/wrist routes and
+exit/re-entry. Hardware preflight: Apple M1 Pro / ANGLE Metal, Chrome
+152.0.7977.83. The production build stayed fixed throughout. Evidence is kept in
+`qa/webxr/evidence/signal-visors-20260913/` (ignored).
+
+Independent review of both eyes at all three rolls found the circular lenses,
+hoods and short hanger connected to the arm, rotating with the street. No
+obvious floating, large missing geometry or one-eye disappearance was found in
+these images. Fine edge aliasing remains. Precise contact is checked separately
+with geometry rays; continuous head motion and native Quest performance,
+legibility and comfort remain unverified.

@@ -1,0 +1,12 @@
+{
+  "origin": "ai",
+  "created": "2026-09-13",
+  "triangles": {
+    "signal_visors_lod0": 372,
+    "signal_visors_lod1": 132
+  },
+  "lensRadius": 0.105,
+  "hoodInnerRadius": 0.116,
+  "mountZ": 0.145,
+  "frontZ": 0.32
+}
