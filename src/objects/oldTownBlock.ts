@@ -98,6 +98,7 @@ export class OldTownBlock {
     this.lamp.emissiveIntensity = night * .8
     this.wash.opacity = night * .22
   }
+  getPaving() { return this.pavingPlan as readonly OldTownPaving[] }
   getColliders() { return [...oldTownColliders(this.entries, this.radius), ...oldTownPavingColliders(this.pavingPlan)] }
   private batch(key: string, geometry: THREE.BufferGeometry, material: THREE.Material) {
     let mesh = this.batches.get(key)

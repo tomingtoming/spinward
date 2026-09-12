@@ -22,6 +22,7 @@ import { LOBBY_PILOT, matchesAuthoredPilot } from './cafePilot'
 import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
 import { OldTownBlock } from './oldTownBlock'
+import { OldTownCourt } from './oldTownCourt'
 import { planCarShareBay, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
 import { planPublicUnderpass } from './publicUnderpass'
@@ -722,6 +723,7 @@ export class Cityscape {
 
   readonly colonyBuildings=new ColonyBuildings(this.group)
   readonly oldTownBlock = new OldTownBlock(this.group)
+  readonly oldTownCourt = new OldTownCourt(this.group)
   readonly authoredBlock=new AuthoredCityBlock(this.group)
   setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian);this.riverBuildings.setProjection(pixelsPerRadian)}
 
@@ -1388,10 +1390,11 @@ export class Cityscape {
     this.colonyBuildings.rebuild(plan.buildings,radius,this.interiors,plan.roads)
     this.oldTownBlock.rebuild(plan.buildings, plan.roads, radius, length, this.interiors,
       [...this.colonyBuildings.getForecourtColliders(), ...this.colonyBuildings.getStairColliders()])
+    this.oldTownCourt.rebuild(this.oldTownBlock.getPaving(), radius)
     // Keep the retired facade overlays disabled; public plans see actual lots.
     this.civicDetails.rebuild({ ...plan, buildings: [] }, radius, planPublicPark(plan, radius), planPublicUnderpass(plan, radius))
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
-    this.seats = [...this.roomSeats, ...this.civicDetails.seats, ...this.riverLayer.seats]
+    this.seats = [...this.roomSeats, ...this.civicDetails.seats, ...this.riverLayer.seats, ...this.oldTownCourt.plan.seats]
     this.civicDetails.lamps.push(...this.riverLayer.lamps)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
@@ -1404,7 +1407,7 @@ export class Cityscape {
 
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
-    this.collisionBuildings.push(...this.oldTownBlock.getColliders())
+    this.collisionBuildings.push(...this.oldTownBlock.getColliders(), ...this.oldTownCourt.plan.colliders)
     this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders)
     for (const b of this.riverDistrict?.buildings ?? []) this.collisionBuildings.push(...cityBlockCollision(b, colonyBuildingSpec(b), radius))
     if (plan.tower !== null) {
@@ -1652,6 +1655,7 @@ export class Cityscape {
     this.authoredBlock.dispose()
     this.colonyBuildings.dispose()
     this.oldTownBlock.dispose()
+    this.oldTownCourt.dispose()
     this.riverLayer.dispose()
     this.riverBuildings.dispose()
     this.civicDetails.dispose()
@@ -1699,6 +1703,7 @@ export class Cityscape {
 
   private clear() {
     this.oldTownBlock.clear()
+    this.oldTownCourt.clear()
     this.riverLayer.clear()
     this.riverDistrict = null
     this.riverTraffic = null
@@ -1861,6 +1866,7 @@ export class Cityscape {
     this.riverBuildings.update(azimuth, axial, altitude)
     this.colonyBuildings.update(azimuth,axial,altitude)
     this.oldTownBlock.update(azimuth, axial, altitude)
+    this.oldTownCourt.update(azimuth, axial, altitude)
     this.updateBeaconVisibility()
     this.interiorFocus = { azimuth, axial, altitude }
     this.interiorLayer.update(azimuth, axial, altitude)

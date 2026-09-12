@@ -275,15 +275,16 @@
       "sha256": "0b1c9c99959d2ca514c68b8159f31281f76b9bf37d2f761dd6f90976c1b891f1",
       "size": 1327493,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "service-entry",
       "duplicateOf": null,
       "implementation": "partial",
       "applied": [
-        "Supported service canopy and warm wall-mounted lamp; see docs/izma-reference-program.md"
+        "Supported service canopy and warm wall-mounted lamp; see docs/izma-reference-program.md",
+        "Two usable chairs, a side table and edge planting in the existing clear Old Town ground-level court; see qa/neighborhood-life/court-life.md"
       ],
       "remaining": [
-        "Occupied terrace, furnishings and plants; select only after checking free space and passage"
+        "Occupied rooftop terrace and its access; additional utilities only where supported by free-space and route checks"
       ]
     },
     {
@@ -292,15 +293,16 @@
       "sha256": "697a3b4c24da23582817a4c4ab80e31dd4e82e9dea7ab4e5557f963f3214c547",
       "size": 1441480,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "service-entry",
       "duplicateOf": null,
       "implementation": "partial",
       "applied": [
-        "Supported service canopy and warm wall-mounted lamp; see docs/izma-reference-program.md"
+        "Supported service canopy and warm wall-mounted lamp; see docs/izma-reference-program.md",
+        "Two usable chairs, a side table and edge planting in the existing clear Old Town ground-level court; see qa/neighborhood-life/court-life.md"
       ],
       "remaining": [
-        "Occupied terrace, furnishings and plants; select only after checking free space and passage"
+        "Occupied rooftop terrace and its access; additional utilities only where supported by free-space and route checks"
       ]
     },
     {

@@ -426,3 +426,17 @@ those images. Desktop comparisons show a subtle colour change with no obvious
 daytime or nearby-window regression. Building use cannot be identified from
 these distant images alone, and the road grid remains prominent at the Quest
 budget. Native headset performance and comfort remain unverified.
+
+## Old Town courtyard — 2026-09-13
+
+`court.xr.mjs` enters the actual VR session with the desktop city budget, where
+the certified court exists. Two reused Blender chairs remain in view at 0/±25°
+head roll and their instance matrices stay fixed. Captures retain session IDs,
+eye dimensions and runtime diagnostics. The independent image review checks
+both eyes; this scenery scenario is not a VR seating or wrist-readability test.
+The existing Quest UI entry/exit/re-entry checks remain in the full suite.
+
+The suite passed 14 tests, 16 immersive sessions and 16 exits in 4.0 minutes on
+Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal with playwright-webxr 0.2.0.
+Evidence is preserved in `qa/webxr/evidence/court-life-20260913/`. No physical
+headset measurement is implied.
