@@ -9,7 +9,9 @@ const places = [
   { id: 'visit-courtyard', label: 'Courtyard', kind: 'court' },
   { id: 'visit-apartment', label: 'Apartment', kind: 'nyaan' },
   { id: 'visit-shops', label: 'Market street', kind: 'shops' },
-  { id: 'visit-park', label: 'Park', kind: 'park' }
+  { id: 'visit-park', label: 'Park', kind: 'park' },
+  { id: 'visit-ball-practice', label: 'Ball practice', kind: 'ball-practice' },
+  { id: 'visit-car-share', label: 'Car share', kind: 'car-share' }
 ]
 try {
   for (const phone of [false, true]) {
@@ -55,7 +57,7 @@ try {
         const name = `place-${preset}-${phone ? 'phone-night' : 'desktop-day'}-${place.kind}`
         await page.screenshot({ path: out + name + '.png' })
         let entered = null
-        if (place.kind !== 'shops') {
+        if (!['shops', 'car-share', 'ball-practice'].includes(place.kind)) {
           await page.keyboard.down('w'); await page.waitForTimeout(2000); await page.keyboard.up('w')
           const walked = await page.evaluate(() => ({ ...window.__spinward }))
           const distance = Math.hypot(Math.atan2(Math.sin(walked.azimuth-state.azimuth), Math.cos(walked.azimuth-state.azimuth))*state.radius, walked.axial-state.axial)
@@ -73,7 +75,9 @@ try {
       if (phone) await page.getByRole('button', { name: 'Travel ▾', exact: true }).click()
       await page.getByRole('button', { name: label, exact: true }).click()
     }
-    await travel('Surface'); await page.waitForTimeout(500)
+    await page.getByRole('button', { name: phone ? 'Travel ▾' : 'Places ▾', exact: true }).click()
+    await page.locator('.preset-menu:not([hidden])').getByRole('button', { name: 'Car share', exact: true }).click()
+    await page.waitForTimeout(500)
     await page.keyboard.press('e'); await page.waitForFunction(() => window.__spinward.drive.driving)
     await page.keyboard.down('w'); await page.waitForTimeout(250)
     await travel('Exterior'); await page.keyboard.up('w'); await page.waitForTimeout(2000)

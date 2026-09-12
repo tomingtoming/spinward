@@ -14,7 +14,6 @@ import {
   getCylinderSurfaceRepeat,
   type SurfaceTextureSet
 } from './cylinderSurface'
-import { getRoadTileLiftMeters } from './roadTiles'
 import {
   GLSL_LAYERED_HAZE,
   LAYERED_HAZE_SAMPLES,
@@ -249,20 +248,6 @@ export class CylinderHabitat {
     metalness: 0.02
   })
 
-  private readonly markerMaterial = new THREE.MeshBasicMaterial({
-    color: 0x67e8f9,
-    transparent: true,
-    opacity: 0.45,
-    side: THREE.DoubleSide,
-    toneMapped: false
-  })
-
-  private readonly runwayMaterial = new THREE.LineBasicMaterial({
-    color: 0xf8fafc,
-    transparent: true,
-    opacity: 0.72
-  })
-
   // Outward-facing hull so the colony is opaque from space; the interior
   // shells are BackSide-only and vanish when seen from outside.
   private readonly hullMaterial = new THREE.MeshStandardMaterial({
@@ -354,8 +339,6 @@ export class CylinderHabitat {
   private farShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hazeShell: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
-  private readonly landmarks = new THREE.Group()
-  private startMarker: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null
   private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   // The transparent pane glazing the sun-facing (+Y) daylight window of an
   // end-lit colony (full-360, no longitudinal side windows). It shares the
@@ -375,7 +358,6 @@ export class CylinderHabitat {
     this.installCityShellLayer(this.nearShellMaterial)
     this.installCityShellLayer(this.farShellMaterial)
     this.group.add(this.shellGroup)
-    this.group.add(this.landmarks)
     this.setDimensions(dimensions)
   }
 
@@ -478,8 +460,6 @@ export class CylinderHabitat {
 
     this.rebuildShells()
 
-    this.rebuildStartMarker(radius)
-    this.rebuildLandmarks(radius, length)
     this.rebuildEndCaps(radius, length)
   }
 
@@ -799,57 +779,4 @@ export class CylinderHabitat {
   }
 
 
-  private rebuildStartMarker(radius: number) {
-    if (this.startMarker !== null) {
-      this.startMarker.geometry.dispose()
-      this.group.remove(this.startMarker)
-    }
-
-    // Subtle pavement inlay at the spawn instead of the old blue billboard.
-    // Rides above the near-player road-tile overlay (deck at ~R-0.32, see
-    // roadTiles.getRoadTileLiftMeters) so the spawn crossroads tile cannot
-    // bury the respawn ring.
-    this.startMarker = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 40), this.markerMaterial)
-    this.startMarker.position.set(radius - getRoadTileLiftMeters(radius) - 0.16, 0, 0)
-    this.startMarker.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(-1, 0, 0)
-    )
-    this.group.add(this.startMarker)
-  }
-
-  private rebuildLandmarks(radius: number, length: number) {
-    this.disposeGroupGeometries(this.landmarks)
-    this.landmarks.clear()
-
-    // One short spawn-avenue cue, not the legacy full-length triple: the old
-    // lines ran the whole cylinder AT the wall radius, so they z-fought
-    // through every building base and road they crossed — the "bright line
-    // piercing the buildings". Clipped to the plaza block and lifted just
-    // above the road surface so nothing occludes wrong.
-    const runwayHalfLength = Math.min(80, length * 0.45)
-    const runwayRadius = radius - 0.24
-    const points = [
-      new THREE.Vector3(runwayRadius, -runwayHalfLength, 0),
-      new THREE.Vector3(runwayRadius, runwayHalfLength, 0)
-    ]
-    const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(points),
-      this.runwayMaterial
-    )
-    this.landmarks.add(line)
-  }
-
-  private disposeGroupGeometries(group: THREE.Group) {
-    for (const child of group.children) {
-      const disposable = child as THREE.Object3D & {
-        geometry?: THREE.BufferGeometry
-      }
-      disposable.geometry?.dispose()
-
-      if (child instanceof THREE.Group) {
-        this.disposeGroupGeometries(child)
-      }
-    }
-  }
 }

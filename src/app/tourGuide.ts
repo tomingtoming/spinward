@@ -97,7 +97,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     durationSeconds: 10
   },
   surface: {
-    title: 'STREET LEVEL',
+    title: 'CENTRAL SQUARE',
     body: [
       'Welcome back to the plaza. Look up:',
       'the far side of town hangs overhead, 2R away.'
@@ -129,14 +129,15 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     body: ['Follow the garden path, take a seat, and look up through the trees.'],
     durationSeconds: 6
   },
+  'visit-ball-practice': { title: 'THROWING LAWN', body: ['Choose Ball. Aim above the hoop to begin.'], durationSeconds: 5 },
+  'visit-car-share': { title: 'CAR SHARE', body: ['A neighbourhood sedan. Approach the driver’s seat to use it.'], durationSeconds: 5 },
   drive: {
-    title: 'GRIP IS GRAVITY',
+    title: 'CAR SHARE',
     body: [
-      'The wheels hold the road only because the spinning floor presses them down.',
-      'Lower the rpm and feel the grip melt away.',
+      'The spinning floor gives the tyres their grip.',
       DRIVE_CONTROLS_TOKEN
     ],
-    durationSeconds: 12
+    durationSeconds: 6
   },
   rain: {
     title: 'RAIN LAGS THE SPIN',

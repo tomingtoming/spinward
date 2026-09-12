@@ -77,7 +77,7 @@ test('park benches match rendered seat height and return feet to clear garden pa
       details.rebuild({ ...plan, buildings: [] }, radius, park)
       details.group.updateMatrixWorld(true)
       feet.setPlan(plan, [], radius, park)
-      expect(details.group.children.length).toBeLessThanOrEqual(6)
+      expect(details.group.children.filter(o => o instanceof THREE.Mesh).length).toBeLessThanOrEqual(6)
       expect(details.lamps).toHaveLength(3)
       for (const lamp of details.lamps) {
         expect(Math.abs(radius - Math.hypot(lamp.position.x, lamp.position.z) - 3.56)).toBeLessThan(.001)

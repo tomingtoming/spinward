@@ -5,18 +5,22 @@ import { getArterialRoadWidth, getCityGroundHeight, resolveCitySurfaceCollision,
 
 const emptyPlan = (): CityPlan => ({ buildings: [], roads: [], intersections: [], patches: [], trees: [], tower: null, expressway: null })
 
-test('plaza furniture leaves both arterial carriageways and the throwing lane clear', () => {
+test('plaza furniture and signs leave both arterial carriageways clear', () => {
   const parent = new THREE.Group()
   const details = new CivicDetails(parent)
   try {
     details.rebuild(emptyPlan(), 3200)
     const roadHalfWidth = getArterialRoadWidth(3200) * 0.5
-    for (const mesh of details.group.children as THREE.Mesh[]) {
+    details.group.updateMatrixWorld(true)
+    const meshes: THREE.Mesh[] = []
+    details.group.traverse(o => { if (o instanceof THREE.Mesh) meshes.push(o) })
+    for (const mesh of meshes) {
       const positions = mesh.geometry.getAttribute('position')
       for (let i = 0; i < positions.count; i++) {
         // At azimuth zero local tangent is world Z and axial is world Y.
-        expect(Math.abs(positions.getY(i))).toBeGreaterThan(roadHalfWidth)
-        expect(Math.abs(positions.getZ(i))).toBeGreaterThan(roadHalfWidth)
+        const world = new THREE.Vector3().fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld)
+        expect(Math.abs(world.y)).toBeGreaterThan(roadHalfWidth)
+        expect(Math.abs(world.z)).toBeGreaterThan(roadHalfWidth)
       }
     }
   } finally { details.dispose() }
@@ -29,17 +33,20 @@ test('city details have bounded draw calls and release geometry when switching h
     const plan = planCity({ radius: 3200, length: 40000, maxBuildings: 12000 })
     details.rebuild(plan, 3200)
     expect(details.group.children.length).toBeGreaterThan(0)
-    expect(details.group.children.length).toBeLessThanOrEqual(6)
+    const meshes: THREE.Mesh[] = []
+    details.group.traverse(o => { if (o instanceof THREE.Mesh) meshes.push(o) })
+    // Six merged civic materials plus the painted sign face and frame.
+    expect(meshes.length).toBeLessThanOrEqual(8)
     let triangles = 0
     let disposed = 0
-    for (const mesh of details.group.children as THREE.Mesh[]) {
+    for (const mesh of meshes) {
       mesh.geometry.computeBoundingSphere()
       expect(Number.isFinite(mesh.geometry.boundingSphere!.radius)).toBe(true)
       triangles += (mesh.geometry.index?.count ?? mesh.geometry.getAttribute('position').count) / 3
       mesh.geometry.addEventListener('dispose', () => { disposed++ })
     }
     expect(triangles).toBeLessThan(15000)
-    const meshCount = details.group.children.length
+    const meshCount = meshes.length
     details.rebuild(emptyPlan(), 18)
     expect(disposed).toBe(meshCount)
     expect(details.group.children).toHaveLength(0)

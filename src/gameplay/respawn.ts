@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { centralPlazaArrival } from '../objects/civicArrival'
 
 import type { PlayerTraversalState } from '../app/playerTraversal'
 import { resetPlayerToGrounded, resetPlayerToFreeFly } from '../app/playerTraversal'
@@ -45,8 +46,7 @@ export const respawnInnerWall = (
   }
 ) => {
   resetPlayerToGrounded(state, {
-    axialPosition: 0,
-    azimuth: 0,
+    ...centralPlazaArrival(config.radius),
     radius: config.radius,
     frameAngle: config.frameAngle,
     omega: config.omega

@@ -102,13 +102,13 @@ import { Ball } from '../objects/ball'
 import { Explosions } from '../objects/explosion'
 import { PROJECTILES, cycleProjectile, type ProjectileType } from '../gameplay/projectileTypes'
 import { Car } from '../objects/car'
+import { centralPlazaArrival } from '../objects/civicArrival'
+import { CarShareStation } from '../objects/carShare'
 import {
   getArrivalSquare,
   getCityExpressway,
   getCityGroundHeight,
   getExpresswayElevation,
-  getPlazaTangentHalfWidth,
-  resolveCitySurfaceCollision,
   getSidewalkWidth,
   isInsidePlaza,
   isInsideArrivalSquare,
@@ -214,10 +214,7 @@ export const bootstrapApp = async () => {
   }
   const habitatConfig = settingsStore.habitat
   const reattachTuning = settingsStore.reattach
-  const initialSurfaceState: SurfaceRigState = {
-    axialPosition: 0,
-    azimuth: 0
-  }
+  const initialSurfaceState: SurfaceRigState = centralPlazaArrival(habitatConfig.radius)
   const debugVisuals = {
     // Off by default — the fictitious-force arrows on projectiles are a debug aid,
     // toggled back on via the debug GUI (?debug).
@@ -687,6 +684,10 @@ export const bootstrapApp = async () => {
   })
   const car = new Car()
   nearLayer.add(car.group)
+  const carShareStation = new CarShareStation()
+  nearLayer.add(carShareStation.group)
+  let carLayoutKey = ''
+  let xrDriverHeightOffset = 0
   // Crosswalks, signal poles and name-plate posts at the road crossings near
   // the player (objects/intersectionFurniture.ts): near-field only, relaid
   // as the player moves. `?furniture=0` hides it for A/B.
@@ -730,7 +731,7 @@ export const bootstrapApp = async () => {
     desktopLookControls.setLook(look.y,look.x)
     audio.playClick(); return true
   }
-  const roomAction = createRoomAction(toggleRoomSeat, () => Math.max(
+  const roomAction = createRoomAction(() => { if (!toggleRoomSeat()) tryToggleDrive() }, () => Math.max(
     window.innerHeight - dock.root.getBoundingClientRect().top,
     mobileControls?.getReservedBottomHeight() ?? 0
   ))
@@ -759,43 +760,17 @@ export const bootstrapApp = async () => {
   const driveKeys = { forward: false, back: false, left: false, right: false, brake: false }
 
   const parkCarNearPlaza = () => {
-    // Beside the spawn ring, but never inside a building: probe outward for
-    // the first pose with car-sized clearance on all sides.
-    const buildings = cityscape.getCollisionIndex()
-    const baseTangent = Math.min(getPlazaTangentHalfWidth(habitatConfig.radius) * 0.5, 4.5)
-    const probe = { azimuth: 0, axialPosition: 0 }
-    let parked = false
-
-    candidateSearch: for (const ring of [0, 4, 8, 14, 22, 32]) {
-      for (const [tangentStep, axialStep] of [
-        [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]
-      ]) {
-        const tangent = baseTangent + tangentStep * ring
-        const axial = axialStep * ring
-        probe.azimuth = tangent / habitatConfig.radius
-        probe.axialPosition = axial
-
-        if (!resolveCitySurfaceCollision(probe, buildings, habitatConfig.radius, 4)) {
-          drive.parkAt(tangent / habitatConfig.radius, axial, 0)
-          parked = true
-          break candidateSearch
-        }
-      }
-    }
-
-    if (!parked) {
-      drive.parkAt(baseTangent / habitatConfig.radius, 0, 0)
-    }
-
-    car.setPose(
-      drive.surface.azimuth,
-      drive.surface.axialPosition,
-      drive.heading,
-      habitatConfig.radius - drive.parkedElevation
-    )
+    const bay = cityscape.getCarShareBay()
+    const key = JSON.stringify([habitatConfig.radius, getHabitatSpanMeters(), bay])
+    if (key === carLayoutKey) return
+    carLayoutKey = key
+    carShareStation.configure(bay, habitatConfig.radius)
+    parkedCars.reserve(bay)
+    drive.parkAt(bay?.azimuth ?? Math.min(4.5, habitatConfig.radius * .2) / habitatConfig.radius,
+      bay?.axial ?? 0, bay?.heading ?? 0, bay ? .2 : 0)
+    car.setPose(drive.surface.azimuth, drive.surface.axialPosition, drive.heading, habitatConfig.radius - drive.parkedElevation)
   }
 
-  parkCarNearPlaza()
   const balls: Ball[] = []
   const forceVectorArrows = new ForceVectorArrows()
   const controllerVelocity = new ControllerVelocityTracker()
@@ -1076,13 +1051,16 @@ export const bootstrapApp = async () => {
     // you forward, like stepping off a moving vehicle.
     carExitVelocity.copy(drive.lastRotatingVelocity)
     drive.exit()
-    const exitAzimuth = drive.surface.azimuth + 2.6 / habitatConfig.radius
+    if (tourGuide.activeEvent === 'drive') { tourGuide.activeEvent = null; tourGuide.remainingSeconds = 0 }
+    const baySide = carShareStation.bay && Math.hypot((drive.surface.azimuth-carShareStation.bay.azimuth)*habitatConfig.radius, drive.surface.axialPosition-carShareStation.bay.axial) < 4 ? carShareStation.bay.signSide : 1
+    const exitAzimuth = drive.surface.azimuth - Math.cos(drive.heading) * baySide * 2.6 / habitatConfig.radius
+    const exitAxial = drive.surface.axialPosition + Math.sin(drive.heading) * baySide * 2.6
     carExitPosition
       .set(Math.cos(exitAzimuth), 0, Math.sin(exitAzimuth))
       .multiplyScalar(
         habitatConfig.radius - drive.parkedElevation - PLAYER_DISMOUNT_HEIGHT
       )
-      .setY(drive.surface.axialPosition)
+      .setY(exitAxial)
     resetPlayerToFreeFly(playerTraversal, {
       rotatingPosition: carExitPosition,
       rotatingVelocity: carExitVelocity,
@@ -1120,6 +1098,12 @@ export const bootstrapApp = async () => {
       return
     }
 
+    if (!car.group.visible) return
+    if (renderer.xr.isPresenting) {
+      const head = renderer.xr.getCamera().getWorldPosition(new THREE.Vector3())
+      viewRig.worldToLocal(head)
+      xrDriverHeightOffset = Car.DRIVER_EYE.y - head.y
+    }
     drive.enter(frameAngle, rpmToOmega(habitatConfig.rpm), habitatConfig.radius, {
       rapier,
       world: physicsWorld,
@@ -1181,7 +1165,7 @@ export const bootstrapApp = async () => {
         clearAllBalls()
         rebuildPlayerTraversal('inner-wall')
         drive.rebuild({ rapier, world: physicsWorld, units: getUnits() })
-        parkCarNearPlaza()
+        carLayoutKey = ''
         syncHabitat()
         settingsDirty = false
         return true
@@ -1261,6 +1245,7 @@ export const bootstrapApp = async () => {
         type: habitatConfig.type
       }
     )
+    parkCarNearPlaza()
     // The city index was just rebuilt for the new dimensions; re-seat the
     // streamed building colliders onto it (and the new sim scale / spin).
     cityColliders.rebuild({
@@ -1554,11 +1539,13 @@ export const bootstrapApp = async () => {
   if (debugEnabled) {
     // Console access for headless/manual debugging — same ?debug gate as the
     // lil-gui panel, absent from a normal session. __spinwardDrive lets a
-    // debugging session teleport the rover to a spot (e.g. a ramp mouth) and
+    // debugging session teleport the car to a spot (e.g. a ramp mouth) and
     // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
+    ;(window as unknown as Record<string, unknown>).__spinwardCar = car
+    ;(window as unknown as Record<string, unknown>).__spinwardTarget = throwTarget
     ;(window as unknown as Record<string, unknown>).__spinwardWatch = watchPanel
     ;(window as unknown as Record<string, unknown>).__spinwardWalkers = streetWalkers
     ;(window as unknown as Record<string, unknown>).__spinwardStreetLamps = streetLamps
@@ -2012,10 +1999,6 @@ export const bootstrapApp = async () => {
     return Math.max(cityHeight, deckCounts ? expresswayHeight : 0)
   }
 
-  // Seat height: the eye is 1.8 m on PC / 1.6 m on touch; riding the rover
-  // you sit up on the chassis, so lift the view while driving for a commanding
-  // road view instead of a ground-level one.
-  const DRIVER_VIEW_RAISE = 0.6
   // Landing absorb: the camera dips with the impact speed and springs back.
   const LAND_DIP_STIFFNESS = 6
   let landDipOffset = 0
@@ -2208,6 +2191,8 @@ export const bootstrapApp = async () => {
     }
     desktopJumpQueued = false
 
+    const vehicleSteer = THREE.MathUtils.clamp(
+      Number(driveKeys.right) - Number(driveKeys.left) + (touchMove?.right ?? 0) + xrWatchInput.driveSteer, -1, 1)
     if (drive.driving) {
       drive.preStep(
         {
@@ -2219,14 +2204,7 @@ export const bootstrapApp = async () => {
             -1,
             1
           ),
-          steer: THREE.MathUtils.clamp(
-            (driveKeys.right ? 1 : 0) +
-              (driveKeys.left ? -1 : 0) +
-              (touchMove?.right ?? 0) +
-              xrWatchInput.driveSteer,
-            -1,
-            1
-          ),
+          steer: vehicleSteer,
           brake: Math.max(
             driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0,
             xrWatchInput.driveBrake
@@ -2322,6 +2300,7 @@ export const bootstrapApp = async () => {
         : habitatConfig.radius - Math.hypot(playerFixedColliderPosition.x, playerFixedColliderPosition.z)
     )
     parkedCars.setPack(cityscape.getKenneyCarPack())
+    car.setPack(cityscape.getKenneyCarPack())
     parkedCars.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
@@ -2446,9 +2425,11 @@ export const bootstrapApp = async () => {
       deltaSeconds
     landDipOffset = Math.max(-0.35, landDipOffset + landDipVelocity * deltaSeconds)
     landingSettle *= Math.exp(-Math.max(0, deltaSeconds) / LANDING_SETTLE_TAU)
-    viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
+    viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? (renderer.xr.isPresenting ? xrDriverHeightOffset : Car.DRIVER_EYE.y - camera.position.y) : 0) +
       (!renderer.xr.isPresenting ? (roomSeating.eyeHeight - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
 
+    viewRig.position.x = drive.driving ? -Car.DRIVER_EYE.x : 0
+    viewRig.position.z = drive.driving ? -Car.DRIVER_EYE.z : 0
     applyPlayerTraversalState(playerRig, playerTraversal, habitatConfig.radius, frameAngle)
 
     if (drive.driving) {
@@ -2478,13 +2459,16 @@ export const bootstrapApp = async () => {
         -2,
         2
       )
-      viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? DRIVER_VIEW_RAISE : 0) +
+      viewRig.position.y = landDipOffset + landingSettle + (drive.driving ? (renderer.xr.isPresenting ? xrDriverHeightOffset : Car.DRIVER_EYE.y - camera.position.y) : 0) +
       (!renderer.xr.isPresenting ? (roomSeating.eyeHeight - camera.position.y) * (roomSeating.seat ? 1 : 1-roomSeating.standingProgress) : 0)
     }
     camera.getWorldPosition(eyeWorldPrev)
     hasEyePrev = true
 
-    throwTarget.configure(habitatConfig.radius, renderer.xr.isPresenting)
+    const practicePark = cityscape.getPublicPark()
+    throwTarget.configure(habitatConfig.radius, renderer.xr.isPresenting, practicePark
+      ? { azimuth: practicePark.azimuth, axial: practicePark.axial + 4 }
+      : habitatConfig.radius < 800 ? { azimuth: 0, axial: 0 } : null)
     for (const ball of balls) {
       ball.step({
         deltaSeconds,
@@ -2793,6 +2777,7 @@ export const bootstrapApp = async () => {
     starfield.setDaylight(daylight, carrierInAir, deltaSeconds)
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
+    car.update(drive.driving, daylight, vehicleSteer)
     streetLamps.update(
       Math.atan2(carrierRotatingPosition.z, carrierRotatingPosition.x), carrierRotatingPosition.y,
       habitatConfig.radius - carrierRadial,
@@ -2864,7 +2849,10 @@ export const bootstrapApp = async () => {
     }
 
     const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
-    roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice())
+    const nearCar = car.group.visible && !nearSeat && !roomSeating.seat && playerTraversal.mode === 'grounded' &&
+      drive.isPlayerNear(playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition, habitatConfig.radius)
+    roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice(),
+      drive.driving ? 'Leave car' : nearCar ? 'Use car share' : null)
     const coffeeCtx = coffeeContext()
     coffeeService.update(deltaSeconds, coffeeCtx)
     coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
@@ -2923,7 +2911,8 @@ export const bootstrapApp = async () => {
     // Let the current room action teach itself. The large generic welcome
     // card otherwise covers the held cup and the seated body on portrait screens.
     const roomInteraction = !!roomSeating.seat || coffeeService.phase !== 'idle'
-    const visibleTourCard = roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard
+    const practiceCard = !drive.driving && !roomInteraction ? throwTarget.getCard(rotatingCameraPosition, selectedProjectile === 'ball') : null
+    const visibleTourCard = practiceCard ?? (roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard)
     tourCardPanel.update(resolveTourCard(visibleTourCard, currentControlPlatform()), {
       camera: desktopUiCamera,
       deltaSeconds,
@@ -3011,6 +3000,7 @@ export const bootstrapApp = async () => {
     bloomComposer?.dispose()
     drive.dispose()
     car.dispose()
+    carShareStation.dispose()
     throwTarget.dispose()
     intersectionFurniture.dispose()
     parkedCars.dispose()

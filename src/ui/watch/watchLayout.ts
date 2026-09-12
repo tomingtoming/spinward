@@ -223,7 +223,7 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
 
 const createPlacesLayout = (width: number, height: number): WatchScreenLayout => {
   const backButton = makeBackButton()
-  const placesSection: WatchSection = { top: 108, height: 424, title: 'STREET LIFE' }
+  const placesSection: WatchSection = { top: 108, height: Math.max(424, 84 + Math.ceil(PLACE_DESTINATIONS.length / 2) * 104), title: 'STREET LIFE' }
   const placeButtons = PLACE_DESTINATIONS.map((place, i) => makeActionButton(
     place.id, place.label, CONTENT_LEFT + (i % 2) * 310,
     placesSection.top + 84 + Math.floor(i / 2) * 104, 290, 80

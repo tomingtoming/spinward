@@ -1,11 +1,12 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { ThrowTarget } from './throwTarget'
+import { getThrowTargetLayout } from '../gameplay/throwTarget'
 import { Ball } from './ball'
 import { initRapier } from '../physics/rapierContext'
 import { createUnitsContext } from '../units/units'
 
-test('real throws can miss, retry, unlock slow throws and score only once per ball', async () => {
+test.each([{ azimuth: 0, axial: 0 }, { azimuth: .052, axial: -360 }])('real throws still score after the practice lane moves: %o', async (origin) => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -22,15 +23,16 @@ test('real throws can miss, retry, unlock slow throws and score only once per ba
   const target = new ThrowTarget(parent, () => { hits++ })
   const radius = 3200
   const omega = Math.sqrt(9.81 / radius)
-  target.configure(radius)
+  target.configure(radius, false, origin)
+  const layout = getThrowTargetLayout(radius, origin)
   const units = createUnitsContext(0.02)
   let frameAngle = 0
   const shoot = (speed: number, degrees: number) => {
     const angle = degrees * Math.PI / 180
-    const direction = new THREE.Vector3(-Math.sin(angle), -Math.cos(angle), 0)
+    const direction = new THREE.Vector3(-Math.cos(origin.azimuth) * Math.sin(angle), -Math.cos(angle), -Math.sin(origin.azimuth) * Math.sin(angle))
     const ball = new Ball({
       physics: { rapier, world, units, restitution: 0.4 },
-      initialPosition: new THREE.Vector3(radius - 1.8, 0, 0).addScaledVector(direction, 0.35),
+      initialPosition: layout.start.clone().addScaledVector(direction, .35),
       maxTrailPoints: 8, lifetimeSeconds: 10, frameAngle, omega,
       onBounce: (bounced) => target.bounced(bounced)
     })
@@ -52,13 +54,16 @@ test('real throws can miss, retry, unlock slow throws and score only once per ba
   }
   try {
     expect(target.hasHit).toBe(false)
+    expect(target.getCard(layout.start, true)).toBe(target.getCard(layout.start, true))
     shoot(16, 0)
     expect(hits).toBe(0)
     expect(target.hasHit).toBe(false)
     shoot(16, 9)
     expect(hits).toBe(1)
     expect(target.hasHit).toBe(true)
-    expect(messages).toContain('THROUGH!')
+    expect(target.getCard(layout.start, true)?.title).toBe('THROUGH!')
+    expect(messages).not.toContain('THROUGH THE RING')
+    expect(target.getCard(layout.start.clone().add(new THREE.Vector3(0, 30, 0)), true)).toBeNull()
     target.reset()
     expect(target.hasHit).toBe(true)
     shoot(12, 17)

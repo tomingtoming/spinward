@@ -47,6 +47,19 @@ bug: please open an issue.
   closed-form path the same release would take on a flat floor with constant
   gravity equal to the felt g at the release point, no Coriolis, no floor
   curvature. The gap between the ghost and the real trail is the spin, drawn.
+- The public garden's supported hoop is a scoring plane for these same balls.
+  Its supports/signs are visual equipment, without additional rigid-body
+  colliders. Instructions and hit feedback are local to the practice area.
+
+## Neighbourhood car share
+
+- The usable car shares the city's ordinary sedan geometry and palette. Its
+  near cabin adds seats, dashboard, steering wheel and inner pillars, with a
+  seated camera. The exterior mesh is not the physical collision shape.
+- Driving retains the existing sphere contact body and rotating-gravity grip
+  model. Its acceleration and top speed are deliberately tuned for spin
+  experiments, including cancelling the wall's motion; it is not a calibrated
+  road-car simulation. One reserved kerb bay and one usable car exist per city.
 
 ## Spin rate and the gravity gradient
 

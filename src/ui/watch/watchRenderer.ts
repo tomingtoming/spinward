@@ -456,8 +456,8 @@ export const renderWatch = (
     ctx.font = '500 19px "Avenir Next", sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, 568)
-    ctx.fillText('Surface returns to the open plaza.', 50, 604)
+    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, layout.placesSection.top + layout.placesSection.height + 36)
+    ctx.fillText('Surface returns to Central Square.', 50, layout.placesSection.top + layout.placesSection.height + 72)
     return
   }
 

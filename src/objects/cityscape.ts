@@ -17,6 +17,7 @@ import { BuildingInteriorLayer } from './buildingInteriorLayer'
 import { LOBBY_PILOT, matchesAuthoredPilot } from './cafePilot'
 import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterior } from './buildingInteriors'
 import * as THREE from 'three'
+import { planCarShareBay, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
 import { planPublicPark } from './publicPark'
 import { StreetAccessLayer } from './streetAccessLayer'
@@ -887,6 +888,7 @@ export class Cityscape {
   // The full plan of the current build, for read-only consumers outside the
   // cityscape (the far-field city shell bake). Null until the first build.
   private cityPlan: CityPlan | null = null
+  private carShareBay: CarShareBay | null = null
   private cityExpressway: CityExpressway | null = null
   private expresswayGroup: THREE.Group | null = null
   private collisionBuildings: CityBuilding[] = []
@@ -1365,6 +1367,7 @@ export class Cityscape {
     this.cityPlanRoads = plan.roads
     this.trafficRoadSpans = planTrafficRoadSpans(plan.roads, radius)
     this.cityPlan = plan
+    this.carShareBay = planCarShareBay(plan, radius)
     this.trafficSignals = createTrafficSignalIndex(this.habitatType === 'ring' ? [] : plan.intersections)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
@@ -1412,11 +1415,24 @@ export class Cityscape {
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
   getRainRoofs() { return this.interiorLayer.getRainRoofs() }
   getSeats(): readonly RoomSeat[] { return this.seats }
+  getCarShareBay() { return this.carShareBay }
   getPublicPark() { return this.civicDetails.park }
   getParkLamps() { return this.civicDetails.lamps }
   getCoffeeStation() { return this.coffeeStation }
 
   getInteriorVisit(kind: string | null) {
+    if (kind === 'ball-practice' || kind === 'car-share') {
+      const park = this.civicDetails.park, bay = this.carShareBay
+      if (kind === 'ball-practice' && !park || kind === 'car-share' && !bay) return null
+      const azimuth = kind === 'ball-practice' ? park!.azimuth : bay!.azimuth - Math.cos(bay!.heading) * bay!.signSide * 3.6 / this.radius
+      const axial = kind === 'ball-practice' ? park!.axial + 4 : bay!.axial + Math.sin(bay!.heading) * bay!.signSide * 3.6
+      const up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
+      const forward = kind === 'ball-practice' ? new THREE.Vector3(0, -1, 0)
+        : new THREE.Vector3(Math.cos(bay!.azimuth) * this.radius, bay!.axial, Math.sin(bay!.azimuth) * this.radius)
+          .sub(new THREE.Vector3(Math.cos(azimuth) * this.radius, axial, Math.sin(azimuth) * this.radius)).projectOnPlane(up).normalize()
+      const orientation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(forward.clone().cross(up), up, forward.clone().negate()))
+      return { azimuth, axial, orientation }
+    }
     if (kind === 'park') {
       const park = this.civicDetails.park
       if (!park) return null
@@ -1625,6 +1641,7 @@ export class Cityscape {
     this.cityPlanRoads = []
     this.trafficRoadSpans = []
     this.cityPlan = null
+    this.carShareBay = null
     this.trafficRoutes = []
     this.trafficSignals = createTrafficSignalIndex([])
     this.cityExpressway = null

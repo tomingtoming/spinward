@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { civicSign } from './civicSign'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { getArterialRoadWidth, type CityBuilding, type CityPlan } from './cityLayout'
 import { fitSuburbanHouse } from './buildingAssets'
@@ -17,6 +18,7 @@ export class CivicDetails {
   readonly colliders: CityBuilding[] = []
   readonly lamps: StreetLampSource[] = []
   park: PublicPark | null = null
+  private signs: THREE.Group[] = []
   private readonly materials = [
     new THREE.MeshStandardMaterial({ color: 0xb5b5a4, roughness: 0.86 }),
     new THREE.MeshStandardMaterial({ color: 0x35444a, roughness: 0.55, metalness: 0.4 }),
@@ -109,15 +111,21 @@ export class CivicDetails {
       }
       crown.dispose(); trunk.dispose()
     }
+    const edge = getArterialRoadWidth(radius) / 2
+    // The arrival corner shares the square's paving; no special spawn decal.
+    box(surface(0, 0), 0, edge + 3.25, .012, -edge - 2.1, 6.3, .024, 4.1)
+    const guide = civicSign('CENTRAL SQUARE', ['Public garden · Ball practice', 'Neighbourhood car share'], 1.65)
+    guide.applyMatrix4(surface((edge + 5) / radius, edge + 3.5))
+    this.signs.push(guide); this.group.add(guide)
     const planter = (frame: THREE.Matrix4, x: number, z: number, width = 1.2) => {
       box(frame, 0, x, 0.28, z, width, 0.56, 0.85)
       box(frame, 3, x, 0.7, z, width * 0.9, 0.45, 0.72)
     }
-    // Human-scale resting places beside, not across, the central throwing lane.
+    // Resting places on the pedestrian corners of the central square.
     const plaza = surface(0, 0)
     const corner = getArterialRoadWidth(radius) * 0.5 + 1.5
     for (const side of [-1, 1]) {
-      const azimuth = side * (corner + .4) / radius, axial = -corner
+      const azimuth = side * (corner + .4) / radius, axial = side === 1 ? corner + 1.35 : -corner
       // Give each bench its own radial frame; a shared tangent plane would
       // bury its feet slightly below the curved floor away from the origin.
       bench(surface(azimuth, axial), 0, 0, true)
@@ -125,8 +133,6 @@ export class CivicDetails {
         azimuth, axialPosition: axial + .18, seatHeight: .53,
         exit: { azimuth, axialPosition: axial + .95 } })
       planter(plaza, side * (corner + 0.4), -corner)
-      box(plaza, 1, side * (corner + 1.5), 0.7, corner, 0.12, 1.4, 0.12)
-      box(plaza, 0, side * (corner + 1.5), 1.4, corner, 0.7, 0.42, 0.1)
     }
 
     // An observation deck is a destination: seating, a planter and an
@@ -222,6 +228,8 @@ export class CivicDetails {
   }
 
   clear() {
+    for (const sign of this.signs) sign.userData.dispose()
+    this.signs = []
     this.park = null
     this.lamps.length = 0
     this.seats.length = 0

@@ -7,15 +7,17 @@ export type ThrowTargetLayout = {
   center: THREE.Vector3
   normal: THREE.Vector3
   azimuth: number
+  start: THREE.Vector3
   openingRadius: number
 }
 
-// Inside the spawn plaza, in the direction the surface camera initially faces.
-export const getThrowTargetLayout = (radius: number): ThrowTargetLayout => {
+// Axial throwing lane: the park supplies its start; small physics habitats use the origin.
+export const getThrowTargetLayout = (radius: number, origin = { azimuth: 0, axial: 0 }): ThrowTargetLayout => {
   // Spawn view includes a +pi/2 yaw: forward is -Y along the axial avenue.
-  const azimuth = 0
+  const azimuth = origin.azimuth
   return {
-    center: new THREE.Vector3(radius - 1.8, -8, 0),
+    center: new THREE.Vector3(Math.cos(azimuth) * (radius - 1.8), origin.axial - 8, Math.sin(azimuth) * (radius - 1.8)),
+    start: new THREE.Vector3(Math.cos(azimuth) * (radius - 1.8), origin.axial, Math.sin(azimuth) * (radius - 1.8)),
     normal: new THREE.Vector3(0, 1, 0),
     azimuth,
     openingRadius: 0.6

@@ -13,6 +13,7 @@ import {
   respawnOverlook
 } from './respawn'
 import { getArrivalSquare } from '../objects/cityLayout'
+import { centralPlazaArrival } from '../objects/civicArrival'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { createUnitsContext } from '../units/units'
 
@@ -253,14 +254,14 @@ test('respawnInnerWall is defined in real meters while Rapier pose follows sim s
   respawnInnerWall(izmaState, { radius, frameAngle: 0, omega: 0 })
   respawnInnerWall(elysiumState, { radius, frameAngle: 0, omega: 0 })
 
-  expect(izmaState.inertialPosition.x).toBeCloseTo(getPlayerBodyRadius(radius), 6)
-  expect(elysiumState.inertialPosition.x).toBeCloseTo(getPlayerBodyRadius(radius), 6)
+  expect(izmaState.inertialPosition.x).toBeCloseTo(Math.cos(centralPlazaArrival(radius).azimuth) * getPlayerBodyRadius(radius), 6)
+  expect(elysiumState.inertialPosition.x).toBeCloseTo(Math.cos(centralPlazaArrival(radius).azimuth) * getPlayerBodyRadius(radius), 6)
   expect(izmaState.physics?.freeFlyBody.translation().x).toBeCloseTo(
-    getPlayerBodyRadius(radius) * 0.02,
+    Math.cos(centralPlazaArrival(radius).azimuth) * getPlayerBodyRadius(radius) * 0.02,
     5
   )
   expect(elysiumState.physics?.freeFlyBody.translation().x).toBeCloseTo(
-    getPlayerBodyRadius(radius) * 0.005,
+    Math.cos(centralPlazaArrival(radius).azimuth) * getPlayerBodyRadius(radius) * 0.005,
     5
   )
 

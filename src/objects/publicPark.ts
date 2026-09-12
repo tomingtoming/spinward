@@ -68,6 +68,10 @@ export function planPublicPark(plan: CityPlan, radius: number): PublicPark | nul
     // Do not send the walking route through an existing trunk or building.
     const obstacles = plan.buildings.map(b => ({ x: wrap(b.azimuth - azimuth) * radius, y: b.axial - axial, width: b.width, depth: b.depth }))
     if (paths.some(p => obstacles.some(b => Math.abs(p.x - b.x) < (p.width + b.width) / 2 + .6 && Math.abs(p.y - b.y) < (p.depth + b.depth) / 2 + .6))) continue
+    // Keep an eight-metre ball practice lane inside the lawn, clear of
+    // existing trunks as well as the path and bench network.
+    if (plan.trees.some(t => Math.abs(wrap(t.azimuth - azimuth) * radius) < 3.5 && Math.abs(t.axial - axial) < 7)) continue
+    if (obstacles.some(b => Math.abs(b.x) < b.width / 2 + 3.5 && Math.abs(b.y) < b.depth / 2 + 7)) continue
     if (plan.trees.some(t => paths.some(p => inside({ x: wrap(t.azimuth - azimuth) * radius, y: t.axial - axial }, p, .8)))) continue
     const trees = [[-16, -17], [16, -17], [-16, 17], [16, 17], [-16, 5], [16, -5], [-4, 18], [5, 18]].map(([x, y], i) => ({
       azimuth: azimuth + x / radius, axial: axial + y, height: 7 + (i % 3) * .8, tone: .18 + i * .09

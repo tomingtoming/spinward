@@ -10,8 +10,8 @@ export function createRoomAction(onActivate:()=>void, reservedBottom:()=>number)
   button.addEventListener('click',e=>{e.stopPropagation();onActivate();button.blur()})
   let previous='', bottom=-1
   return {
-    update(label:string|null,seated:boolean,hidden:boolean,touch:boolean){
-      const text=seated?'Stand up':label?`Sit · ${label}`:''
+    update(label:string|null,seated:boolean,hidden:boolean,touch:boolean,action:string|null=null){
+      const text=action??(seated?'Stand up':label?`Sit · ${label}`:'')
       const next=text&&!touch?`E  ${text}`:text
       if(next!==previous){button.textContent=next;button.setAttribute('aria-label',text);previous=next}
       button.hidden=hidden||!text
