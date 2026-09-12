@@ -1,6 +1,7 @@
 import { test, expect } from 'playwright-webxr'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import fs from 'node:fs/promises'
+import { underpassPose } from '../neighborhood-life/underpass-views.mjs'
 
 const leftPose = {
   position: [-.1, 1.42, -.4],
@@ -9,6 +10,57 @@ const leftPose = {
 }
 const rightPosition = [.22, 1.38, -.2]
 const distance = (a, b) => Math.hypot(Math.atan2(Math.sin(a.azimuth-b.azimuth), Math.cos(a.azimuth-b.azimuth))*b.radius, a.axial-b.axial)
+
+test.describe('crosswalk-directions', () => {
+  test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
+  test('wrist directions use the real crossing and retain a readable approach hint',async({page,xr},info)=>{
+    const errors=[],frames=[]
+    page.on('pageerror',e=>errors.push(e.message))
+    await page.goto('about:blank')
+    const gpu=await page.evaluate(()=>{
+      const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info')
+      if(!d)throw Error('Cannot verify GPU')
+      const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r
+    })
+    expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
+    await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:'',contentType:'application/javascript'}))
+    await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${underpassPose({at:[-12/3200,316,1.8],aim:[12/3200,316,1.8],ground:true})}`)
+    await page.waitForSelector('#splash',{state:'detached'})
+    await page.waitForFunction(()=>window.__spinwardOuting.destinations.size===3)
+    await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
+    const diagnostics=await xr.diagnostics()
+    expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+    expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
+    await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]})
+    await xr.setControllerPose('left',leftPose)
+    await xr.setControllerPose('right',{position:rightPosition,quaternion:[0,0,0,1]})
+    await xr.settle(180)
+    await press(page,xr,'nav-places');await press(page,xr,'nav-outing')
+    const before=await page.evaluate(()=>window.__spinward)
+    await press(page,xr,'guide-square')
+    await page.waitForFunction(()=>window.__spinward.outing.detail.includes('Crosswalk · check traffic'))
+    const route=await page.evaluate(()=>window.__spinwardOuting.journey.points)
+    expect(route.some(p=>p.crosswalk&&p.axial>310)).toBe(true)
+    expect(distance(before,await page.evaluate(()=>window.__spinward))).toBeLessThan(.15)
+    await captureTexture(page,info,'crosswalk-directions')
+    for(const degrees of [0,25,-25]){
+      await xr.setHeadPose({euler:[-.22,0,degrees*Math.PI/180]});await xr.settle(150)
+      const path=info.outputPath(`crosswalk-wrist-roll-${degrees}.png`)
+      const capture=await xr.screenshot(path,{canvas:'canvas',metadata:true,timeout:5000})
+      expect(capture.sessionId).toBe(diagnostics.session.id)
+      expect([capture.width,capture.height]).toEqual([2560,960])
+      await info.attach(`crosswalk-wrist-roll-${degrees}`,{path,contentType:'image/png'});frames.push(capture)
+    }
+    await xr.setHeadPose({euler:[-.22,0,0]})
+    await press(page,xr,'guide-cancel')
+    await page.waitForFunction(()=>window.__spinward.outing.action===null)
+    const after=await xr.sessionCursor()
+    await page.evaluate(()=>window.__xrDevice.activeSession.end())
+    await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
+    expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
+    await fs.writeFile(info.outputPath('crosswalk-directions.json'),JSON.stringify({gpu,diagnostics,route,frames,errors},null,2))
+  })
+})
 
 // Only read layout/transform probes. Selection always travels through IWER
 // target-ray poses → Three's raycast → the real controller trigger event.

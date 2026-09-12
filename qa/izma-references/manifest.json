@@ -746,10 +746,11 @@
       "sha256": "5aa519feeda9c50fe9c8ef656d55408d7eb256d9146bade3b54abf11bd86dd99",
       "size": 2640663,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "street-signals",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。円形灯器の遮光フード、取付ねじ、外枠に情報表示がある。表示された警告・制限値・番号は作品内の状態として扱い、Spinwardへ転記しない。灯具の造形反映は引き続き未実装。"
     },
     {
       "id": "izma-ep03-0016",
@@ -757,10 +758,11 @@
       "sha256": "3dd77b7c99b417e1e7c304b179b8c92891ae0ae3aaf14631476823a1c9d6837e",
       "size": 2040138,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "street-signals",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。支持された案内板に方向・所要時間・交通状態がまとまる。今回の歩行案内改善は既存道路に基づく機能修正であり、この案内板の造形を実装した扱いにはしない。地名・路線・所要時間・事故表示は複製しない。"
     },
     {
       "id": "izma-ep03-0017",

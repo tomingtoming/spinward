@@ -2596,13 +2596,18 @@ export const bootstrapApp = async () => {
     outingDetail=journey.status==='unavailable'?'No local route · move nearer a street'
       : journey.status==='arrived'?(drive.driving?'Brake in the bay, then Park':journey.action==='guide-car'?'Your car is here · E to enter':journey.action==='guide-cafe'?'Café entrance · step inside for coffee':journey.action==='guide-park'?'Park entrance · follow the path to a bench':'Central Square · welcome back')
       : `${turn} ${Math.ceil(journey.nextDistance)} m · ${Math.ceil(journey.remaining)} m ${drive.driving?'to parking':'on foot'}`
+    if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.crosswalk &&
+      (journey.nextDistance<12 || journey.points[journey.index-1]?.crosswalk))
+      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Crosswalk · check traffic`
     if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
     if(journey.status==='arrived' && journey.action==='guide-park' && roomSeating.seat)outingDetail='Take a break · Your car in Places'
     if(outingCanPark)outingDetail='Bay reached · Park to step out'
     dock.driving.parentElement!.hidden = !drive.driving
     outingPanel.update({label:journey.label,detail:outingDetail,angle:journey.status==='active'?outingAngle:NaN,active:journey.status!=='idle',driving:drive.driving,mode:drive.mode,canPark:outingCanPark,hidden:renderer.xr.isPresenting})
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
-      outing:{text:journey.action?`${journey.label} · ${outingDetail}`:'Choose a place; travel there on foot or by car.',mode:drive.mode,canPark:outingCanPark,active:!!journey.action},
+      outing:{text:journey.action?`${journey.label} · ${outingDetail}`:'Choose a place; travel there on foot or by car.',
+        label:journey.action?journey.label:'',detail:journey.action?outingDetail:'Choose a place for directions.',
+        mode:drive.mode,canPark:outingCanPark,active:!!journey.action},
       playerMode: playerTraversal.mode,
       platform: currentControlPlatform(),
       region: playerRegion,

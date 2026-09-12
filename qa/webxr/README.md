@@ -335,3 +335,10 @@ Precise contact dimensions, exact roll angles and native headset behaviour are
 not established by these images. The Quest-budget desktop comparison also
 retains both occupied and empty berths, including the small habitat; differences
 in navigation-light phase and reduced bloom do not indicate missing geometry.
+
+
+## Crosswalk directions (2026-09-13)
+
+`ui.xr.mjs` also enters VR on the central avenue pavement, selects Central Square through the actual wrist target ray and trigger, checks the painted-crossing route and approach hint, captures stereo at 0/±25° roll plus the raw wrist texture, then cancels and exits. The instruction uses a bright 28px two-line area with the destination on a separate line. It does not interpret vehicle signals as pedestrian permission.
+
+The complete suite passed 10 tests / 12 sessions before the final wrist typography adjustment. The three affected UI tests were then repeated on the final build: 3 tests / 5 sessions, including both exit/re-entry paths. Scenery was unchanged by that adjustment. Evidence is under `evidence/crosswalk-directions-initial-20260913/` and `evidence/crosswalk-directions-final-20260913/`. These are hardware-GPU Chrome emulation results; physical Quest legibility and performance remain unverified.

@@ -1,6 +1,9 @@
 import {expect,test} from 'bun:test'
 import {planNeighborhoodRoute,NeighborhoodJourney,pavementExit,canParkAt,surfaceDistance} from './neighborhoodRoute'
-import type {CityPlan} from '../objects/cityLayout'
+import {planCity, type CityPlan} from '../objects/cityLayout'
+import {CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS} from '../objects/intersectionSignals'
+import {planPublicPark} from '../objects/publicPark'
+import {centralPlazaArrival} from '../objects/civicArrival'
 const r=3200
 const point=(x:number,y:number)=>({azimuth:x/r,axial:y})
 const empty:CityPlan={roads:[],buildings:[],patches:[],trees:[],intersections:[],tower:null,expressway:null}
@@ -63,4 +66,59 @@ test('a local-street bay leaves clearance to a building with a two-metre frontag
  expect(exit).not.toBeNull()
  expect(exit.axial).toBeGreaterThan(3.4)
  expect(exit.axial).toBeLessThan(4.3)
+})
+
+test('walking detours to real zebra stripes on both axes and across the cylinder seam',()=>{
+ for(const swap of [false,true])for(const shift of [0,.37,1.29])for(const origin of [0,Math.PI]) {
+  const pt=(x:number,y:number)=>({azimuth:origin+(swap?y+shift:x)/r,axial:swap?x:y+shift})
+  const street:CityPlan={...empty,roads:[
+   {...pt(0,0),tangentWidth:swap?800:19.5,axialLength:swap?19.5:800,kind:'arterial'},
+   {...pt(0,160),tangentWidth:swap?6:100,axialLength:swap?100:6,kind:'local'}],
+   intersections:[{...pt(0,160),avenueWidth:swap?6:19.5,streetWidth:swap?19.5:6,avenueKind:swap?'local':'arterial',streetKind:swap?'arterial':'local'}]}
+  const start=pt(-12,0),goal=pt(12,0),route=planNeighborhoodRoute(street,r,start,goal,false)!
+  expect(route).not.toBeNull();expect(route.some(p=>p.crosswalk)).toBe(true)
+  const xy=(p:{azimuth:number;axial:number})=>{
+   const x=Math.atan2(Math.sin(p.azimuth-origin),Math.cos(p.azimuth-origin))*r,y=p.axial
+   return swap?[y,x-shift]:[x,y-shift]
+  }
+  for(let i=1;i<route.length;i++) {
+   const a=xy(route[i-1]),b=xy(route[i])
+   for(let t=0;t<=1;t+=.025) {
+    const x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t
+    if(Math.abs(x)<9.75) expect(Math.abs(Math.abs(y-160)-(3+CROSSWALK_SETBACK_METERS+CROSSWALK_LENGTH_METERS/2)))
+      .toBeLessThanOrEqual(CROSSWALK_LENGTH_METERS/2-.29)
+   }
+  }
+  // No silent fallback to an unmarked crossing when no painted crossing exists.
+  expect(planNeighborhoodRoute({...street,intersections:[]},r,start,goal,false)).toBeNull()
+  const driving=planNeighborhoodRoute(street,r,pt(-8,0),pt(8,0),true)!
+  expect(driving).not.toBeNull();expect(driving.some(p=>p.crosswalk)).toBe(false)
+ }
+})
+
+test('the generated central avenue uses its next junction, beyond the old 100 m search margin',()=>{
+ const city=planCity({radius:r,length:40000,maxBuildings:4200}), start=point(-12,180),goal=point(12,180)
+ const route=planNeighborhoodRoute(city,r,start,goal,false)!
+ expect(route).not.toBeNull()
+ expect(route.some(p=>p.crosswalk && p.axial>310)).toBe(true)
+ expect(route.reduce((d,p,i)=>d+(i?surfaceDistance(route[i-1],p,r):0),0)).toBeGreaterThan(280)
+})
+
+test('a walking turn is not advanced while still two metres short of its crosswalk',()=>{
+ const journey=new NeighborhoodJourney()
+ journey.setRoute([point(-12,0),point(-12,10),{...point(12,10),crosswalk:true}],false,'Square')
+ journey.update(point(-12,8),r,.1);expect(journey.index).toBe(1)
+ journey.update(point(-12,9.5),r,.1);expect(journey.index).toBe(2)
+})
+
+test('the unmarked central square does not cut off directions to the public park',()=>{
+ for(const maxBuildings of [2400,4200,9000]){
+  const city=planCity({radius:r,length:40000,maxBuildings}),park=planPublicPark(city,r)!,arrival=centralPlazaArrival(r)
+  const square={azimuth:arrival.azimuth,axial:arrival.axialPosition}
+  const entrance={azimuth:park.azimuth+park.entrance.x/r,axial:park.axial+park.entrance.y}
+  for(const [start,goal] of [[square,entrance],[entrance,square]]){
+   const route=planNeighborhoodRoute(city,r,start,goal,false,park)
+   expect(route).not.toBeNull();expect(route!.some(p=>p.crosswalk)).toBe(true)
+  }
+ }
 })

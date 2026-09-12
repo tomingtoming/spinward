@@ -468,9 +468,19 @@ export const renderWatch = (
   if (layout.screen === 'outing') {
     for(const button of layout.placeButtons ?? []) drawButton(ctx,button,hoveredAction,{disabled:isWatchActionDisabled(snapshot,button.id)})
     ctx.textAlign='left';ctx.textBaseline='top'
-    ctx.fillStyle=TEXT_DIM;ctx.font='500 19px \"Avenir Next\", sans-serif'
-    ctx.fillText(snapshot.outing?.text ?? 'Choose a place and follow the streets.',50,604,620)
-    ctx.fillText(`Driving: ${snapshot.outing?.mode ?? 'Street'} · Park at a marked bay`,50,641,620)
+    // Navigation is the reason to look down here. Give the next instruction
+    // two normal-width lines instead of squeezing it into a small status row.
+    ctx.fillStyle=TEXT_BRIGHT;ctx.font='600 28px \"Avenir Next\", sans-serif'
+    const lines:string[]=[], words=(snapshot.outing?.detail??snapshot.outing?.text??'Choose a place for directions.').split(' ')
+    let line=''
+    for(const word of words){
+      const candidate=line?`${line} ${word}`:word
+      if(line&&ctx.measureText(candidate).width>620){lines.push(line);line=word}else line=candidate
+    }
+    if(line)lines.push(line)
+    lines.slice(0,2).forEach((text,i)=>ctx.fillText(text,50,578+i*33,620))
+    ctx.fillStyle=TEXT_DIM;ctx.font='500 21px \"Avenir Next\", sans-serif'
+    ctx.fillText(snapshot.outing?.label??'',50,655,620)
   }
   if (layout.screen === 'places' && layout.placesSection) {
     const directions=layout.buttons.find(b=>b.id==='nav-outing')

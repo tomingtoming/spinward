@@ -2,8 +2,9 @@ import { getStreetProfile } from '../objects/streetProfile'
 import type { CityPlan } from '../objects/cityLayout'
 import type { PublicPark } from '../objects/publicPark'
 import type { CarShareBay } from '../objects/carShare'
+import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from '../objects/intersectionSignals'
 
-export type SurfacePoint = { azimuth: number; axial: number }
+export type SurfacePoint = { azimuth: number; axial: number; crosswalk?: boolean }
 export const OUTING_DESTINATIONS = [
   { id: 'guide-square', label: 'Central Square' },
   { id: 'guide-cafe', label: 'Café' },
@@ -16,13 +17,15 @@ export type OutingDestination = { label: string; entrance: SurfacePoint; bay: Ca
 export const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number) => Math.hypot(wrapAngle(a.azimuth-b.azimuth)*radius, a.axial-b.axial)
 
-/** Local, bounded route search on actual generated streets. Road-space is
- * expensive on foot, so pavements win except for crossing the carriageway.
+/** Local, bounded route search on actual generated streets. Pavements win on
+ * foot; arterials and collectors can only be crossed at painted crossings.
  * Buildings remain obstacles; an indoor start leaves via its certified door.
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
   driving: boolean, park: PublicPark | null = null): SurfacePoint[] | null {
-  const step = 2, pad = 100
+  // The central square omits its junction markings, so the next crossing can
+  // be a full city block away. Include that detour; the cell cap still applies.
+  const step = 2, pad = driving ? 100 : 400
   const gx = wrapAngle(goal.azimuth-start.azimuth)*radius, gy = goal.axial-start.axial
   if (Math.abs(gx)>1600 || Math.abs(gy)>1600) return null
   const minX = Math.floor((Math.min(0,gx)-pad)/step)*step, minY = Math.floor((Math.min(0,gy)-pad)/step)*step
@@ -44,6 +47,21 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   }
   for(const {r,x,y} of roads) paint(x,y,r.tangentWidth-(driving?2.2:0),r.axialLength-(driving?2.2:0),driving?1:4)
   if (!driving) {
+    // Apply after ALL roads: a side street must not punch an unmarked path
+    // across a larger carriageway. Shared lanes and local streets stay usable.
+    for(const {r,x,y} of roads) if(r.kind==='arterial'||r.kind==='collector')
+      paint(x,y,r.tangentWidth,r.axialLength,0)
+    for(const crossing of plan.intersections) {
+      const [x,y]=local(crossing)
+      if(x<minX-30||x>minX+(nx-1)*step+30||y<minY-30||y>minY+(ny-1)*step+30)continue
+      // Same setback/length as the rendered stripes, with 30 cm each side
+      // reserved for the walker's body. Ends join the real pavement bands.
+      const width=CROSSWALK_LENGTH_METERS-.6, offset=CROSSWALK_SETBACK_METERS+CROSSWALK_LENGTH_METERS/2
+      for(const side of [-1,1]) {
+        paint(x,y+side*(crossing.streetWidth/2+offset),crossing.avenueWidth+4,width,3)
+        paint(x+side*(crossing.avenueWidth/2+offset),y,width,crossing.streetWidth+4,3)
+      }
+    }
     // The supported civic arrival occupies the pedestrian corner of the square.
     const squareX=wrapAngle(-start.azimuth)*radius, squareY=-start.axial
     paint(squareX+13.25,squareY+12.25,6,5,1)
@@ -95,8 +113,10 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   const ids:number[]=[];for(let id=to;id>=0;id=parent[id]){ids.push(id);if(id===from)break}ids.reverse()
   // Only collapse collinear cells: smoothing across a corner could cut a
   // building or turn an inexpensive pavement path into a road diagonal.
-  const simplified=ids.filter((id,i)=>i===0||i===ids.length-1||id-ids[i-1]!==ids[i+1]-id)
-  const points=simplified.map(id=>({azimuth:start.azimuth+(minX+id%nx*step)/radius,axial:start.axial+minY+Math.floor(id/nx)*step}))
+  const simplified=ids.filter((id,i)=>i===0||i===ids.length-1||id-ids[i-1]!==ids[i+1]-id||
+    (cost[id]===3)!==(cost[ids[i-1]]===3)||(cost[id]===3)!==(cost[ids[i+1]]===3))
+  const points=simplified.map(id=>({azimuth:start.azimuth+(minX+id%nx*step)/radius,axial:start.axial+minY+Math.floor(id/nx)*step,
+    ...(cost[id]===3?{crosswalk:true}:{})}))
   return [...(indoorExit.length?indoorExit:[start]),...points,goal]
 }
 
@@ -119,7 +139,13 @@ export class NeighborhoodJourney {
   update(position:SurfacePoint,radius:number,dt:number) {
     if(this.status!=='active')return
     const threshold=this.driving?3:2.3
-    while(this.index<this.points.length-1 && surfaceDistance(position,this.points[this.index],radius)<threshold)this.index++
+    // Keep crossing turns tight so the arrow does not cut outside the stripes.
+    // Ordinary walking corners and final arrival retain their forgiving radius.
+    while(this.index<this.points.length-1) {
+      const crossing=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk
+      if(surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : crossing ? .8 : threshold))break
+      this.index++
+    }
     const next=this.points[this.index];if(!next)return
     this.nextDistance=surfaceDistance(position,next,radius)
     this.remaining=this.nextDistance

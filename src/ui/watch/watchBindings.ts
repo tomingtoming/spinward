@@ -13,7 +13,7 @@ import type { WatchActionId } from './watchLayout'
 import { parseWatchParameterAction } from './watchSchema'
 
 export type WatchRenderSnapshot = {
-  outing?: {text:string;mode:string;canPark:boolean;active:boolean}
+  outing?: {text:string;mode:string;canPark:boolean;active:boolean;label?:string;detail?:string}
   playerMode: PlayerTraversalMode
   // Which control scheme the legend should show (PC / SP / VR).
   platform: ControlPlatform
@@ -75,7 +75,7 @@ export type WatchRenderSnapshot = {
 export const createWatchRenderSnapshot = (
   settingsStore: SettingsStore,
   runtime: {
-    outing?: {text:string;mode:string;canPark:boolean;active:boolean}
+    outing?: WatchRenderSnapshot['outing']
     playerMode: PlayerTraversalMode
     platform: ControlPlatform
     region: 'inside' | 'outside'
