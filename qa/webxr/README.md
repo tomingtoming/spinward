@@ -308,3 +308,30 @@ Separate wrist images from the same suite retain the PLACES panel, labels and
 Courtyard selection through the three rolls. Exact tyre contact and every
 intermediate frame are not established by these images. Native Quest rendering,
 frame rate and comfort remain unverified.
+
+
+## Spaceport berths — 2026-09-13
+
+`spaceport.xr.mjs` enters through the actual Menu/VR route at a public free-flight
+pose outside the docking end, using the Quest city budget and 64mm stereo. It
+waits for the Blender collars, aims from the real tracking frame and checks the
+loaded near LOD. The ship and collar world matrices must stay unchanged at head
+roll 0/±25°, and the connection must remain inside the camera. Screenshot
+metadata agrees with the active session and the two 1280×960 eye views.
+
+The complete playwright-webxr 0.2.0 suite passed **nine tests, eleven immersive
+sessions and eleven exits** in 2.9 minutes, including both wrist/controller
+routes and exit/re-entry. Hardware preflight: Apple M1 Pro / ANGLE Metal,
+Chrome 152.0.7977.83. The production build stayed frozen throughout. Full-suite
+evidence is retained in `qa/webxr/evidence/spaceport-berths-20260913/` (ignored).
+This is emulated rendering of stationary berths, not physical Quest performance,
+boarding, pressure-door interaction or a docking manoeuvre.
+
+Independent stereo review confirmed the full shuttle, nose/collar/base
+connection and surrounding arms in both eyes at all three rolls. Ship and
+structure roll together, with no observed separation, burial, opposite roll or
+one-eye disappearance. Equal-scale crops cover the berth and the connection.
+Precise contact dimensions, exact roll angles and native headset behaviour are
+not established by these images. The Quest-budget desktop comparison also
+retains both occupied and empty berths, including the small habitat; differences
+in navigation-light phase and reduced bloom do not indicate missing geometry.

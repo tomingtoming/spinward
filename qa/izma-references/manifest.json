@@ -488,10 +488,17 @@
       "sha256": "c7b9172674d189711f14a01e4ea887316ccb41bfb62fc8a75826fe40e67e7bff",
       "size": 1516560,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "service-infrastructure",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "大きな円形設備の壁に接続機構、配線の支持、壁面の分節が並ぶ。寸法や設備の運用を画像だけでは確定しない。",
+      "applied": [
+        "宇宙港の大きな接岸台に、Blender製の実寸接岸口を設置。構造と接続設備の尺度の関係を採用し、作品の扉形状・機体・警報色は複製しない。docs/izma-reference-program.md の「宇宙港の接岸面と接続設備」を参照。"
+      ],
+      "remaining": [
+        "大型区画扉・保守通路・配管経路・開閉操作は未実装。"
+      ]
     },
     {
       "id": "izma-0044",
@@ -576,10 +583,17 @@
       "sha256": "f4d68e7c28d5795e4ae68a3542ff498d9eaf0e3125e9867d1bb8750ded724a19",
       "size": 1881081,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "shell",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "大きな円形の開口に対して小さな縁の金具、把手、外板の継ぎ目が見える。機体・赤い警報状態・固有の造形は採用しない。",
+      "applied": [
+        "宇宙港の大きな接岸台に、Blender製の実寸接岸口を設置。構造と接続設備の尺度の関係を採用し、作品の扉形状・機体・警報色は複製しない。docs/izma-reference-program.md の「宇宙港の接岸面と接続設備」を参照。"
+      ],
+      "remaining": [
+        "大型区画扉・保守通路・配管経路・開閉操作は未実装。"
+      ]
     },
     {
       "id": "izma-0052",

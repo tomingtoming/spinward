@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { mergeBufferGeometries } from './cylinder'
+import {DockingCollars,DOCKING_REACH,type DockingBerth} from './dockingCollars'
 
 // Ships are human artifacts: fixed size regardless of habitat scale.
 const SHIP_LENGTH = 18
@@ -34,6 +35,20 @@ export const getSpaceportDimensions = (
 // offset (arms, approach path, docked noses) mirrors through this.
 const getEndSign = (dims: SpaceportDimensions) => Math.sign(dims.hubCenterY) || 1
 
+export const getDockingPortSize=(dims:SpaceportDimensions)=>{
+  const arm=Math.max(.6,dims.hubRadius*.14)
+  return {arm,width:Math.max(3.6,arm*3),depth:Math.max(2.4,arm*2.2)}
+}
+export const planDockingBerths=(dims:SpaceportDimensions):DockingBerth[]=>{
+  const endSign=getEndSign(dims),port=getDockingPortSize(dims)
+  const face=dims.hubCenterY+endSign*dims.hubLength*.32+endSign*port.depth/2
+  return Array.from({length:4},(_,i)=>{
+    const angle=i*Math.PI/2
+    return {x:Math.cos(angle)*(dims.hubRadius+dims.armLength),z:Math.sin(angle)*(dims.hubRadius+dims.armLength),
+      y:face,endSign,shipY:face+endSign*(DOCKING_REACH+SHIP_LENGTH*.57),occupied:i%2===0,portWidth:port.width}
+  })
+}
+
 // Includes the human-sized shuttles and their short final-approach path. On
 // the small Playground this extends much farther than the inhabited hull.
 export const getSpaceportEnvelopeRadius = (radius: number, length: number) => {
@@ -49,9 +64,15 @@ const buildShipGeometry = () => {
   const body = new THREE.CylinderGeometry(SHIP_RADIUS, SHIP_RADIUS * 0.9, SHIP_LENGTH * 0.62, 10)
   parts.push(body)
 
-  const nose = new THREE.ConeGeometry(SHIP_RADIUS, SHIP_LENGTH * 0.26, 10)
+  const nose = new THREE.CylinderGeometry(.75, SHIP_RADIUS, SHIP_LENGTH * 0.26, 10)
   nose.translate(0, SHIP_LENGTH * 0.44, 0)
   parts.push(nose)
+
+  // A flat pressure interface meets the berth seal at the same forward plane
+  // used by the placement plan; no part of the hull enters the pressure trunk.
+  const interfaceRing=new THREE.CylinderGeometry(.98,.98,.12,10)
+  interfaceRing.translate(0,SHIP_LENGTH*.57-.06,0)
+  parts.push(interfaceRing)
 
   const engine = new THREE.CylinderGeometry(SHIP_RADIUS * 0.55, SHIP_RADIUS * 1.05, SHIP_LENGTH * 0.14, 10)
   engine.translate(0, -SHIP_LENGTH * 0.38, 0)
@@ -68,6 +89,7 @@ const buildShipGeometry = () => {
 
 export class Spaceport {
   readonly group = new THREE.Group()
+  private readonly collars=new DockingCollars(this.group)
 
   private readonly structureMaterial = new THREE.MeshStandardMaterial({
     color: 0x55687c,
@@ -111,6 +133,7 @@ export class Spaceport {
   private length = 0
 
   constructor(dimensionsInput: { radius: number; length: number }) {
+    this.group.name='spaceport'
     this.setDimensions(dimensionsInput)
   }
 
@@ -129,6 +152,9 @@ export class Spaceport {
 
     const dims = getSpaceportDimensions(radius, length)
     this.dimensions = dims
+    const berths=planDockingBerths(dims)
+    this.group.userData.berths=berths
+    this.collars.rebuild(berths)
     this.buildStructure(dims)
     this.buildBayLights(dims)
     this.buildDockedShips(dims)
@@ -163,6 +189,7 @@ export class Spaceport {
 
   dispose() {
     this.clear()
+    this.collars.dispose()
     this.structureMaterial.dispose()
     this.shipMaterial.dispose()
     this.navLightMaterial.dispose()
@@ -171,6 +198,8 @@ export class Spaceport {
 
   private clear() {
     this.dimensions = null
+    this.collars.rebuild([])
+    this.group.userData.berths=[]
 
     for (const mesh of [
       this.structure,
@@ -218,7 +247,7 @@ export class Spaceport {
     }
 
     const armY = dims.hubCenterY + getEndSign(dims) * dims.hubLength * 0.32
-    const armThickness = Math.max(0.6, dims.hubRadius * 0.14)
+    const portSize=getDockingPortSize(dims),armThickness=portSize.arm
 
     for (let index = 0; index < 4; index += 1) {
       const angle = (index / 4) * Math.PI * 2
@@ -228,7 +257,7 @@ export class Spaceport {
       arm.translate(0, armY, 0)
       parts.push(arm)
 
-      const port = new THREE.BoxGeometry(armThickness * 3, armThickness * 2.2, armThickness * 3)
+      const port = new THREE.BoxGeometry(portSize.width,portSize.depth,portSize.width)
       port.translate(dims.hubRadius + dims.armLength, 0, 0)
       port.rotateY(-angle)
       port.translate(0, armY, 0)
@@ -246,6 +275,7 @@ export class Spaceport {
     }
 
     this.structure = new THREE.Mesh(merged, this.structureMaterial)
+    this.structure.name='spaceport-structure'
     this.group.add(this.structure)
   }
 
@@ -282,29 +312,22 @@ export class Spaceport {
   private buildDockedShips(dims: SpaceportDimensions) {
     const parts: THREE.BufferGeometry[] = []
     const endSign = getEndSign(dims)
-    const armY = dims.hubCenterY + endSign * dims.hubLength * 0.32
 
     // Two shuttles docked nose-in at opposite arm ports.
-    for (const index of [0, 2]) {
-      const angle = (index / 4) * Math.PI * 2
+    for (const berth of planDockingBerths(dims).filter(b=>b.occupied)) {
       const ship = buildShipGeometry()
 
       if (ship === null) {
         continue
       }
 
-      // Nose toward the port block above (or below, on the -Y end).
-      if (endSign < 0) {
+      // Berths face space. Even the smallest habitat keeps the entire ship
+      // outside its opaque end cap; only the nose meets the pressure seal.
+      if (endSign > 0) {
         ship.rotateZ(Math.PI)
       }
 
-      ship.translate(
-        dims.hubRadius + dims.armLength,
-        -endSign * SHIP_LENGTH * 0.62,
-        0
-      )
-      ship.rotateY(-angle)
-      ship.translate(0, armY, 0)
+      ship.translate(berth.x,berth.shipY,berth.z)
       parts.push(ship)
     }
 
@@ -319,39 +342,43 @@ export class Spaceport {
     }
 
     this.dockedShips = new THREE.Mesh(merged, this.shipMaterial)
+    this.dockedShips.name='spaceport-docked-ships'
     this.group.add(this.dockedShips)
   }
 
   private buildNavLights(dims: SpaceportDimensions) {
     const positions: THREE.Vector3[] = []
     const endSign = getEndSign(dims)
-    const armY = dims.hubCenterY + endSign * dims.hubLength * 0.32
 
     // Arm tips.
-    for (let index = 0; index < 4; index += 1) {
-      const angle = (index / 4) * Math.PI * 2
+    for (const [index,berth] of planDockingBerths(dims).entries()) {
+      const angle=index*Math.PI/2
       positions.push(
         new THREE.Vector3(
-          Math.cos(angle) * (dims.hubRadius + dims.armLength),
-          armY + Math.max(1, dims.hubRadius * 0.2),
-          -Math.sin(angle) * (dims.hubRadius + dims.armLength)
+          berth.x+Math.cos(angle)*berth.portWidth*.34,
+          berth.y+endSign*.12,
+          berth.z+Math.sin(angle)*berth.portWidth*.34
         )
       )
     }
 
     // Hub mouth ring (the space-facing opening).
+    // The six-sided torus has its front corner at 60 degrees, not at tube
+    // depth. Put the lamp on that actual face, including on giant habitats.
+    const rimTube=Math.max(.2,dims.hubRadius*.08)
+    const lampRingRadius=(dims.hubRadius+rimTube*.25)*Math.cos(Math.PI/24)
     for (let index = 0; index < 8; index += 1) {
-      const angle = (index / 8) * Math.PI * 2
+      const angle = (index / 8) * Math.PI * 2+Math.PI/24
       positions.push(
         new THREE.Vector3(
-          Math.cos(angle) * dims.hubRadius,
-          dims.hubCenterY + endSign * dims.hubLength * 0.5,
-          Math.sin(angle) * dims.hubRadius
+          Math.cos(angle) * lampRingRadius,
+          dims.hubCenterY + endSign * (dims.hubLength * 0.5+rimTube*Math.sin(Math.PI/3)+.1),
+          Math.sin(angle) * lampRingRadius
         )
       )
     }
 
-    const lightRadius = Math.max(0.18, dims.hubRadius * 0.045)
+    const lightRadius = .24
     const mesh = new THREE.InstancedMesh(
       new THREE.SphereGeometry(1, 6, 4),
       this.navLightMaterial,
@@ -369,6 +396,7 @@ export class Spaceport {
 
     mesh.instanceMatrix.needsUpdate = true
     this.navLights = mesh
+    mesh.name='spaceport-navigation-lamps'
     this.group.add(mesh)
   }
 
