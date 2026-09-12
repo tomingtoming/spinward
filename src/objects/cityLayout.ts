@@ -1,3 +1,4 @@
+import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import { selectLandscapeTrees } from './landscapeVegetation'
 import { isDistrictPark } from './districtIdentity'
 import { fitSuburbanHouse } from './buildingAssets'
@@ -23,6 +24,10 @@ export type CityBuilding = {
   height: number
   // Synthetic interior collision boxes may start above the cylinder floor.
   baseHeight?: number
+  // Width axis rotated from +tangent toward +axial, in surface radians.
+  yaw?: number
+  surfaceMesh?: CitySurfaceMesh
+  groundSurface?: boolean
   // Exact interior openings may opt out of the vehicle-oriented box inflation.
   collisionMargin?: number
   // Broad roofs tolerate edge contact; thin furniture supports feet only over
@@ -655,8 +660,9 @@ export const buildCityCollisionIndex = (
   const cells = new Map<number, CityBuilding[]>()
 
   for (const building of buildings) {
-    const halfWidth = building.width * 0.5 + COLLISION_INSERT_MARGIN
-    const halfDepth = building.depth * 0.5 + COLLISION_INSERT_MARGIN
+    const c = Math.abs(Math.cos(building.yaw ?? 0)), s = Math.abs(Math.sin(building.yaw ?? 0))
+    const halfWidth = (building.width * c + building.depth * s) * .5 + COLLISION_INSERT_MARGIN
+    const halfDepth = (building.depth * c + building.width * s) * .5 + COLLISION_INSERT_MARGIN
     const tangentCenter = positiveModulo(building.azimuth, TWO_PI) * radius
     const columnStart = Math.floor((tangentCenter - halfWidth) / tangentCellSize)
     const columnEnd = Math.floor((tangentCenter + halfWidth) / tangentCellSize)
@@ -790,6 +796,7 @@ export const resolveCitySurfaceCollision = (
     position.azimuth,
     position.axialPosition
   )) {
+    if (building.surfaceMesh) continue // Continuous terrain is handled by grounding/mesh physics.
     if ((building.baseHeight ?? 0) + building.height <= minBlockingHeight ||
       (building.baseHeight ?? 0) > minBlockingHeight + 2) {
       continue
@@ -797,8 +804,9 @@ export const resolveCitySurfaceCollision = (
 
     const halfWidth = building.width * 0.5 + clearance
     const halfDepth = building.depth * 0.5 + clearance
-    const tangentDelta = wrapToPi(position.azimuth - building.azimuth) * radius
-    const axialDelta = position.axialPosition - building.axial
+    const dx = wrapToPi(position.azimuth - building.azimuth) * radius, dy = position.axialPosition - building.axial
+    const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
+    let tangentDelta = dx * c + dy * s, axialDelta = -dx * s + dy * c
 
     if (Math.abs(tangentDelta) >= halfWidth || Math.abs(axialDelta) >= halfDepth) {
       continue
@@ -809,12 +817,14 @@ export const resolveCitySurfaceCollision = (
 
     if (tangentPenetration < axialPenetration) {
       const side = tangentDelta >= 0 ? 1 : -1
-      position.azimuth = building.azimuth + (side * halfWidth) / radius
+      tangentDelta = side * halfWidth
     } else {
       const side = axialDelta >= 0 ? 1 : -1
-      position.axialPosition = building.axial + side * halfDepth
+      axialDelta = side * halfDepth
     }
 
+    position.azimuth = building.azimuth + (tangentDelta * c - axialDelta * s) / radius
+    position.axialPosition = building.axial + tangentDelta * s + axialDelta * c
     moved = true
   }
 
@@ -840,6 +850,13 @@ export const getCityGroundHeight = (
   let groundHeight = 0
 
   for (const building of resolveBuildingsNear(buildings, azimuth, axialPosition)) {
+    const dx = wrapToPi(azimuth - building.azimuth) * radius, dy = axialPosition - building.axial
+    if (building.surfaceMesh) {
+      if (building.groundSurface === false) continue
+      groundHeight = Math.max(groundHeight, sampleCitySurface(building.surfaceMesh, dx, dy, altitude + stepTolerance))
+      continue
+    }
+    const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
     const top = (building.baseHeight ?? 0) + building.height
     if (
       top <= groundHeight ||
@@ -852,8 +869,8 @@ export const getCityGroundHeight = (
     const halfDepth = building.depth * 0.5 + (building.groundMargin ?? .3)
 
     if (
-      Math.abs(wrapToPi(azimuth - building.azimuth) * radius) < halfWidth &&
-      Math.abs(axialPosition - building.axial) < halfDepth
+      Math.abs(dx * c + dy * s) < halfWidth &&
+      Math.abs(-dx * s + dy * c) < halfDepth
     ) {
       groundHeight = top
     }

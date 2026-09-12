@@ -213,3 +213,23 @@ The corrected scenery test passed again on the same build (six test executions,
 eight sessions/exits across the full suite and this repeat). The retained
 underpass images/diagnostics were replaced with the correctly framed captures;
 this was a test-framing defect, not a playwright-webxr package failure.
+
+
+## Riverside district — 2026-09-13
+
+`river.xr.mjs` enters through the actual Menu/VR route at the 1.2m lower bank,
+using the Quest city budget, stereo 64mm IPD, and head roll 0/±25°. The fixture
+aims from the real tracking frame and asserts that bridge/promenade points
+remain on camera. The district matrix and ground height must stay unchanged;
+diagnostics and screenshot metadata must agree on the session and two
+1280×960 eyes. Exit is checked against that session's cursor and ID.
+
+The complete 0.2.0 suite passed **six tests, eight immersive sessions and eight
+exits** in 1.7 minutes, including both real wrist/controller routes, exit/re-entry,
+roofs, city massing and the underpass. Hardware was Apple M1 Pro / ANGLE Metal,
+Chrome 152.0.7977.83. Evidence is retained in
+`qa/webxr/evidence/river-20260913/` (ignored). Independent image review confirmed
+the water, banks, paths, railings and bridge in both eyes at every roll, with no
+observed separation or floating parts. The bridge deck/upper junction is
+occluded at this low viewpoint and was reviewed separately in desktop captures.
+Native Quest performance, comfort and VR seated interaction remain unverified.

@@ -831,10 +831,11 @@
       "sha256": "74330871397a3b589db285d9d85f3c3e8323ff19547b5929454a827d67df056c",
       "size": 2135384,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "waterside",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "水面より上の低い護岸歩行帯、アーチ橋と上部街路を元解像度で再確認。川・上下の動線・橋・柵・ベンチを独自形状で反映。舟・周辺街並み全体は未反映。"
     },
     {
       "id": "izma-ep04-0025",
@@ -842,10 +843,11 @@
       "sha256": "d12d3142ce9f3d2be118566c2653dee3581c429b608629b5dae758c0b97ca496",
       "size": 1705030,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "waterside",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "水面より上の低い護岸歩行帯、アーチ橋と上部街路を元解像度で再確認。川・上下の動線・橋・柵・ベンチを独自形状で反映。舟・周辺街並み全体は未反映。"
     },
     {
       "id": "izma-ep04-0026",
@@ -853,10 +855,11 @@
       "sha256": "32b71b5f1c78accafadf03b0a0fa3606d0c8e1376d3541fdeb6d0c5fbdc551e2",
       "size": 1419976,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "waterside",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "水面より上の低い護岸歩行帯、アーチ橋と上部街路を元解像度で再確認。川・上下の動線・橋・柵・ベンチを独自形状で反映。舟・周辺街並み全体は未反映。"
     },
     {
       "id": "izma-ep04-0027",
@@ -1662,6 +1665,18 @@
       "finding": "shell",
       "duplicateOf": null,
       "implementation": "pending"
+    },
+    {
+      "id": "izma-ep12-0001",
+      "file": "[New-raws] Kidou Senshi Gundam GQuuuuuuX - 12 END [1080p] [AMZN]-0001.png",
+      "sha256": "332fb9755fe5b0bf5e837cd489c6625b6c8f6923a5c8790bd0bef2ab2a9eeaa8",
+      "size": 1189557,
+      "review": "viewed",
+      "reviewedOn": "2026-09-13",
+      "finding": "night-residential-terrace",
+      "duplicateOf": null,
+      "implementation": "pending",
+      "observation": "夜の傾斜した屋根窓と連続テラス。一住戸の暖色照明、隣戸の消灯、椅子・植栽が見える。人物や作品固有の造形は転用しない。"
     }
   ]
 }

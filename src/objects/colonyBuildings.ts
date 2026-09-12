@@ -55,13 +55,14 @@ export class ColonyBuildings {
  }
  setProjection(value:number){if(Math.abs(value-this.projection)>1){this.projection=value;this.invalidate()}}
  private invalidate(){this.focus.set(Infinity,Infinity,Infinity)}
- rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>,roads:CityRoad[]){
+ rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>,roads:CityRoad[],streetDetails=true){
   this.clearBatches();this.radius=radius;this.nearInteriors.clear()
   this.entries=buildings.filter(b=>!cityBlockSpec(b,radius)).map(b=>{
    const interior=interiors.get(b),spec=colonyBuildingSpec(b,interior),a=b.azimuth,side=b.front?.side??-1,tangent=b.front?.axis==='tangent'
    const x=tangent?new THREE.Vector3(0,side,0):new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a))
    const z=tangent?new THREE.Vector3(-side*Math.sin(a),0,side*Math.cos(a)):new THREE.Vector3(0,side,0)
-   const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*radius,b.axial,Math.sin(a)*radius)
+   const matrix=new THREE.Matrix4().makeBasis(x,new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),z).setPosition(Math.cos(a)*(radius-(b.baseHeight??0)),b.axial,Math.sin(a)*(radius-(b.baseHeight??0)))
+   if(b.yaw)matrix.multiply(new THREE.Matrix4().makeRotationY(b.yaw))
    const design=colonyBuildingDesign(b,interior?.kind)
    const balcony=colonyBalconies(spec,design)
    const parts:StructurePart[]=spec.volumes.map(volume=>{const ground=interior?0:colonyGroundHeight(volume,design);return {volume,ground,kind:ground>0?'mixed-structure':!interior&&volume.y-volume.h/2<.01&&Math.abs(volume.x)<volume.w/2?'entrance-structure':'structure',slot:{index:-1},balcony:colonyBalconyWindowRange(balcony,volume)}})
@@ -73,8 +74,8 @@ export class ColonyBuildings {
    this.capacities[kind]++
   }
   this.entryByBuilding=new Map(this.entries.map(e=>[e.spec.building,e]))
-  this.forecourts=planColonyForecourts(this.entries,buildings,roads,radius)
-  this.stairwells=planColonyStairs(this.entries,buildings,roads,radius)
+  this.forecourts=streetDetails?planColonyForecourts(this.entries,buildings,roads,radius):new Map()
+  this.stairwells=streetDetails?planColonyStairs(this.entries,buildings,roads,radius):new Map()
   this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
   this.invalidate()
  }

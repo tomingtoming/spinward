@@ -1261,7 +1261,7 @@ export const bootstrapApp = async () => {
         const visit = resolvePlaceVisit(runtimeAction.action, kind => cityscape.getInteriorVisit(kind))
         if (!visit) return false
         prepareTravel()
-        applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial, groundHeight: 0 }, visit.orientation)
+        applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial, groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
         reportTour(runtimeAction.action)
         audio.playClick()
         return true
@@ -1344,7 +1344,8 @@ export const bootstrapApp = async () => {
               cityPlan.intersections,
               habitatConfig.radius,
               getSidewalkWidth(habitatConfig.radius, span),
-              isOpenSquare
+              isOpenSquare,
+              cityscape.getRiverDistrict()?.sidewalkCuts ?? []
             )
           : []
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
@@ -2273,7 +2274,7 @@ export const bootstrapApp = async () => {
           omega,
           radius: habitatConfig.radius,
           units: getUnits(),
-          surfaceElevation: sampleExpresswayElevation
+          surfaceElevation: (a, ax) => Math.max(sampleExpresswayElevation(a, ax), cityscape.sampleRiverRoad(a, ax))
         }
       )
     }
@@ -3012,7 +3013,7 @@ export const bootstrapApp = async () => {
   if (shareState.pose !== null) {
     applySharedPose(shareState.pose, shareState.orientation)
   } else if (interiorVisit !== null) {
-    applySharedPose({ mode: 'grounded', azimuth: interiorVisit.azimuth, axialPosition: interiorVisit.axial, groundHeight: 0 }, interiorVisit.orientation)
+    applySharedPose({ mode: 'grounded', azimuth: interiorVisit.azimuth, axialPosition: interiorVisit.axial, groundHeight: interiorVisit.groundHeight ?? 0 }, interiorVisit.orientation)
   } else if (!renderer.xr.isPresenting) {
     desktopLookControls.startIntroReveal()
   }

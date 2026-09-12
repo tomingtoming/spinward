@@ -1,3 +1,6 @@
+import type { RainRoof } from './rainShelter'
+import { RiverDistrictLayer } from './riverDistrict'
+import { planRiverDistrict, sampleRiverRoad, type RiverDistrict } from './riverDistrictPlan'
 import {buildingRoofAttachment} from './buildingRoofAttachment'
 import {ColonyBuildings} from './colonyBuildings'
 import {colonyBuildingSpec} from './colonyBuildingPlan'
@@ -586,6 +589,11 @@ export const FACADE_LIT_CHANCE = 0.6
 export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
+  private readonly riverLayer = new RiverDistrictLayer(this.group)
+  private readonly riverBuildings = new ColonyBuildings(this.group)
+  private riverDistrict: RiverDistrict | null = null
+  private interiorRainSource: readonly RainRoof[] | null = null
+  private combinedRainRoofs: readonly RainRoof[] = []
   private readonly interiorLayer = new BuildingInteriorLayer(this.group)
   private readonly neighborhoodFronts = new NeighborhoodFronts(this.group)
   private coffeeStation: CoffeeStation | null = null
@@ -711,7 +719,7 @@ export class Cityscape {
   readonly colonyBuildings=new ColonyBuildings(this.group)
   readonly oldTownBlock = new OldTownBlock(this.group)
   readonly authoredBlock=new AuthoredCityBlock(this.group)
-  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian)}
+  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian);this.riverBuildings.setProjection(pixelsPerRadian)}
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x59764b,
@@ -1147,6 +1155,7 @@ export class Cityscape {
 
   // Advance the beacon strobe. Called once per frame from the render loop.
   update(deltaSeconds: number) {
+    this.riverLayer.update(deltaSeconds)
     this.beaconTime.value += deltaSeconds
     this.trafficTime += Math.max(0, deltaSeconds)
     this.updateTraffic(deltaSeconds)
@@ -1340,6 +1349,14 @@ export class Cityscape {
       maxBuildings: this.maxBuildings,
       topology: this.topology
     })
+    this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
+    if (this.riverDistrict) {
+      const p = this.riverDistrict
+      plan.patches = plan.patches.filter(patch => patch !== p.patch)
+      plan.trees = plan.trees.filter(t => Math.abs(Math.atan2(Math.sin(t.azimuth-p.azimuth),Math.cos(t.azimuth-p.azimuth))) * radius > p.width / 2 + 3 || Math.abs(t.axial-p.axial) > p.length / 2 + 3)
+    }
+    this.riverLayer.rebuild(this.riverDistrict, radius)
+    this.riverBuildings.rebuild(this.riverDistrict?.buildings ?? [], radius, new Map(), [], false)
     // Structural collision follows the same authored recipes as the visible city.
     this.neighborhoodFronts.rebuild(plan.buildings, radius)
     this.interiors = planBuildingInteriors(plan.buildings, radius)
@@ -1352,7 +1369,8 @@ export class Cityscape {
     // Keep the retired facade overlays disabled; public plans see actual lots.
     this.civicDetails.rebuild({ ...plan, buildings: [] }, radius, planPublicPark(plan, radius), planPublicUnderpass(plan, radius))
     this.roomSeats = planRoomSeats(this.interiors.values(), radius)
-    this.seats = [...this.roomSeats, ...this.civicDetails.seats]
+    this.seats = [...this.roomSeats, ...this.civicDetails.seats, ...this.riverLayer.seats]
+    this.civicDetails.lamps.push(...this.riverLayer.lamps)
     this.coffeeStation = planCoffeeStation(this.interiors.values(), radius)
     this.collisionBuildings = plan.buildings.flatMap((building) => {
       const authored=cityBlockSpec(building,radius)
@@ -1365,7 +1383,8 @@ export class Cityscape {
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
     this.collisionBuildings.push(...this.oldTownBlock.getColliders())
-    this.collisionBuildings.push(...this.civicDetails.colliders)
+    this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders)
+    for (const b of this.riverDistrict?.buildings ?? []) this.collisionBuildings.push(...cityBlockCollision(b, colonyBuildingSpec(b), radius))
     if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
@@ -1420,14 +1439,29 @@ export class Cityscape {
   }
 
   getRoomSeats(): readonly RoomSeat[] { return this.roomSeats }
-  getRainRoofs() { return this.interiorLayer.getRainRoofs() }
+  getRainRoofs() {
+    const source=this.interiorLayer.getRainRoofs()
+    if(source!==this.interiorRainSource){this.interiorRainSource=source;this.combinedRainRoofs=[...source,...this.riverLayer.rainRoofs]}
+    return this.combinedRainRoofs
+  }
   getSeats(): readonly RoomSeat[] { return this.seats }
   getCarShareBay() { return this.carShareBay }
   getPublicPark() { return this.civicDetails.park }
   getParkLamps() { return this.civicDetails.lamps }
   getCoffeeStation() { return this.coffeeStation }
+  getRiverDistrict() { return this.riverDistrict }
+  sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
-  getInteriorVisit(kind: string | null) {
+  getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
+    if (kind === 'river') {
+      const p = this.riverDistrict
+      if (!p) return null
+      const azimuth=p.azimuth+18/this.radius, axial=p.axial+32, height=3
+      const point=new THREE.Vector3(Math.cos(azimuth)*(this.radius-height),axial,Math.sin(azimuth)*(this.radius-height))
+      const a=p.azimuth+5/this.radius,target=new THREE.Vector3(Math.cos(a)*(this.radius-2.7),p.axial-5,Math.sin(a)*(this.radius-2.7))
+      const orientation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(point,target,new THREE.Vector3(-Math.cos(azimuth),0,-Math.sin(azimuth))))
+      return {azimuth,axial,orientation,groundHeight:1.2}
+    }
     if (kind === 'ball-practice' || kind === 'car-share') {
       const park = this.civicDetails.park, bay = this.carShareBay
       if (kind === 'ball-practice' && !park || kind === 'car-share' && !bay) return null
@@ -1527,6 +1561,8 @@ export class Cityscape {
   }
 
   setDaylight(daylight: number) {
+    this.riverLayer.setDaylight(daylight)
+    this.riverBuildings.setDaylight(daylight)
     this.civicDetails.setDaylight(daylight)
     this.authoredBlock.setDaylight(daylight)
     this.colonyBuildings.setDaylight(daylight)
@@ -1590,6 +1626,8 @@ export class Cityscape {
     this.authoredBlock.dispose()
     this.colonyBuildings.dispose()
     this.oldTownBlock.dispose()
+    this.riverLayer.dispose()
+    this.riverBuildings.dispose()
     this.civicDetails.dispose()
     this.interiorLayer.dispose()
     this.neighborhoodFronts.dispose()
@@ -1635,6 +1673,11 @@ export class Cityscape {
 
   private clear() {
     this.oldTownBlock.clear()
+    this.riverLayer.clear()
+    this.riverDistrict = null
+    this.interiorRainSource = null
+    this.combinedRainRoofs = []
+    this.riverBuildings.rebuild([], this.radius, new Map(), [], false)
     this.civicDetails.clear()
     this.interiorLayer.clear()
     this.neighborhoodFronts.clear()
@@ -1786,6 +1829,8 @@ export class Cityscape {
   // grid selects the nearby interior plans. ColonyBuildings owns exterior LODs.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.authoredBlock.update(azimuth,axial,altitude)
+    this.riverLayer.setFocus(azimuth, axial, altitude)
+    this.riverBuildings.update(azimuth, axial, altitude)
     this.colonyBuildings.update(azimuth,axial,altitude)
     this.oldTownBlock.update(azimuth, axial, altitude)
     this.updateBeaconVisibility()

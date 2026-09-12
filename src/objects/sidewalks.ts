@@ -42,12 +42,14 @@ export const planSidewalkSegments = (
   _intersections: CityIntersection[],
   radius: number,
   sidewalk: number,
-  isOpenSquare: (azimuth: number, axial: number) => boolean
+  isOpenSquare: (azimuth: number, axial: number) => boolean,
+  additionalCuts: CityRoad[] = []
 ): SidewalkSegment[] => {
   const out: SidewalkSegment[] = []
   if (radius <= 0 || sidewalk <= 0) return out
   const index = new SurfaceIndex(radius)
-  roads.forEach((road, i) => index.insert(road, i))
+  const cuts=[...roads,...additionalCuts]
+  cuts.forEach((road, i) => index.insert(road, i))
   for (const road of coalesceRoads(roads, radius)) {
     const width = getStreetProfile(road.kind, radius).sidewalk
     if (!width) continue
@@ -61,7 +63,7 @@ export const planSidewalkSegments = (
       const candidates = index.query({ azimuth: road.azimuth + t / radius,
         axial: road.axial + a, tangentWidth: w, axialLength: h })
       for (const id of candidates) {
-        const other = roads[id]
+        const other = cuts[id]
         const rt = wrapToPi(other.azimuth - road.azimuth) * radius
         const ra = other.axial - road.axial
         pieces = pieces.flatMap(p => subtractWalkwayRect(p, {

@@ -130,6 +130,7 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
     durationSeconds: 6
   },
   'visit-ball-practice': { title: 'THROWING LAWN', body: ['Choose Ball. Aim above the hoop to begin.'], durationSeconds: 5 },
+  'visit-river': { title: 'RIVERSIDE', body: ['Follow the lower promenade under the bridge, or take the ramp back to the street.'], durationSeconds: 5 },
   'visit-car-share': { title: 'CAR SHARE', body: ['A neighbourhood sedan. Approach the driver’s seat to use it.'], durationSeconds: 5 },
   drive: {
     title: 'CAR SHARE',

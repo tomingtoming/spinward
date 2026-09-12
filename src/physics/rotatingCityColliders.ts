@@ -1,3 +1,4 @@
+import { citySurfaceVertices } from '../objects/citySurfaceMesh'
 import * as THREE from 'three'
 
 import type { RapierModule } from './rapierContext'
@@ -11,6 +12,7 @@ import { createUnitsContext, type UnitsContext } from '../units/units'
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
 const buildingRotation = new THREE.Quaternion()
+const surfaceYaw = new THREE.Quaternion(), X_AXIS = new THREE.Vector3(1, 0, 0)
 
 export type RotatingCityCollidersConfig = {
   radius: number
@@ -69,15 +71,18 @@ export const createRotatingCityColliders = (
   const addCollider = (building: CityBuilding) => {
     const s = (meters: number) => scaleLengthForRapier(meters, units)
     const boxMargin = building.collisionMargin ?? margin
-    const centerRadial = radius - (building.baseHeight ?? 0) - building.height / 2
+    const centerRadial = building.surfaceMesh ? radius : radius - (building.baseHeight ?? 0) - building.height / 2
     buildingRotation.setFromAxisAngle(Y_AXIS, -building.azimuth)
-    return world.createCollider(
-      rapier.ColliderDesc.cuboid(
+    if (building.yaw) buildingRotation.multiply(surfaceYaw.setFromAxisAngle(X_AXIS, -building.yaw))
+    const shape = building.surfaceMesh
+      ? rapier.ColliderDesc.trimesh(citySurfaceVertices(building.surfaceMesh, radius).map(s), Uint32Array.from({ length: building.surfaceMesh.length / 3 }, (_, i) => i))
+      : rapier.ColliderDesc.cuboid(
         s(building.height / 2),
         s(building.depth / 2 + boxMargin),
         s(building.width / 2 + boxMargin)
       )
-        .setTranslation(
+    return world.createCollider(
+      shape.setTranslation(
           s(Math.cos(building.azimuth) * centerRadial),
           s(building.axial),
           s(Math.sin(building.azimuth) * centerRadial)

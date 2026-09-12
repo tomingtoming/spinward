@@ -24,7 +24,8 @@ export function cityBlockSpec(b: CityBuilding, radius: number) {
 }
 export function cityBlockCollision(b: CityBuilding, s: BlockSpec, radius: number): CityBuilding[] {
     const side=b.front?.side??-1,tangent=b.front?.axis==='tangent';
-    return s.volumes.map(v => ({ ...b, azimuth: b.azimuth + side*(tangent?v.z:-v.x) / radius, axial: b.axial + side*(tangent?v.x:v.z), width: tangent?v.d:v.w, depth: tangent?v.w:v.d, height: v.h, baseHeight: v.y - v.h / 2, collisionMargin: 0 }));
+    const c=Math.cos(b.yaw??0),sn=Math.sin(b.yaw??0);
+    return s.volumes.map(v => {const dx=side*(tangent?v.z:-v.x),dy=side*(tangent?v.x:v.z); return { ...b, azimuth: b.azimuth + (dx*c-dy*sn) / radius, axial: b.axial + dx*sn+dy*c, width: tangent?v.d:v.w, depth: tangent?v.w:v.d, height: v.h, baseHeight: (b.baseHeight??0) + v.y - v.h / 2, collisionMargin: 0 };});
 }
 /** Distance to actual architectural volumes, including altitude and cylinder curvature. */
 export function cityBlockDistance(s: BlockSpec, radius: number, focus: {
