@@ -1,13 +1,14 @@
 import type { CityPlan, CityRoad, CityBuilding } from './cityLayout'
 import type { NativeDistrict, DistrictTrafficStreet } from './nativeDistricts'
-import { sampleStreetPath, streetPathSamples, type StreetPath } from './streetPath'
+import { type StreetPath } from './streetPath'
+import { growPlaceStreets, type StreetDestination } from './placeStreetGrowth'
 import type { StreetPolygon } from './streetPolygon'
 
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 
-/** A park is reserved before streets or lots. Only the external ports inherit
- * the old city. Internally there is one bypass, one park-side circuit and
- * terminating branches, rather than a deformed row/column intersection grid. */
+/** Migration adapter: clip old roads at the boundary and feed their approaches
+ * into land-constrained street growth. Through-arterial alignment and the site
+ * location remain authored here; local branches and useful links are generated. */
 export function appendPlaceDistrict(city:CityPlan,roads:CityRoad[],buildings:CityBuilding[],radius:number){
   const original=city.roads,main=original.find(r=>r.kind==='arterial'&&r.axialLength>30000&&Math.abs(r.azimuth)<.01)
   if(!main)return null
@@ -37,25 +38,18 @@ export function appendPlaceDistrict(city:CityPlan,roads:CityRoad[],buildings:Cit
   }
   const make=(name:string,kind:CityRoad['kind'],w:number,points:[number,number][],tangents:[number,number][]):StreetPath=>({id:`${id}:${name}`,azimuth,axial,kind,width:w,level:0,groundHeight:0,walkHeight:.32,knots:points.map((point,i)=>({point,tangent:tangents[i]}))})
   const bypass=make('bypass','arterial',main.tangentWidth,[[0,-length/2],[-235,-420],[-280,0],[-220,420],[0,length/2]],[[0,270],[-130,350],[10,450],[160,350],[0,270]])
-  // Junctions use actual sampled vertices of the bypass, not approximate hits.
-  const south=sampleStreetPath(bypass,.25),north=sampleStreetPath(bypass,.75)
-  const circuit=make('park-side','collector',12,[[south.x,south.y],[205,-250],[240,160],[north.x,north.y]],[[350,0],[160,300],[-160,350],[-350,0]])
-  d.streets.push(bypass,circuit)
+  const destinations:StreetDestination[]=[
+    {id:'east-access',point:[240,135],kind:'collector',width:12},
+    {id:'south-access',point:[205,-325],kind:'local',width:6}
+  ]
+  const growth=growPlaceStreets({id,azimuth,axial,bounds:{x0:left,x1:right,y0:-length/2,y1:length/2},
+    reserves:d.reserves!,trunks:[bypass],destinations,
+    links:[{id:'east-connection',from:'east-access',to:'south-access',maxDetour:1.8}],
+    approaches:ports.map((port,i)=>({id:`approach-${i}`,point:port.point,direction:port.tangent,kind:port.road.kind,width:Math.min(port.road.tangentWidth,port.road.axialLength)}))})
+  if(growth.unconnected.length)throw Error(`Unconnected park approaches: ${growth.unconnected.join(', ')}`)
+  d.streets=growth.streets
+  d.growth={connections:growth.connections,links:growth.links,deferredLinks:growth.deferredLinks}
   const traffic:DistrictTrafficStreet={road:main,path:bypass,sourceRoadIds:[]}
-  for(const [side,path]of [[-1,bypass],[1,circuit]] as const){
-    const row=ports.filter(p=>Math.sign(p.point[0])===side).sort((a,b)=>a.point[1]-b.point[1])
-    const samples=streetPathSamples(path)
-    for(const [i,port]of row.entries()){
-      const targetT=side<0?[.20,.36,.50,.64,.80][i]:[.12,.30,.50,.70,.90][i]
-      if(targetT===undefined)throw Error('Unexpected external district ports')
-      const target=samples.reduce((a,b)=>Math.abs(b.t-targetT)<Math.abs(a.t-targetT)?b:a)
-      const dx=target.x-port.point[0],dy=target.y-port.point[1],distance=Math.hypot(dx,dy)
-      let nx=-Math.sin(target.heading),ny=Math.cos(target.heading)
-      if(nx*dx+ny*dy<0){nx=-nx;ny=-ny}
-      d.streets.push(make(`branch-${side}-${i}`,port.road.kind,Math.min(port.road.tangentWidth,port.road.axialLength),[port.point,[target.x,target.y]],
-        [[port.tangent[0]*distance*.75,port.tangent[1]*distance*.75],[nx*distance*.75,ny*distance*.75]]))
-    }
-  }
   city.patches=city.patches.filter(p=>!inside(p))
   city.trees=city.trees.filter(p=>!inside(p))
   city.patches.push({azimuth,axial,tangentExtent:130,axialExtent:340,kind:'park'})

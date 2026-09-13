@@ -871,7 +871,7 @@
       "sha256": "74330871397a3b589db285d9d85f3c3e8323ff19547b5929454a827d67df056c",
       "size": 2135384,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-14",
       "finding": "waterside",
       "duplicateOf": null,
       "implementation": "partial",
@@ -879,7 +879,8 @@
       "applied": [
         "川の橋を既存の街路へ接続する自動交通の周回。画像で車の周回を観察したものではなく、橋の地形を使うSpinward側の体験改善。docs/izma-reference-program.md の2026-09-13川沿い交通を参照。",
         "橋上街路・下段護岸の高さの違いを保つ徒歩案内。実在する上段遊歩道と両端の坂を使い、橋の欄干は支持地盤のある接続部だけ開く。案内UIは画像に描かれたものではない。qa/neighborhood-life/river-directions.md を参照。",
-        "既存の上段遊歩道・端の坂・下段護岸を歩く住民の2経路。橋と生活の尺度を使うSpinward独自の動作で、作品の人物や行動は複製しない。qa/neighborhood-life/river-walkers.md を参照。"
+        "既存の上段遊歩道・端の坂・下段護岸を歩く住民の2経路。橋と生活の尺度を使うSpinward独自の動作で、作品の人物や行動は複製しない。qa/neighborhood-life/river-walkers.md を参照。",
+        "qa/neighborhood-life/land-street-growth.md: 橋に渡河位置が制約されるという観察を、道路生成器の障害物・既存の渡河路の入力分離へ使用。河川条件は生成器の検査用場面であり、今回の実景で川や橋を増設したものではない。"
       ]
     },
     {
@@ -1472,12 +1473,12 @@
       "sha256": "eb89b59044d615cff7149f4f423cca80ca5da174be937fe9a6d8d094cdc8c96a",
       "size": 1627689,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-14",
       "finding": "public-scale",
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元解像度で再確認。樹木と開いた足元、人間の大きさ、周囲の構造との関係が見える。人物、祠や灯籠、作品固有の配色と強い背景光は複製しない。都市の道路中心線・環状路・施設用途はこの画像から確定できない。",
-      "relatedWork": "qa/neighborhood-life/place-district.md: 緑地を先に確保する地区の独自設計。道路トポロジーはユーザーの格子に対する問題提起を起点とし、原画の街路配置を再現した成果とはしない。"
+      "relatedWork": "qa/neighborhood-life/place-district.md: 緑地を先に確保する地区の独自設計。道路トポロジーはユーザーの格子に対する問題提起を起点とし、原画の街路配置を再現した成果とはしない。 qa/neighborhood-life/land-street-growth.md: 予約する緑地を入力に、地区の目的地への道と必要な接続路を生成する方式へ変更。原画から道路網は推定せず、施設や公園設備の再現は未完。"
     },
     {
       "id": "izma-ep06-0079",

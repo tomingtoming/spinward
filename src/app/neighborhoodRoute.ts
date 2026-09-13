@@ -56,7 +56,8 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   }
   // The central square omits its junction markings, so the next crossing can
   // be a full city block away. Include that detour; the cell cap still applies.
-  const step = 2, pad = driving ? 100 : 400
+  let step = 2
+  const pad = driving ? 100 : 400
   const gx = wrapAngle(goal.azimuth-start.azimuth)*radius, gy = goal.axial-start.axial
   if (Math.abs(gx)>1600 || Math.abs(gy)>1600) return null
   const linkX=underpass?wrapAngle(underpass.azimuth-start.azimuth)*radius:Infinity
@@ -76,6 +77,12 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     bounds.x0=Math.min(bounds.x0,x-d.width/2-20);bounds.x1=Math.max(bounds.x1,x+d.width/2+20)
     bounds.y0=Math.min(bounds.y0,y-d.length/2-20);bounds.y1=Math.max(bounds.y1,y+d.length/2+20)
   }
+  // A 2 m raster can disconnect a continuous 2.5 m oblique pavement when
+  // diagonal corner cutting is correctly forbidden. Refine local district
+  // walks within the same cell budget; retain the coarse long-range fallback.
+  if(!driving&&(plan.nativeDistricts??[]).some(d=>[start,goal].some(p=>
+    Math.abs(wrapAngle(p.azimuth-d.azimuth))*radius<d.width/2&&Math.abs(p.axial-d.axial)<d.length/2))&&
+    (Math.ceil((bounds.x1-bounds.x0)/1.5)+2)*(Math.ceil((bounds.y1-bounds.y0)/1.5)+2)<=600000)step=1.5
   const minX = Math.floor(bounds.x0/step)*step, minY = anchorY+Math.floor((bounds.y0-anchorY)/step)*step
   const nx = Math.ceil((bounds.x1-minX)/step)+1, ny = Math.ceil((bounds.y1-minY)/step)+1
   if (nx*ny>600000) return null

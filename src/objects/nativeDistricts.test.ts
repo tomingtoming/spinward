@@ -34,7 +34,7 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
   }
  }
  for(const d of districts){
-  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(d.layout==='place-led'?12:d.character==='mixed'?11:d.character==='residential'?9:13)
+  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(d.layout==='place-led'?14:d.character==='mixed'?11:d.character==='residential'?9:13)
   for(const link of d.streets.filter(p=>p.id.includes(':link-'))){
    const index=network.streets.indexOf(link)
    expect(network.closedEnds[index]).toEqual([false,false])
@@ -98,6 +98,10 @@ test('the park district changes connectivity instead of warping an intersection 
  // A rectangular street lattice has several independent interior circuits.
  expect(n.edges.length-n.nodes.length+1).toBe(1)
  expect(n.nodes.filter(v=>v.edges.length===1)).toHaveLength(12)
+ expect(d.growth!.deferredLinks).toEqual([])
+ expect(d.growth!.links[0].added).toBe(true)
+ expect(d.growth!.links[0].before).toBeGreaterThan(d.growth!.links[0].after*1.8)
+ expect(d.growth!.connections.filter(c=>c.destination.startsWith('approach-')&&c.street!=='district-park:bypass').length).toBeGreaterThan(1)
  const old=new StreetMarkingPlan(new StreetNetwork(p.nativeDistricts![0].streets,R))
  expect(old.junctions.some(j=>j.arms.length===4)).toBe(true)
  const reserve=d.reserves![0]
@@ -113,7 +117,7 @@ test('the park district changes connectivity instead of warping an intersection 
 })
 
 test('driving around the reserved park uses the circuit and walking joins a terminating branch',()=>{
- const p=middle,d=p.nativeDistricts!.find(d=>d.layout==='place-led')!,n=p.streetNetwork!,bypass=d.streets[0],circuit=d.streets[1]
+ const p=middle,d=p.nativeDistricts!.find(d=>d.layout==='place-led')!,n=p.streetNetwork!,bypass=d.streets[0],circuit=d.streets.find(s=>s.id==='district-park:east-connection')!
  const point=(street:typeof bypass,t:number,offset:number)=>{const v=sampleStreetPath(street,t,offset);return{azimuth:street.azimuth+v.x/R,axial:street.axial+v.y,groundHeight:0}}
  const start=point(bypass,.5,1.5),end=point(circuit,.5,1.5),drive=planNeighborhoodRoute(p,R,start,end,true)
  expect(drive).not.toBeNull()
@@ -121,8 +125,8 @@ test('driving around the reserved park uses the circuit and walking joins a term
  let length=0
  for(let i=1;i<drive!.length;i++)length+=Math.hypot(wrap(drive![i].azimuth-drive![i-1].azimuth)*R,drive![i].axial-drive![i-1].axial)
  expect(length).toBeGreaterThan(Math.hypot(wrap(end.azimuth-start.azimuth)*R,end.axial-start.axial)*1.4)
- const branch=d.streets.find(s=>s.id==='district-park:branch-1-2')!
- const walk=planNeighborhoodRoute(p,R,point(branch,.5,branch.width/2+1),point(circuit,.57,circuit.width/2+1.5),false)
+ const branch=d.streets.find(s=>s.id==='district-park:approach-3')!
+ const walk=planNeighborhoodRoute(p,R,point(branch,.5,branch.width/2+1),point(d.streets[1],.5,d.streets[1].width/2+1.5),false)
  expect(walk).not.toBeNull();expect(walk!.some(v=>v.crosswalk)).toBe(true)
 })
 
