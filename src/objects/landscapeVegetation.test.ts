@@ -9,7 +9,12 @@ test('tree budget reaches all three land strips without moving established lots'
  // Snapshot taken before the vegetation pass: changes to the planner's random
  // stream must not silently move doors, roads or the authored cafe/lobby lots.
  // Road-use metadata is derived after certification; keep comparing the original lot geometry.
- expect(createHash('sha256').update(JSON.stringify([p.buildings.map(({streetKind,...lot})=>lot),p.roads,p.patches])).digest('hex')).toBe('e26a9cebfd27b0ebec639015e6f71109083b8dfc882556738692908539cef737')
+ // Transcendental math can differ in its last bits between JS runtimes/CPUs.
+ // Nine decimal places retain sub-millimetre positions (including azimuth
+ // at this radius), without treating those rounding differences as moved lots.
+ const snapshot=JSON.stringify([p.buildings.map(({streetKind,...lot})=>lot),p.roads,p.patches],
+  (_,value)=>typeof value==='number'?Number(value.toFixed(9)):value)
+ expect(createHash('sha256').update(snapshot).digest('hex')).toBe('c1cd8b870a7d7e6bc98958441702734bd71d259eb546bbc9338aac789dd1123b')
 })
 test('position-ranked vegetation sampling is independent of traversal order',()=>{
  const trees=Array.from({length:100},(_,i)=>({azimuth:i*.1,axial:i*30,height:6,tone:i/100}))

@@ -72,4 +72,5 @@ test('both directions and turns keep the actual shoes close to river terrain acr
     }
   }
   console.log('river shoe clearance across 2688 poses', { min, max })
-})
+// This exhaustive mesh/terrain audit is a correctness check, not a 5 s budget.
+}, 15_000)
