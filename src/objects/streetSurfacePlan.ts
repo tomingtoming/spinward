@@ -2,7 +2,7 @@ import type { CityRoad } from './cityLayout'
 import { SurfaceIndex } from './surfaceIndex'
 import { streetPathSamples, sampleStreetPath, legacyStreetPaths, type StreetPath } from './streetPath'
 import { getStreetProfile, SIDEWALK_LIFT } from './streetProfile'
-import { positivePolygon, intersectStreetPolygons, subtractStreetPolygon, type StreetPolygon } from './streetPolygon'
+import { positivePolygon, polygonArea, intersectStreetPolygons, subtractStreetPolygon, type StreetPolygon } from './streetPolygon'
 
 export type StreetSurface = { source:StreetPath; polygon:StreetPolygon; junction:boolean; lift:number }
 type Envelope={azimuth:number;axial:number;tangentWidth:number;axialLength:number}
@@ -76,9 +76,10 @@ class SurfaceOwners{
  * T junction, an ordinary crossroads and a bend; no axis-aligned road boxes. */
 export class StreetSurfacePlan{
  private readonly junctions:StreetSurface[]=[]
+ private readonly walkJoins:StreetSurface[]=[]
  readonly sources:readonly StreetPath[]
  private readonly carriageways:SurfaceOwners
- constructor(paths:readonly StreetPath[],readonly radius:number){
+ constructor(paths:readonly StreetPath[],readonly radius:number,joinEnds=false){
   this.sources=paths.filter(p=>p.surfaceOwner!=='authored')
   this.carriageways=new SurfaceOwners(radius)
   const junctions=this.junctions
@@ -94,6 +95,33 @@ export class StreetSurfacePlan{
    }
    this.carriageways.add(s)
   }
+  // Opt in when the resulting polygons also feed the new layout's support
+  // and frontage. Two butt-ended ribbons otherwise leave an outside V notch.
+  // Bevel only a pair of matching endpoints; crossings and height transitions
+  // require their own junction/grade design, not an inferred filled corner.
+  if(joinEnds){
+   const ends=new Map<string,{path:StreetPath;t:number}[]>()
+   for(const path of this.sources)for(const t of [0,1]){
+    const p=sampleStreetPath(path,t),period=2*Math.PI*radius,x=((path.azimuth*radius+p.x)%period+period)%period
+    const key=[path.level,Math.round(x*1e5),Math.round((path.axial+p.y)*1e5)].join(':')
+    const row=ends.get(key)??[];row.push({path,t});ends.set(key,row)
+   }
+   for(const row of ends.values())if(row.length===2){
+    const [a,b]=row
+    if(a.path===b.path||a.path.groundHeight!==b.path.groundHeight||(a.path.walkHeight??a.path.groundHeight+SIDEWALK_LIFT)!==(b.path.walkHeight??b.path.groundHeight+SIDEWALK_LIFT))continue
+    const centre=sampleStreetPath(a.path,a.t)
+    for(const walk of [false,true])for(const side of [-1,1]){
+     const width=(p:StreetPath)=>p.width/2+(walk?getStreetProfile(p.kind,radius).sidewalk:0)
+     const p=sampleStreetPath(a.path,a.t,side*(a.t===0?1:-1)*width(a.path))
+     const q=sampleStreetPath(b.path,b.t,-side*(b.t===0?1:-1)*width(b.path))
+     const dx=wrap(b.path.azimuth-a.path.azimuth)*radius,dy=b.path.axial-a.path.axial
+     const polygon=positivePolygon([{x:centre.x,y:centre.y,u:.5,v:0},{x:p.x,y:p.y,u:0,v:0},{x:q.x+dx,y:q.y+dy,u:1,v:0}])
+     if(polygonArea(polygon)<1e-7)continue
+     const s={source:a.path,polygon,junction:false,lift:walk?(a.path.walkHeight??a.path.groundHeight+SIDEWALK_LIFT):Math.max(.2,a.path.groundHeight)}
+     if(walk)this.walkJoins.push(s);else this.carriageways.add(s)
+    }
+   }
+  }
  }
  roadSurfaces(){
   const owners=new SurfaceOwners(this.radius),roads:StreetSurface[]=[]
@@ -103,7 +131,7 @@ export class StreetSurfacePlan{
  sidewalks(isOpenSquare:(azimuth:number,axial:number)=>boolean=()=>false,additionalCuts:CityRoad[]=[]){
   const exclusions=new SurfaceOwners(this.radius),owners=new SurfaceOwners(this.radius),out:StreetSurface[]=[]
   for(const path of legacyStreetPaths(additionalCuts))for(const s of streetPathSurfaces(path,this.radius))exclusions.add(s)
-  for(const path of this.sources)for(const s of streetPathSurfaces(path,this.radius,true)){
+  for(const path of [...this.sources,undefined])for(const s of path?streetPathSurfaces(path,this.radius,true):this.walkJoins){
    const pieces=owners.cut(s,[...this.carriageways.candidates(s),...exclusions.candidates(s)])
    for(const piece of pieces)for(const unique of owners.own(piece)){
     const e=streetSurfaceEnvelope(unique,this.radius)

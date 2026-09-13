@@ -5,7 +5,18 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest local verification (2026-09-14, whole-band planning): **32 passed / 1
+Latest focused verification (2026-09-14, road width and endpoint bevels): **2 passed,
+about 1.1 minutes** on the final fixed build. Desktop-menu and Quest-style entry,
+wrist UI, controller input ownership, stereo roll, exit and re-entry passed with
+playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro / ANGLE Metal. Four sessions
+and four exits; emulation only, physical Quest untested. The whole-band proposal
+is a separate geometry preview; this checks the existing inhabited colony.
+Unit tests ran separately: 1,007 passed. The earlier full suite's body-drift
+observation below remains unresolved; this focused run did not retest traffic.
+Evidence: `evidence/band-street-geometry-20260914/xr-final/`. Scope and fixed bundle:
+[road width and endpoint bevels](../neighborhood-life/band-street-geometry.md).
+
+Previous full verification (2026-09-14, whole-band planning): **32 passed / 1
 failed in the full run (12.6 minutes); the failing body-traffic case passed alone
 in 56.5 seconds**, with unchanged assertions and the same fixed application
 bundle (`index-CZlDWu0D.js`, SHA256

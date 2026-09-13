@@ -882,7 +882,8 @@
         "橋上街路・下段護岸の高さの違いを保つ徒歩案内。実在する上段遊歩道と両端の坂を使い、橋の欄干は支持地盤のある接続部だけ開く。案内UIは画像に描かれたものではない。qa/neighborhood-life/river-directions.md を参照。",
         "既存の上段遊歩道・端の坂・下段護岸を歩く住民の2経路。橋と生活の尺度を使うSpinward独自の動作で、作品の人物や行動は複製しない。qa/neighborhood-life/river-walkers.md を参照。",
         "qa/neighborhood-life/land-street-growth.md: 橋に渡河位置が制約されるという観察を、道路生成器の障害物・既存の渡河路の入力分離へ使用。河川条件は生成器の検査用場面であり、今回の実景で川や橋を増設したものではない。",
-        "qa/neighborhood-life/band-street-plan.md: 川と渡河位置を道路より先に与える全居住帯の計画生成器。橋閉鎖・移動で接続を再選択する検査。新しい川筋・橋の数・施設位置は独自の仮配置で、原画からの地図復元や3D地形への適用ではない。"
+        "qa/neighborhood-life/band-street-plan.md: 川と渡河位置を道路より先に与える全居住帯の計画生成器。橋閉鎖・移動で接続を再選択する検査。新しい川筋・橋の数・施設位置は独自の仮配置で、原画からの地図復元や3D地形への適用ではない。",
+        "qa/neighborhood-life/band-street-geometry.md: 橋と護岸の上下関係を再確認し、道路の形状整理でも指定済み渡河・立体横断の端点と保留地を維持する。新たな橋の高さ・形状は今回未設計。"
       ]
     },
     {
@@ -1621,12 +1622,12 @@
       "sha256": "3d436a496f758f8aa88f392078f5038e78ca33ad8b50fb4c3fe073da4dfc9a28",
       "size": 1161253,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-14",
       "finding": "street-signals",
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元解像度で再確認。交差点を囲む横断歩道、車道と歩道、人物と車の縮尺が見える。車の傾きや空中の紙片の原因は断定せず、平時の運転挙動へ採用しない。静止画から歩行者優先や信号運用は推定できない。",
-      "relatedWork": "qa/neighborhood-life/body-traffic.md: プレイヤーを認識する停止処理はSpinward側の機能改善。画像から新しい造形・交通規則を採用した成果ではなく、implementationはpendingを維持する。 2026-09-13: qa/neighborhood-life/street-surfaces.mdで全市の路面・歩道の共通多角形処理を検証。再閲覧で歩道・共有車道の関係を確認したが、作品固有の角丸・表示の新規採用ではなくpendingを保持。 2026-09-13: qa/neighborhood-life/street-markings.mdで横断歩道を中心線・接続方向から生成する方式へ移行。原画の車道・歩道・横断帯の関係を再確認し、固有の文字や運用は採用していない。"
+      "relatedWork": "qa/neighborhood-life/body-traffic.md: プレイヤーを認識する停止処理はSpinward側の機能改善。画像から新しい造形・交通規則を採用した成果ではなく、implementationはpendingを維持する。 2026-09-13: qa/neighborhood-life/street-surfaces.mdで全市の路面・歩道の共通多角形処理を検証。再閲覧で歩道・共有車道の関係を確認したが、作品固有の角丸・表示の新規採用ではなくpendingを保持。 2026-09-13: qa/neighborhood-life/street-markings.mdで横断歩道を中心線・接続方向から生成する方式へ移行。原画の車道・歩道・横断帯の関係を再確認し、固有の文字や運用は採用していない。 2026-09-14: qa/neighborhood-life/band-street-geometry.mdで元画像とhashを再確認。車道・歩道が面積を占める観察を全域道路の幅付き検査へ使用。原画固有の角丸や文字は未採用でpendingを維持。"
     },
     {
       "id": "izma-ep07-0093",
