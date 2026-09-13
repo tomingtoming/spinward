@@ -23,7 +23,8 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk'])test(`n
  const state=()=>page.evaluate(()=>{
   const city=window.__spinwardCity,p=city.getCityPlan(),poses=city.getTrafficPositions(),routes=city.trafficRoutes
   return{azimuth:window.__spinward.azimuth,axial:window.__spinward.axial,ground:window.__spinward.groundHeight,mode:window.__spinward.mode,
-   districts:p.nativeDistricts.map(d=>({id:d.id,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth})),
+   districts:p.nativeDistricts.map(d=>({id:d.id,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,
+    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
    junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
    traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,...poses[i]}]:[]),
    walkers:window.__spinwardWalkers.group.userData,
@@ -33,6 +34,8 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk'])test(`n
  const before=await state();expect(before.districts).toHaveLength(10);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
  const growth=before.districts.find(d=>d.growth).growth
  expect(growth.deferredLinks).toEqual([]);expect(growth.links.some(l=>l.added&&l.before>l.after*1.8)).toBe(true)
+ const land=before.districts.find(d=>d.land).land
+ expect(land.blocks).toBeGreaterThan(2);expect(land.parcels).toBeGreaterThan(land.built.length);expect(land.built.every(b=>b.id&&b.road)).toBe(true)
  expect(before.junctions).toHaveLength(54);expect(before.junctions.every(j=>j.arms===3)).toBe(true)
  await xr.setHeadPose({position:[0,1.6,0],euler:[-.2,0,0]});await xr.setControllerPose('left',left);await xr.waitForFrames(2,{timeout:5000})
  await press(page,xr,'nav-places');await page.waitForFunction(()=>window.__spinwardWatch.screen==='places')

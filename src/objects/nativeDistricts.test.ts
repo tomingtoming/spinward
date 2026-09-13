@@ -13,9 +13,11 @@ import { isDrivingStreetPoint, paintDistrictFootways } from '../app/streetRouteG
 import { containsStreetPolygon } from './streetPolygon'
 import { planNeighborhoodRoute } from '../app/neighborhoodRoute'
 import { StreetNetwork } from './streetNetwork'
+import { landContains } from './streetParcels'
 const R=3200,wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 let middle:CityPlan
 let middleTraffic:DistrictTrafficStreet[]
+let placeLand:unknown
 for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve lots, budgets and actual frontage at ${maxBuildings}`,()=>{
  const p=planCity({radius:R,length:40000,maxBuildings}),before=p.buildings.length,old=p.buildings.filter(b=>b.axial<4000)
  const {districts,traffic}=rebuildNativeDistricts(p,R),network=p.streetNetwork!
@@ -42,6 +44,16 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
    expect(ends).toHaveLength(2);expect(ends.every(j=>j.arms.length===3)).toBe(true)
   }
   const own=certifyStreetAccess(d.buildings,network,R,6);expect(own.rejected).toEqual([])
+  if(d.layout==='place-led'){
+   expect(d.land!.blocks.length).toBeGreaterThan(2)
+   expect(d.land!.parcels.length).toBeGreaterThan(d.replacedBuildings)
+   if(placeLand)expect(d.land).toEqual(placeLand);else placeLand=d.land
+   for(const b of d.buildings){
+    const parcel=d.land!.parcels.find(p=>p.id===b.nativeParcel)!
+    expect(parcel).toBeDefined();expect(b.access!.roadId).toBe(parcel.front.streetId)
+    expect(landContains(parcel.pieces,buildingFootprint(b).map(v=>({...v,x:v.x+wrap(b.azimuth-d.azimuth)*R,y:v.y+b.axial-d.axial})))).toBe(true)
+   }
+  }
   for(let i=0;i<d.buildings.length;i++)for(let j=0;j<i;j++){
    const a=d.buildings[i],b=d.buildings[j],dx=wrap(b.azimuth-a.azimuth)*R,dy=b.axial-a.axial
    if(Math.abs(dx)>80||Math.abs(dy)>80)continue

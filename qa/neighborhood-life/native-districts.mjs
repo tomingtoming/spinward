@@ -30,7 +30,8 @@ try{
     const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy)))
     return Math.hypot(px-t*dx,py-t*dy)<=path.width/2-.4
    })})):[]
-   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth}))??[],
+   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth,
+    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,unallocatedArea:d.land.unallocatedArea,built:d.buildings.map(b=>({id:b.nativeParcel,azimuth:b.azimuth,axial:b.axial,width:b.width,depth:b.depth,height:b.height,access:b.access}))}:undefined}))??[],
     nativeCars:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources?.map(s=>s.path.id),position:positions[i],stops:r.signals?.length??0}]:[]),
     walkers:window.__spinwardWalkers.group.userData,
     lamps:lamps?{focusAzimuth:lamps.focusAzimuth,focusAxial:lamps.focusAxial,capacity:lamps.posts.capacity,count:lamps.posts.mesh.count,
@@ -44,6 +45,7 @@ try{
   if(!baseline&&probe.walkers.people>probe.walkers.capacity)throw Error('Walker capacity exceeded')
   if(!baseline&&probe.placeTraffic.some(v=>!v.onRoad))throw Error('A car is following a removed road through the park district')
   if(!baseline&&!probe.districts.some(d=>d.growth?.links.some(l=>l.added&&l.before>l.after*1.8)&&d.growth.deferredLinks.length===0))throw Error('Generated access and detour reduction are missing')
+  if(!baseline&&!probe.districts.some(d=>d.land?.blocks>2&&d.land.parcels>=d.buildings&&d.land.built.every(b=>b.id&&b.access)))throw Error('Polygonal land subdivision or its building entrances are missing')
   if(!baseline&&view.name==='park-walk'&&!probe.placeTraffic.length)throw Error('No actual park-district traffic sampled')
   if(!baseline&&process.env.CHECK_CORRIDOR_TRAFFIC==='1'&&view.name==='corridor-seam'){
    probe.corridorTraffic=await page.evaluate(async()=>{

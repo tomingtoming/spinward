@@ -9,12 +9,14 @@ import { districtBlockLinks } from './districtLinks'
 import { appendPlaceDistrict } from './placeDistrict'
 import type { StreetPolygon } from './streetPolygon'
 import type { PlaceStreetGrowth } from './placeStreetGrowth'
+import { planStreetParcels } from './streetParcels'
 
 export type NativeDistrict = {
   id: string; azimuth: number; axial: number; width: number; length: number
   band: number; character: 'mixed' | 'residential' | 'centre'
   layout?: 'place-led'; reserves?: StreetPolygon[]
   growth?: Pick<PlaceStreetGrowth,'connections'|'links'|'deferredLinks'>
+  land?: ReturnType<typeof planStreetParcels>
   streets: StreetPath[]; buildings: CityBuilding[]; replacedBuildings: number; replacedRoads: number
 }
 /** The axis descriptor survives only as a traffic station coordinate. All
@@ -116,6 +118,24 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
   for (const d of districts) {
     let seed=9187+d.band*173+(d.character==='residential'?1031:d.character==='centre'?2062:0)
     const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
+    if(d.layout==='place-led'){
+      d.land=planStreetParcels({id:d.id,azimuth:d.azimuth,axial:d.axial,
+        bounds:{x0:-d.width/2+14,x1:d.width/2-14,y0:-d.length/2+14,y1:d.length/2-14},
+        streets:d.streets,reserves:d.reserves??[],seed},radius)
+      for(const parcel of d.land.parcels){
+        const p=parcel.building,b:CityBuilding={azimuth:d.azimuth+p.x/radius,axial:d.axial+p.y,
+          width:p.width,depth:p.depth,yaw:p.yaw,height:10+Math.floor(random()*12)*3,
+          front:{axis:'axial',side:parcel.front.side===1?-1:1},kind:random()<.35?'setback':'block',
+          urban:.72,oldTown:0,tone:random(),nativeDistrict:d.id,nativeParcel:parcel.id}
+        const box=bounds(b),footprint=buildingFootprint(b)
+        if([...index.query(box)].some(j=>{
+          const other=placed[j],dx=wrap(other.azimuth-b.azimuth)*radius,dy=other.axial-b.axial
+          return polygonArea(intersectStreetPolygons(footprint,buildingFootprint(other).map(v=>({...v,x:v.x+dx,y:v.y+dy}))))>1e-6
+        }))continue
+        index.insert(box,placed.length);placed.push(b);candidates.push(b)
+      }
+      continue
+    }
     for (const path of d.streets) for (const side of [-1,1] as const) {
       const samples=streetPathSamples(path), distances=[0]
       for(let i=1;i<samples.length;i++)distances.push(distances[i-1]+Math.hypot(samples[i].x-samples[i-1].x,samples[i].y-samples[i-1].y))

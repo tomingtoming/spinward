@@ -5,18 +5,18 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest local verification (2026-09-14): **31 passed, 9.3 minutes, no retries**
-on one fixed build, following the land-constrained street generator increment.
-The park-walk view now uses its generated access connection. The actual entry,
-wrist Places/Home, stereo head roll, approximately 9.708 m of stick walking,
-session exit and the full suite's re-entry paths passed. Native district tests
-also observe the live generated connections and detour-reduction result.
+Latest local verification (2026-09-14): **31 passed, 9.6 minutes, no retries**
+on one fixed build, following the street-derived blocks and parcels increment.
+The park-walk case reads the live land plan and its buildings' parcel/road
+identities. Actual entry, wrist Places/Home, stereo head roll, approximately
+9.684 m of stick walking, session exit and the full suite's re-entry paths
+passed. The existing street connections and detour-reduction checks remain.
 Chrome 152 / Apple M1 Pro / ANGLE Metal; this is emulation, not a physical Quest.
 Independent review found the principal wrist controls readable in both eyes,
 but did not confirm all text in the small faint explanatory line. Evidence is
-in `evidence/land-street-growth-20260914/`; implementation, source hashes and
+in `evidence/street-parcels-20260914/`; implementation, source hashes and
 remaining citywide work are in
-[land-driven streets](../neighborhood-life/land-street-growth.md).
+[street-derived parcels](../neighborhood-life/street-parcels.md).
 
 ## Run
 

@@ -23,6 +23,8 @@ export type BuildingKind = 'block' | 'setback' | 'tower' | 'house' | 'slab' | 'l
 
 export type CityBuilding = {
   nativeDistrict?: string
+  // Identity in the district's polygonal land plan, independent of this box.
+  nativeParcel?: string
   azimuth: number
   axial: number
   width: number
