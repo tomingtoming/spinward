@@ -3,6 +3,8 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {SignalVisors} from './signalVisors'
 
 import type { CityIntersection } from './cityLayout'
+import type { StreetMarkingPlan } from './streetMarkings'
+import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS, isSignalledIntersection,
   signalAspect, signalPhaseOffset, signalStopLineOffset, type SignalRoad } from './intersectionSignals'
@@ -215,6 +217,8 @@ export class IntersectionFurniture {
   private focusAxial = Number.NaN
   private elapsed = 0
   private nearby: CityIntersection[] = []
+  private markingPlan?: StreetMarkingPlan
+  private nativeStripes: THREE.Mesh | null = null
   private headPhases: number[] = []
   private headRoads: SignalRoad[] = []
   private night = 0
@@ -290,8 +294,10 @@ export class IntersectionFurniture {
     this.lamps.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3 * 3), 3)
   }
 
-  setPlan(intersections: CityIntersection[], radius: number) {
+  setPlan(intersections: CityIntersection[], radius: number, markingPlan?: StreetMarkingPlan) {
     this.intersections = intersections
+    this.markingPlan = markingPlan
+    this.clearNativeStripes()
     this.radius = radius
     this.focusAzimuth = Number.NaN
     this.focusAxial = Number.NaN
@@ -311,7 +317,7 @@ export class IntersectionFurniture {
   // when the focus has moved far enough; the signal lamps animate always.
   update(focusAzimuth: number, focusAxial: number, deltaSeconds: number, clockSeconds?: number) {
     this.elapsed = clockSeconds ?? this.elapsed + Math.max(0, deltaSeconds)
-    if (this.radius <= 0 || this.intersections.length === 0) {
+    if (this.radius <= 0 || (this.intersections.length === 0 && !this.markingPlan)) {
       return
     }
     const moved =
@@ -354,6 +360,26 @@ export class IntersectionFurniture {
 
   private relayout() {
     this.nearby = selectNearbyIntersections(this.intersections, this.radius, this.focusAzimuth, this.focusAxial)
+    this.clearNativeStripes()
+    if (this.markingPlan) {
+      const crossings = this.markingPlan.crossings(this.focusAzimuth, this.focusAxial, FURNITURE_RANGE_METERS)
+      const paint = this.markingPlan.paint(crossings)
+      const geometry = buildStreetSurfaceGeometry(paint, this.radius, 1)
+      if (geometry) {
+        // Pavement geometry faces outwards for BackSide materials. Furniture
+        // shares one FrontSide paint material, so invert both winding and normals.
+        const indices = geometry.index!, normals = geometry.getAttribute('normal')
+        for (let i = 0; i < indices.count; i += 3) {
+          const b = indices.getX(i + 1); indices.setX(i + 1, indices.getX(i + 2)); indices.setX(i + 2, b)
+        }
+        for (let i = 0; i < normals.count; i++) normals.setXYZ(i, -normals.getX(i), -normals.getY(i), -normals.getZ(i))
+        this.nativeStripes = new THREE.Mesh(geometry, this.stripeMaterial)
+        this.nativeStripes.name = 'street-junction-markings'
+        this.nativeStripes.userData.crossings = crossings.length
+        this.nativeStripes.userData.paintPieces = paint.length
+        this.group.add(this.nativeStripes)
+      }
+    }
     let nStripe = 0
     let nPole = 0
     let nArm = 0
@@ -363,7 +389,7 @@ export class IntersectionFurniture {
     this.headRoads.length = 0
     for (const x of this.nearby) {
       const layout = layoutIntersection(x, this.radius)
-      for (const s of [...layout.stripes, ...layout.stopLines]) {
+      for (const s of this.markingPlan ? layout.stopLines : [...layout.stripes, ...layout.stopLines]) {
         if (nStripe >= this.stripes.capacity) break
         this.place(this.stripes, nStripe++, x, s, ROAD_SURFACE_LIFT_METERS)
       }
@@ -418,7 +444,14 @@ export class IntersectionFurniture {
     color.needsUpdate = true
   }
 
+  private clearNativeStripes() {
+    this.nativeStripes?.geometry.dispose()
+    this.nativeStripes?.removeFromParent()
+    this.nativeStripes = null
+  }
+
   dispose() {
+    this.clearNativeStripes()
     this.visors.dispose()
     for (const part of [this.stripes, this.poles, this.arms, this.heads, this.lamps, this.plates]) {
       part.mesh.geometry.dispose()

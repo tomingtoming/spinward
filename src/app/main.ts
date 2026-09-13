@@ -1325,7 +1325,8 @@ export const bootstrapApp = async () => {
     const cityPlan = cityscape.getCityPlan()
     intersectionFurniture.setPlan(
       cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.intersections : [],
-      habitatConfig.radius
+      habitatConfig.radius,
+      habitatConfig.type !== 'ring' ? cityPlan?.streetMarkings : undefined
     )
     parkedCars.setPlan(
       cityPlan !== null && habitatConfig.type !== 'ring' ? cityPlan.buildings : [],

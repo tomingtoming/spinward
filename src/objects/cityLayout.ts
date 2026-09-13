@@ -1,5 +1,6 @@
 import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import type { StreetSurfacePlan } from './streetSurfacePlan'
+import type { StreetMarkingPlan } from './streetMarkings'
 import type { StreetNetwork } from './streetNetwork'
 import { selectLandscapeTrees } from './landscapeVegetation'
 import { isDistrictPark } from './districtIdentity'
@@ -154,6 +155,7 @@ export type CityIntersection = {
 export type CityPlan = {
   streetNetwork?: StreetNetwork
   streetSurfaces?: StreetSurfacePlan
+  streetMarkings?: StreetMarkingPlan
   accessRejected?: StreetAccessRejection[]
   roads: CityRoad[]
   buildings: CityBuilding[]

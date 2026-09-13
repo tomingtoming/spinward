@@ -696,3 +696,23 @@ Garden, walking directions and wrist UI regressions. Full artifacts are in
 Details, CPU/triangle measurements and the remaining migration:
 [Native road and sidewalk surfaces](../neighborhood-life/street-surfaces.md).
 Evidence: `evidence/street-surfaces-20260913/` (ignored).
+
+## Graph-based crosswalks — 2026-09-13
+
+Crosswalks now follow outgoing native road-graph arms, including skew and T
+junctions and curves. The six pavement batches stay unchanged; one nearby
+stripe batch shares the existing paint material. Legacy stop lines and signal
+control remain. Details and limits: [Crosswalk generation](../neighborhood-life/street-markings.md).
+
+The fixed build passed all 26 XR cases in 6.9 minutes with no retries. The
+street-surface test now also checks native stripe geometry, material and
+transform identity through stereo roll. Its first 4.5-second walk stopped
+before the crossing; distance alone was insufficient evidence of crossing.
+The test was strengthened to read the painted band's bounds and finish beyond
+the far edge while remaining within its lateral bounds. A focused rerun on
+the same build passed in 17.7 seconds (test: 15.8 seconds), walking about
+19.81 m, from axial 300.0000 to 319.7882 m across the 314.4903–317.0903 m band.
+Start and end were grounded; page errors were zero. Independent review of
+stereo captures found no new stripe loss, detachment or kerb discontinuity.
+Physical Quest performance, comfort and continuous contact/flicker are unmeasured.
+Evidence: `evidence/street-markings-20260913/xr-full/` and `xr-crossing/`.
