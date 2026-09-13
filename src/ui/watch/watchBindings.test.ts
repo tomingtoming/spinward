@@ -125,6 +125,10 @@ test('wrist destinations follow the current habitat availability', () => {
   expect(isWatchActionDisabled({ ...snapshot, oldTownRespawnEnabled: false }, 'respawn-old-town')).toBe(true)
   expect(isWatchActionDisabled(snapshot, 'rpm-fine-increment')).toBe(false)
   expect(isWatchActionDisabled(snapshot, 'visit-park')).toBe(true)
+  expect(isWatchActionDisabled(snapshot, 'guide-garden')).toBe(true)
+  const garden = { ...snapshot, availablePlaces: new Set(['visit-garden'] as const) }
+  expect(isWatchActionDisabled(garden, 'guide-garden')).toBe(false)
+  expect(isWatchActionDisabled({ ...garden, feltSpeed: 0 }, 'guide-garden')).toBe(true)
   expect(isWatchActionDisabled(snapshot, 'nav-places')).toBe(false)
   expect(isWatchActionDisabled(snapshot, 'audio-mute-toggle')).toBe(false)
 })

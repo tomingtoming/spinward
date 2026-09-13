@@ -159,3 +159,13 @@ test('every wrist target is inside the canvas, disjoint and reachable through it
     }
   }
 })
+
+test('wrist directions reserve two readable instruction lines below every full-size target', () => {
+  const layout=createWatchLayout('outing'),footer=layout.outingFooter!
+  expect(footer.top+footer.height).toBeLessThanOrEqual(layout.height-20)
+  for(const b of layout.placeButtons!){
+    expect(b.width).toBeGreaterThanOrEqual(280);expect(b.height).toBeGreaterThanOrEqual(80)
+    expect(b.y+b.height).toBeLessThanOrEqual(footer.top-20)
+  }
+  expect(footer.height).toBeGreaterThanOrEqual(98)
+})

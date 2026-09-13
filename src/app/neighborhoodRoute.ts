@@ -1,3 +1,5 @@
+import { routeThroughCurve } from './curvedWalkRoute'
+import type { CurvedNeighborhood } from '../objects/curvedNeighborhood'
 import type { RiverDistrict } from '../objects/riverDistrictPlan'
 import { routeThroughRiver } from './riverWalkRoute'
 import { getStreetProfile } from '../objects/streetProfile'
@@ -7,13 +9,14 @@ import {carShareDrivewayRect,type CarShareBay} from '../objects/carShare'
 import { UNDERPASS_HEIGHT, type PublicUnderpass } from '../objects/publicUnderpass'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from '../objects/intersectionSignals'
 
-export type SurfacePoint = { azimuth: number; axial: number; groundHeight?: number; crosswalk?: boolean; coveredWalk?: boolean; riverWalk?: 'bridge' | 'upper' | 'ramp' | 'bank' }
+export type SurfacePoint = { azimuth: number; axial: number; groundHeight?: number; crosswalk?: boolean; coveredWalk?: boolean; curvedWalk?: boolean; riverWalk?: 'bridge' | 'upper' | 'ramp' | 'bank' }
 export const OUTING_DESTINATIONS = [
   { id: 'guide-square', label: 'Central Square' },
   { id: 'guide-cafe', label: 'Café' },
   { id: 'guide-park', label: 'Park' },
   { id: 'guide-car', label: 'Your car' },
-  { id: 'guide-river', label: 'Riverside' }
+  { id: 'guide-river', label: 'Riverside' },
+  { id: 'guide-garden', label: 'Garden street' }
 ] as const
 export type GuideAction = typeof OUTING_DESTINATIONS[number]['id']
 export type OutingAction = GuideAction | 'guide-cancel' | 'drive-mode-toggle' | 'park-car'
@@ -26,10 +29,15 @@ export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number
  * Buildings remain obstacles; an indoor start leaves via its certified door.
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
-  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null, parkingBays:readonly CarShareBay[]=[]): SurfacePoint[] | null {
+  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null, parkingBays:readonly CarShareBay[]=[], curved:CurvedNeighborhood|null=null): SurfacePoint[] | null {
+  if (curved && !driving) {
+    const route=routeThroughCurve(curved,radius,start,goal,
+      (a,b)=>planNeighborhoodRoute(plan,radius,a,b,false,park,underpass,river,parkingBays,null))
+    if(route!==undefined)return route
+  }
   if (river && !driving) {
     const route = routeThroughRiver(river, radius, start, goal,
-      (a, b) => planNeighborhoodRoute(plan, radius, a, b, false, park, underpass, null, parkingBays))
+      (a, b) => planNeighborhoodRoute(plan, radius, a, b, false, park, underpass, null, parkingBays, curved))
     if (route !== undefined) return route
   }
   // The central square omits its junction markings, so the next crossing can
@@ -173,7 +181,7 @@ export class NeighborhoodJourney {
     // Keep crossing turns tight so the arrow does not cut outside the stripes.
     // Ordinary walking corners and final arrival retain their forgiving radius.
     while(this.index<this.points.length-1) {
-      const tight=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk||this.points[this.index].coveredWalk||this.points[this.index+1]?.coveredWalk||this.points[this.index].riverWalk||this.points[this.index+1]?.riverWalk
+      const tight=this.points[this.index].crosswalk||this.points[this.index+1]?.crosswalk||this.points[this.index].coveredWalk||this.points[this.index+1]?.coveredWalk||this.points[this.index].riverWalk||this.points[this.index+1]?.riverWalk||this.points[this.index].curvedWalk||this.points[this.index+1]?.curvedWalk
       if(!this.sameLevel(position,this.points[this.index])||surfaceDistance(position,this.points[this.index],radius)>=(this.driving ? 3 : tight ? .8 : threshold))break
       this.index++
     }

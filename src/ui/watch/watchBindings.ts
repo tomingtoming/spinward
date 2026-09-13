@@ -169,6 +169,7 @@ export const isWatchActionDisabled = (
   if (action === 'park-car') return !snapshot.outing?.canPark
   if (action === 'guide-cancel') return !snapshot.outing?.active
   if (action === 'guide-cafe') return !snapshot.availablePlaces.has('visit-cafe')
+  if (action === 'guide-garden') return !snapshot.availablePlaces.has('visit-garden') || snapshot.feltSpeed>=0
   if (action === 'guide-river') return !snapshot.availablePlaces.has('visit-river') || snapshot.feltSpeed>=0
   if (action === 'guide-park') return !snapshot.availablePlaces.has('visit-park')
   if (action === 'guide-car' && snapshot.feltSpeed>=0) return true

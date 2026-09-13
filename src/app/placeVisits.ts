@@ -9,7 +9,8 @@ export const PLACE_DESTINATIONS = [
   { id: 'visit-park', label: 'Park', kind: 'park' },
   { id: 'visit-ball-practice', label: 'Ball practice', kind: 'ball-practice' },
   { id: 'visit-car-share', label: 'Car share', kind: 'car-share' },
-  { id: 'visit-deck', label: 'Observation deck', kind: 'deck' }
+  { id: 'visit-deck', label: 'Observation deck', kind: 'deck' },
+  { id: 'visit-garden', label: 'Garden street', kind: 'garden' }
 ] as const
 
 export type PlaceVisitAction = (typeof PLACE_DESTINATIONS)[number]['id']

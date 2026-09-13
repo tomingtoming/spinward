@@ -466,6 +466,7 @@ export const renderWatch = (
   drawSubHeader(ctx, layout, snapshot, hoveredAction)
 
   if (layout.screen === 'outing') {
+    const footer=layout.outingFooter!
     for(const button of layout.placeButtons ?? []) drawButton(ctx,button,hoveredAction,{disabled:isWatchActionDisabled(snapshot,button.id)})
     ctx.textAlign='left';ctx.textBaseline='top'
     // Navigation is the reason to look down here. Give the next instruction
@@ -478,9 +479,9 @@ export const renderWatch = (
       if(line&&ctx.measureText(candidate).width>620){lines.push(line);line=word}else line=candidate
     }
     if(line)lines.push(line)
-    lines.slice(0,2).forEach((text,i)=>ctx.fillText(text,50,578+i*33,620))
+    lines.slice(0,2).forEach((text,i)=>ctx.fillText(text,50,footer.top+i*33,620))
     ctx.fillStyle=TEXT_DIM;ctx.font='500 21px \"Avenir Next\", sans-serif'
-    ctx.fillText(snapshot.outing?.label??'',50,655,620)
+    ctx.fillText(snapshot.outing?.label??'',50,footer.top+77,620)
   }
   if (layout.screen === 'places' && layout.placesSection) {
     const directions=layout.buttons.find(b=>b.id==='nav-outing')

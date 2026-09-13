@@ -1,5 +1,5 @@
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
-import {CurvedNeighborhoodLayer,planCurvedNeighborhood} from './curvedNeighborhood'
+import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
 import {CityCollisionOverlay} from './cityCollisionOverlay'
 import { planExpresswayRainRoofs, sampleRainShelter, type RainArcRoof, type RainRoof } from './rainShelter'
 import { RiverDistrictLayer } from './riverDistrict'
@@ -1510,6 +1510,14 @@ export class Cityscape {
       const target = eye.clone().add(new THREE.Vector3(0, 12, 0)).addScaledVector(up, -1)
       return { azimuth: p.azimuth, axial: p.axial, groundHeight: p.height,
         orientation: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, target, up)) }
+    }
+    if (kind === 'garden') {
+      const p=this.curvedNeighborhood.plan;if(!p)return null
+      const q=curvedStreetPoint(p,.5,-4),aim=curvedStreetPoint(p,.62,-4)
+      const azimuth=p.azimuth+q.x/this.radius,axial=p.axial+q.y,groundHeight=.34
+      const point=new THREE.Vector3(Math.cos(azimuth)*(this.radius-groundHeight-1.8),axial,Math.sin(azimuth)*(this.radius-groundHeight-1.8))
+      const a=p.azimuth+aim.x/this.radius,target=new THREE.Vector3(Math.cos(a)*(this.radius-groundHeight-1.6),p.axial+aim.y,Math.sin(a)*(this.radius-groundHeight-1.6))
+      return {azimuth,axial,groundHeight,orientation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(point,target,new THREE.Vector3(-Math.cos(azimuth),0,-Math.sin(azimuth))))}
     }
     if (kind === 'river') {
       const p = this.riverDistrict

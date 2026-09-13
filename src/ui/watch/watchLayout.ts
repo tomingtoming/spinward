@@ -83,6 +83,7 @@ export type WatchScreenLayout = {
   placesSection?: WatchSection
   placesFooter?: boolean
   placeButtons?: WatchButton[]
+  outingFooter?: WatchSection
   // HABITAT.
   presetSection?: WatchSection
   presetButtons?: WatchButton[]
@@ -334,9 +335,13 @@ const createLegendLayout = (width: number, height: number): WatchScreenLayout =>
 
 const createOutingLayout = (width:number,height:number):WatchScreenLayout => {
   const backButton=makeBackButton()
-  const placeButtons=[...OUTING_DESTINATIONS,{id:'guide-cancel' as const,label:'Cancel directions'}, {id:'drive-mode-toggle' as const,label:'Street / Experiment'}, {id:'park-car' as const,label:'Park car'}]
-    .map((p,i)=>makeActionButton(p.id,p.label,50+(i%2)*330,160+Math.floor(i/2)*104,290,80))
-  return {screen:'outing',width,height,backButton,title:'DIRECTIONS',placeButtons,buttons:[backButton,...placeButtons]}
+  const actions=[...OUTING_DESTINATIONS,{id:'guide-cancel' as const,label:'Cancel directions'}, {id:'drive-mode-toggle' as const,label:'Street / Experiment'}, {id:'park-car' as const,label:'Park car'}]
+  const outingFooter={top:height-122,height:100,title:''},rows=Math.ceil(actions.length/2)
+  // Reserve the full two-line instruction area before fitting button rows.
+  // Keep the 80px targets; the spare space belongs between rows, not in text.
+  const step=Math.min(104,Math.floor((outingFooter.top-24-120-80)/Math.max(1,rows-1)))
+  const placeButtons=actions.map((p,i)=>makeActionButton(p.id,p.label,50+(i%2)*330,120+Math.floor(i/2)*step,290,80))
+  return {screen:'outing',width,height,backButton,title:'DIRECTIONS',placeButtons,outingFooter,buttons:[backButton,...placeButtons]}
 }
 
 export const createWatchLayout = (

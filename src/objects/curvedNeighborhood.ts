@@ -8,7 +8,8 @@ import {ColonyBuildings} from './colonyBuildings'
 import type {CityPlan,CityBuilding,CityRoad} from './cityLayout'
 
 type Surface={kind:'road'|'walk'|'paint';collider:CityBuilding}
-export type CurvedNeighborhood={azimuth:number;axial:number;patch:CityPlan['patches'][number];knots:RoadKnot[];surfaces:Surface[];buildings:CityBuilding[];colliders:CityBuilding[];sidewalkCuts:CityRoad[]}
+export type CurvedWalkConnection={side:number;end:number;t:number;points:[number,number,number][]}
+export type CurvedNeighborhood={azimuth:number;axial:number;patch:CityPlan['patches'][number];knots:RoadKnot[];surfaces:Surface[];buildings:CityBuilding[];colliders:CityBuilding[];sidewalkCuts:CityRoad[];walkConnections:CurvedWalkConnection[]}
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 export function curvedStreetPoint(p:CurvedNeighborhood,t:number,offset=0){
  const i=t<=.5?0:1,u=i===0?t*2:(t-.5)*2
@@ -33,11 +34,11 @@ export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighb
  const left=wrap(west.azimuth-azimuth)*radius+west.tangentWidth/2,right=wrap(east.azimuth-azimuth)*radius-east.tangentWidth/2
  if(left< -135||right>135)return null
  const span=(right-left)/2
- const p:CurvedNeighborhood={azimuth,axial,patch,knots:[{point:[left,-45],tangent:[span,0]},{point:[(left+right)/2,12],tangent:[span,28]},{point:[right,38],tangent:[span,0]}],surfaces:[],buildings:[],colliders:[],sidewalkCuts:[]}
- const surface=(kind:Surface['kind'],points:number[][],solid=true)=>{
+ const p:CurvedNeighborhood={azimuth,axial,patch,knots:[{point:[left,-45],tangent:[span,0]},{point:[(left+right)/2,12],tangent:[span,28]},{point:[right,38],tangent:[span,0]}],surfaces:[],buildings:[],colliders:[],sidewalkCuts:[],walkConnections:[]}
+ const surface=(kind:Surface['kind'],points:number[][],solid=true,visible=true)=>{
   const xs=points.map(v=>v[0]),ys=points.map(v=>v[1]),hs=points.map(v=>v[2]),x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2
   const b:CityBuilding={azimuth:azimuth+x/radius,axial:axial+y,width:Math.max(...xs)-Math.min(...xs),depth:Math.max(...ys)-Math.min(...ys),height:Math.max(...hs)-Math.min(...hs),baseHeight:Math.min(...hs),groundSurface:true,groundMargin:0,collisionMargin:0,kind:'block',tone:.5,surfaceMesh:points.flatMap(v=>[v[0]-x,v[1]-y,v[2]])}
-  p.surfaces.push({kind,collider:b});if(solid)p.colliders.push(b)
+  if(visible)p.surfaces.push({kind,collider:b});if(solid)p.colliders.push(b)
  }
  const count=Math.ceil((right-left)/1.5)
  for(let i=0;i<count;i++){
@@ -60,6 +61,19 @@ export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighb
    const a=[v.x-sign*2,v.y+lo,0],b=[v.x,v.y+lo,.2],c=[v.x,v.y+hi,.2],d=[v.x-sign*2,v.y+hi,0]
    surface(kind,[a,b,c,a,c,d])
   }
+ }
+ // Join each curved footway to the adjacent two-metre avenue pavement, a
+ // metre inside its kerb. Legacy pavement uses zero-height physical contact;
+ // buried bevels provide that transition without drawing overlapping paving.
+ for(const end of [0,1])for(const side of [-1,1]){
+  const origin=curvedStreetPoint(p,end),sign=end===0?1:-1
+  const atX=(x:number)=>{let lo=0,hi=1;for(let i=0;i<35;i++){const t=(lo+hi)/2;if(curvedStreetPoint(p,t,side*4).x<x)lo=t;else hi=t}return(lo+hi)/2}
+  const x=origin.x+sign,t=atX(x),a=curvedStreetPoint(p,t,side*4),b=curvedStreetPoint(p,t,side*5)
+  const h=curvedFootwayHeight(p,t),y=origin.y+side*7
+  const corners=[x-.8,x+.8].map(x=>{const u=atX(x),v=curvedStreetPoint(p,u,side*5);return[v.x,v.y,curvedFootwayHeight(p,u)]})
+  const [c,d]=corners,e=[d[0],y,0],f=[c[0],y,0]
+  surface('walk',[c,d,e,c,e,f],true,false)
+  p.walkConnections.push({side,end,t,points:[[a.x,a.y,h],[b.x,b.y,h],[b.x,y,0]]})
  }
  for(const side of [-1,1] as const)for(const [i,t]of [.19,.39,.61,.81].entries()){
   const v=curvedStreetPoint(p,t,side*18),b:CityBuilding={azimuth:azimuth+v.x/radius,axial:axial+v.y,width:[12,15,13,16][i],depth:13,height:[12,19,15,10][(i+(side>0?1:0))%4],baseHeight:.34,yaw:v.heading,kind:i%2?'setback':'block',front:{axis:'axial',side:side>0?-1:1},streetKind:'local',urban:.45,oldTown:.25,tone:.2+i*.15}
