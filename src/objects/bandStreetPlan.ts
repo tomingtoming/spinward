@@ -3,18 +3,20 @@
  * a centreline proposal: elevation, junction radii and parcel construction
  * must be resolved before this can replace the inhabited simulation. */
 export type BandPoint = [number, number]
-export type BandReserve = { id: string; kind: 'water' | 'facility' | 'green'; polygon: BandPoint[] }
+export type BandReserve = { id: string; kind: 'water' | 'facility' | 'green' | 'transport'; polygon: BandPoint[] }
 export type BandCentre = {
   id: string; point: BandPoint; use: 'centre' | 'housing' | 'industry' | 'port'
   reach: number; demand: number
 }
-export type BandCrossing = { id: string; from: BandPoint; to: BandPoint; reserve: string }
+export type BandCrossing = { id: string; from: BandPoint; to: BandPoint; reserve: string; mode?: 'bridge' | 'underpass' }
+export type BandAccess = { id: string; point: BandPoint; serves: string[] }
 export type BandSite = {
   id: string; width: number; length: number; seed: number
   centres: BandCentre[]; reserves: BandReserve[]; crossings: BandCrossing[]
   localDemand: number; detourRatio: number
+  accesses?: BandAccess[]
 }
-export type BandRoad = { from: BandPoint; to: BandPoint; kind: 'arterial' | 'collector'; bridge?: string; reason: string }
+export type BandRoad = { from: BandPoint; to: BandPoint; kind: 'arterial' | 'collector'; bridge?: string; underpass?: string; reason: string }
 const EPS = 1e-6
 const distance = (a: BandPoint, b: BandPoint) => Math.hypot(a[0]-b[0],a[1]-b[1])
 const mix = (a: BandPoint,b: BandPoint,t: number): BandPoint => [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]
@@ -44,6 +46,7 @@ function intersection(a: BandPoint,b: BandPoint,c: BandPoint,d: BandPoint): numb
   const w=delta(c,a),t=cross(w,v)/den,s=cross(w,u)/den
   return t>=-EPS&&t<=1+EPS&&s>=-EPS&&s<=1+EPS?Math.max(0,Math.min(1,t)):null
 }
+export { intersection as bandSegmentIntersection }
 export function clearBandSegment(a: BandPoint,b: BandPoint,reserves: BandReserve[]) {
   return reserves.every(({polygon})=>{
     const cuts=[0,1]
@@ -77,10 +80,11 @@ function router(site: BandSite) {
   const bridgeByEdge=new Map<string,string>()
   const edgeKey=(a:number,b:number)=>[Math.min(a,b),Math.max(a,b)].join(':')
   for(const c of site.crossings) {
-    if(!valid(c.from)||!valid(c.to)||!site.reserves.some(r=>r.id===c.reserve&&r.kind==='water'))throw Error('Invalid crossing '+c.id)
+    const kind=c.mode==='underpass'?'transport':'water'
+    if(!valid(c.from)||!valid(c.to)||!site.reserves.some(r=>r.id===c.reserve&&r.kind===kind))throw Error('Invalid crossing '+c.id)
     if(site.reserves.some(r=>insideBandReserve(c.from,r.polygon)||insideBandReserve(c.to,r.polygon)))throw Error('Crossing ends inside reserved land')
     const water=site.reserves.find(r=>r.id===c.reserve)!
-    if(clearBandSegment(c.from,c.to,[water])||!clearBandSegment(c.from,c.to,site.reserves.filter(r=>r!==water)))throw Error('Crossing must cross only its named water reserve')
+    if(clearBandSegment(c.from,c.to,[water])||!clearBandSegment(c.from,c.to,site.reserves.filter(r=>r!==water)))throw Error('Crossing must cross only its named reserve')
     bridgeByEdge.set(edgeKey(id(c.from),id(c.to)),c.id)
   }
   for(let i=0;i<points.length;i++)for(let j=0;j<i;j++) {
@@ -141,14 +145,19 @@ function roadDistance(roads: BandRoad[],a: BandPoint,b: BandPoint) {
 }
 
 export function planBandStreets(site: BandSite) {
-  const coordinates=[site.width,site.length,site.seed,site.detourRatio,...site.centres.flatMap(c=>[...c.point,c.reach,c.demand]),...site.reserves.flatMap(r=>r.polygon.flat()),...site.crossings.flatMap(c=>[...c.from,...c.to])]
+  const coordinates=[site.width,site.length,site.seed,site.detourRatio,...site.centres.flatMap(c=>[...c.point,c.reach,c.demand]),...site.reserves.flatMap(r=>r.polygon.flat()),...site.crossings.flatMap(c=>[...c.from,...c.to]),...(site.accesses??[]).flatMap(a=>a.point)]
   if(!coordinates.every(Number.isFinite)||!(site.width>0&&site.length>0&&site.detourRatio>1)||!Number.isInteger(site.localDemand)||site.localDemand<0||site.localDemand>1000)throw Error('Invalid band planning budget')
   if(new Set(site.reserves.map(r=>r.id)).size!==site.reserves.length||new Set(site.crossings.map(c=>c.id)).size!==site.crossings.length||site.reserves.some(r=>r.polygon.length<3||r.polygon.some((p,i)=>distance(p,r.polygon[(i+1)%r.polygon.length])<EPS)))throw Error('Invalid land reservation')
   const inside=(p: BandPoint)=>Math.abs(p[0])<site.width/2&&Math.abs(p[1])<site.length/2&&!site.reserves.some(r=>insideBandReserve(p,r.polygon))
   if(site.centres.length<2||new Set(site.centres.map(c=>c.id)).size!==site.centres.length||new Set(site.centres.map(c=>key(c.point))).size!==site.centres.length||site.centres.some(c=>!inside(c.point)||!(c.reach>0&&c.demand>0)))throw Error('Invalid district centre')
+  if(new Set((site.accesses??[]).map(a=>a.id)).size!==(site.accesses??[]).length||(site.accesses??[]).some(a=>!inside(a.point)||!a.serves.length||a.serves.some(id=>!site.centres.some(c=>c.id===id))))throw Error('Invalid transport access')
   const route=router(site),roads:BandRoad[]=[],unconnected:string[]=[],links:{from:string;to:string;before:number;after:number;added:boolean}[]=[]
   const append=(r:NonNullable<ReturnType<typeof route>>,kind:BandRoad['kind'],reason:string)=>{
-    r.points.slice(1).forEach((to,i)=>{if(distance(r.points[i],to)>.01)roads.push({from:r.points[i],to,kind,reason,bridge:r.bridges[i]})})
+    r.points.slice(1).forEach((to,i)=>{
+      const crossing=site.crossings.find(c=>c.id===r.bridges[i])
+      if(distance(r.points[i],to)>.01)roads.push({from:r.points[i],to,kind,reason,
+        ...(crossing?.mode==='underpass'?{underpass:crossing.id}:{bridge:r.bridges[i]})})
+    })
   }
   // First connect centres with a minimum routed tree. Add a connection only
   // when two nearby centres would otherwise incur a substantial detour.
@@ -163,6 +172,32 @@ export function planBandStreets(site: BandSite) {
     if(added)append(r,'arterial',`detour:${a.id}:${b.id}`)
     links.push({from:a.id,to:b.id,before,after:added?r.length:before,added})
   }
+  // Interchange frontage connects to named destinations without becoming a
+  // residential demand centre or exposing the limited-access road to locals.
+  const accessLinks:{access:string;centre:string;length:number}[]=[]
+  for(const a of site.accesses??[])for(const id of a.serves) {
+    const c=site.centres.find(c=>c.id===id)!
+    let connected=roadDistance(roads,a.point,c.point)
+    if(!Number.isFinite(connected)) {
+      const r=route(a.point,c.point)
+      if(!r){unconnected.push(`${a.id}:${id}`);continue}
+      // Join the first existing arterial that already reaches this district.
+      // Repeating each full gate-to-centre route creates nearly coincident
+      // roads converging on the same bridge, leaving unusable needle parcels.
+      let joined=false
+      for(let i=1;i<r.points.length&&!joined;i++) {
+        const start=r.points[i-1],end=r.points[i]
+        const meetings=roads.flatMap(road=>{const t=intersection(start,end,road.from,road.to);return t!==null&&t>EPS?[{t,road}]:[]}).sort((a,b)=>a.t-b.t)
+        for(const meeting of meetings)if(Number.isFinite(roadDistance(roads,meeting.road.from,c.point))) {
+          r.points=[...r.points.slice(0,i),mix(start,end,meeting.t)];r.bridges=r.bridges.slice(0,i);joined=true;break
+        }
+      }
+      append(r,'arterial',`interchange:${a.id}:${id}`)
+      connected=roadDistance(roads,a.point,c.point)
+    }
+    if(Number.isFinite(connected))accessLinks.push({access:a.id,centre:id,length:connected})
+    else unconnected.push(`${a.id}:${id}`)
+  }
   let seed=site.seed>>>0
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
   const demand:{id:string;centre:string;point:BandPoint;served:boolean}[]=[],weight=site.centres.reduce((s,c)=>s+c.demand,0)
@@ -175,8 +210,14 @@ export function planBandStreets(site: BandSite) {
     demand.push({id:`access-${demand.length}`,centre:c.id,point:p,served:false})
   }
   for(const d of demand) {
-    const targets=roads.map(r=>project(d.point,r.from,r.to)).sort((a,b)=>distance(d.point,a)-distance(d.point,b)).slice(0,8)
+    const candidates=[...new Map(roads.map(r=>{const p=project(d.point,r.from,r.to);return [key(p),p]})).values()].sort((a,b)=>distance(d.point,a)-distance(d.point,b))
+    const targets=candidates.slice(0,8)
     if(targets.length&&distance(d.point,targets[0])<90){d.served=true;continue}
+    // A barrier can put every nearest candidate on the opposite side. Also
+    // consider the nearest directly reachable road, so later demand shares
+    // an existing approach instead of drawing parallel routes to its tunnel.
+    const visible=candidates.find(p=>clearBandSegment(d.point,p,site.reserves))
+    if(visible&&!targets.includes(visible))targets.push(visible)
     let best:ReturnType<typeof route>=null
     for(const p of targets){const r=route(d.point,p);if(r&&(!best||r.length<best.length))best=r}
     if(!best){unconnected.push(d.id);continue}
@@ -207,6 +248,12 @@ export function planBandStreets(site: BandSite) {
     localLinks.push({from:a.id,to:b.id,before,after:length})
     noded=nodeBandRoads(roads);graph=bandGraph(noded)
   }
-  return {site,roads:noded,demand,unallocatedDemand:site.localDemand-demand.length,unconnected,links,localLinks}
+  for(const a of site.accesses??[]) {
+    const start=nodeAt(a.point)
+    if(start<0)continue
+    const costs=shortest(graph.adjacency,start).cost
+    for(const link of accessLinks)if(link.access===a.id)link.length=costs[nodeAt(site.centres.find(c=>c.id===link.centre)!.point)]??Infinity
+  }
+  return {site,roads:noded,demand,unallocatedDemand:site.localDemand-demand.length,unconnected,links,localLinks,accessLinks}
 }
 export type BandStreetPlan = ReturnType<typeof planBandStreets>
