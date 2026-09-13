@@ -10,8 +10,8 @@ import { fitResidentFeet } from '../../src/objects/residentFootContact'
 
 // Resolve the independent review's uncertainty about the far-side pedestrian.
 // Use captured actor positions, actual shoes and the rendered pavement builder.
-const capture=JSON.parse(readFileSync(new URL('./native-districts-quest-final.json',import.meta.url),'utf8'))
-const view=capture.views.find((v:any)=>v.name==='spine'),actors=view.walkers.actors
+const capture=JSON.parse(readFileSync(process.env.CAPTURE??new URL('./native-districts-quest-final.json',import.meta.url),'utf8'))
+const view=capture.views.find((v:any)=>v.name===(process.env.VIEW??'spine')),actors=view.walkers.actors
 const radius=3200,city=planCity({radius,length:40000,maxBuildings:18000})
 rebuildNativeDistricts(city,radius)
 const network=city.streetNetwork!,near=new Set<number>()

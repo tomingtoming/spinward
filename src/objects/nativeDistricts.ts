@@ -5,6 +5,7 @@ import { buildingFootprint, certifyStreetAccess } from './streetFrontage'
 import { getStreetProfile } from './streetProfile'
 import { intersectStreetPolygons, polygonArea } from './streetPolygon'
 import { SurfaceIndex } from './surfaceIndex'
+import { districtBlockLinks } from './districtLinks'
 
 export type NativeDistrict = {
   id: string; azimuth: number; axial: number; width: number; length: number
@@ -15,7 +16,7 @@ export type NativeDistrict = {
 export type DistrictTrafficStreet = { road: CityRoad; path: StreetPath; sourceRoadIds: string[] }
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 
-/** Replace a connected four-by-four group of blocks in each large land band.
+/** Replace a connected four-by-six group of blocks in each large land band.
  * The perimeter stays fixed; through arterials retain their destinations.
  * Selection depends on roads, never quality-dependent lot thinning. */
 export function rebuildNativeDistricts(city: CityPlan, radius: number) {
@@ -30,11 +31,11 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
     const local = originalRoads.filter(r => r.axialLength > 30000 && Math.abs(wrap(r.azimuth - azimuth)) * radius < 600)
       .sort((a,b) => wrap(a.azimuth - azimuth) - wrap(b.azimuth - azimuth))
     const centre = local.indexOf(main), west = local[centre - 2], east = local[centre + 2]
-    const cross = originalRoads.filter(r => r.tangentWidth > 2500 && Math.abs(wrap(r.azimuth - azimuth)) < .01 && r.axial > 5000 && r.axial < 6800)
+    const cross = originalRoads.filter(r => r.tangentWidth > 2500 && Math.abs(wrap(r.azimuth - azimuth)) < .01 && r.axial > 5000 && r.axial < 7500)
       .sort((a,b) => a.axial - b.axial)
-    if (!west || !east || cross.length < 5) continue
+    if (!west || !east || cross.length < 7) continue
     const left = wrap(west.azimuth - azimuth) * radius, right = wrap(east.azimuth - azimuth) * radius
-    const bottom = cross[0].axial, top = cross[4].axial, axial = (bottom + top) / 2
+    const bottom = cross[0].axial, top = cross[6].axial, axial = (bottom + top) / 2
     const d: NativeDistrict = { id: `district-${band}`, azimuth, axial, width: right-left, length: top-bottom,
       streets: [], buildings: [], replacedBuildings: 0, replacedRoads: 0 }
     const inside = (p: {azimuth:number;axial:number}, margin = 0) => {
@@ -63,14 +64,14 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
     roads = kept
     // Smooth returns at the district edge; different bows in adjacent bands
     // break the repeating overhead grid without kinks at the old road ends.
-    const selected = [...local.slice(centre-1,centre+2), ...cross.slice(1,4)]
+    const selected = [...local.slice(centre-1,centre+2), ...cross.slice(1,6)]
     for (const [i,r] of selected.entries()) {
       const vertical = i < 3, x = wrap(r.azimuth - azimuth) * radius, y = r.axial - axial
       const length = vertical ? d.length : d.width
       const bend = (i === 1 ? 82 : i < 3 ? 56 : 68) * (band === 1 ? -1 : 1) * (i % 2 ? 1 : -1)
       const points: [number,number][] = [0,.25,.5,.75,1].map((t,j) => {
         const profile = [[0,-.1,.8,.9,0],[0,-.6,.8,.35,0],[0,.7,.4,-.3,0],
-          [0,-.8,-.55,.15,0],[0,-.3,.65,.8,0],[0,.1,-.2,-.8,0]][i]
+          [0,-.8,-.55,.15,0],[0,-.3,.65,.8,0],[0,.1,-.2,-.8,0]][i%6]
         const offset = profile[j] * bend
         return vertical ? [x+offset,-d.length/2+t*length] : [left+t*length,y+offset]
       })
@@ -83,6 +84,7 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
       d.streets.push(path)
       traffic.push({ road:r, path, sourceRoadIds:[path.id,...roads.filter(p=>p.id===r.id||p.id?.startsWith(`${r.id}:${d.id}:`)).map(p=>p.id!)] })
     }
+    d.streets.push(...districtBlockLinks(d.streets,band))
     // Retain landscaping outside the rebuilt blocks. Bare planted courts use
     // the habitat surface, so no rectangular field texture cuts through a bend.
     city.patches = city.patches.filter(p => !inside(p))

@@ -12,11 +12,11 @@ async function press(page,xr,id){
 import {signalPose} from '../neighborhood-life/signal-views.mjs'
 import {nativeDistrictViews} from '../neighborhood-life/native-district-views.mjs'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-test('native district roads remain connected while walking and using the wrist in stereo',async({page,xr},info)=>{
+for(const viewName of ['spine','t-approach'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
  const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto('about:blank');const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
- await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${signalPose(nativeDistrictViews.find(v=>v.name==='spine'))}`)
+ await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${signalPose(nativeDistrictViews.find(v=>v.name===viewName))}`)
  await page.waitForSelector('#splash',{state:'detached'});await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
  const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0');expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
@@ -24,12 +24,14 @@ test('native district roads remain connected while walking and using the wrist i
   const city=window.__spinwardCity,p=city.getCityPlan(),poses=city.getTrafficPositions(),routes=city.trafficRoutes
   return{azimuth:window.__spinward.azimuth,axial:window.__spinward.axial,ground:window.__spinward.groundHeight,mode:window.__spinward.mode,
    districts:p.nativeDistricts.map(d=>({id:d.id,buildings:d.buildings.length})),
+   junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
    traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,...poses[i]}]:[]),
    walkers:window.__spinwardWalkers.group.userData,
    roadMatrices:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,matrix:m.matrixWorld.elements,triangles:m.geometry.index.count/3}))}
  })
- await page.waitForFunction(()=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible))
+ await page.waitForFunction(view=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible&&(view!=='t-approach'||a.id.includes(':link-0:'))),viewName)
  const before=await state();expect(before.districts).toHaveLength(3);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
+ expect(before.junctions).toHaveLength(18);expect(before.junctions.every(j=>j.arms===3)).toBe(true)
  await xr.setHeadPose({position:[0,1.6,0],euler:[-.2,0,0]});await xr.setControllerPose('left',left);await xr.waitForFrames(2,{timeout:5000})
  await press(page,xr,'nav-places');await page.waitForFunction(()=>window.__spinwardWatch.screen==='places')
  await xr.screenshot(info.outputPath('district-wrist.png'),{canvas:'canvas',metadata:true,timeout:5000});await press(page,xr,'nav-home')
@@ -40,10 +42,43 @@ test('native district roads remain connected while walking and using the wrist i
   const probe=await state();expect(probe.roadMatrices).toEqual(before.roadMatrices)
   const capture=await xr.screenshot(info.outputPath(`district-roll-${roll}.png`),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push(capture)
  }
- await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,0]});await xr.setAxes('left',0,-.45);await xr.settle(1000);await xr.setAxes('left',0,0)
+ await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,0]});await xr.setAxes('left',0,-.45);await xr.settle(viewName==='spine'?1000:350);await xr.setAxes('left',0,0)
  const after=await state();expect(Math.hypot((after.azimuth-before.azimuth)*3200,after.axial-before.axial)).toBeGreaterThan(.3);expect(after.mode).toBe('grounded');expect(Math.abs(after.ground)).toBeLessThan(.05)
  expect(after.traffic.some(v=>{const b=before.traffic.find(b=>b.id===v.id);return b&&Math.hypot((v.azimuth-b.azimuth)*3200,v.axial-b.axial)>1})).toBe(true)
  expect(after.walkers.actors.some(a=>{const b=before.walkers.actors.find(b=>b.id===a.id);return a.id.startsWith('native:')&&b&&Math.hypot((a.azimuth-b.azimuth)*3200,a.axial-b.axial)>.1})).toBe(true)
  const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('district-evidence.json'),JSON.stringify({gpu,diagnostics,before,after,frames,errors},null,2))
+})
+
+// Ground-level approach captures can hide the junction behind the curve.
+// Aim the headset at the actual connection, then require it to stay in frame.
+test('native T junction stays on screen and connected through stereo head roll',async({page,xr},info)=>{
+ const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
+ await page.goto('about:blank')
+ const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r})
+ expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
+ await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
+ await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&${signalPose(nativeDistrictViews.find(v=>v.name==='t-overview'))}`)
+ await page.waitForSelector('#splash',{state:'detached'});await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
+ await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0');expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
+ await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
+ const target=await page.evaluate(()=>{
+  const city=window.__spinwardCity,p=city.getCityPlan(),n=p.streetNetwork,j=p.streetMarkings.junctions.find(j=>j.arms.some(a=>n.streets[a.street].id==='district-0:link-0')&&j.arms.some(a=>n.streets[a.street].kind==='arterial')),node=n.nodes[j.node]
+  const camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0],world=city.group.localToWorld(camera.position.clone().set(Math.cos(node.azimuth)*3199.68,node.axial,Math.sin(node.azimuth)*3199.68))
+  return{tracking:camera.parent.worldToLocal(world.clone()).toArray(),world:world.toArray(),arms:j.arms.length}
+ })
+ expect(target.arms).toBe(3)
+ const head=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...target.tracking),new Vector3(0,1,0)))
+ const surfaces=()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,matrix:m.matrixWorld.elements,triangles:m.geometry.index.count/3})))
+ const before=await surfaces()
+ for(const degrees of [0,25,-25]){
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{sessionId:diagnostics.session.id,timeout:5000})
+  expect(await surfaces()).toEqual(before)
+  const projected=await page.evaluate(world=>{const camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0];return camera.position.clone().fromArray(world).project(camera).toArray()},target.world)
+  expect(Math.abs(projected[0])).toBeLessThan(.9);expect(Math.abs(projected[1])).toBeLessThan(.9);expect(projected[2]).toBeGreaterThan(-1);expect(projected[2]).toBeLessThan(1)
+  const capture=await xr.screenshot(info.outputPath(`junction-roll-${degrees}.png`),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push({degrees,projected,capture})
+ }
+ const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
+ await fs.writeFile(info.outputPath('junction-evidence.json'),JSON.stringify({gpu,diagnostics,target,before,frames,errors},null,2))
 })

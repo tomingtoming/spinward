@@ -764,3 +764,33 @@ The separate four-position shoe/actual-pavement probe resolved a distant PC
 pedestrian's uncertain foot placement; it does not validate continuous gait.
 Unit tests: **965 passed**; TypeScript/production build passed. Physical Quest
 performance, comfort and continuous flicker remain unmeasured.
+
+## Oblique local streets and T junctions — 2026-09-13
+
+The native districts now extend 1.5× axially, with 33 curved streets and 111
+junctions, including 18 T connections. The district fixture visits both the
+arterial sidewalk and a local-street approach, checks three-arm connections,
+observes actual residents on the new local street, and exercises actual entry,
+wrist Places, stick walking and session-scoped exit with playwright-webxr 0.3.0.
+
+All **28 cases passed in 7.9 minutes**, with zero retries, on the same frozen
+application build. The two district walks moved approximately 2.942 m and
+1.216 m while grounded; these are short approach walks, not full T traversals.
+Independent review found that the approach did not expose the junction mouth
+clearly enough. A dedicated overhead case therefore aims at the actual T node,
+asserts that its projected point stays on screen through 0/±25° roll, and saves
+both eyes for review. That additional **one case passed in 18.7 seconds** on
+the same build. The current suite consequently contains **29 cases**; this
+evidence is the 28-case run plus the focused addition, not a second full run.
+
+The hardware preflight reported Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE
+Metal; stereo captures are 2560×960 with IPD 0.064 m. Desktop night views and
+actual fixture positions resolved a suspected missing-light issue as the
+existing 450 m range. Unit tests: **966 passed**; TypeScript/build passed.
+Physical Quest performance, continuous contact/flicker and comfort remain
+unmeasured. Wrist Places buttons were readable in both eyes, but its small
+STREET LIFE supplementary text remains a visual improvement candidate.
+
+[Implementation, geometry/CPU cost, visual observations and remaining work](../neighborhood-life/district-t-junctions.md).
+Evidence: `evidence/district-t-junctions-20260913/`, including `xr-full/` and
+`xr-junction/`.

@@ -23,15 +23,18 @@ try{
   await page.evaluate(()=>document.querySelector('.lil-gui')?.remove());if(await page.locator('.tour-notice button').count())await page.locator('.tour-notice button').first().click();await page.keyboard.press('Escape');await page.waitForTimeout(500)
   if(!baseline&&view.name==='spine')await page.waitForFunction(()=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible))
   const probe=await page.evaluate(()=>{
-   const city=window.__spinwardCity,p=city.getCityPlan(),routes=city.trafficRoutes,positions=city.getTrafficPositions()
-   return{buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,buildings:d.buildings.length,roads:d.streets.length}))??[],
+   const city=window.__spinwardCity,p=city.getCityPlan(),routes=city.trafficRoutes,positions=city.getTrafficPositions(),lamps=window.__spinwardStreetLamps
+   return{buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length}))??[],
     nativeCars:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,position:positions[i],stops:r.signals?.length??0}]:[]),
     walkers:window.__spinwardWalkers.group.userData,
+    lamps:lamps?{focusAzimuth:lamps.focusAzimuth,focusAxial:lamps.focusAxial,capacity:lamps.posts.capacity,count:lamps.posts.mesh.count,
+     spots:lamps.spots.filter(s=>s.heading!==undefined),
+     matrices:Array.from({length:lamps.posts.mesh.count},(_,i)=>Array.from(lamps.posts.mesh.instanceMatrix.array.slice(i*16,i*16+16)))}:null,
     pavementEdgeTriangles:window.__spinwardScene.getObjectByName('district-pavement-edges')?.geometry.attributes.position.count/3,
     geometry:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,triangles:m.geometry.index.count/3})),
     player:window.__spinward,signals:window.__spinwardIntersections.group.getObjectByName('intersection-signal-heads').userData.nativeApproaches}
   })
-  if(!baseline&&(probe.districts.length!==3||!probe.nativeCars.some(c=>c.position.axial>5141&&c.position.axial<6425)))throw Error('Native districts or actual cars on the rebuilt road are missing')
+  if(!baseline&&(probe.districts.length!==3||!probe.nativeCars.some(c=>probe.districts.some(d=>Math.abs(c.position.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(c.position.azimuth-d.azimuth),Math.cos(c.position.azimuth-d.azimuth)))*3200<d.width/2))))throw Error('Native districts or actual cars on the rebuilt road are missing')
   if(!baseline&&probe.walkers.people>probe.walkers.capacity)throw Error('Walker capacity exceeded')
   const file=`native-districts-${tier}-${label}-${view.name}.png`;await page.screenshot({path:out+file});report.views.push({name:view.name,file,loadAndCaptureMs:Date.now()-start,...probe})
  }

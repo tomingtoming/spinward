@@ -19,11 +19,12 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
  const {districts,traffic}=rebuildNativeDistricts(p,R),network=p.streetNetwork!
  expect(districts).toHaveLength(3);expect(p.buildings.length).toBe(before)
  expect(p.buildings.filter(b=>b.axial<4000).map(b=>[b.azimuth,b.axial,b.width,b.depth,b.height])).toEqual(old.map(b=>[b.azimuth,b.axial,b.width,b.depth,b.height]))
- expect(new Set(network.components).size).toBe(3);expect(traffic).toHaveLength(18)
+ expect(new Set(network.components).size).toBe(3);expect(traffic).toHaveLength(24)
  const ids=new Set(network.streets.map(s=>s.id));expect(p.buildings.every(b=>b.access&&ids.has(b.access.roadId))).toBe(true)
  const m=new StreetMarkingPlan(network),s=new StreetSignalPlan(m,p.intersections);p.streetMarkings=m;p.streetSignals=s
  const junctions=m.junctions.filter(j=>j.arms.some(a=>network.streets[a.street].id.startsWith('district-')))
- expect(junctions).toHaveLength(63)
+ expect(junctions).toHaveLength(111)
+ expect(junctions.filter(j=>j.arms.length===3)).toHaveLength(18)
  for(const j of junctions){
   expect(m.junctionCrossings(j)).toHaveLength(j.arms.length)
   if(j.arms.some(a=>network.streets[a.street].kind==='arterial')){
@@ -31,7 +32,13 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
   }
  }
  for(const d of districts){
-  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(6)
+  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(11)
+  for(const link of d.streets.filter(p=>p.id.includes(':link-'))){
+   const index=network.streets.indexOf(link)
+   expect(network.closedEnds[index]).toEqual([false,false])
+   const ends=junctions.filter(j=>j.arms.some(a=>a.street===index))
+   expect(ends).toHaveLength(2);expect(ends.every(j=>j.arms.length===3)).toBe(true)
+  }
   const own=certifyStreetAccess(d.buildings,network,R,6);expect(own.rejected).toEqual([])
   for(let i=0;i<d.buildings.length;i++)for(let j=0;j<i;j++){
    const a=d.buildings[i],b=d.buildings[j],dx=wrap(b.azimuth-a.azimuth)*R,dy=b.axial-a.axial
@@ -77,6 +84,20 @@ test('foot and driving guidance follows a curved native block',()=>{
   const route=planNeighborhoodRoute(p,R,point(.04,offset),point(.20,offset),driving)
   expect(route).not.toBeNull();expect(route!.length).toBeGreaterThan(2)
   if(driving)expect(route!.every(v=>isDrivingStreetPoint(p.streetNetwork!,v.azimuth,v.axial))).toBe(true)
+ }
+})
+
+test('oblique local streets connect foot and driving routes to the arterial at real T junctions',()=>{
+ const p=middle
+ for(const district of p.nativeDistricts!){
+  const link=district.streets.find(s=>s.id.endsWith(':link-0'))!,arterial=district.streets[1]
+  const point=(street:typeof link,t:number,offset:number)=>{const v=sampleStreetPath(street,t,offset);return{azimuth:street.azimuth+v.x/R,axial:street.axial+v.y,groundHeight:0}}
+  for(const driving of [false,true]){
+   const start=point(link,.7,driving?1.5:4.2),goal=point(arterial,.18,driving?1.6:11.2)
+   const route=planNeighborhoodRoute(p,R,start,goal,driving)
+   expect(route).not.toBeNull();expect(route!.length).toBeGreaterThan(2)
+   if(driving)expect(route!.every(v=>isDrivingStreetPoint(p.streetNetwork!,v.azimuth,v.axial))).toBe(true)
+  }
  }
 })
 
@@ -128,7 +149,7 @@ test('nearby residents and supported lamps use the native pavement without enter
  expect(planDistrictWalkerRoutes(p,{azimuth:0,axial:-10000,range:110})).toEqual([])
  const returned=planDistrictWalkerRoutes(p,focus);expect(returned).toEqual(walkers);expect(returned.every((route,i)=>route!==walkers[i])).toBe(true)
  for(const walker of walkers)for(const point of walker.path!)expect(isDrivingStreetPoint(p.streetNetwork!,point.azimuth,point.axial,0)).toBe(false)
- const lamps=planDistrictLampSpots(p.nativeDistricts!,R,p.streetMarkings!);expect(lamps.length).toBeGreaterThan(250);expect(lamps.length).toBeLessThan(450)
+ const lamps=planDistrictLampSpots(p.nativeDistricts!,R,p.streetMarkings!);expect(lamps.length).toBeGreaterThan(400);expect(lamps.length).toBeLessThan(600)
  for(const lamp of lamps){
   const offset=lamp.side*(lamp.roadHalfWidth+.6),azimuth=lamp.azimuth-Math.sin(lamp.heading!)*offset/R,axial=lamp.axial+Math.cos(lamp.heading!)*offset
   expect(isDrivingStreetPoint(p.streetNetwork!,azimuth,axial,0)).toBe(false)

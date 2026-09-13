@@ -76,10 +76,12 @@
       "sha256": "c6407085c71a9e9de6db1fcd76096420fe2457ff466438e183f6cf6a58f7b223",
       "size": 3043061,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "skyline",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度とhashを再確認。近景の高さの違う塔と低層、頭上の細かな市街、大小・向きの異なる区画が見える。個別の道路接続やT字路までは確定できない。霧状の帯の原因と強い夕景色は未確定で採用しない。",
+      "relatedWork": "qa/neighborhood-life/district-t-junctions.md: 大きな反復区画を分ける設計判断の参照。T字の位置と曲線はSpinward独自の設計。原画の密度・建物・光を再現した実装とは扱わずpendingを維持。"
     },
     {
       "id": "izma-0008",
