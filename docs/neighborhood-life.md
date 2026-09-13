@@ -321,3 +321,18 @@ eight paths pass; the ground height beside the bench remains zero. Unit checks
 compare mesh support, collision/exit and actual shoe vertices across seat/floor
 heights and cylinder orientations. These are browser and geometry checks, not
 phone/headset hardware certification.
+
+## Residents on riverside paths (2026-09-13)
+
+Street residents can now use the existing upper promenade, end ramps and lower
+banks. Two short out-and-back routes share the existing eight desktop / four
+Quest and phone slots; the Blender asset and draw batches are unchanged.
+Terrain is resolved once at setup, and runtime follows the cumulative-distance
+path. Yielding now distinguishes the lower bank from people or cars above.
+
+An image-review finding also exposed 4–10 cm of shoe clearance in the old gait.
+The street population now lowers its pelvis to keep a support shoe near the
+local ground plane, including on slopes. This improves contact without adding
+full foot IK; foot sliding and simple contact shadows remain. The player body
+and seated residents keep their separate motion systems. Actual support,
+walking/yielding and stereo checks: [River residents](../qa/neighborhood-life/river-walkers.md).

@@ -1,7 +1,9 @@
 import type { SidewalkSegment } from './sidewalks'
 import { SIDEWALK_LIFT } from './streetProfile'
 
+export type WalkerPathPoint = { azimuth: number; axial: number; height: number; distance: number }
 export type StreetWalkerRoute = {
+  path?: readonly WalkerPathPoint[]
   id: string; azimuth: number; axial: number; tangentWidth: number; axialLength: number
   axis: 'axial' | 'tangent'; length: number; height: number; speed: number; phase: number; variant: number
 }
@@ -56,17 +58,29 @@ export function sampleStreetWalker(route: StreetWalkerRoute, radius: number, sec
   } else {
     offset = -.5 * route.length; heading = Math.PI + Math.PI * smooth((t - 2 * duration - pause) / pause); walking = false
   }
-  return { azimuth: route.azimuth + (route.axis === 'tangent' ? offset / radius : 0),
+  if (route.path) {
+    const path = route.path, along = offset + route.length / 2
+    let lo = 0, hi = path.length - 1
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (path[mid].distance <= along) lo = mid; else hi = mid }
+    const a = path[lo], b = path[hi], t = Math.min(1, Math.max(0, (along - a.distance) / (b.distance - a.distance)))
+    const dx = Math.atan2(Math.sin(b.azimuth - a.azimuth), Math.cos(b.azimuth - a.azimuth)) * radius
+    const grade = (b.height - a.height) / Math.hypot(dx, b.axial - a.axial)
+    return { azimuth: a.azimuth + dx * t / radius, axial: a.axial + (b.axial - a.axial) * t,
+      height: a.height + (b.height - a.height) * t, heading: heading + Math.atan2(dx, b.axial - a.axial), walking,
+      slopeX: grade * Math.sin(heading), slopeZ: grade * Math.cos(heading) }
+  }
+  return { height: route.height, azimuth: route.azimuth + (route.axis === 'tangent' ? offset / radius : 0),
     axial: route.axial + (route.axis === 'axial' ? offset : 0),
-    heading: heading + (route.axis === 'tangent' ? Math.PI / 2 : 0), walking }
+    heading: heading + (route.axis === 'tangent' ? Math.PI / 2 : 0), walking, slopeX: 0, slopeZ: 0 }
 }
 const smooth = (t: number) => t * t * (3 - 2 * t)
 
 export const walkerDistance = (a: { azimuth: number; axial: number }, b: { azimuth: number; axial: number }, radius: number) =>
   Math.hypot(Math.atan2(Math.sin(a.azimuth - b.azimuth), Math.cos(a.azimuth - b.azimuth)) * radius, a.axial - b.axial)
 
-export function walkerWouldApproach(current: { azimuth: number; axial: number }, next: { azimuth: number; axial: number },
-  obstacle: { azimuth: number; axial: number }, radius: number, clearance: number) {
+export function walkerWouldApproach(current: { azimuth: number; axial: number; height?: number }, next: { azimuth: number; axial: number; height?: number },
+  obstacle: { azimuth: number; axial: number; height?: number }, radius: number, clearance: number) {
+  if (next.height !== undefined && obstacle.height !== undefined && Math.abs(next.height - obstacle.height) > 1.1) return false
   const distance = walkerDistance(next, obstacle, radius)
   return distance < clearance && distance < walkerDistance(current, obstacle, radius) - 1e-6
 }

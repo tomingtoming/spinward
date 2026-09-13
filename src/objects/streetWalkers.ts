@@ -1,10 +1,13 @@
 import * as THREE from 'three'
+import { planRiverWalkerRoutes } from './riverWalkerRoutes'
+import type { RiverDistrict } from './riverDistrictPlan'
 import type { SidewalkSegment } from './sidewalks'
 import { SurfaceIndex } from './streetAccess'
 import { loadResidentModel, placeResident, poseResident, ResidentBatches, type ResidentAppearance } from './residentModel'
+import { fitResidentFeet } from './residentFootContact'
 import { planStreetWalkerRoutes, sampleStreetWalker, walkerDistance, walkerWouldApproach, type StreetWalkerRoute } from './streetWalkerRoutes'
 
-type Focus = { azimuth: number; axial: number; altitude: number }
+type Focus = { azimuth: number; axial: number; altitude: number; height?: number }
 type Walker = { route: StreetWalkerRoute; root: THREE.Object3D; clock: number; blocked: boolean }
 const RANGE = 110, KEEP_RANGE = 135
 const shirts = [0x6c8288, 0x8e7565, 0x777e58, 0x9f9690, 0x826b76, 0x526579]
@@ -15,6 +18,7 @@ const trousers = [0x3d4652, 0x5e5750, 0x414943, 0x55505d, 0x625d55, 0x343d49]
 export class StreetWalkers {
   readonly group = new THREE.Group()
   private routes: StreetWalkerRoute[] = []
+  private riverRoutes: StreetWalkerRoute[] = []
   private segments: readonly SidewalkSegment[] = []
   private index = new SurfaceIndex(3200)
   private radius = 3200
@@ -32,10 +36,11 @@ export class StreetWalkers {
   constructor(parent: THREE.Object3D, private readonly capacity: number) {
     this.group.name = 'street-walkers'; parent.add(this.group)
   }
-  setPlan(segments: readonly SidewalkSegment[], radius: number) {
+  setPlan(segments: readonly SidewalkSegment[], radius: number, river: RiverDistrict | null = null) {
     this.radius = radius
     this.segments = this.enabled && radius >= 100 ? segments : []
     this.routes = []
+    this.riverRoutes = this.enabled ? planRiverWalkerRoutes(river, radius) : []
     this.index = new SurfaceIndex(radius)
     this.segments.forEach((s, i) => {
       const width = s.isAvenue ? s.tangentExtent : s.axialExtent, length = s.isAvenue ? s.axialExtent : s.tangentExtent
@@ -50,6 +55,7 @@ export class StreetWalkers {
     // would retain hundreds of thousands of route objects for eight people.
     this.routes = [...this.index.query({ ...focus, tangentWidth: RANGE * 2, axialLength: RANGE * 2 })]
       .flatMap(i => planStreetWalkerRoutes([this.segments[i]], this.radius, i, { ...focus, range: RANGE }))
+    this.routes.push(...this.riverRoutes)
     const candidates = this.routes.filter(r => !occupied.has(r.id))
       .map(route => ({ route, distance: walkerDistance(sampleStreetWalker(route, this.radius, this.clock + route.phase), focus, this.radius) }))
       .filter(r => r.distance < RANGE && (this.firstPopulation || r.distance > 22))
@@ -58,6 +64,7 @@ export class StreetWalkers {
       if (keep.length >= this.capacity) break
       const root = this.source!.clone(true)
       root.name = 'street-resident-' + route.id
+      root.userData.seated = false
       const cloth = new THREE.Color(shirts[route.variant]), pants = new THREE.Color(trousers[route.variant])
       // Per-instance multipliers turn the authored albedos into a quiet palette.
       cloth.setRGB(cloth.r / .19, cloth.g / .255, cloth.b / .24)
@@ -68,9 +75,9 @@ export class StreetWalkers {
     for (const old of this.walkers) if (!keep.includes(old)) this.appearances.delete(old.root)
     this.walkers = keep; this.firstPopulation = false
   }
-  update(dt: number, focus: Focus, rover: { azimuth: number; axial: number } | null) {
+  update(dt: number, focus: Focus, rover: { azimuth: number; axial: number; height?: number } | null) {
     this.clock += Math.min(.1, Math.max(0, dt))
-    this.group.visible = this.enabled && this.segments.length > 0 && focus.altitude >= 0 && focus.altitude < 8
+    this.group.visible = this.enabled && (this.segments.length > 0 || this.riverRoutes.length > 0) && focus.altitude >= 0 && focus.altitude < 8
     if (!this.group.visible) return
     if (!this.source) {
       if (!this.requested) {
@@ -98,9 +105,10 @@ export class StreetWalkers {
       if (!w.blocked) w.clock += step
       const position = w.blocked ? current : next
       const scale = .94 + w.route.variant * .022
-      placeResident(w.root, position.azimuth, position.axial, this.radius, position.heading, w.route.height)
+      placeResident(w.root, position.azimuth, position.axial, this.radius, position.heading, position.height + (w.route.path ? .02 : 0))
       w.root.scale.set(scale * (w.route.variant % 2 ? 1.04 : .98), scale, scale)
       poseResident(w.root, w.clock * w.route.speed / 1.1, position.walking && !w.blocked, false, w.route.phase)
+      fitResidentFeet(w.root, position.slopeX * w.root.scale.x / scale, position.slopeZ)
       w.root.visible = walkerDistance(position, focus, this.radius) < KEEP_RANGE
       roots.push(w.root)
       states.push({ id: w.route.id, ...position, visible: w.root.visible, blocked: w.blocked, variant: w.route.variant, scale })

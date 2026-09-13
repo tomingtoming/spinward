@@ -1353,7 +1353,7 @@ export const bootstrapApp = async () => {
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
       playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
       playerBodyView.motion.reset()
-      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius)
+      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict())
     }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'
@@ -2880,8 +2880,9 @@ export const bootstrapApp = async () => {
       altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
       { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition, speed: drive.driving ? drive.lastSpeed : 0 })
     streetWalkers.update(deltaSeconds, { azimuth: Math.atan2(rotatingCameraPosition.z,rotatingCameraPosition.x), axial: rotatingCameraPosition.y,
+      height: drive.driving ? drive.lastElevation : playerTraversal.groundHeight,
       altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
-      drive.driving ? { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition } : null)
+      drive.driving ? { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition, height: drive.lastElevation } : null)
     cityscape.update(deltaSeconds)
     intersectionFurniture.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,

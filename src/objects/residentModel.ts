@@ -65,7 +65,7 @@ export class ResidentBatches {
       const appearance = appearances?.get(person)
       person.updateMatrixWorld(true)
       if(this.shadows){
-        const seated=(person.getObjectByName('pelvis')?.position.y??1)<.9
+        const seated=person.userData.seated ?? (person.getObjectByName('pelvis')?.position.y??1)<.9
         this.matrix.copy(person.matrixWorld).multiply(new THREE.Matrix4().makeTranslation(0,seated?.252:-.016,seated?.43:0))
         this.shadows.setMatrixAt(this.shadows.count++,this.matrix)
       }

@@ -484,3 +484,23 @@ exercise exit/re-entry. Evidence: `qa/webxr/evidence/bulkheads-20260913/`.
 No physical-headset measurements are implied. Material topology, the corrected
 oblique raster seams and retained dark-night limits are documented in
 [Bulkheads](../neighborhood-life/bulkheads.md).
+
+## Riverside residents — 2026-09-13
+
+`river-walkers.xr.mjs` adds actual elapsed resident movement on the lower bank,
+with normal gravity/rotation and the Quest population budget. Actual entry,
+0/±25° roll, actor projection, radial root height, matching 1280×960 eyes and
+session-ID-scoped exit are checked with playwright-webxr 0.2.0. The resident
+moved 0.763 m in the final motion probe without actor-clock or position writes.
+
+After route-setup optimization and shoe-support correction, the complete suite
+passed **18 tests / 20 sessions / 20 exits in 4.5 minutes**, including actual
+wrist/controller interaction and both exit/re-entry scenarios. The production
+build remained frozen. Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal hardware
+preflight passed. Independent image review found no new body or single-eye
+defects in the supplied views; small/dark feet remain unsuitable for judging
+precise contact. These are emulation results, not physical Quest measurements.
+
+Evidence is retained under `qa/webxr/evidence/river-walkers-20260913/`, with
+initial and final builds separated. Route, actual GLB shoe tests, browser
+yield/resume and retained limitations: [River residents](../neighborhood-life/river-walkers.md).
