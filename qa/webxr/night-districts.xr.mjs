@@ -20,7 +20,7 @@ test('distant district lights remain attached to the colony in stereo through he
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
  const diagnostics=await xr.diagnostics()
- expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible))).toBe(true)
  const target=await page.evaluate(([a,y])=>{
@@ -41,7 +41,7 @@ test('distant district lights remain attached to the colony in stereo through he
  expect(before.size).toEqual([4096,2048])
  for(const degrees of [0,25,-25]){
   await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()})
-  await xr.settle(200)
+  await xr.waitForFrames(2,{timeout:5000})
   expect(await probe()).toEqual(before)
   const projected=await page.evaluate(([a,y])=>{
    const city=window.__spinwardCity,camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0]
@@ -55,7 +55,7 @@ test('distant district lights remain attached to the colony in stereo through he
   await info.attach(`night-districts-roll-${degrees}`,{path,contentType:'image/png'});frames.push({degrees,capture,projected})
  }
  const after=await xr.sessionCursor()
- await page.evaluate(()=>window.__xrDevice.activeSession.end())
+ await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
  await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
  expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('night-districts.json'),JSON.stringify({diagnostics,gpu,frames,before,errors},null,2))

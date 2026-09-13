@@ -14,7 +14,7 @@ test('river residents walk on the lower bank in stereo through head roll',async(
  await page.waitForFunction(()=>window.__spinwardWalkers?.group.userData.actors?.some(a=>a.id==='river:1'))
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
- const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  const probe=()=>page.evaluate(()=>{
   const w=window.__spinwardWalkers,a=w.group.userData.actors.find(a=>a.id==='river:1'),root=w.walkers.find(w=>w.route.id===a.id).root
@@ -29,7 +29,7 @@ test('river residents walk on the lower bank in stereo through head roll',async(
  for(const degrees of [0,25,-25]) {
   const target=(await probe()).tracking
   const head=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...target),new Vector3(0,1,0)))
-  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(180)
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{timeout:5000})
   const state=await probe()
   expect(state.people).toBeLessThanOrEqual(4);expect(state.actor.visible).toBe(true);expect(state.actor.height).toBeCloseTo(1.2,2)
   expect(3200-Math.hypot(state.root[0],state.root[2])).toBeCloseTo(state.actor.height+.02,6)
@@ -38,7 +38,7 @@ test('river residents walk on the lower bank in stereo through head roll',async(
   const path=info.outputPath(`river-walkers-roll-${degrees}.png`),capture=await xr.screenshot(path,{metadata:true,canvas:'canvas',timeout:5000})
   expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);await info.attach(`river-walkers-${degrees}`,{path,contentType:'image/png'});frames.push({degrees,state,capture})
  }
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end());await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
  expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('river-walkers.json'),JSON.stringify({diagnostics,gpu,initial,moved,frames,errors},null,2))
 })

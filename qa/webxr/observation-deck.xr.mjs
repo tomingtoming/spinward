@@ -1,5 +1,6 @@
 import { test, expect } from 'playwright-webxr'
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import { aimQuaternion } from 'playwright-webxr/examples/aim-controller'
 import fs from 'node:fs/promises'
 const leftPose={position:[-.1,1.42,-.4],quaternion:new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-Math.PI/2).multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/2)).toArray()}
 const right=[.22,1.38,-.2]
@@ -11,8 +12,8 @@ async function press(page,xr,id){
   return {u:(b.x+b.width/2)/l.width,v:1-(b.y+b.height/2)/l.height,panel:w.interactiveObject.matrixWorld.elements,rig:camera.parent.matrixWorld.elements}
  },id)
  const matrix=new Matrix4().fromArray(p.rig).invert().multiply(new Matrix4().fromArray(p.panel))
- const direction=new Vector3(p.u-.5,p.v-.5,0).applyMatrix4(matrix).sub(new Vector3(...right)).normalize()
- await xr.setControllerPose('right',{position:right,quaternion:new Quaternion().setFromUnitVectors(new Vector3(0,0,-1),direction).toArray()});await xr.settle(90)
+ const target=new Vector3(p.u-.5,p.v-.5,0).applyMatrix4(matrix).toArray()
+ await xr.setControllerPose('right',{position:right,quaternion:aimQuaternion(right,target)});await xr.waitForFrames(2,{timeout:5000})
  await expect.poll(()=>page.evaluate(()=>window.__spinwardWatch.hoveredAction)).toBe(id)
  await xr.pressButton('right','trigger')
 }
@@ -28,9 +29,9 @@ test('wrist places reach the supported observation deck and preserve its guard t
  await page.waitForFunction(()=>window.__spinwardCity.group.getObjectByName('observation-deck')?.userData.asset==='blender')
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
- const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
- await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]});await xr.setControllerPose('left',leftPose);await xr.settle(180)
+ await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]});await xr.setControllerPose('left',leftPose);await xr.waitForFrames(2,{timeout:5000})
  await press(page,xr,'nav-places')
  const texture=await page.evaluate(()=>window.__spinwardWatch.interactiveObject.material.map.image.toDataURL('image/png'))
  await fs.writeFile(info.outputPath('deck-places-texture.png'),Buffer.from(texture.split(',')[1],'base64'))
@@ -47,13 +48,13 @@ test('wrist places reach the supported observation deck and preserve its guard t
  for(const degrees of [0,25,-25]){
   const target=(await probe()).tracking
   const head=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...target),new Vector3(0,1,0)))
-  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(180)
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{timeout:5000})
   const state=await probe();expect(state.matrix).toEqual(initial.matrix);expect(state.lod).toBe(0);expect(state.ground).toBeCloseTo(58.5,2)
   expect(Math.abs(state.projected[0])).toBeLessThan(.9);expect(Math.abs(state.projected[1])).toBeLessThan(.9)
   const capture=await xr.screenshot(info.outputPath(`deck-roll-${degrees}.png`),{canvas:'canvas',metadata:true,timeout:5000})
   expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push({degrees,state,capture})
  }
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end());await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
  expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('observation-deck.json'),JSON.stringify({gpu,diagnostics,initial,frames,errors},null,2))
 })

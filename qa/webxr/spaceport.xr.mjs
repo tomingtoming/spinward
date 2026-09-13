@@ -14,7 +14,7 @@ test('spaceport shuttle and metric docking collar stay attached through stereo h
  await page.waitForFunction(()=>window.__spinwardScene.getObjectByName('spaceport')?.userData.collarAsset==='blender')
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
- const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const target=await page.evaluate(()=>{
@@ -24,7 +24,7 @@ test('spaceport shuttle and metric docking collar stay attached through stereo h
  const head=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...target),new Vector3(0,1,0)))
  let baseline
  for(const degrees of [0,25,-25]){
-  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(200)
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{timeout:5000})
   const probe=await page.evaluate(()=>{
    const port=window.__spinwardScene.getObjectByName('spaceport'),b=port.userData.berths[0],camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0],lod=port.getObjectByName('docking-collar-0')
    return {matrix:lod.matrixWorld.elements,ships:port.getObjectByName('spaceport-docked-ships').matrixWorld.elements,level:lod.getCurrentLevel(),
@@ -38,7 +38,7 @@ test('spaceport shuttle and metric docking collar stay attached through stereo h
   expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960])
   await info.attach(`spaceport-roll-${degrees}`,{path,contentType:'image/png'});frames.push({degrees,probe,capture})
  }
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end())
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
  await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('spaceport-evidence.json'),JSON.stringify({gpu,diagnostics,frames,errors},null,2))
 })

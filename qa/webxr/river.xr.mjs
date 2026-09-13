@@ -13,7 +13,7 @@ test('river bank and bridge remain on screen and world-fixed through stereo head
  await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardCity?.riverLayer.group.userData.blenderReady)
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
- const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const tracking=await page.evaluate(()=>{const c=window.__spinwardCity,p=c.riverDistrict,camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0],a=p.azimuth+5/3200;
@@ -22,7 +22,7 @@ test('river bank and bridge remain on screen and world-fixed through stereo head
  const probe=()=>page.evaluate(()=>({matrix:window.__spinwardCity.riverLayer.group.matrix.elements,h:window.__spinward.groundHeight,ready:window.__spinwardCity.riverLayer.group.userData.blenderReady}))
  const before=await probe();expect(before.h).toBeCloseTo(1.2,2)
  for(const degrees of [0,25,-25]){
-  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(200)
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{timeout:5000})
   const current=await probe()
   expect(current.matrix).toEqual(before.matrix);expect(current.ready).toBe(before.ready)
   expect(current.h).toBeCloseTo(before.h,6)
@@ -31,6 +31,6 @@ test('river bank and bridge remain on screen and world-fixed through stereo head
   const path=info.outputPath(`river-roll-${degrees}.png`),capture=await xr.screenshot(path,{metadata:true,canvas:'canvas',timeout:5000})
   expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);await info.attach(`river-roll-${degrees}`,{path,contentType:'image/png'});frames.push({degrees,capture,projected})
  }
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end());await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('river-evidence.json'),JSON.stringify({diagnostics,gpu,before,frames,errors},null,2))
 })

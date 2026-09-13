@@ -3,6 +3,7 @@
 Run the real VR entry, wrist laser and controller trigger through
 [playwright-webxr](https://github.com/tomingtoming/playwright-webxr). These are
 emulated sessions in Chrome, not measurements from a physical Quest.
+The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
 ## Run
 
@@ -47,7 +48,8 @@ ignored `qa/webxr/evidence/` before another run.
 The fixture reads existing `?debug` layout/state probes to aim and observe. It
 never calls app click handlers, writes gameplay state, or fabricates XR state.
 Input travels through IWER poses/buttons, Three's controller events and app
-raycasts. Session termination uses the emulator's real `XRSession.end()`.
+raycasts. Session termination uses `xr.endSession({ sessionId, timeout })`;
+app cleanup and the expected session's end event remain separate assertions.
 
 Mono uses 1280×960; stereo uses 2560×960, so each eye has the same 1280×960
 viewport. Halving a 1280×960 canvas had made each eye an unusually narrow
@@ -95,7 +97,7 @@ and re-entry checks remain in the suite to detect a recurrence.
 
 ## 0.2.0 integration — 2026-09-12
 
-Development dependency now pins **playwright-webxr 0.2.0**, with Playwright
+At this integration, the dependency pinned **playwright-webxr 0.2.0**, with Playwright
 1.63.0 and IWER 2.4.0 unchanged. This is a real application integration run,
 not a test of every package failure branch.
 
@@ -533,3 +535,19 @@ tests and the final TypeScript/production build also pass.
 `city-access.xr.mjs` uses the actual wrist Places → Apartment action, checks the shared street entrance and controller locomotion, then verifies the upstairs room and curved district in stereo at 0/±20° head roll. Diagnostics and capture metadata are tied to each session and its end event. The full suite passed 21 tests. Driveway and navigation changes subsequently passed the seven affected UI/scenery tests; the final Blender door correction passed both city-access tests again.
 
 Evidence is in `evidence/city-access-20260913/`: `full-before-driveway`, `final-ui-and-seams`, and `final-apartment`. Tests used hardware Chrome / ANGLE Metal on Apple M1 Pro and playwright-webxr 0.2.0. Physical Quest comfort and performance are unverified. Walking, parking envelopes, balcony contact costs and reference provenance are recorded in [city-access.md](../neighborhood-life/city-access.md).
+
+
+## 0.3.0 integration — 2026-09-13
+
+The exact package and lockfile pin are now 0.3.0. Playwright 1.63.0 and IWER 2.4.0 are unchanged. [Release notes](https://github.com/tomingtoming/playwright-webxr/releases/tag/v0.3.0) and the shipped README/source were checked against the installed package.
+
+- Every direct `window.__xrDevice.activeSession.end()` call in the suite is replaced by the public, session-scoped `xr.endSession` helper. App cleanup, dock visibility, re-entry and session logs are still checked.
+- Head/controller pose propagation uses `xr.waitForFrames(2, { timeout: 5000 })`. Loaded assets, hover, grounded state, scene transforms and captures retain their own assertions. Timed walking, resident motion and settling/negative-input observation intervals still use elapsed time. Frames alone do not prove application readiness.
+- All three wrist aiming helpers use the packaged `aimQuaternion` example after converting the panel target through the complete inverse tracking rig. Hover and actual trigger selection remain the oracle; a quaternion alone is not treated as a successful hit.
+- The two existing exit/re-entry scenarios now attempt both exit and frame waiting with the stale first-session ID. Both must reject while the second session stays active, then a scoped two-frame wait on the second session must return its ID and exactly two frames. This checks the integration failure that motivated the API.
+
+Historical 0.2.0 measurements and screenshots above retain their original version labels. Current continuation instructions and the existing hourly automation now select 0.3.0.
+
+The first complete migrated run passed **21 tests in 5.2 minutes**, without retries. Both mono desktop-entry and stereo Quest-entry scenarios passed the stale-ID guards, two-frame result and real wrist selections after re-entry. Inspected stereo captures of the room, curved district and Places panel retain both eyes and supported geometry; this was self-review, not an independent visual audit. Diagnostics identify playwright-webxr 0.3.0, Chrome 152 and Apple M1 Pro / ANGLE Metal. No package failure was observed in this suite.
+
+`bun test` (CI-aligned Bun 1.3.10) passed **888 tests**, and TypeScript/production build passed. Evidence is retained in `evidence/0.3.0-20260913/` (ignored). Physical-headset compositor output, performance and comfort remain untested.

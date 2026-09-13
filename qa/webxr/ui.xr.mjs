@@ -1,5 +1,7 @@
 import { test, expect } from 'playwright-webxr'
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import { aimQuaternion } from 'playwright-webxr/examples/aim-controller'
+import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import { underpassPose } from '../neighborhood-life/underpass-views.mjs'
 
@@ -33,12 +35,12 @@ for(const scenario of [
     await page.waitForFunction(()=>['guide-square','guide-cafe','guide-park'].every(id=>window.__spinwardOuting.destinations.has(id)))
     await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
     const diagnostics=await xr.diagnostics()
-    expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+    expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
     expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
     await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]})
     await xr.setControllerPose('left',leftPose)
     await xr.setControllerPose('right',{position:rightPosition,quaternion:[0,0,0,1]})
-    await xr.settle(180)
+    await xr.waitForFrames(2,{timeout:5000})
     await press(page,xr,'nav-places');await press(page,xr,'nav-outing')
     const before=await page.evaluate(()=>window.__spinward)
     await press(page,xr,scenario.action??'guide-square')
@@ -62,7 +64,7 @@ for(const scenario of [
     expect(distance(before,await page.evaluate(()=>window.__spinward))).toBeLessThan(.15)
     await captureTexture(page,info,`${scenario.id}-directions`)
     for(const degrees of [0,25,-25]){
-      await xr.setHeadPose({euler:[-.22,0,degrees*Math.PI/180]});await xr.settle(150)
+      await xr.setHeadPose({euler:[-.22,0,degrees*Math.PI/180]});await xr.waitForFrames(2,{sessionId:diagnostics.session.id,timeout:5000})
       const path=info.outputPath(`${scenario.id}-wrist-roll-${degrees}.png`)
       const capture=await xr.screenshot(path,{canvas:'canvas',metadata:true,timeout:5000})
       expect(capture.sessionId).toBe(diagnostics.session.id)
@@ -73,7 +75,7 @@ for(const scenario of [
     await press(page,xr,'guide-cancel')
     await page.waitForFunction(()=>window.__spinward.outing.action===null)
     const after=await xr.sessionCursor()
-    await page.evaluate(()=>window.__xrDevice.activeSession.end())
+    await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
     await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000})
     expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
     await fs.writeFile(info.outputPath(`${scenario.id}-directions.json`),JSON.stringify({gpu,diagnostics,route,frames,errors},null,2))
@@ -99,11 +101,10 @@ async function panelPose(page, id, uv) {
 const trackingMatrix = pose => new Matrix4().fromArray(pose.rig).invert().multiply(new Matrix4().fromArray(pose.panel))
 async function aim(page, xr, id, { disabled = false, uv } = {}) {
   const pose = await panelPose(page, id, uv)
-  const direction = new Vector3(pose.u-.5, pose.v-.5, 0).applyMatrix4(trackingMatrix(pose))
-    .sub(new Vector3(...rightPosition)).normalize()
+  const target = new Vector3(pose.u-.5, pose.v-.5, 0).applyMatrix4(trackingMatrix(pose)).toArray()
   await xr.setControllerPose('right', { position: rightPosition,
-    quaternion: new Quaternion().setFromUnitVectors(new Vector3(0, 0, -1), direction).toArray() })
-  await xr.settle(90)
+    quaternion: aimQuaternion(rightPosition, target) })
+  await xr.waitForFrames(2,{timeout:5000})
   await expect.poll(() => page.evaluate(() => window.__spinwardWatch.hoveredAction)).toBe(disabled || uv ? null : id)
 }
 async function press(page, xr, id, options) {
@@ -186,7 +187,7 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await expect(page.locator('.tour-notice')).toBeHidden()
       evidence.session = await xr.diagnostics({ canvas: 'canvas', timeout: 2000 })
       const { runtime, rendering, inputSources, session } = evidence.session
-      expect(runtime.playwrightWebxrVersion).toBe('0.2.0')
+      expect(runtime.playwrightWebxrVersion).toBe('0.3.0')
       expect(runtime.stereoEnabled).toBe(entry === 'quest-entry')
       expect(runtime.ipd).toBeCloseTo(entry === 'quest-entry' ? .064 : 0, 5)
       expect(session.id).toBe(firstGrant.sessionId)
@@ -204,7 +205,7 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await xr.setHeadPose({ position: [0, 1.6, 0], euler: [-.22, 0, 0] })
       await xr.setControllerPose('left', leftPose)
       await xr.setControllerPose('right', { position: rightPosition, quaternion: [0, 0, 0, 1] })
-      await xr.settle(180)
+      await xr.waitForFrames(2,{timeout:5000})
       // Catch the actual introductory-card overlap, not a card that timed out.
       expect(await page.evaluate(() => window.__spinward.tour)).toBe('start')
       expect(await tourVisible(page)).toBe(true)
@@ -218,7 +219,7 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await captureTexture(page, info, 'wrist-places')
       const initialPanel = trackingMatrix(await panelPose(page, 'nav-home')).elements
       for (const degrees of [0, 25, -25]) {
-        await xr.setHeadPose({ euler: [-.22, 0, degrees*Math.PI/180] }); await xr.settle(300)
+        await xr.setHeadPose({ euler: [-.22, 0, degrees*Math.PI/180] }); await xr.waitForFrames(2,{timeout:5000})
         const matrix = trackingMatrix(await panelPose(page, 'nav-home')).elements
         const error = Math.max(...matrix.map((value, i) => Math.abs(value-initialPanel[i])))
         expect(error, 'The watch stays on the wrist when the head rolls').toBeLessThan(.0001)
@@ -259,7 +260,7 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await expect.poll(ballCount).toBe(initialBalls+1)
       // End as the headset system would; the in-session DOM VR button is hidden.
       const endCursor = await xr.sessionCursor()
-      await page.evaluate(() => window.__xrDevice.activeSession.end())
+      await xr.endSession({sessionId:firstGrant.sessionId,timeout:5000})
       await xr.waitForSessionEvent('end', { after: endCursor, sessionId: firstGrant.sessionId, timeout: 5000 })
       expect(await xr.sessionMode()).toBeNull()
       await expect(page.locator('.dock')).toBeVisible()
@@ -269,11 +270,18 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       const [secondGrant] = await xr.waitForSessionEvent('granted', { after: secondCursor, timeout: 5000 })
       expect(secondGrant.sessionId).not.toBe(firstGrant.sessionId)
       expect(await xr.sessionMode()).toBe('immersive-vr')
+      // An old asynchronous task must not terminate or wait on the new session.
+      await assert.rejects(xr.endSession({sessionId:firstGrant.sessionId,timeout:5000}),/sessionId mismatch/)
+      await assert.rejects(xr.waitForFrames(2,{sessionId:firstGrant.sessionId,timeout:5000}),/sessionId mismatch/)
+      const frameWait=await xr.waitForFrames(2,{sessionId:secondGrant.sessionId,timeout:5000})
+      expect(frameWait).toEqual({sessionId:secondGrant.sessionId,frames:2})
+      expect(await xr.sessionMode()).toBe('immersive-vr')
+      evidence.sessionGuards={staleExitRejected:true,staleFrameWaitRejected:true,frameWait}
       await page.waitForFunction(() => window.__spinwardWatch.group.visible)
       await expect(page.locator('.dock')).toBeHidden()
       await press(page, xr, 'nav-places'); await page.waitForFunction(() => window.__spinwardWatch.screen === 'places')
       const secondEndCursor = await xr.sessionCursor()
-      await page.evaluate(() => window.__xrDevice.activeSession.end())
+      await xr.endSession({sessionId:secondGrant.sessionId,timeout:5000})
       await xr.waitForSessionEvent('end', { after: secondEndCursor, sessionId: secondGrant.sessionId, timeout: 5000 })
       expect(await xr.sessionMode()).toBeNull()
       evidence.sessionLog = await xr.sessionLog()

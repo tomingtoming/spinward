@@ -22,7 +22,7 @@ for (const name of ['port', 'cladding']) test(`bulkhead ${name} remains opaque a
   await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
   await page.getByRole('button', { name: 'Menu', exact: true }).click(); await xr.enterVR()
   const diagnostics = await xr.diagnostics()
-  expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+  expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
   expect(diagnostics.rendering.views.map(v => v.viewport.width)).toEqual([1280, 1280])
   const probe = () => page.evaluate(() => {
     const cap = window.__spinwardScene.getObjectByName('bulkhead-disks'), frame = window.__spinwardScene.getObjectByName('end-cap-frames')
@@ -42,7 +42,7 @@ for (const name of ['port', 'cladding']) test(`bulkhead ${name} remains opaque a
   expect(before.frameMap).toBe(false); expect(before.emission).toEqual([0, 0])
   expect(before.shaderKey).toContain('bulkhead-metric-panels-v2')
   for (const degrees of [0, 25, -25]) {
-    await xr.setHeadPose({ position: [0, 1.6, 0], quaternion: head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), degrees * Math.PI / 180)).toArray() }); await xr.settle(180)
+    await xr.setHeadPose({ position: [0, 1.6, 0], quaternion: head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), degrees * Math.PI / 180)).toArray() }); await xr.waitForFrames(2,{timeout:5000})
     expect(await probe()).toEqual(before)
     const projected = await page.evaluate(aim => {
       const scene = window.__spinwardScene, camera = scene.getObjectsByProperty('isPerspectiveCamera', true)[0]
@@ -56,7 +56,7 @@ for (const name of ['port', 'cladding']) test(`bulkhead ${name} remains opaque a
     await info.attach(`${name}-${degrees}`, { path, contentType: 'image/png' }); frames.push({ degrees, capture, projected })
   }
   const after = await xr.sessionCursor()
-  await page.evaluate(() => window.__xrDevice.activeSession.end())
+  await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
   await xr.waitForSessionEvent('end', { after, sessionId: diagnostics.session.id, timeout: 5000 })
   expect(await xr.sessionMode()).toBeNull(); expect(errors).toEqual([])
   await fs.writeFile(info.outputPath(`bulkhead-${name}.json`), JSON.stringify({ gpu, diagnostics, before, frames, errors }, null, 2))

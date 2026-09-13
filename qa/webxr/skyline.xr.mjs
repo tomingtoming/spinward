@@ -23,7 +23,7 @@ test('varied city masses remain fixed in both eyes through head roll', async ({ 
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
   await xr.enterVR()
   const diagnostics = await xr.diagnostics()
-  expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+  expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
   expect(diagnostics.rendering.views.map(v => v.viewport.width)).toEqual([1280, 1280])
   await expect.poll(() => page.evaluate(() => window.__spinwardScene.getObjectsByProperty('renderOrder', 30).filter(o => o.isMesh).every(o => !o.visible)), { timeout: 30000 }).toBe(true)
   const probe = () => page.evaluate(() => {
@@ -38,7 +38,7 @@ test('varied city masses remain fixed in both eyes through head roll', async ({ 
   expect(before.length).toBeGreaterThan(10)
   for (const degrees of [0, 25, -25]) {
     await xr.setHeadPose({ position: [0, 1.6, 0], euler: [0, 0, degrees * Math.PI / 180] })
-    await xr.settle(200)
+    await xr.waitForFrames(2,{timeout:5000})
     expect(await probe()).toEqual(before)
     const path = info.outputPath(`skyline-roll-${degrees}.png`)
     const capture = await xr.screenshot(path, { metadata: true, canvas: 'canvas', timeout: 5000 })
@@ -48,7 +48,7 @@ test('varied city masses remain fixed in both eyes through head roll', async ({ 
     frames.push({ degrees, capture })
   }
   const after = await xr.sessionCursor()
-  await page.evaluate(() => window.__xrDevice.activeSession.end())
+  await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
   await xr.waitForSessionEvent('end', { after, sessionId: diagnostics.session.id, timeout: 5000 })
   expect(await xr.sessionMode()).toBeNull()
   expect(errors).toEqual([])

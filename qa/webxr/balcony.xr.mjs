@@ -32,7 +32,7 @@ test('residential balcony furniture remains attached in both eyes through head r
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
  const diagnostics=await xr.diagnostics()
- expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const expected=at.clone().applyMatrix4(matrix).toArray()
@@ -50,7 +50,7 @@ test('residential balcony furniture remains attached in both eyes through head r
  },expected)
  const before=await probe()
  for(const degrees of [0,25,-25]){
-  await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,degrees*Math.PI/180]});await xr.settle(200)
+  await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,degrees*Math.PI/180]});await xr.waitForFrames(2,{timeout:5000})
   const current=await probe();expect(current.matrix).toEqual(before.matrix)
   expect(Math.abs(current.projected[0])).toBeLessThan(.85);expect(Math.abs(current.projected[1])).toBeLessThan(.85)
   expect(current.projected[2]).toBeGreaterThan(-1);expect(current.projected[2]).toBeLessThan(1)
@@ -58,7 +58,7 @@ test('residential balcony furniture remains attached in both eyes through head r
   expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960])
   await info.attach(`balcony-roll-${degrees}`,{path,contentType:'image/png'});frames.push({degrees,capture,probe:current})
  }
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end())
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
  await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
  await fs.writeFile(info.outputPath('balcony-evidence.json'),JSON.stringify({gpu,diagnostics,frames,errors},null,2))
 })

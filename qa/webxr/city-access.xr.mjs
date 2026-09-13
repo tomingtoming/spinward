@@ -1,5 +1,6 @@
 import { test, expect } from 'playwright-webxr'
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import { aimQuaternion } from 'playwright-webxr/examples/aim-controller'
 import fs from 'node:fs/promises'
 const leftPose={position:[-.1,1.42,-.4],quaternion:new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-Math.PI/2).multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/2)).toArray()}
 const right=[.22,1.38,-.2]
@@ -11,8 +12,8 @@ async function press(page,xr,id){
   return {u:(b.x+b.width/2)/l.width,v:1-(b.y+b.height/2)/l.height,panel:w.interactiveObject.matrixWorld.elements,rig:camera.parent.matrixWorld.elements}
  },id)
  const matrix=new Matrix4().fromArray(p.rig).invert().multiply(new Matrix4().fromArray(p.panel))
- const direction=new Vector3(p.u-.5,p.v-.5,0).applyMatrix4(matrix).sub(new Vector3(...right)).normalize()
- await xr.setControllerPose('right',{position:right,quaternion:new Quaternion().setFromUnitVectors(new Vector3(0,0,-1),direction).toArray()});await xr.settle(90)
+ const target=new Vector3(p.u-.5,p.v-.5,0).applyMatrix4(matrix).toArray()
+ await xr.setControllerPose('right',{position:right,quaternion:aimQuaternion(right,target)});await xr.waitForFrames(2,{timeout:5000})
  await expect.poll(()=>page.evaluate(()=>window.__spinwardWatch.hoveredAction)).toBe(id)
  await xr.pressButton('right','trigger')
 }
@@ -26,8 +27,8 @@ test('wrist apartment visit keeps the shared entrance accessible after moving th
  await page.goto('/?debug&metrics=off&lock=0&dpr=1&tier=quest&t=.42')
  await page.waitForSelector('#splash',{state:'detached'});await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
- const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
- await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]});await xr.setControllerPose('left',leftPose);await xr.settle(180)
+ const diagnostics=await xr.diagnostics();expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
+ await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]});await xr.setControllerPose('left',leftPose);await xr.waitForFrames(2,{timeout:5000})
  await press(page,xr,'nav-places');await press(page,xr,'visit-apartment')
  await page.waitForFunction(()=>Math.abs(window.__spinward.azimuth-.08947172079345704)<.001&&window.__spinward.groundHeight<.2)
  await xr.setControllerPose('left',{position:[-.4,.6,-.2],quaternion:[0,0,0,1]});await xr.setControllerPose('right',{position:[.4,.6,-.2],quaternion:[0,0,0,1]})
@@ -36,7 +37,7 @@ test('wrist apartment visit keeps the shared entrance accessible after moving th
  const after=await page.evaluate(()=>({ax:window.__spinward.axial,h:window.__spinward.groundHeight,mode:window.__spinward.mode}))
  expect(after.ax-before).toBeGreaterThan(.2);expect(after.mode).toBe('grounded')
  const capture=await xr.screenshot(info.outputPath('apartment-entry.png'),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id)
- const cursor=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end());await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})
+ const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})
  expect(errors).toEqual([]);await fs.writeFile(info.outputPath('apartment-entry.json'),JSON.stringify({gpu,diagnostics,before,after,capture,errors},null,2))
 })
 
@@ -52,12 +53,12 @@ test('upstairs room and curved neighborhood retain their shapes under stereo hea
   await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardCity?.curvedNeighborhood.buildings.modules);await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
   await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR();const diagnostics=await xr.diagnostics()
   for(const roll of [0,20,-20]){
-   await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,roll*Math.PI/180]});await xr.settle(180)
+   await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,roll*Math.PI/180]});await xr.waitForFrames(2,{timeout:5000})
    const s=await page.evaluate(()=>({h:window.__spinward.groundHeight,mode:window.__spinward.mode,street:window.__spinwardCity.curvedNeighborhood.group.userData}))
    expect(s.mode).toBe('grounded');expect(Math.abs(s.h-h)).toBeLessThan(.1);expect(s.street.buildings).toBe(8)
    const capture=await xr.screenshot(info.outputPath(`${name}-${roll}.png`),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push({name,roll,s,capture})
   }
-  const cursor=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end());await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})
+  const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})
  }
  expect(errors).toEqual([]);await fs.writeFile(info.outputPath('city-access-stereo.json'),JSON.stringify({gpu,frames,errors},null,2))
 })

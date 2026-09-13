@@ -15,7 +15,7 @@ test('river traffic moves on the bridge through both eyes and head roll',async({
  await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
  const diagnostics=await xr.diagnostics();evidence.diagnostics=diagnostics
- expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.2.0')
+ expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
  expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const tracking=await page.evaluate(()=>{
@@ -26,7 +26,7 @@ test('river traffic moves on the bridge through both eyes and head roll',async({
  // Observe ordinary progression. Do not relocate the car or advance its clock.
  await page.waitForFunction(()=>{const c=window.__spinwardCity,r=c.trafficRoutes.find(r=>r.id==='river-loop:0');return r&&r.motion.progress>r.path.bridgeStart+85&&r.motion.progress<r.path.bridgeStart+170},null,{timeout:60000})
  for(const degrees of [0,25,-25]){
-  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.settle(200)
+  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),degrees*Math.PI/180)).toArray()});await xr.waitForFrames(2,{timeout:5000})
   const probe=await page.evaluate(()=>{
     const c=window.__spinwardCity,r=c.trafficRoutes.find(r=>r.id==='river-loop:0'),i=c.trafficRoutes.indexOf(r),p=c.getTrafficPositions()[i]
     const variant=r.variant%c.trafficMeshes.length,slot=c.trafficRoutes.slice(0,i).filter(o=>o.variant%c.trafficMeshes.length===variant).length
@@ -46,7 +46,7 @@ test('river traffic moves on the bridge through both eyes and head roll',async({
   await info.attach(`traffic-roll-${degrees}`,{path,contentType:'image/png'});evidence.frames.push({degrees,probe,capture})
  }
  expect(evidence.frames.at(-1).probe.progress-evidence.frames[0].probe.progress).toBeGreaterThan(.5)
- const after=await xr.sessionCursor();await page.evaluate(()=>window.__xrDevice.activeSession.end())
+ const after=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000})
  await xr.waitForSessionEvent('end',{after,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(evidence.errors).toEqual([])
  await fs.writeFile(info.outputPath('river-traffic-evidence.json'),JSON.stringify(evidence,null,2))
 })
