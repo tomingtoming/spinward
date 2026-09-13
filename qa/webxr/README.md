@@ -551,3 +551,9 @@ Historical 0.2.0 measurements and screenshots above retain their original versio
 The first complete migrated run passed **21 tests in 5.2 minutes**, without retries. Both mono desktop-entry and stereo Quest-entry scenarios passed the stale-ID guards, two-frame result and real wrist selections after re-entry. Inspected stereo captures of the room, curved district and Places panel retain both eyes and supported geometry; this was self-review, not an independent visual audit. Diagnostics identify playwright-webxr 0.3.0, Chrome 152 and Apple M1 Pro / ANGLE Metal. No package failure was observed in this suite.
 
 `bun test` (CI-aligned Bun 1.3.10) passed **888 tests**, and TypeScript/production build passed. Evidence is retained in `evidence/0.3.0-20260913/` (ignored). Physical-headset compositor output, performance and comfort remain untested.
+
+## Curved street residents — 2026-09-13
+
+The next frozen build passed **22 tests in 5.0 minutes** on playwright-webxr **0.3.0**, without retries. `curved-walkers.xr.mjs` adds actual entry, 0.659 m of independently observed resident motion, both 1280×960 eyes at 0/±25° roll, radial root placement and session-scoped exit. Frame waits follow pose changes; elapsed time remains intentional for motion. Existing wrist selections and both exit/re-entry scenarios also passed, including stale-session rejection. No package failure was observed.
+
+Desktop / Quest-budget browser checks cover ordinary walking, player yielding and resuming, night and altitude / disabled visibility, with the existing eight/four population ceiling. Unit tests: **891 passed**; TypeScript and production build passed. See [reference, observations and limitations](../neighborhood-life/curved-walkers.md). Current evidence is in `evidence/curved-walkers-20260913/` (ignored). The stereo images were self-reviewed; Apple M1 Pro / ANGLE Metal and Chrome 152 remain the tested environment, not a physical headset.

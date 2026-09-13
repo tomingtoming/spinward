@@ -1354,7 +1354,7 @@ export const bootstrapApp = async () => {
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
       playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
       playerBodyView.motion.reset()
-      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict())
+      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict(), cityscape.curvedNeighborhood.plan)
     }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'

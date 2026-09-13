@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { planRiverWalkerRoutes } from './riverWalkerRoutes'
+import { planCurvedWalkerRoutes } from './curvedWalkerRoutes'
+import type { CurvedNeighborhood } from './curvedNeighborhood'
 import type { RiverDistrict } from './riverDistrictPlan'
 import type { SidewalkSegment } from './sidewalks'
 import { SurfaceIndex } from './streetAccess'
@@ -19,6 +21,7 @@ export class StreetWalkers {
   readonly group = new THREE.Group()
   private routes: StreetWalkerRoute[] = []
   private riverRoutes: StreetWalkerRoute[] = []
+  private curvedRoutes: StreetWalkerRoute[] = []
   private segments: readonly SidewalkSegment[] = []
   private index = new SurfaceIndex(3200)
   private radius = 3200
@@ -36,11 +39,12 @@ export class StreetWalkers {
   constructor(parent: THREE.Object3D, private readonly capacity: number) {
     this.group.name = 'street-walkers'; parent.add(this.group)
   }
-  setPlan(segments: readonly SidewalkSegment[], radius: number, river: RiverDistrict | null = null) {
+  setPlan(segments: readonly SidewalkSegment[], radius: number, river: RiverDistrict | null = null, curved: CurvedNeighborhood | null = null) {
     this.radius = radius
     this.segments = this.enabled && radius >= 100 ? segments : []
     this.routes = []
     this.riverRoutes = this.enabled ? planRiverWalkerRoutes(river, radius) : []
+    this.curvedRoutes = this.enabled ? planCurvedWalkerRoutes(curved, radius) : []
     this.index = new SurfaceIndex(radius)
     this.segments.forEach((s, i) => {
       const width = s.isAvenue ? s.tangentExtent : s.axialExtent, length = s.isAvenue ? s.axialExtent : s.tangentExtent
@@ -55,7 +59,7 @@ export class StreetWalkers {
     // would retain hundreds of thousands of route objects for eight people.
     this.routes = [...this.index.query({ ...focus, tangentWidth: RANGE * 2, axialLength: RANGE * 2 })]
       .flatMap(i => planStreetWalkerRoutes([this.segments[i]], this.radius, i, { ...focus, range: RANGE }))
-    this.routes.push(...this.riverRoutes)
+    this.routes.push(...this.riverRoutes, ...this.curvedRoutes)
     const candidates = this.routes.filter(r => !occupied.has(r.id))
       .map(route => ({ route, distance: walkerDistance(sampleStreetWalker(route, this.radius, this.clock + route.phase), focus, this.radius) }))
       .filter(r => r.distance < RANGE && (this.firstPopulation || r.distance > 22))
@@ -77,7 +81,7 @@ export class StreetWalkers {
   }
   update(dt: number, focus: Focus, rover: { azimuth: number; axial: number; height?: number } | null) {
     this.clock += Math.min(.1, Math.max(0, dt))
-    this.group.visible = this.enabled && (this.segments.length > 0 || this.riverRoutes.length > 0) && focus.altitude >= 0 && focus.altitude < 8
+    this.group.visible = this.enabled && (this.segments.length > 0 || this.riverRoutes.length > 0 || this.curvedRoutes.length > 0) && focus.altitude >= 0 && focus.altitude < 8
     if (!this.group.visible) return
     if (!this.source) {
       if (!this.requested) {

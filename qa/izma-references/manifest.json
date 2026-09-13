@@ -189,10 +189,11 @@
       "sha256": "57ea23f3f5c1609d4f559b358e73e1d7c16ee26506f339aed0a4bf8b04e95652",
       "size": 1370883,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "street",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。明るい看板を背景に、異なる服装・背丈の通行人が重なっている。人が街路を使うという生活の手掛かりを、独自の曲線街路の住民歩行へ部分採用（qa/neighborhood-life/curved-walkers.md）。群衆密度・キャラクター・服装・青い演出光は複製しない。この画像から道路の曲率や交通規則は確定できない。"
     },
     {
       "id": "izma-0018",
@@ -222,10 +223,11 @@
       "sha256": "d478f6c8c1307e250e4fd4ccc2f42565a717c7868bb694dca2aed1aed780c25b",
       "size": 996952,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "street",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。人物が建物際と柵・設備盤の間の通行帯を進み、奥に明るい街路が続く。身体の幅を保つ通行帯という考え方を曲線歩道の住民経路へ部分採用（qa/neighborhood-life/curved-walkers.md）。原典の走行動作・キャラクター・看板・光は複製しない。設備盤や信号支持の新規実装を済んだことにはしない。"
     },
     {
       "id": "izma-0021",
