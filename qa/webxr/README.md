@@ -464,3 +464,23 @@ Reviewed captures, diagnostics and logs are saved locally under
 `qa/webxr/evidence/river-directions-20260913/`. Geometry, walking measurements,
 initial failures and the paving re-review are in
 [River directions](../neighborhood-life/river-directions.md).
+
+
+## Bulkhead bays and cladding — 2026-09-13
+
+`bulkheads.xr.mjs` adds far-wall and close-cladding stereo fixtures under the
+Quest budget. Actual VR entry, 0/±25° head roll and session-ID-scoped exit use
+0.2.0. The target must project inside the camera; mesh matrices, opacity,
+non-emission, triangle count and the installed panel shader remain fixed.
+Independent image review checks both 1280×960 eyes, with full-resolution
+inspection for subtle cladding. These fixed free-flight material fixtures use
+zero spin; ordinary gravity and wrist/controller operation remain covered by
+the existing UI scenarios. They do not establish walking access to the wall.
+
+The full suite passed **17 tests, 19 immersive sessions and 19 exits** in 4.2
+minutes on Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal, with the production
+build unchanged throughout. Both desktop and Quest-style UI entry paths still
+exercise exit/re-entry. Evidence: `qa/webxr/evidence/bulkheads-20260913/`.
+No physical-headset measurements are implied. Material topology, the corrected
+oblique raster seams and retained dark-night limits are documented in
+[Bulkheads](../neighborhood-life/bulkheads.md).

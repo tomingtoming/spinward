@@ -8,6 +8,7 @@ import { getWindowArcs } from './cityLayout'
 import {
   createCityShellPlaceholderTextureSet,
   createEndCapBulkheadTextureSet,
+  installEndCapPanelDetail,
   createCylinderSurfaceTexture,
   createExteriorHullTextureSet,
   getCylinderHullRepeat,
@@ -265,12 +266,17 @@ export class CylinderHabitat {
     color: 0xffffff,
     map: this.endCapTextures.albedo,
     emissive: new THREE.Color(0xffffff),
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0,
     emissiveMap: this.endCapTextures.emissive,
     // Visible from inside the colony (the closed cap is a flat annulus).
     side: THREE.DoubleSide,
     roughness: 0.78,
     metalness: 0.24
+  })
+  // A wall's planar graphic must not wrap around torus rims or window spokes.
+  private readonly endFrameMaterial = new THREE.MeshStandardMaterial({
+    color: 0x687782, roughness: .78, metalness: .24, emissiveIntensity: 0,
+    side: THREE.DoubleSide
   })
 
   // The air itself: scene fog only tints surfaces, so the carved windows
@@ -340,6 +346,7 @@ export class CylinderHabitat {
   private hullShell: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   private hazeShell: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
   private endCaps: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
+  private endCapFrames: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null
   // The transparent pane glazing the sun-facing (+Y) daylight window of an
   // end-lit colony (full-360, no longitudinal side windows). It shares the
   // window haze material, so it stays clear up close — the sun and stars show
@@ -355,6 +362,8 @@ export class CylinderHabitat {
   private habitatType: HabitatType = 'cylinder'
 
   constructor(dimensions: CylinderDimensions) {
+    this.group.name = 'habitat'
+    installEndCapPanelDetail(this.endCapMaterial)
     this.installCityShellLayer(this.nearShellMaterial)
     this.installCityShellLayer(this.farShellMaterial)
     this.group.add(this.shellGroup)
@@ -472,13 +481,14 @@ export class CylinderHabitat {
   // transparent haze pane that lets the sun in and veils to fog at distance
   // rather than reading as a crisp hole to vacuum.
   private rebuildEndCaps(radius: number, length: number) {
-    for (const mesh of [this.endCaps, this.endHazePanes]) {
+    for (const mesh of [this.endCaps, this.endCapFrames, this.endHazePanes]) {
       if (mesh !== null) {
         mesh.geometry.dispose()
         this.group.remove(mesh)
       }
     }
     this.endCaps = null
+    this.endCapFrames = null
     this.endHazePanes = null
 
     const tube = Math.max(0.15, Math.min(radius * 0.012, length * 0.02))
@@ -493,6 +503,7 @@ export class CylinderHabitat {
     // at all — only the band's rim edge — so it skips the bulkheads and panes.
     const isRing = this.habitatType === 'ring'
     const geometries: THREE.BufferGeometry[] = []
+    const capGeometries: THREE.BufferGeometry[] = []
     const hazeGeometries: THREE.BufferGeometry[] = []
 
     const addHubRing = (y: number) => {
@@ -507,7 +518,7 @@ export class CylinderHabitat {
       const cap = new THREE.CircleGeometry(radius, 64)
       cap.rotateX(Math.PI * 0.5)
       cap.translate(0, y, 0)
-      geometries.push(cap)
+      capGeometries.push(cap)
     }
 
     // A transparent haze pane glazing an end opening, parked just inside the end
@@ -569,7 +580,15 @@ export class CylinderHabitat {
     }
 
     if (merged !== null) {
-      this.endCaps = new THREE.Mesh(merged, this.endCapMaterial)
+      this.endCapFrames = new THREE.Mesh(merged, this.endFrameMaterial)
+      this.endCapFrames.name = 'end-cap-frames'
+      this.group.add(this.endCapFrames)
+    }
+    const mergedCaps = mergeBufferGeometries(capGeometries)
+    for (const geometry of capGeometries) geometry.dispose()
+    if (mergedCaps !== null) {
+      this.endCaps = new THREE.Mesh(mergedCaps, this.endCapMaterial)
+      this.endCaps.name = 'bulkhead-disks'
       this.group.add(this.endCaps)
     }
 

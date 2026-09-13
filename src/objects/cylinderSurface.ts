@@ -144,118 +144,69 @@ export const createCylinderSurfaceTexture = (size = 512) => {
   return texture
 }
 
+/** Large structural bays only. Human-scale equipment cannot be represented by
+ * a decal stretched over a kilometre-scale disk. Fine cladding is metric GLSL. */
 export const createEndCapBulkheadTextureSet = (size = 512): SurfaceTextureSet => {
-  const { canvas: albedoCanvas, context: albedo } = createTextureCanvas(size)
-  const { canvas: emissiveCanvas, context: emissive } = createTextureCanvas(size)
-  const random = createSeededRandom(0x5f3759df)
-  const center = size * 0.5
-
-  albedo.fillStyle = '#475766'
-  albedo.fillRect(0, 0, size, size)
-  emissive.fillStyle = '#000000'
-  emissive.fillRect(0, 0, size, size)
-
-  const baseGradient = albedo.createRadialGradient(center, center, size * 0.1, center, center, size * 0.72)
-  baseGradient.addColorStop(0, '#586a78')
-  baseGradient.addColorStop(0.46, '#3f4d5b')
-  baseGradient.addColorStop(1, '#26313d')
-  albedo.fillStyle = baseGradient
-  albedo.fillRect(0, 0, size, size)
-
-  const drawRadialBeam = (
-    angle: number,
-    innerRadius: number,
-    outerRadius: number,
-    width: number,
-    color: string,
-    alpha: number
-  ) => {
-    albedo.save()
-    albedo.translate(center, center)
-    albedo.rotate(angle)
-    albedo.globalAlpha = alpha
-    albedo.fillStyle = color
-    albedo.fillRect(innerRadius, -width * 0.5, outerRadius - innerRadius, width)
-    albedo.restore()
-    albedo.globalAlpha = 1
+  const { canvas: albedoCanvas, context: ctx } = createTextureCanvas(size)
+  const { canvas: emissiveCanvas, context: emissive } = createTextureCanvas(1)
+  const random = createSeededRandom(0x5f3759df), center = size / 2, radius = size / 2
+  ctx.fillStyle = '#53616b'; ctx.fillRect(0, 0, size, size)
+  emissive.fillStyle = '#000000'; emissive.fillRect(0, 0, 1, 1)
+  const radii = [0, .24, .4, .58, .78, 1.02]
+  const palette = ['#55636c', '#596771', '#5c6972', '#53616b', '#5a6871']
+  const wedge = (inner: number, outer: number, a: number, b: number) => {
+    ctx.beginPath(); ctx.arc(center, center, outer * radius, a, b)
+    if (inner > 0) ctx.arc(center, center, inner * radius, b, a, true)
+    else ctx.lineTo(center, center)
+    ctx.closePath()
   }
-
-  for (let sector = 0; sector < 36; sector += 1) {
-    const angle = (sector / 36) * Math.PI * 2
-    const outerRadius = size * 0.53
-    const innerRadius = sector % 3 === 0 ? size * 0.11 : size * 0.22
-
-    drawRadialBeam(
-      angle,
-      innerRadius,
-      outerRadius,
-      sector % 6 === 0 ? size * 0.012 : size * 0.005,
-      sector % 6 === 0 ? '#6f7e8b' : '#202a35',
-      sector % 6 === 0 ? 0.36 : 0.32
-    )
-  }
-
-  for (const radius of [0.16, 0.25, 0.36, 0.49]) {
-    albedo.beginPath()
-    albedo.arc(center, center, size * radius, 0, Math.PI * 2)
-    albedo.lineWidth = radius === 0.25 ? 6 : 3
-    albedo.strokeStyle = radius === 0.25 ? 'rgba(150, 168, 180, 0.38)' : 'rgba(16, 24, 32, 0.46)'
-    albedo.stroke()
-  }
-
-  for (let hatch = 0; hatch < 96; hatch += 1) {
-    const angle = random() * Math.PI * 2
-    const radius = size * (0.18 + random() * 0.34)
-    const x = center + Math.cos(angle) * radius
-    const y = center + Math.sin(angle) * radius
-    const width = size * (0.018 + random() * 0.034)
-    const height = size * (0.01 + random() * 0.025)
-
-    albedo.save()
-    albedo.translate(x, y)
-    albedo.rotate(angle + Math.PI * 0.5)
-    albedo.globalAlpha = 0.52
-    albedo.fillStyle = random() < 0.62 ? '#303d48' : '#65727d'
-    albedo.fillRect(-width * 0.5, -height * 0.5, width, height)
-    albedo.globalAlpha = 0.26
-    albedo.strokeStyle = '#d4dee8'
-    albedo.strokeRect(-width * 0.5, -height * 0.5, width, height)
-    albedo.restore()
-    albedo.globalAlpha = 1
-
-    if (random() < 0.18) {
-      drawGlowRect(
-        emissive,
-        x - width * 0.1,
-        y - height * 0.1,
-        Math.max(1.5, width * 0.18),
-        Math.max(1.5, height * 0.28),
-        random() < 0.7 ? '#ff372f' : '#ffe1a4',
-        0.55
-      )
+  for (let row = 1; row < radii.length; row++) {
+    const count = row * 8, step = Math.PI * 2 / count, offset = row % 2 ? 0 : step / 2
+    for (let col = 0; col < count; col++) {
+      wedge(radii[row - 1], radii[row], col * step + offset, (col + 1) * step + offset)
+      ctx.fillStyle = palette[Math.floor(random() * palette.length)]; ctx.fill()
     }
   }
+  return { albedo: finishTexture(albedoCanvas), emissive: finishTexture(emissiveCanvas) }
+}
 
-  for (let speck = 0; speck < 1400; speck += 1) {
-    const x = random() * size
-    const y = random() * size
-    const radius = Math.hypot(x - center, y - center) / size
-
-    if (radius > 0.53) {
-      continue
-    }
-
-    albedo.globalAlpha = 0.05 + random() * 0.16
-    albedo.fillStyle = random() < 0.55 ? '#b8c1c9' : '#111820'
-    albedo.fillRect(x, y, 1 + random() * 2.4, 1 + random() * 2.4)
+/** Six-by-three metre staggered cladding; footprint filtering removes the
+ * tiny joints before they can alias in distant or stereo views. Disk vertices
+ * already use habitat-local metres, independent of preset and cylinder spin. */
+export const installEndCapPanelDetail = (material: THREE.MeshStandardMaterial) => {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vBulkheadMeters;\nvarying vec2 vBulkheadDisk;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBulkheadMeters = position.xz;\nvBulkheadDisk = uv * 2.0 - 1.0;')
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vBulkheadMeters;\nvarying vec2 vBulkheadDisk;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      // Analytic macro joints stay smooth even where a 512 px disk map would
+      // stretch one texel across metres. Widths scale with the structural bays.
+      float r = length(vBulkheadDisk);
+      float fw = max(length(dFdx(vBulkheadDisk)), length(dFdy(vBulkheadDisk)));
+      float ringDistance = min(min(abs(r - .24), abs(r - .4)), min(abs(r - .58), abs(r - .78)));
+      float bayRow = 1.0 + step(.24, r) + step(.4, r) + step(.58, r) + step(.78, r);
+      float count = bayRow * 8.0;
+      float angle = atan(vBulkheadDisk.y, vBulkheadDisk.x + .0000001) / 6.28318530718;
+      float sector = fract(angle * count - (1.0 - mod(bayRow, 2.0)) * .5);
+      float spokeDistance = min(sector, 1.0 - sector) * 6.28318530718 * r / count;
+      float bayJoint = 1.0 - smoothstep(.0007 - fw * .5, .0007 + fw * .5, min(ringDistance, spokeDistance));
+      float primarySector = fract(angle * 8.0);
+      float primarySpoke = min(primarySector, 1.0 - primarySector) * .7853981634 * r;
+      float primaryRing = min(min(abs(r - .26), abs(r - .58)), min(abs(r - .78), abs(r - .976)));
+      float primaryDistance = min(primaryRing, mix(1.0, primarySpoke, step(.26, r)));
+      float primaryJoint = 1.0 - smoothstep(.002 - fw * .5, .002 + fw * .5, primaryDistance);
+      diffuseColor.rgb *= 1.0 - .22 * bayJoint - .24 * primaryJoint;
+      vec2 footprint = max(fwidth(vBulkheadMeters), vec2(.0001));
+      float panelDetail = 1.0 - smoothstep(.18, .8, max(footprint.x, footprint.y));
+      float row = floor(vBulkheadMeters.y / 3.0);
+      vec2 panelUV = vec2((vBulkheadMeters.x + mod(row, 2.0) * 3.0) / 6.0, vBulkheadMeters.y / 3.0);
+      vec2 seamDistance = min(fract(panelUV), 1.0 - fract(panelUV)) * vec2(6.0, 3.0);
+      vec2 seams = (1.0 - smoothstep(vec2(.018) - footprint * .5, vec2(.018) + footprint * .5, seamDistance))
+        * min(vec2(1.0), vec2(.036) / footprint);
+      float plateTone = fract(sin(dot(floor(panelUV), vec2(127.1, 311.7))) * 43758.5453);
+      diffuseColor.rgb *= 1.0 + panelDetail * ((plateTone - .5) * .035 - .22 * max(seams.x, seams.y));`)
   }
-
-  albedo.globalAlpha = 1
-
-  return {
-    albedo: finishTexture(albedoCanvas),
-    emissive: finishTexture(emissiveCanvas)
-  }
+  material.customProgramCacheKey = () => 'bulkhead-metric-panels-v2'
 }
 
 export const createExteriorHullTextureSet = (size = 512): SurfaceTextureSet => {

@@ -473,10 +473,11 @@
       "sha256": "cb4ce6bb72baee9bc2b1449b59961837c868bfb2b9f92d2bdb286f94da17dcf7",
       "size": 1006861,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "service-infrastructure",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。円形の大型区画扉、分割された壁と支持された配管・柵を観察。壁の大区画と人寸法を分ける考え方をSpinward端壁の独自の表面へ部分採用。扉・注意帯・作品の意匠は複製せず、実際の保守通路と配管の新規造形は未実装。"
     },
     {
       "id": "izma-0042",
@@ -513,10 +514,11 @@
       "sha256": "9f5d6ed0f35cf10f285c996cce00e00ddd7e05681b389844df2404e268963ce4",
       "size": 1572675,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "service-infrastructure",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。曲面壁の区画、支持金具付きの複数配管、上部の歩廊と柵を観察。端壁と補強枠を別の材質にし、実寸の外装板を加える表面改修へ部分採用。人物と機械の固有意匠は除外。立体配管・歩廊・アクセスは未実装。"
     },
     {
       "id": "izma-0045",
@@ -828,10 +830,11 @@
       "sha256": "95ca816405fca1a8cdf486d1d96286010b70b163a96c54edfccf78dd605563e4",
       "size": 1352700,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。人物の背景は淡い頭上市街。柱に取り付けた小箱と配線を観察。この画像には公共階段を帰属させず、今回の新規実装には採用していない。"
     },
     {
       "id": "izma-ep03-0022",
@@ -1090,10 +1093,11 @@
       "sha256": "64eba104032afab8ae56be463f57a7be49022dd21a8ff38337cf278f4eb25ef2",
       "size": 1526461,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。支持部と付属機器のある吊り案内板。駅名・運休等の作中情報・文字意匠は複製しない。今回の新規実装には採用していない。"
     },
     {
       "id": "izma-ep05-0045",
@@ -1189,10 +1193,11 @@
       "sha256": "91a471a011513871c13ba081fcc89861d29a30c3eafb2b2c28100864dae7ae72",
       "size": 2451497,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "shell",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。手前の飛行機械は除外。背景の淡い頭上市街と窓帯を候補として観察したのみで、今回の新規実装には採用していない。"
     },
     {
       "id": "izma-ep06-0054",
