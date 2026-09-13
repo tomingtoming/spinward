@@ -1,5 +1,5 @@
 import type { CityRoad } from './cityLayout'
-import { SurfaceIndex } from './streetAccess'
+import { SurfaceIndex } from './surfaceIndex'
 import { streetPathSamples, sampleStreetPath, legacyStreetPaths, type StreetPath } from './streetPath'
 import { getStreetProfile, SIDEWALK_LIFT } from './streetProfile'
 import { positivePolygon, intersectStreetPolygons, subtractStreetPolygon, type StreetPolygon } from './streetPolygon'
@@ -17,7 +17,7 @@ export function relativeStreetPolygon(s:StreetSurface,origin:StreetPath,radius:n
  if(x===0&&y===0)return s.polygon
  return s.polygon.map(p=>({...p,x:p.x+x,y:p.y+y}))
 }
-function ribbons(path:StreetPath,radius:number,walk=false):StreetSurface[]{
+export function streetPathSurfaces(path:StreetPath,radius:number,walk=false):StreetSurface[]{
  const width=getStreetProfile(path.kind,radius).sidewalk
  if(walk&&!width)return[]
  // Include the outer footway in the curvature tolerance, not just the road edge.
@@ -82,7 +82,7 @@ export class StreetSurfacePlan{
   this.sources=paths.filter(p=>p.surfaceOwner!=='authored')
   this.carriageways=new SurfaceOwners(radius)
   const junctions=this.junctions
-  for(const path of this.sources)for(const s of ribbons(path,radius)){
+  for(const path of this.sources)for(const s of streetPathSurfaces(path,radius)){
    for(const other of this.carriageways.candidates(s)){
     if(other.source===path||other.source.level!==path.level)continue
     const a=s.polygon[1],b=s.polygon[0],c=other.polygon[1],d=other.polygon[0]
@@ -102,8 +102,8 @@ export class StreetSurfacePlan{
  }
  sidewalks(isOpenSquare:(azimuth:number,axial:number)=>boolean=()=>false,additionalCuts:CityRoad[]=[]){
   const exclusions=new SurfaceOwners(this.radius),owners=new SurfaceOwners(this.radius),out:StreetSurface[]=[]
-  for(const path of legacyStreetPaths(additionalCuts))for(const s of ribbons(path,this.radius))exclusions.add(s)
-  for(const path of this.sources)for(const s of ribbons(path,this.radius,true)){
+  for(const path of legacyStreetPaths(additionalCuts))for(const s of streetPathSurfaces(path,this.radius))exclusions.add(s)
+  for(const path of this.sources)for(const s of streetPathSurfaces(path,this.radius,true)){
    const pieces=owners.cut(s,[...this.carriageways.candidates(s),...exclusions.candidates(s)])
    for(const piece of pieces)for(const unique of owners.own(piece)){
     const e=streetSurfaceEnvelope(unique,this.radius)

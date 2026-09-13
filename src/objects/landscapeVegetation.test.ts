@@ -8,13 +8,15 @@ test('tree budget reaches all three land strips without moving established lots'
  for(let strip=0;strip<3;strip++)expect(p.trees.filter(t=>Math.round(t.azimuth/(Math.PI*2/3))===strip).length).toBeGreaterThan(350)
  // Snapshot taken before the vegetation pass: changes to the planner's random
  // stream must not silently move doors, roads or the authored cafe/lobby lots.
- // Road-use metadata is derived after certification; keep comparing the original lot geometry.
+ // Access and road-use metadata are derived after certification. Their geometry
+ // is checked in streetAccess.test; this fingerprint preserves the source parcels.
+ // The baseline below was computed from the pre-migration 435ba44 parcels.
  // Transcendental math can differ in its last bits between JS runtimes/CPUs.
  // Nine decimal places retain sub-millimetre positions (including azimuth
  // at this radius), without treating those rounding differences as moved lots.
- const snapshot=JSON.stringify([p.buildings.map(({streetKind,...lot})=>lot),p.roads,p.patches],
+ const snapshot=JSON.stringify([p.buildings.map(({streetKind,access,...lot})=>lot),p.roads,p.patches],
   (_,value)=>typeof value==='number'?Number(value.toFixed(9)):value)
- expect(createHash('sha256').update(snapshot).digest('hex')).toBe('c1cd8b870a7d7e6bc98958441702734bd71d259eb546bbc9338aac789dd1123b')
+ expect(createHash('sha256').update(snapshot).digest('hex')).toBe('67eaba8dd052df080f6c8399993066410b8b5ddbbd8b8264522ca0f7b80e0182')
 })
 test('position-ranked vegetation sampling is independent of traversal order',()=>{
  const trees=Array.from({length:100},(_,i)=>({azimuth:i*.1,axial:i*30,height:6,tone:i/100}))

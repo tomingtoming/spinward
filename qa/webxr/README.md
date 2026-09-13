@@ -716,3 +716,25 @@ Start and end were grounded; page errors were zero. Independent review of
 stereo captures found no new stripe loss, detachment or kerb discontinuity.
 Physical Quest performance, comfort and continuous contact/flicker are unmeasured.
 Evidence: `evidence/street-markings-20260913/xr-full/` and `xr-crossing/`.
+
+
+## Native building frontage — 2026-09-13
+
+`city-access.xr.mjs` now inspects the apartment's certified native road ID,
+retains entrance paving geometry/material/transform identity at 0/±25° roll,
+and walks through the actual entrance plane with the left controller. The
+1.2-second input moved from axial −213.7764 to −209.6993 m, crossing the
+−211.7769 m doorway. Both endpoints were grounded. Garden's eight rotated
+buildings have certified connections to the same road graph; the upstairs
+room and curved street retain their stereo checks at 0/±20° roll.
+
+The final frozen build passed all **26 tests in 7.0 minutes**, without retries,
+on playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro / ANGLE Metal. Actual
+wrist actions, session-scoped public helpers, exit/re-entry and stale-ID guards
+remain covered. Independent review of the seven entrance/Garden stereo
+captures found no new one-eye loss or large shape detachment in those views.
+Precise contact, continuous flicker and physical Quest comfort/performance
+remain unmeasured. Unit tests: **945 passed**; TypeScript/production build passed.
+
+[Implementation, CPU cost, desktop walking and retained observations](../neighborhood-life/street-frontage.md).
+Evidence: `evidence/street-frontage-20260913/`, including `xr-full/`.

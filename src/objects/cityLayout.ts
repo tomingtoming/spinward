@@ -1,7 +1,8 @@
 import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import type { StreetSurfacePlan } from './streetSurfacePlan'
 import type { StreetMarkingPlan } from './streetMarkings'
-import type { StreetNetwork } from './streetNetwork'
+import { StreetNetwork } from './streetNetwork'
+import { legacyStreetPaths } from './streetPath'
 import { selectLandscapeTrees } from './landscapeVegetation'
 import { isDistrictPark } from './districtIdentity'
 import { fitSuburbanHouse } from './buildingAssets'
@@ -27,6 +28,8 @@ export type CityBuilding = {
   height: number
   // Synthetic interior collision boxes may start above the cylinder floor.
   baseHeight?: number
+  // Connected road deck for generated parcels; geometry height remains separate.
+  streetLevel?: number
   // Width axis rotated from +tangent toward +axial, in surface radians.
   yaw?: number
   surfaceMesh?: CitySurfaceMesh
@@ -1724,7 +1727,8 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
   }
 
   roads.forEach((road, index) => { road.id = roadId(index) })
-  const access = certifyStreetAccess(decimateToBudget(buildings, maxBuildings), roads, radius, sidewalk + 0.5, building => {
+  const streetNetwork = new StreetNetwork(legacyStreetPaths(roads), radius)
+  const access = certifyStreetAccess(decimateToBudget(buildings, maxBuildings), streetNetwork, radius, sidewalk + 0.5, building => {
     const fit = fitSuburbanHouse(building)
     return fit === null ? building : {
       ...building,
@@ -1738,6 +1742,7 @@ export const planCity = (config: CityPlanConfig): CityPlan => {
     roads,
     buildings: access.buildings,
     accessRejected: access.rejected,
+    streetNetwork,
     intersections,
     patches,
     trees: selectLandscapeTrees(trees, MAX_TREES),

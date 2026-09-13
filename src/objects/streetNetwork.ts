@@ -1,4 +1,4 @@
-import { SurfaceIndex } from './streetAccess'
+import { SurfaceIndex } from './surfaceIndex'
 import { streetPathSamples, type StreetPath, type StreetPathSample } from './streetPath'
 
 type Point = { x: number; y: number }

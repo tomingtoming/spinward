@@ -1310,7 +1310,10 @@
       "reviewedOn": "2026-09-13",
       "finding": "upstairs-apartment-exterior",
       "duplicateOf": null,
-      "implementation": "partial"
+      "implementation": "partial",
+      "relatedWork": [
+        "qa/neighborhood-life/street-frontage.md"
+      ]
     },
     {
       "id": "izma-ep06-0064",

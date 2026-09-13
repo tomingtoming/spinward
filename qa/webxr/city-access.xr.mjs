@@ -2,6 +2,7 @@ import { test, expect } from 'playwright-webxr'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { aimQuaternion } from 'playwright-webxr/examples/aim-controller'
 import fs from 'node:fs/promises'
+const apartmentBuilding=JSON.parse(await fs.readFile(new URL('../../assets/blender/nyaan-apartment.json',import.meta.url),'utf8')).interior.building
 const leftPose={position:[-.1,1.42,-.4],quaternion:new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-Math.PI/2).multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/2)).toArray()}
 const right=[.22,1.38,-.2]
 async function press(page,xr,id){
@@ -33,12 +34,24 @@ test('wrist apartment visit keeps the shared entrance accessible after moving th
  await page.waitForFunction(()=>Math.abs(window.__spinward.azimuth-.08947172079345704)<.001&&window.__spinward.groundHeight<.2)
  await xr.setControllerPose('left',{position:[-.4,.6,-.2],quaternion:[0,0,0,1]});await xr.setControllerPose('right',{position:[.4,.6,-.2],quaternion:[0,0,0,1]})
  await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,0]});const before=await page.evaluate(()=>window.__spinward.axial)
- await xr.setAxes('left',0,-.5);await xr.settle(800);await xr.setAxes('left',0,0)
+ const frontage=await page.evaluate(target=>{const c=window.__spinwardCity,p=c.getCityPlan(),b=p.buildings.find(b=>Math.abs(b.azimuth-target.azimuth)<1e-7&&Math.abs(b.axial-target.axial)<1e-7);return b?{access:b.access,road:p.streetNetwork.streets[b.access.roadIndex].id}:null},apartmentBuilding);expect(frontage).not.toBeNull();expect(frontage.access.roadId).toBe(frontage.road)
+ const accessMesh=await page.evaluate(()=>{const m=window.__spinwardScene.getObjectByName('street-access-corridors');return m?{triangles:m.geometry.index.count/3,pieces:m.userData.pieces}:null});expect(accessMesh?.pieces).toBeGreaterThan(0)
+ const entranceFrames=[]
+ let meshIdentity=null
+ for(const roll of [0,25,-25]){
+  await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,roll*Math.PI/180]});await xr.waitForFrames(2,{timeout:5000})
+  const mesh=await page.evaluate(()=>{const m=window.__spinwardScene.getObjectByName('street-access-corridors');return{geometry:m.geometry.uuid,material:m.material.uuid,matrix:m.matrix.elements}})
+  if(meshIdentity)expect(mesh).toEqual(meshIdentity);else meshIdentity=mesh
+  const capture=await xr.screenshot(info.outputPath(`entrance-${roll}.png`),{canvas:'canvas',metadata:true,timeout:5000})
+  expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);entranceFrames.push({roll,mesh,capture})
+ }
+ await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,0]});await xr.waitForFrames(2,{timeout:5000})
+ await xr.setAxes('left',0,-.5);await xr.settle(1200);await xr.setAxes('left',0,0)
  const after=await page.evaluate(()=>({ax:window.__spinward.axial,h:window.__spinward.groundHeight,mode:window.__spinward.mode}))
- expect(after.ax-before).toBeGreaterThan(.2);expect(after.mode).toBe('grounded')
+ expect(after.ax-before).toBeGreaterThan(.2);expect(after.mode).toBe('grounded');expect(before).toBeLessThan(frontage.access.entrance.axial);expect(after.ax).toBeGreaterThan(frontage.access.entrance.axial+.1)
  const capture=await xr.screenshot(info.outputPath('apartment-entry.png'),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id)
  const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})
- expect(errors).toEqual([]);await fs.writeFile(info.outputPath('apartment-entry.json'),JSON.stringify({gpu,diagnostics,before,after,capture,errors},null,2))
+ expect(errors).toEqual([]);await fs.writeFile(info.outputPath('apartment-entry.json'),JSON.stringify({gpu,diagnostics,before,after,frontage,accessMesh,entranceFrames,capture,errors},null,2))
 })
 
 test('upstairs room and curved neighborhood retain their shapes under stereo head roll',async({page,xr},info)=>{
@@ -54,8 +67,8 @@ test('upstairs room and curved neighborhood retain their shapes under stereo hea
   await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR();const diagnostics=await xr.diagnostics()
   for(const roll of [0,20,-20]){
    await xr.setHeadPose({position:[0,1.6,0],euler:[0,0,roll*Math.PI/180]});await xr.waitForFrames(2,{timeout:5000})
-   const s=await page.evaluate(()=>({h:window.__spinward.groundHeight,mode:window.__spinward.mode,street:window.__spinwardCity.curvedNeighborhood.group.userData}))
-   expect(s.mode).toBe('grounded');expect(Math.abs(s.h-h)).toBeLessThan(.1);expect(s.street.buildings).toBe(8)
+   const s=await page.evaluate(()=>({h:window.__spinward.groundHeight,mode:window.__spinward.mode,street:window.__spinwardCity.curvedNeighborhood.group.userData,frontages:window.__spinwardCity.curvedNeighborhood.plan.buildings.map(b=>({road:b.access?.roadId,length:b.access?.length,pieces:b.access?.corridor?.length??0}))}))
+   expect(s.mode).toBe('grounded');expect(Math.abs(s.h-h)).toBeLessThan(.1);expect(s.street.buildings).toBe(8);expect(s.frontages).toHaveLength(8);for(const a of s.frontages){expect(a.road).toBe('garden');expect(a.length).toBeGreaterThan(8.4);expect(a.length).toBeLessThan(8.6);expect(a.pieces).toBeGreaterThan(0)}
    const capture=await xr.screenshot(info.outputPath(`${name}-${roll}.png`),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push({name,roll,s,capture})
   }
   const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000})

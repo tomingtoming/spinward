@@ -38,7 +38,7 @@ import { buildRoadTileSurface } from './roadTileSurface'
 import { StreetSurfacePlan } from './streetSurfacePlan'
 import { StreetMarkingPlan } from './streetMarkings'
 import { StreetNetwork } from './streetNetwork'
-import { legacyStreetPaths } from './streetPath'
+import { certifyStreetAccess } from './streetFrontage'
 import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 
 import {
@@ -1398,9 +1398,14 @@ export class Cityscape {
       plan.trees = plan.trees.filter(t => Math.abs(Math.atan2(Math.sin(t.azimuth-p.azimuth),Math.cos(t.azimuth-p.azimuth))) * radius > p.width / 2 + 3 || Math.abs(t.axial-p.axial) > p.length / 2 + 3)
     }
     const curved=this.habitatType==='cylinder'?planCurvedNeighborhood(plan,radius):null
-    plan.streetNetwork=new StreetNetwork([...legacyStreetPaths(plan.roads),...(curved?[curved.street,...curved.streetLinks]:[])],radius)
-    plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork.streets,radius)
-    plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork)
+    if(curved)plan.streetNetwork=new StreetNetwork([...plan.streetNetwork!.streets,curved.street,...curved.streetLinks],radius)
+    if(curved){
+      const access=certifyStreetAccess(curved.buildings,plan.streetNetwork!,radius,10)
+      if(access.rejected.length)throw Error('Garden street has an obstructed building entrance')
+      curved.buildings=access.buildings
+    }
+    plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius)
+    plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork!)
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)

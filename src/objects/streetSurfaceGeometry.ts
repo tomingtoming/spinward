@@ -5,7 +5,8 @@ import { ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
 
 /** Clip long convex pieces into cylindrical strips before triangulating.
  * A diagonal must follow the cylinder too: a single wide triangle is a chord. */
-export function buildStreetSurfaceGeometry(surfaces:readonly StreetSurface[],radius:number,texturePeriod:number){
+export type StreetSurfaceGeometryInput = Pick<StreetSurface, 'polygon' | 'lift'> & { source: Pick<StreetSurface['source'], 'azimuth' | 'axial'> }
+export function buildStreetSurfaceGeometry(surfaces:readonly StreetSurfaceGeometryInput[],radius:number,texturePeriod:number){
  if(!surfaces.length)return null
  const position:number[]=[],normal:number[]=[],uv:number[]=[],index:number[]=[]
  const width=Math.sqrt(8*ROAD_SURFACE_MAX_SAGITTA_METERS*radius)

@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import type { CityPlan } from './cityLayout'
+import { streetAccessPolygons } from './streetFrontage'
+import { buildStreetSurfaceGeometry, type StreetSurfaceGeometryInput } from './streetSurfaceGeometry'
+import { clipStreetPolygon } from './streetPolygon'
 
 const wrap = (a: number) => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
 
@@ -17,52 +20,39 @@ export class StreetAccessLayer {
 
   rebuild(plan: CityPlan, radius: number, azimuth: number, axial: number) {
     this.clear()
-    const path: number[] = [], valid: number[] = [], rejected: number[] = []
+    const path: StreetSurfaceGeometryInput[] = [], valid: number[] = [], rejected: number[] = []
     // Above fields (0.1 m), below alleys (0.15 m) and roads (0.2 m).
     const position = (t: number, a: number, lift = 0.12) => {
       const angle = azimuth + t / radius
       return [Math.cos(angle) * (radius - lift), a + axial, Math.sin(angle) * (radius - lift)]
     }
-    const rect = (out: number[], t: number, a: number, w: number, h: number, lift = 0.12) => {
-      const left = Math.max(-180, t - w / 2), right = Math.min(180, t + w / 2)
-      const bottom = Math.max(-180, a - h / 2), top = Math.min(180, a + h / 2)
-      if (left >= right || bottom >= top) return
-      // Follow curvature rather than drawing a long chord under the ground.
-      const segments = Math.max(1, Math.ceil((right - left) / Math.min(4, radius * 0.025)))
-      for (let i = 0; i < segments; i++) {
-        const x0 = left + (right - left) * i / segments
-        const x1 = left + (right - left) * (i + 1) / segments
-        const p = [position(x0, bottom, lift), position(x1, bottom, lift), position(x1, top, lift), position(x0, top, lift)]
-        for (const index of [0, 1, 2, 0, 2, 3]) out.push(...p[index])
-      }
-    }
     for (const building of plan.buildings) {
-      const { access, front } = building
-      if (!access || !front) continue
+      const { access } = building
+      if (!access) continue
       const t = wrap(access.entrance.azimuth - azimuth) * radius
       const a = access.entrance.axial - axial
       if (Math.abs(t) > 180 || Math.abs(a) > 180) continue
-      rect(path, t + (front.axis === 'tangent' ? front.side * access.length / 2 : 0),
-        a + (front.axis === 'axial' ? front.side * access.length / 2 : 0),
-        front.axis === 'tangent' ? access.length : access.width,
-        front.axis === 'axial' ? access.length : access.width)
-      if (this.debug) {
-        valid.push(...position(t, a, 0.3), ...position(t + (front.axis === 'tangent' ? front.side * access.length : 0),
-          a + (front.axis === 'axial' ? front.side * access.length : 0), 0.3))
+      for (const polygon of streetAccessPolygons(access, radius)) {
+        const local = polygon.map(p => ({ ...p, x: p.x + t, y: p.y + a }))
+        const clipped = clipStreetPolygon(clipStreetPolygon(clipStreetPolygon(clipStreetPolygon(local,
+          1, 0, 180), -1, 0, 180), 0, 1, 180), 0, -1, 180)
+        if (clipped.length) path.push({ source: { azimuth, axial }, polygon: clipped, lift: (building.baseHeight ?? 0) + .12 })
       }
+      if (this.debug) valid.push(...position(t, a, .3),
+        ...position(wrap(access.roadEdge.azimuth - azimuth) * radius, access.roadEdge.axial - axial, .3))
     }
+
     if (this.debug) for (const item of plan.accessRejected ?? []) {
       const t = wrap(item.building.azimuth - azimuth) * radius, a = item.building.axial - axial
       if (Math.abs(t) > 180 || Math.abs(a) > 180) continue
       rejected.push(...position(t - 1, a - 1, 0.4), ...position(t + 1, a + 1, 0.4),
         ...position(t - 1, a + 1, 0.4), ...position(t + 1, a - 1, 0.4))
     }
-    for (const [vertices, material] of [[path, this.pathMaterial]] as const) {
-      if (!vertices.length) continue
-      const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-      geometry.computeVertexNormals()
-      const mesh = new THREE.Mesh(geometry, material)
+    const geometry = buildStreetSurfaceGeometry(path, radius, 4)
+    if (geometry) {
+      const mesh = new THREE.Mesh(geometry, this.pathMaterial)
+      mesh.name = 'street-access-corridors'
+      mesh.userData.pieces = path.length
       mesh.receiveShadow = true
       this.group.add(mesh)
     }

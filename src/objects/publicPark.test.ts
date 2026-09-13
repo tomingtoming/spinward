@@ -26,16 +26,17 @@ test('park path union has no duplicate coplanar coverage at corners, connector a
   }
 })
 
-test('inhabited presets retain a connected, clear garden across city budgets without changing the city plan', () => {
-  for (const preset of HABITAT_PRESETS) for (const maxBuildings of [64000, 18000, 16000]) {
+// Each generated city is a separate regression, with its own timeout.
+for (const preset of HABITAT_PRESETS) for (const maxBuildings of [64000, 18000, 16000]) {
+ test(`inhabited preset ${preset.id}/${maxBuildings} retains a connected, clear garden without changing the city plan`, () => {
     const radius = preset.real.radius_m
     const plan = planCity({ radius, length: preset.real.length_m ?? preset.real.thickness_m!, maxBuildings, topology: preset.topology })
     const before = JSON.stringify(plan)
     const park = planPublicPark(plan, radius)
     expect(JSON.stringify(plan)).toBe(before)
-    if (preset.id === 'playground') { expect(park).toBeNull(); continue }
+    if (preset.id === 'playground') { expect(park).toBeNull(); return }
     expect(park).not.toBeNull()
-    if (!park) continue
+    if (!park) return
     expect(park.trees.length).toBeGreaterThanOrEqual(6)
     expect(park.benches).toHaveLength(2)
     expect(park.lamps).toHaveLength(3)
@@ -65,8 +66,8 @@ test('inhabited presets retain a connected, clear garden across city budgets wit
       if ([...visited].some(j => { const b = park.paths[j]; return Math.abs(a.x - b.x) <= (a.width + b.width) / 2 + .001 && Math.abs(a.y - b.y) <= (a.depth + b.depth) / 2 + .001 })) visited.add(i)
     }
     expect(visited.size).toBe(park.paths.length)
-  }
-})
+ })
+}
 
 test('park benches match rendered seat height and return feet to clear garden paving', () => {
   for (const preset of HABITAT_PRESETS.filter(p => p.id !== 'playground')) {

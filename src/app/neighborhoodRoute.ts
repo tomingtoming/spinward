@@ -26,13 +26,15 @@ export type OutingAction = GuideAction | 'guide-cancel' | 'drive-mode-toggle' | 
 export type OutingDestination = { label: string; entrance: SurfacePoint; bay: CarShareBay | null }
 export const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number) => Math.hypot(wrapAngle(a.azimuth-b.azimuth)*radius, a.axial-b.axial)
-const drivingNetworks=new WeakMap<CityPlan,{radius:number;curved:CurvedNeighborhood|null;network:StreetNetwork}>()
+const drivingNetworks=new WeakMap<CityPlan,{radius:number;curved:CurvedNeighborhood|null;base:StreetNetwork|undefined;network:StreetNetwork}>()
 function drivingNetwork(plan:CityPlan,radius:number,curved:CurvedNeighborhood|null){
-  if(plan.streetNetwork)return plan.streetNetwork
+  const base=plan.streetNetwork
   const old=drivingNetworks.get(plan)
-  if(old&&old.radius===radius&&old.curved===curved)return old.network
-  const network=new StreetNetwork([...legacyStreetPaths(plan.roads),...(curved?[curved.street,...curved.streetLinks]:[])],radius)
-  drivingNetworks.set(plan,{radius,curved,network});return network
+  if(old&&old.radius===radius&&old.curved===curved&&old.base===base)return old.network
+  const paths=base?.streets??legacyStreetPaths(plan.roads)
+  const additions=(curved?[curved.street,...curved.streetLinks]:[]).filter(s=>!paths.some(p=>p.id===s.id))
+  const network=base&&!additions.length?base:new StreetNetwork([...paths,...additions],radius)
+  drivingNetworks.set(plan,{radius,curved,base,network});return network
 }
 
 /** Local, bounded route search on actual generated streets. Pavements win on
