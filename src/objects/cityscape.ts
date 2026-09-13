@@ -37,6 +37,7 @@ import { STREET_PROFILES, streetLaneCenters, streetLaneDividers } from './street
 import { buildRoadTileSurface } from './roadTileSurface'
 import { StreetSurfacePlan } from './streetSurfacePlan'
 import { StreetMarkingPlan } from './streetMarkings'
+import { StreetSignalPlan } from './streetSignals'
 import { StreetNetwork } from './streetNetwork'
 import { certifyStreetAccess } from './streetFrontage'
 import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
@@ -1406,6 +1407,7 @@ export class Cityscape {
     }
     plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius)
     plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork!)
+    plan.streetSignals=new StreetSignalPlan(plan.streetMarkings, plan.intersections)
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)
@@ -1451,7 +1453,7 @@ export class Cityscape {
     this.trafficRoadSpans = planTrafficRoadSpans(plan.roads, radius)
     this.cityPlan = plan
     this.carShareBay = planCarShareBay(plan, radius)
-    this.trafficSignals = createTrafficSignalIndex(this.habitatType === 'ring' ? [] : plan.intersections)
+    this.trafficSignals = createTrafficSignalIndex([], this.habitatType === 'ring' ? undefined : plan.streetSignals, plan.roads)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
     this.buildRoads(plan.streetSurfaces, radius)
@@ -2112,6 +2114,7 @@ export class Cityscape {
     const axialWindow = Math.max(1200, getCityNearDistance(this.radius) * 1.2)
 
     type Candidate = {
+      sourceRoadIds?: readonly string[]
       road: CityRoad
       isAvenue: boolean
       spanStart: number
@@ -2144,7 +2147,7 @@ export class Cityscape {
           continue
         }
 
-        candidates.push({ road, isAvenue, spanStart, spanLength: spanEnd - spanStart })
+        candidates.push({ road, sourceRoadIds: physical.sourceRoadIds, isAvenue, spanStart, spanLength: spanEnd - spanStart })
       } else {
         const halfArc = road.tangentWidth * 0.5 / this.radius
 
@@ -2159,7 +2162,7 @@ export class Cityscape {
         // cars repeat after one actual circumference, not after that overlap.
         const spanLength = Math.min(road.tangentWidth, fullTurn * this.radius)
         candidates.push({
-          road,
+          road, sourceRoadIds: physical.sourceRoadIds,
           isAvenue,
           spanStart: -spanLength * 0.5,
           spanLength
@@ -2231,7 +2234,7 @@ export class Cityscape {
       const roadKey = trafficRoadKey(candidate.road)
       random = createSeededRandom(trafficRoadSeed(roadKey))
       const variantOffset = trafficRoadSeed(roadKey) % fleet.length
-      const signals = routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength)
+      const signals = routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength, candidate.sourceRoadIds)
 
       for (let i = 0; i < share && count < this.maxTraffic; i += 1) {
         const direction = random() < 0.5 ? 1 : -1
@@ -2298,7 +2301,7 @@ export class Cityscape {
       const candidate = roadSpans.get(previous.id.slice(0, previous.id.lastIndexOf(':')))
       if (!candidate) continue
       const restored = { ...previous, spanStart: candidate.spanStart, spanLength: candidate.spanLength,
-        signals: routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength) }
+        signals: routeTrafficSignals(this.trafficSignals, candidate.road, this.radius, candidate.spanStart, candidate.spanLength, candidate.sourceRoadIds) }
       restored.motion = remapTrafficMotion(previous, restored)
       if (!restored.motion) continue
       let replace = -1, farthest = 200

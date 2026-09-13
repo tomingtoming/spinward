@@ -4,10 +4,13 @@ import {SignalVisors} from './signalVisors'
 
 import type { CityIntersection } from './cityLayout'
 import type { StreetMarkingPlan } from './streetMarkings'
+import { StreetSignalPlan, type StreetSignalApproach } from './streetSignals'
+import { sampleStreetPath } from './streetPath'
+import { SIDEWALK_LIFT } from './streetProfile'
 import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 import { ROAD_SURFACE_LIFT_METERS, ROAD_SURFACE_MAX_SAGITTA_METERS } from './roadSurfaceGeometry'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS, isSignalledIntersection,
-  signalAspect, signalPhaseOffset, signalStopLineOffset, type SignalRoad } from './intersectionSignals'
+  signalAspect, controlledSignalAspect, signalPhaseOffset, signalStopLineOffset, type SignalControl, type SignalRoad } from './intersectionSignals'
 export { SIGNAL_CYCLE_SECONDS, signalAspect } from './intersectionSignals'
 
 // Street furniture at road crossings (2026-09-03, 緻密さ③): zebra crosswalks
@@ -149,6 +152,23 @@ export const layoutIntersection = (
   return layout
 }
 
+/** One supported head faces the incoming lane. All connected hardware shares
+ * the pole's tangent frame; its anchor follows the actual sidewalk elevation. */
+export function layoutStreetSignal(approach: StreetSignalApproach, radius: number) {
+  const { source, sign } = approach.crossing
+  const p = sampleStreetPath(source, approach.stop, -sign * (source.width / 2 + .9))
+  const dx = -Math.sin(p.heading) * sign, dy = Math.cos(p.heading) * sign
+  const length = source.width / 4 + .9
+  const common = { sx: 1, sy: 1, sz: 1 }
+  return {
+    origin: { azimuth: source.azimuth + p.x / radius, axial: source.axial + p.y },
+    lift: (source.walkHeight ?? source.groundHeight + SIDEWALK_LIFT) - .03,
+    pole: { ...common, t: 0, a: 0, h: 0, yaw: 0, sy: SIGNAL_POLE_HEIGHT },
+    arm: { ...common, t: dx * length / 2, a: dy * length / 2, h: SIGNAL_POLE_HEIGHT - .3, yaw: Math.atan2(-dx, dy), sz: length + .2 },
+    head: { ...common, t: dx * length, a: dy * length, h: SIGNAL_POLE_HEIGHT - .85, yaw: Math.atan2(-Math.cos(p.heading) * sign, Math.sin(p.heading) * sign) }
+  }
+}
+
 // Pure: crossings within range of a focus, by surface distance (tangent arc
 // + axial), so the renderer only lays out what can be seen up close.
 export const selectNearbyIntersections = (
@@ -218,6 +238,8 @@ export class IntersectionFurniture {
   private elapsed = 0
   private nearby: CityIntersection[] = []
   private markingPlan?: StreetMarkingPlan
+  private signalPlan?: StreetSignalPlan
+  private headControls: (SignalControl | undefined)[] = []
   private nativeStripes: THREE.Mesh | null = null
   private headPhases: number[] = []
   private headRoads: SignalRoad[] = []
@@ -294,9 +316,10 @@ export class IntersectionFurniture {
     this.lamps.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3 * 3), 3)
   }
 
-  setPlan(intersections: CityIntersection[], radius: number, markingPlan?: StreetMarkingPlan) {
+  setPlan(intersections: CityIntersection[], radius: number, markingPlan?: StreetMarkingPlan, signalPlan?: StreetSignalPlan) {
     this.intersections = intersections
     this.markingPlan = markingPlan
+    this.signalPlan = signalPlan ?? (markingPlan ? new StreetSignalPlan(markingPlan, intersections) : undefined)
     this.clearNativeStripes()
     this.radius = radius
     this.focusAzimuth = Number.NaN
@@ -304,6 +327,9 @@ export class IntersectionFurniture {
     this.nearby = []
     this.headPhases.length = 0
     this.headRoads.length = 0
+    this.headControls.length = 0
+    this.heads.mesh.userData.nativeApproaches = []
+    this.heads.mesh.userData.legacyHeads = 0
     this.visors.setHeads(null)
     for (const part of [this.stripes, this.poles, this.arms, this.heads, this.lamps, this.plates]) part.mesh.count = 0
   }
@@ -336,7 +362,7 @@ export class IntersectionFurniture {
     this.visors.update(focusAzimuth,focusAxial,this.radius)
   }
 
-  private place(part: Part, index: number, x: CityIntersection, transform: FurnitureTransform, surfaceDrop: number) {
+  private place(part: Part, index: number, x: Pick<CityIntersection, 'azimuth' | 'axial'>, transform: FurnitureTransform, surfaceDrop: number) {
     // Crosswalks hug the cylinder instead of the crossing's tangent plane.
     // Signals retain one shared frame so their poles, arms and heads join.
     const curved = part === this.stripes
@@ -361,9 +387,16 @@ export class IntersectionFurniture {
   private relayout() {
     this.nearby = selectNearbyIntersections(this.intersections, this.radius, this.focusAzimuth, this.focusAxial)
     this.clearNativeStripes()
+    const approaches = this.signalPlan?.nearby(this.focusAzimuth, this.focusAxial, FURNITURE_RANGE_METERS, Math.min(this.heads.capacity, this.arms.capacity, this.poles.capacity)) ?? []
     if (this.markingPlan) {
-      const crossings = this.markingPlan.crossings(this.focusAzimuth, this.focusAxial, FURNITURE_RANGE_METERS)
-      const paint = this.markingPlan.paint(crossings)
+      const nearbyCrossings = this.markingPlan.crossings(this.focusAzimuth, this.focusAxial, FURNITURE_RANGE_METERS)
+      const key = (c: typeof nearbyCrossings[number]) => `${c.node}:${c.street}:${c.sign}`
+      const controlled = new Set(approaches.map(a => key(a.crossing)))
+      // A visible controlled junction always owns all of its zebras, even at
+      // the distance/capacity boundary. Remaining slots go to nearby quiet arms.
+      const crossings = [...approaches.map(a => a.crossing), ...nearbyCrossings.filter(c => !controlled.has(key(c)))].slice(0, 512)
+      const stopPaint = this.signalPlan?.paint(approaches) ?? []
+      const paint = [...this.markingPlan.paint(crossings), ...stopPaint]
       const geometry = buildStreetSurfaceGeometry(paint, this.radius, 1)
       if (geometry) {
         // Pavement geometry faces outwards for BackSide materials. Furniture
@@ -377,6 +410,7 @@ export class IntersectionFurniture {
         this.nativeStripes.name = 'street-junction-markings'
         this.nativeStripes.userData.crossings = crossings.length
         this.nativeStripes.userData.paintPieces = paint.length
+        this.nativeStripes.userData.stopLines = stopPaint.length
         this.group.add(this.nativeStripes)
       }
     }
@@ -387,9 +421,25 @@ export class IntersectionFurniture {
     let nPlate = 0
     this.headPhases.length = 0
     this.headRoads.length = 0
+    this.headControls.length = 0
+    for (const a of approaches) {
+      const layout = layoutStreetSignal(a, this.radius), x = layout.origin
+      this.place(this.poles, nPole++, x, layout.pole, layout.lift)
+      this.place(this.arms, nArm++, x, layout.arm, layout.lift)
+      this.place(this.heads, nHead, x, layout.head, layout.lift)
+      for (let aspect = 0; aspect < 3; aspect++)
+        this.place(this.lamps, nHead * 3 + aspect, x, { ...layout.head, h: layout.head.h + (aspect - 1) * .28 }, layout.lift)
+      this.headPhases.push(a.phase); this.headControls.push(a.control); this.headRoads.push('avenue')
+      nHead++
+    }
+    this.heads.mesh.userData.nativeApproaches = approaches.map(a => ({ node: a.crossing.node, street: a.crossing.source.id, sign: a.crossing.sign, stop: a.stop, phase: a.phase, ...a.control }))
+    const fallback = new Set(this.signalPlan?.legacyFallbacks ?? [])
     for (const x of this.nearby) {
+      // Native signals and stop paint replace arterial legacy furniture together.
+      // Quiet street-name posts remain until the wayfinding migration.
+      if (this.signalPlan && isSignalledIntersection(x) && !fallback.has(x)) continue
       const layout = layoutIntersection(x, this.radius)
-      for (const s of this.markingPlan ? layout.stopLines : [...layout.stripes, ...layout.stopLines]) {
+      for (const s of this.markingPlan ? (fallback.has(x) ? layout.stopLines : []) : [...layout.stripes, ...layout.stopLines]) {
         if (nStripe >= this.stripes.capacity) break
         this.place(this.stripes, nStripe++, x, s, ROAD_SURFACE_LIFT_METERS)
       }
@@ -410,6 +460,7 @@ export class IntersectionFurniture {
         }
         this.headPhases.push(phase)
         this.headRoads.push(h.faces)
+        this.headControls.push(undefined)
         nHead++
       }
       for (const p of layout.plates) {
@@ -428,6 +479,7 @@ export class IntersectionFurniture {
       part.mesh.count = count
       part.mesh.instanceMatrix.needsUpdate = true
     }
+    this.heads.mesh.userData.legacyHeads = nHead - approaches.length
     this.visors.setHeads(this.heads.mesh)
   }
 
@@ -435,7 +487,8 @@ export class IntersectionFurniture {
     const color = this.lamps.mesh.instanceColor
     if (color === null || this.lamps.mesh.count === 0) return
     for (let i = 0; i < this.heads.mesh.count; i++) {
-      const active = signalAspect(this.elapsed, this.headPhases[i] ?? 0, this.headRoads[i])
+      const control = this.headControls[i]
+      const active = control ? controlledSignalAspect(this.elapsed, this.headPhases[i] ?? 0, control) : signalAspect(this.elapsed, this.headPhases[i] ?? 0, this.headRoads[i])
       for (let aspect = 0; aspect < 3; aspect++) {
         colorScratch.copy(ASPECT_COLORS[aspect]).multiplyScalar(aspect === active ? 1 : .035)
         color.setXYZ(i * 3 + aspect, colorScratch.r, colorScratch.g, colorScratch.b)

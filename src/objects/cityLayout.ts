@@ -1,3 +1,4 @@
+import type { StreetSignalPlan } from './streetSignals'
 import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import type { StreetSurfacePlan } from './streetSurfacePlan'
 import type { StreetMarkingPlan } from './streetMarkings'
@@ -158,6 +159,7 @@ export type CityIntersection = {
 export type CityPlan = {
   streetNetwork?: StreetNetwork
   streetSurfaces?: StreetSurfacePlan
+  streetSignals?: StreetSignalPlan
   streetMarkings?: StreetMarkingPlan
   accessRejected?: StreetAccessRejection[]
   roads: CityRoad[]

@@ -3,6 +3,7 @@ import type { TrafficMotion } from './trafficMotion'
 
 export type TrafficRoadSpan = {
   road: CityRoad
+  sourceRoadIds?: readonly string[]
   isAvenue: boolean
   spanStart: number
   spanLength: number
@@ -11,11 +12,11 @@ export type TrafficRoadSpan = {
 /** Compile physical roads before clipping the moving visibility window. This
  * keeps a road's identity independent of the player's current street position. */
 export function planTrafficRoadSpans(roads: readonly CityRoad[], radius: number) {
-  return mergeTrafficRoadSpans(roads.filter(road => road.kind !== 'alley').map(road => {
+  return mergeTrafficRoadSpans(roads.map((road, index) => {
     const isAvenue = road.axialLength > road.tangentWidth
     const spanLength = isAvenue ? road.axialLength : Math.min(road.tangentWidth, 2 * Math.PI * radius)
-    return { road, isAvenue, spanStart: (isAvenue ? road.axial : 0) - spanLength / 2, spanLength }
-  }))
+    return { road, sourceRoadIds: [road.id ?? `road-${index}`], isAvenue, spanStart: (isAvenue ? road.axial : 0) - spanLength / 2, spanLength }
+  }).filter(span => span.road.kind !== 'alley'))
 }
 
 export function trafficRoadKey(road: CityRoad) {
@@ -64,6 +65,7 @@ export function mergeTrafficRoadSpans(spans: readonly TrafficRoadSpan[]): Traffi
         merged.spanLength = Math.max(merged.spanStart + merged.spanLength, span.spanStart + span.spanLength) - merged.spanStart
         merged.road.axial = merged.spanStart + merged.spanLength / 2
         merged.road.axialLength = merged.spanLength
+        merged.sourceRoadIds = [...new Set([...(merged.sourceRoadIds ?? []), ...(span.sourceRoadIds ?? [])])]
       } else {
         merged = { ...span, road: { ...span.road } }
         result.push(merged)

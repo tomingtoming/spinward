@@ -7,8 +7,8 @@ import { streetSurfaceEnvelope, relativeStreetPolygon, type StreetSurface } from
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from './intersectionSignals'
 
 type Arm = { street: number; t: number; sign: 1 | -1; dx: number; dy: number }
-type Junction = { node: number; arms: Arm[] }
-export type StreetCrossing = { node: number; source: StreetPath; start: number; end: number; distance: number }
+export type StreetJunction = { node: number; arms: Arm[] }
+export type StreetCrossing = { node: number; source: StreetPath; street: number; sign: 1 | -1; station: number; limit: number; start: number; end: number; distance: number }
 export type StreetPaint = StreetSurface
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 const MAX_SETBACK = 40
@@ -17,7 +17,8 @@ const MAX_SETBACK = 40
  * Only the nearby markings become geometry. Underlying roads and sidewalks
  * remain owned by the common pavement compiler. */
 export class StreetMarkingPlan {
-  private readonly junctions: Junction[] = []
+  readonly junctions: StreetJunction[] = []
+  private readonly crossingCache = new Map<number, StreetCrossing[]>()
   private readonly index: SurfaceIndex
   private readonly segments: StreetSegment[][]
   private readonly stations: number[][]
@@ -50,12 +51,12 @@ export class StreetMarkingPlan {
     this.stations = this.stations.map(values => [...new Set(values)].sort((a, b) => a - b))
   }
 
-  private distanceAt(street: number, t: number) {
+  distanceAt(street: number, t: number) {
     const parts = this.segments[street]
     const s = parts.find(p => t <= p.end.t + 1e-9) ?? parts.at(-1)!
     return s.distanceStart + (s.distanceEnd - s.distanceStart) * (t - s.start.t) / (s.end.t - s.start.t)
   }
-  private parameterAt(street: number, d: number) {
+  parameterAt(street: number, d: number) {
     const parts = this.segments[street], s = parts.find(p => d <= p.distanceEnd + 1e-9) ?? parts.at(-1)!
     return s.start.t + (s.end.t - s.start.t) * (d - s.distanceStart) / (s.distanceEnd - s.distanceStart)
   }
@@ -66,39 +67,51 @@ export class StreetMarkingPlan {
     const out: StreetCrossing[] = []
     for (const id of this.index.query({ azimuth, axial, tangentWidth: span, axialLength: span })) {
       const junction = this.junctions[id]
-      for (const arm of junction.arms) {
-        const source = network.streets[arm.street], profile = getStreetProfile(source.kind, radius)
-        if (!profile.sidewalk) continue
-        let setback = 0, hasCrossing = false
-        for (const other of junction.arms) {
-          const sine = Math.abs(arm.dx * other.dy - arm.dy * other.dx)
-          if (sine < 1e-5) continue
-          const road = network.streets[other.street], walk = getStreetProfile(road.kind, radius).sidewalk
-          if (!walk) continue
-          const cosine = Math.abs(arm.dx * other.dx + arm.dy * other.dy)
-          setback = Math.max(setback, (road.width / 2 + source.width / 2 * cosine) / sine)
-          hasCrossing = true
-        }
-        if (!hasCrossing || setback > MAX_SETBACK) continue
-        const station = this.distanceAt(arm.street, arm.t), start = setback + CROSSWALK_SETBACK_METERS, end = start + CROSSWALK_LENGTH_METERS
-        const next = arm.sign === 1 ? this.stations[arm.street].find(s => s > station + 1e-5)
-          : this.stations[arm.street].filter(s => s < station - 1e-5).at(-1)
-        // Reserve both ends of a short block; opposing crossings must not overlap.
-        if (next === undefined || end > Math.abs(next - station) / 2) continue
-        const a = this.parameterAt(arm.street, station + start * arm.sign)
-        const b = this.parameterAt(arm.street, station + end * arm.sign)
-        const p = sampleStreetPath(source, (a + b) / 2)
-        const distance = Math.hypot(wrap(source.azimuth + p.x / radius - azimuth) * radius, source.axial + p.y - axial)
-        const crossing = { node: junction.node, source, start: Math.min(a, b), end: Math.max(a, b), distance }
-        if (distance <= range && this.clearOfOtherRoads(crossing)) out.push(crossing)
+      for (const c of this.junctionCrossings(junction)) {
+        const p = sampleStreetPath(c.source, (c.start + c.end) / 2)
+        const distance = Math.hypot(wrap(c.source.azimuth + p.x / radius - azimuth) * radius, c.source.axial + p.y - axial)
+        if (distance <= range) out.push({ ...c, distance })
       }
     }
     return out.sort((a, b) => a.distance - b.distance || a.node - b.node || a.source.id.localeCompare(b.source.id)).slice(0, maxCrossings)
   }
 
-  private clearOfOtherRoads(crossing: StreetCrossing) {
+  /** Stable geometry shared by nearby paint, signal heads and traffic stops. */
+  junctionCrossings(junction: StreetJunction): readonly StreetCrossing[] {
+    const cached = this.crossingCache.get(junction.node)
+    if (cached) return cached
+    const { network } = this, radius = network.radius, out: StreetCrossing[] = []
+    for (const arm of junction.arms) {
+      const source = network.streets[arm.street], profile = getStreetProfile(source.kind, radius)
+      if (!profile.sidewalk) continue
+      let setback = 0, hasCrossing = false
+      for (const other of junction.arms) {
+        const sine = Math.abs(arm.dx * other.dy - arm.dy * other.dx)
+        if (sine < 1e-5) continue
+        const road = network.streets[other.street], walk = getStreetProfile(road.kind, radius).sidewalk
+        if (!walk) continue
+        const cosine = Math.abs(arm.dx * other.dx + arm.dy * other.dy)
+        setback = Math.max(setback, (road.width / 2 + source.width / 2 * cosine) / sine)
+        hasCrossing = true
+      }
+      if (!hasCrossing || setback > MAX_SETBACK) continue
+      const station = this.distanceAt(arm.street, arm.t), start = setback + CROSSWALK_SETBACK_METERS, end = start + CROSSWALK_LENGTH_METERS
+      const next = arm.sign === 1 ? this.stations[arm.street].find(s => s > station + 1e-5)
+        : this.stations[arm.street].filter(s => s < station - 1e-5).at(-1)
+      // Reserve both ends of a short block; opposing crossings must not overlap.
+      if (next === undefined || end > Math.abs(next - station) / 2) continue
+      const a = this.parameterAt(arm.street, station + start * arm.sign)
+      const b = this.parameterAt(arm.street, station + end * arm.sign)
+      const crossing: StreetCrossing = { node: junction.node, source, street: arm.street, sign: arm.sign, station, limit: Math.abs(next - station) / 2, start: Math.min(a, b), end: Math.max(a, b), distance: 0 }
+      if (this.clearOfOtherRoads(crossing)) out.push(crossing)
+    }
+    this.crossingCache.set(junction.node, out)
+    return out
+  }
+
+  clearOfOtherRoads(crossing: Pick<StreetCrossing, 'source' | 'start' | 'end'>, margin = 0) {
     const { source, start, end } = crossing, radius = this.network.radius
-    const surface: StreetSurface = { source, polygon: positivePolygon(streetRibbon(source, start, end, -source.width / 2, source.width / 2)
+    const surface: StreetSurface = { source, polygon: positivePolygon(streetRibbon(source, start, end, -source.width / 2 - margin, source.width / 2 + margin)
       .map(p => ({ x: p.x, y: p.y, u: 0, v: 0 }))), junction: false, lift: 0 }
     const e = streetSurfaceEnvelope(surface, radius), heading = sampleStreetPath(source, (start + end) / 2).heading
     for (const s of this.network.query(e.azimuth, e.axial, e.tangentWidth, e.axialLength)) {
