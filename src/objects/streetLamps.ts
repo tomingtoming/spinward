@@ -5,7 +5,8 @@ import { getArterialRoadWidth, getLocalRoadWidth } from './cityLayout'
 import { StreetLampLighting, type StreetLampSource } from './streetLampLighting'
 import type { NativeDistrict } from './nativeDistricts'
 import type { StreetMarkingPlan } from './streetMarkings'
-import { sampleStreetPath, streetPathSamples } from './streetPath'
+import { sampleStreetPath, streetPathSamples, streetRibbon } from './streetPath'
+import { containsStreetPolygon } from './streetPolygon'
 
 // Near-field street lamps (2026-09-03, toming「街路灯の間隔」): posts with an
 // arm, a warm head and a light pool on the road, on EVERY grid road at real
@@ -47,7 +48,14 @@ export function planDistrictLampSpots(districts:readonly NativeDistrict[],radius
       const t=samples[i-1].t+(samples[i].t-samples[i-1].t)*(distance-distances[i-1])/(distances[i]-distances[i-1]),p=sampleStreetPath(path,t)
       const azimuth=path.azimuth+p.x/radius,axial=path.axial+p.y
       if(junctions.some(j=>Math.hypot(wrapToPi(azimuth-j.node.azimuth)*radius,axial-j.node.axial)<j.clearance))continue
-      spots.push({azimuth,axial,heading:p.heading,isAvenue:Math.abs(Math.sin(p.heading))>.7,side:index%2?1:-1,roadHalfWidth:path.width/2,kind:path.kind as LampSpot['kind']})
+      const side=index%2?1:-1,offset=side*(path.width/2+.6),postAzimuth=azimuth-Math.sin(p.heading)*offset/radius,postAxial=axial+Math.cos(p.heading)*offset
+      // A centre-distance clearance misses the wide mouth of an oblique road.
+      // Check the actual support position against every nearby carriageway.
+      if(markings.network.query(postAzimuth,postAxial,.5,.5).some(s=>{
+        const other=markings.network.streets[s.street]
+        return other.level===path.level&&containsStreetPolygon(streetRibbon(other,s.start.t,s.end.t,-other.width/2-.25,other.width/2+.25),wrapToPi(postAzimuth-other.azimuth)*radius,postAxial-other.axial)
+      }))continue
+      spots.push({azimuth,axial,heading:p.heading,isAvenue:Math.abs(Math.sin(p.heading))>.7,side,roadHalfWidth:path.width/2,kind:path.kind as LampSpot['kind']})
     }
   }
   return spots

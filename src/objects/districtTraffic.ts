@@ -2,6 +2,7 @@ import type { DistrictTrafficStreet } from './nativeDistricts'
 import { sampleStreetPath, streetPathSamples } from './streetPath'
 import type { StreetSignalPlan } from './streetSignals'
 import type { TrafficPosition } from './riverTraffic'
+import { trafficRoadKey } from './trafficRoadSpans'
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 /** Keep a through car's station, identity and queue across the old/new boundary.
  * Only the bounded bend is sampled; the long outside approaches remain exact. */
@@ -63,4 +64,30 @@ export class DistrictTrafficPath {
     }
     return gap
   }
+}
+
+/** One physical through road may bend through several adjacent districts.
+ * Preserve one car/queue/visibility identity and dispatch to its local piece. */
+export class DistrictTrafficRoute {
+  readonly pieces: DistrictTrafficPath[]
+  readonly source: DistrictTrafficStreet
+  constructor(readonly sources:readonly DistrictTrafficStreet[],radius:number,signals?:StreetSignalPlan){
+    this.pieces=sources.map(s=>new DistrictTrafficPath(s,radius,signals)).sort((a,b)=>a.stations[0]-b.stations[0])
+    if(!this.pieces.length)throw Error('A district traffic route needs a source')
+    for(let i=1;i<this.pieces.length;i++)if(this.pieces[i].stations[0]<this.pieces[i-1].stations.at(-1)!-.01)throw Error('Overlapping district traffic pieces')
+    this.source={...sources[0],sourceRoadIds:[...new Set(sources.flatMap(s=>s.sourceRoadIds))]}
+  }
+  sample(along:number,offset:number,direction:1|-1){
+    const piece=this.pieces.find(p=>along>=p.stations[0]&&along<=p.stations.at(-1)!)??this.pieces[0]
+    return piece.sample(along,offset,direction)
+  }
+  yieldGap(along:number,direction:1|-1,cars:readonly TrafficPosition[]){
+    return Math.min(...this.pieces.map(p=>p.yieldGap(along,direction,cars)))
+  }
+}
+
+export function planDistrictTraffic(sources:readonly DistrictTrafficStreet[],radius:number,signals?:StreetSignalPlan){
+  const groups=new Map<string,DistrictTrafficStreet[]>()
+  for(const source of sources){const key=trafficRoadKey(source.road),group=groups.get(key)??[];group.push(source);groups.set(key,group)}
+  return new Map([...groups].map(([key,group])=>[key,new DistrictTrafficRoute(group,radius,signals)]))
 }

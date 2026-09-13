@@ -5,7 +5,7 @@ import { StreetMarkingPlan } from './streetMarkings'
 import { StreetSignalPlan } from './streetSignals'
 import { buildingFootprint, certifyStreetAccess } from './streetFrontage'
 import { intersectStreetPolygons, polygonArea } from './streetPolygon'
-import { DistrictTrafficPath } from './districtTraffic'
+import { DistrictTrafficPath, planDistrictTraffic } from './districtTraffic'
 import { createTrafficSignalIndex,routeTrafficSignals,trafficSignalGap } from './intersectionSignals'
 import { sampleStreetPath, streetRibbon } from './streetPath'
 import { isDrivingStreetPoint, paintDistrictFootways } from '../app/streetRouteGrid'
@@ -17,14 +17,14 @@ let middleTraffic:DistrictTrafficStreet[]
 for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve lots, budgets and actual frontage at ${maxBuildings}`,()=>{
  const p=planCity({radius:R,length:40000,maxBuildings}),before=p.buildings.length,old=p.buildings.filter(b=>b.axial<4000)
  const {districts,traffic}=rebuildNativeDistricts(p,R),network=p.streetNetwork!
- expect(districts).toHaveLength(3);expect(p.buildings.length).toBe(before)
+ expect(districts).toHaveLength(9);expect(p.buildings.length).toBe(before)
  expect(p.buildings.filter(b=>b.axial<4000).map(b=>[b.azimuth,b.axial,b.width,b.depth,b.height])).toEqual(old.map(b=>[b.azimuth,b.axial,b.width,b.depth,b.height]))
- expect(new Set(network.components).size).toBe(3);expect(traffic).toHaveLength(24)
+ expect(new Set(network.components).size).toBe(3);expect(traffic).toHaveLength(72)
  const ids=new Set(network.streets.map(s=>s.id));expect(p.buildings.every(b=>b.access&&ids.has(b.access.roadId))).toBe(true)
  const m=new StreetMarkingPlan(network),s=new StreetSignalPlan(m,p.intersections);p.streetMarkings=m;p.streetSignals=s
  const junctions=m.junctions.filter(j=>j.arms.some(a=>network.streets[a.street].id.startsWith('district-')))
- expect(junctions).toHaveLength(111)
- expect(junctions.filter(j=>j.arms.length===3)).toHaveLength(18)
+ expect(junctions).toHaveLength(303)
+ expect(junctions.filter(j=>j.arms.length===3)).toHaveLength(54)
  for(const j of junctions){
   expect(m.junctionCrossings(j)).toHaveLength(j.arms.length)
   if(j.arms.some(a=>network.streets[a.street].kind==='arterial')){
@@ -32,7 +32,7 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
   }
  }
  for(const d of districts){
-  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(11)
+  expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(d.character==='mixed'?11:d.character==='residential'?9:13)
   for(const link of d.streets.filter(p=>p.id.includes(':link-'))){
    const index=network.streets.indexOf(link)
    expect(network.closedEnds[index]).toEqual([false,false])
@@ -84,6 +84,54 @@ test('foot and driving guidance follows a curved native block',()=>{
   const route=planNeighborhoodRoute(p,R,point(.04,offset),point(.20,offset),driving)
   expect(route).not.toBeNull();expect(route!.length).toBeGreaterThan(2)
   if(driving)expect(route!.every(v=>isDrivingStreetPoint(p.streetNetwork!,v.azimuth,v.axial))).toBe(true)
+ }
+})
+
+test('district corridors share real boundary nodes, keep varied massing and allow local foot and driving guidance across them',()=>{
+ const p=middle,n=p.streetNetwork!
+ for(const band of [0,1,2]){
+  const regions=p.nativeDistricts!.filter(d=>d.band===band)
+  expect(regions.map(d=>d.character)).toEqual(['mixed','residential','centre'])
+  expect(Math.max(...regions[1].buildings.map(b=>b.height))).toBeLessThanOrEqual(24)
+  expect(Math.max(...regions[2].buildings.map(b=>b.height))).toBeGreaterThan(45)
+  for(let i=1;i<regions.length;i++){
+   const a=regions[i-1],b=regions[i]
+   expect(a.axial+a.length/2).toBeCloseTo(b.axial-b.length/2,6)
+   for(let road=0;road<3;road++){
+    const left=n.streets.indexOf(a.streets[road]),right=n.streets.indexOf(b.streets[road])
+    expect(n.nodes.some(node=>node.edges.some(e=>n.edges[e].street===left)&&node.edges.some(e=>n.edges[e].street===right))).toBe(true)
+   }
+   const point=(street:typeof a.streets[number],t:number,offset:number)=>{const q=sampleStreetPath(street,t,offset);return{azimuth:street.azimuth+q.x/R,axial:street.axial+q.y,groundHeight:0}}
+   for(const driving of [false,true]){
+    const route=planNeighborhoodRoute(p,R,point(a.streets[1],.96,driving?1.5:11.3),point(b.streets[1],.04,driving?1.5:11.3),driving)
+    expect(route).not.toBeNull();expect(route!.some(v=>v.axial>b.axial-b.length/2)).toBe(true)
+    if(driving)expect(route!.every(v=>isDrivingStreetPoint(n,v.azimuth,v.axial))).toBe(true)
+   }
+  }
+ }
+},10000)
+
+test('a through car and its signals follow every district piece without duplicate routes or a boundary jump',()=>{
+ const p=middle,routes=planDistrictTraffic(middleTraffic,R,p.streetSignals),index=createTrafficSignalIndex([],p.streetSignals,p.roads)
+ expect(routes.size).toBe(54)
+ const through=[...routes.values()].filter(r=>r.pieces.length>1)
+ expect(through).toHaveLength(9)
+ for(const route of through){
+  expect(route.pieces).toHaveLength(3)
+  const road=route.source.road,stops=routeTrafficSignals(index,road,R,road.axial-road.axialLength/2,road.axialLength,route.source.sourceRoadIds)
+  for(const piece of route.pieces){
+   expect(route.source.sourceRoadIds).toContain(piece.source.path.id)
+   for(const direction of [-1,1] as const)for(let i=1;i<30;i++){
+    const along=piece.stations[0]+(piece.stations.at(-1)!-piece.stations[0])*i/30
+    const v=route.sample(along,direction*1.5,direction)
+    expect(v).toEqual(piece.sample(along,direction*1.5,direction));expect(isDrivingStreetPoint(p.streetNetwork!,v.azimuth,v.axial)).toBe(true)
+   }
+   if(road.kind==='arterial')expect(stops.some(s=>s.along>piece.stations[0]&&s.along<piece.stations.at(-1)!)).toBe(true)
+  }
+  for(let i=1;i<route.pieces.length;i++)for(const direction of [-1,1] as const){
+   const boundary=route.pieces[i].stations[0],a=route.sample(boundary-.001,direction*1.5,direction),b=route.sample(boundary+.001,direction*1.5,direction)
+   expect(Math.hypot(wrap(a.azimuth-b.azimuth)*R,a.axial-b.axial)).toBeLessThan(.01);expect(Math.abs(wrap(a.heading-b.heading))).toBeLessThan(.001)
+  }
  }
 })
 
@@ -149,7 +197,7 @@ test('nearby residents and supported lamps use the native pavement without enter
  expect(planDistrictWalkerRoutes(p,{azimuth:0,axial:-10000,range:110})).toEqual([])
  const returned=planDistrictWalkerRoutes(p,focus);expect(returned).toEqual(walkers);expect(returned.every((route,i)=>route!==walkers[i])).toBe(true)
  for(const walker of walkers)for(const point of walker.path!)expect(isDrivingStreetPoint(p.streetNetwork!,point.azimuth,point.axial,0)).toBe(false)
- const lamps=planDistrictLampSpots(p.nativeDistricts!,R,p.streetMarkings!);expect(lamps.length).toBeGreaterThan(400);expect(lamps.length).toBeLessThan(600)
+ const lamps=planDistrictLampSpots(p.nativeDistricts!,R,p.streetMarkings!);expect(lamps.length).toBeGreaterThan(1400);expect(lamps.length).toBeLessThan(1800)
  for(const lamp of lamps){
   const offset=lamp.side*(lamp.roadHalfWidth+.6),azimuth=lamp.azimuth-Math.sin(lamp.heading!)*offset/R,axial=lamp.axial+Math.cos(lamp.heading!)*offset
   expect(isDrivingStreetPoint(p.streetNetwork!,azimuth,axial,0)).toBe(false)

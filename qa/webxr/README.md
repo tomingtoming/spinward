@@ -794,3 +794,32 @@ STREET LIFE supplementary text remains a visual improvement candidate.
 [Implementation, geometry/CPU cost, visual observations and remaining work](../neighborhood-life/district-t-junctions.md).
 Evidence: `evidence/district-t-junctions-20260913/`, including `xr-full/` and
 `xr-junction/`.
+
+## Connected district corridors — 2026-09-13
+
+Nine districts now form three connected corridors, each approximately 5.8 km
+long. Native traffic groups all curved pieces of a physical through road under
+one route identity, and crossings, signals and access use the shared graph.
+The district fixture adds `corridor-seam`: actual app entry, wrist Places,
+stereo 0/±25° roll, then a left-stick walk across the region boundary.
+
+The frozen app build's first 30-case run had **29 passed and one failed in
+8.9 minutes**. The new seam test reset the head to identity and walked away
+from the boundary; its explicit crossing-position assertion caught this.
+The fixture now aims the headset at the destination in XR tracking space.
+The corrected case passed in **21.0 seconds** on the same build, moving about
+**40.777 m**, from axial 7043.262 to 7084.007 across the 7068.387 m boundary.
+Both endpoints were grounded, and actual wrist actions and session-scoped
+exit passed. There are successful results for all **30 cases**, assembled from
+the full run and focused correction; this was not a second full-suite run.
+Automatic retries were disabled throughout.
+
+playwright-webxr **0.3.0**, Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal,
+2560×960 stereo, IPD 0.064 m. Physical Quest performance/comfort and continuous
+contact/flicker remain unmeasured. Unit tests: **968 passed**; TypeScript and
+production build passed. Desktop checks also observed three actual cars cross
+the region boundary without changing their route IDs.
+
+[Implementation, generation cost, evidence and limitations](../neighborhood-life/district-corridors.md).
+Evidence: `evidence/district-corridors-20260913/`; `xr-initial/` retains the
+initial failure and `xr-seam/` contains the successful corrected test.

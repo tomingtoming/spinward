@@ -1,5 +1,5 @@
 import { rebuildNativeDistricts } from './nativeDistricts'
-import { DistrictTrafficPath } from './districtTraffic'
+import { DistrictTrafficRoute, planDistrictTraffic } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
 import {CityCollisionOverlay} from './cityCollisionOverlay'
@@ -210,7 +210,7 @@ const buildUtilityPoleGeometry = () => {
 
 // Everything update() needs to place one car, precomputed at assignment time.
 type TrafficRoute = {
-  native?: DistrictTrafficPath
+  native?: DistrictTrafficRoute
   laneOffset?: number
   path?: RiverTrafficLoop
   id: string
@@ -922,7 +922,7 @@ export class Cityscape {
   }
   private cityPlanRoads: CityRoad[] = []
   private trafficRoadSpans: TrafficRoadSpan[] = []
-  private districtTraffic = new Map<string, DistrictTrafficPath>()
+  private districtTraffic = new Map<string, DistrictTrafficRoute>()
   // The full plan of the current build, for read-only consumers outside the
   // cityscape (the far-field city shell bake). Null until the first build.
   private cityPlan: CityPlan | null = null
@@ -1418,7 +1418,7 @@ export class Cityscape {
     plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius)
     plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork!)
     plan.streetSignals=new StreetSignalPlan(plan.streetMarkings, plan.intersections)
-    this.districtTraffic = new Map(native.traffic.map(t=>[trafficRoadKey(t.road),new DistrictTrafficPath(t,radius,plan.streetSignals)]))
+    this.districtTraffic = planDistrictTraffic(native.traffic,radius,plan.streetSignals)
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)
@@ -1462,7 +1462,7 @@ export class Cityscape {
     this.collisionIndex = this.balconyCollisionOverlay.index
     this.cityPlanRoads = plan.roads
     this.trafficRoadSpans = [
-      ...native.traffic.flatMap(t=>planTrafficRoadSpans([t.road],radius).map(s=>({...s,sourceRoadIds:t.sourceRoadIds}))),
+      ...[...this.districtTraffic.values()].flatMap(t=>planTrafficRoadSpans([t.source.road],radius).map(s=>({...s,sourceRoadIds:t.source.sourceRoadIds}))),
       ...planTrafficRoadSpans(plan.roads.filter(r=>!native.traffic.some(t=>t.sourceRoadIds.includes(r.id??''))), radius)
     ]
     this.cityPlan = plan
