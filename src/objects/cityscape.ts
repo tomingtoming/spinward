@@ -36,6 +36,8 @@ import { StreetAccessLayer } from './streetAccessLayer'
 import { STREET_PROFILES, streetLaneCenters, streetLaneDividers } from './streetProfile'
 import { buildRoadTileSurface } from './roadTileSurface'
 import { compileRoadNetwork } from './roadNetwork'
+import { StreetNetwork } from './streetNetwork'
+import { legacyStreetPaths } from './streetPath'
 import { buildRoadSurfaceGeometry } from './roadSurfaceGeometry'
 
 import {
@@ -1395,6 +1397,7 @@ export class Cityscape {
       plan.trees = plan.trees.filter(t => Math.abs(Math.atan2(Math.sin(t.azimuth-p.azimuth),Math.cos(t.azimuth-p.azimuth))) * radius > p.width / 2 + 3 || Math.abs(t.axial-p.axial) > p.length / 2 + 3)
     }
     const curved=this.habitatType==='cylinder'?planCurvedNeighborhood(plan,radius):null
+    plan.streetNetwork=new StreetNetwork([...legacyStreetPaths(plan.roads),...(curved?[curved.street,...curved.streetLinks]:[])],radius)
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)

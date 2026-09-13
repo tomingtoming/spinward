@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
-import {sampleRoadCurve,type RoadKnot} from './roadCurve'
+import {type RoadKnot} from './roadCurve'
+import {sampleStreetPath,streetRibbon,type StreetPath} from './streetPath'
 import {citySurfaceVertices} from './citySurfaceMesh'
 import {cityBlockCollision} from './authoredCityBlockPlan'
 import {colonyBuildingSpec} from './colonyBuildingPlan'
@@ -9,11 +10,10 @@ import type {CityPlan,CityBuilding,CityRoad} from './cityLayout'
 
 type Surface={kind:'road'|'walk'|'paint';collider:CityBuilding}
 export type CurvedWalkConnection={side:number;end:number;t:number;points:[number,number,number][]}
-export type CurvedNeighborhood={azimuth:number;axial:number;patch:CityPlan['patches'][number];knots:RoadKnot[];surfaces:Surface[];buildings:CityBuilding[];colliders:CityBuilding[];sidewalkCuts:CityRoad[];walkConnections:CurvedWalkConnection[]}
+export type CurvedNeighborhood={azimuth:number;axial:number;patch:CityPlan['patches'][number];knots:RoadKnot[];street:StreetPath;streetLinks:StreetPath[];surfaces:Surface[];buildings:CityBuilding[];colliders:CityBuilding[];sidewalkCuts:CityRoad[];walkConnections:CurvedWalkConnection[]}
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 export function curvedStreetPoint(p:CurvedNeighborhood,t:number,offset=0){
- const i=t<=.5?0:1,u=i===0?t*2:(t-.5)*2
- return sampleRoadCurve(p.knots[i],p.knots[i+1],u,offset)
+ return sampleStreetPath(p.street,t,offset)
 }
 export function curvedFootwayHeight(p:CurvedNeighborhood,t:number){
  const span=p.knots[2].point[0]-p.knots[0].point[0]
@@ -34,7 +34,15 @@ export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighb
  const left=wrap(west.azimuth-azimuth)*radius+west.tangentWidth/2,right=wrap(east.azimuth-azimuth)*radius-east.tangentWidth/2
  if(left< -135||right>135)return null
  const span=(right-left)/2
- const p:CurvedNeighborhood={azimuth,axial,patch,knots:[{point:[left,-45],tangent:[span,0]},{point:[(left+right)/2,12],tangent:[span,28]},{point:[right,38],tangent:[span,0]}],surfaces:[],buildings:[],colliders:[],sidewalkCuts:[],walkConnections:[]}
+ const knots:RoadKnot[]=[{point:[left,-45],tangent:[span,0]},{point:[(left+right)/2,12],tangent:[span,28]},{point:[right,38],tangent:[span,0]}]
+ const street:StreetPath={id:'garden',azimuth,axial,knots,width:6,kind:'local',level:0,groundHeight:.2}
+ // The shared junction connection runs from each avenue centre to the curve's
+ // edge. This portion already has the avenue's visible and physical road.
+ const streetLinks=[west,east].map((road,i)=>{
+  const end=knots[i===0?0:2].point,start:[number,number]=[wrap(road.azimuth-azimuth)*radius,end[1]],tangent:[number,number]=[end[0]-start[0],0]
+  return{...street,id:`garden-link-${i}`,groundHeight:0,knots:[{point:start,tangent},{point:end,tangent}]} as StreetPath
+ })
+ const p:CurvedNeighborhood={azimuth,axial,patch,knots,street,streetLinks,surfaces:[],buildings:[],colliders:[],sidewalkCuts:[],walkConnections:[]}
  const surface=(kind:Surface['kind'],points:number[][],solid=true,visible=true)=>{
   const xs=points.map(v=>v[0]),ys=points.map(v=>v[1]),hs=points.map(v=>v[2]),x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2
   const b:CityBuilding={azimuth:azimuth+x/radius,axial:axial+y,width:Math.max(...xs)-Math.min(...xs),depth:Math.max(...ys)-Math.min(...ys),height:Math.max(...hs)-Math.min(...hs),baseHeight:Math.min(...hs),groundSurface:true,groundMargin:0,collisionMargin:0,kind:'block',tone:.5,surfaceMesh:points.flatMap(v=>[v[0]-x,v[1]-y,v[2]])}
@@ -43,8 +51,7 @@ export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighb
  const count=Math.ceil((right-left)/1.5)
  for(let i=0;i<count;i++){
   const strip=(kind:Surface['kind'],lo:number,hi:number,h:number,solid=true)=>{
-   const at=(t:number,offset:number)=>{const v=curvedStreetPoint(p,t,offset);return[v.x,v.y,kind==='walk'?curvedFootwayHeight(p,t):h]}
-   const a=at(i/count,lo),b=at((i+1)/count,lo),c=at((i+1)/count,hi),d=at(i/count,hi)
+   const [a,b,c,d]=streetRibbon(street,i/count,(i+1)/count,lo,hi).map((v,j)=>[v.x,v.y,kind==='walk'?curvedFootwayHeight(p,(j===0||j===3?i:i+1)/count):h])
    surface(kind,[a,b,c,a,c,d],solid)
   }
   strip('road',-3,3,.2)

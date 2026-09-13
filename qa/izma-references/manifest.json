@@ -1507,10 +1507,11 @@
       "sha256": "4d2db07621e8a152e52a6bb6bb4f7004dde7ec6f093b65a7d781ce05ec8e73c1",
       "size": 1675040,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "night-city",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "2026-09-13: 元解像度で再確認。手前の低層と奥の高層、夜の点灯色・密度の違いが見える。中央のモビルスーツを除外。この画角は道路中心線が見えず、非直角の道路配置を確定する根拠には使わない。今回の道路グラフ基盤はユーザーの全市移行指示を根拠とし、この画像の新規採用とは数えない。"
     },
     {
       "id": "izma-ep07-0084",

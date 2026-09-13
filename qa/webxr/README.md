@@ -632,3 +632,36 @@ roll or outside the bridge. Stone joints remain readable; strong gloss is
 not apparent from these views. Continuous motion, exact disparity and
 physical Quest performance/comfort remain unmeasured. Full artifacts and
 logs are retained under `evidence/wet-paving-20260913/` (ignored).
+
+
+## Shared street centreline and graph — 2026-09-13
+
+The 13,173 legacy ground streets and Garden street now share the native
+centreline format and static cylindrical graph (13,176 paths with its two
+avenue links). Driving directions rasterise those same metric ribbons; the
+existing curved road/footway geometry and support use the shared sampler.
+This increment preserves the city layout. General junction surface ownership,
+sidewalk cuts and district street/parcel generation are the next migration.
+
+`garden.xr.mjs` records the live graph and still uses actual wrist Places,
+Directions, Go now and controller walking. `body-traffic.xr.mjs` now retains
+its state report even on failure. The initial full run had one instantaneous
+stop-speed failure: the body moved about 9.9 mm and the car followed about
+9.6 mm, retaining its 3.75 m clearance. The same build passed a diagnostic
+single run. The check now allows up to 3 seconds for contact settling after
+a pose input, retaining the 0.02 m/s stop limit and adding a 5 cm vehicle
+displacement bound; it still checks relative clearance and lane release.
+No vehicle-physics code was changed. Initial failed trace and diagnostic run
+are preserved separately under `evidence/street-network-20260913/`.
+
+[Implementation, reference provenance, tests and limits](../neighborhood-life/street-network.md).
+
+The final fixed build passed all 25 XR tests in 6.7 minutes, with retries
+disabled. The yielding car's final three poses each measured 0 m/s and it
+resumed at 5 m/s after lane clearance. Independent review of four traffic
+and six Garden captures found no new one-eye loss, detached geometry or
+road/footway gaps; Garden text was readable in the VR captures themselves.
+Exact tyre contact is hidden in the frontal view. Continuous motion, exact
+disparity and physical Quest comfort/performance remain unmeasured.
+Chrome 152 / Apple M1 Pro / ANGLE Metal; full final artifacts are in
+`evidence/street-network-20260913/xr-final/`.

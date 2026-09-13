@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
 test('ambient car yields to the VR body and resumes after controller locomotion clears its lane',async({page,xr},info)=>{
  const report={errors:[],frames:[]};page.on('pageerror',e=>report.errors.push(e.message))
+ try{
  await page.goto('about:blank');report.gpu=await page.evaluate(()=>{const g=document.createElement('canvas').getContext('webgl2'),d=g?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('GPU unknown');const r=g.getParameter(d.UNMASKED_RENDERER_WEBGL);g.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(report.gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
  const open=async pose=>{await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&t=.42&${pose}`);await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardCity?.trafficKitBacked&&window.__spinwardCity.riverTraffic)}
@@ -23,13 +24,22 @@ test('ambient car yields to the VR body and resumes after controller locomotion 
  const head=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...tracking),new Vector3(0,1,0)))
  for(const roll of [0,25,-25]){
   await xr.setHeadPose({position:[0,1.6,0],quaternion:head.clone().multiply(new Quaternion().setFromAxisAngle(new Vector3(0,0,1),roll*Math.PI/180)).toArray()});await xr.waitForFrames(2,{sessionId:id,timeout:5000})
-  const state=await probe();expect(state.car.speed).toBeLessThan(.02)
+  // Wait for the real body/contact solver to settle after a pose input; retain
+  // the same stop-speed limit and bound displacement throughout the wait.
+  const frame={roll,samples:[]};report.frames.push(frame)
+  await expect.poll(async()=>{
+   const state=await probe();frame.samples.push(state)
+   expect(Math.abs(state.progress-report.stopped.progress)).toBeLessThan(.05)
+   expect(Math.abs(state.along-report.stopped.along)).toBeLessThan(.02)
+   return state.car.speed
+  },{timeout:3000,intervals:[50,100,200]}).toBeLessThan(.02)
+  const state=frame.samples.at(-1);frame.state=state
   // The live grounded body settles by millimetres on the curved contact mesh.
   // A yielding car holds its clearance to that body, not a frozen world point.
   expect(Math.abs(state.along-report.stopped.along)).toBeLessThan(.02)
   expect(Math.hypot((state.body.azimuth-report.stopped.body.azimuth)*3200,state.body.axial-report.stopped.body.axial)).toBeLessThan(.05)
   expect(state.body.height).toBeCloseTo(5.2,2)
-  const capture=await xr.screenshot(info.outputPath(`body-traffic-roll-${roll}.png`),{metadata:true,canvas:'canvas',timeout:5000});expect(capture.sessionId).toBe(id);expect([capture.width,capture.height]).toEqual([2560,960]);report.frames.push({roll,state,capture})
+  const capture=await xr.screenshot(info.outputPath(`body-traffic-roll-${roll}.png`),{metadata:true,canvas:'canvas',timeout:5000});expect(capture.sessionId).toBe(id);expect([capture.width,capture.height]).toEqual([2560,960]);frame.capture=capture
  }
  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.toArray()});await xr.setControllerPose('left',{position:[-.4,.6,-.2],quaternion:[0,0,0,1]});await xr.waitForFrames(2,{timeout:5000})
  await xr.setAxes('left',.7,0);await xr.settle(1300);await xr.setAxes('left',0,0)
@@ -37,5 +47,5 @@ test('ambient car yields to the VR body and resumes after controller locomotion 
  report.cleared=await probe();expect(report.cleared.mode).toBe('grounded');expect(report.cleared.count).toBeLessThanOrEqual(report.cleared.budget)
  await xr.screenshot(info.outputPath('body-traffic-cleared.png'),{metadata:true,canvas:'canvas',timeout:5000})
  const cursor=await xr.sessionCursor();await xr.endSession({sessionId:id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(report.errors).toEqual([])
- await fs.writeFile(info.outputPath('body-traffic.json'),JSON.stringify(report,null,2))
+ }finally{await fs.writeFile(info.outputPath('body-traffic.json'),JSON.stringify(report,null,2))}
 })

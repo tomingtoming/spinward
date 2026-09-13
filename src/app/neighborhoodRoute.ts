@@ -1,4 +1,7 @@
 import { routeThroughCurve } from './curvedWalkRoute'
+import { StreetNetwork } from '../objects/streetNetwork'
+import { legacyStreetPaths } from '../objects/streetPath'
+import { paintDrivingStreets, isDrivingStreetPoint } from './streetRouteGrid'
 import type { CurvedNeighborhood } from '../objects/curvedNeighborhood'
 import type { RiverDistrict } from '../objects/riverDistrictPlan'
 import { routeThroughRiver } from './riverWalkRoute'
@@ -23,6 +26,14 @@ export type OutingAction = GuideAction | 'guide-cancel' | 'drive-mode-toggle' | 
 export type OutingDestination = { label: string; entrance: SurfacePoint; bay: CarShareBay | null }
 export const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number) => Math.hypot(wrapAngle(a.azimuth-b.azimuth)*radius, a.axial-b.axial)
+const drivingNetworks=new WeakMap<CityPlan,{radius:number;curved:CurvedNeighborhood|null;network:StreetNetwork}>()
+function drivingNetwork(plan:CityPlan,radius:number,curved:CurvedNeighborhood|null){
+  if(plan.streetNetwork)return plan.streetNetwork
+  const old=drivingNetworks.get(plan)
+  if(old&&old.radius===radius&&old.curved===curved)return old.network
+  const network=new StreetNetwork([...legacyStreetPaths(plan.roads),...(curved?[curved.street,...curved.streetLinks]:[])],radius)
+  drivingNetworks.set(plan,{radius,curved,network});return network
+}
 
 /** Local, bounded route search on actual generated streets. Pavements win on
  * foot; arterials and collectors can only be crossed at painted crossings.
@@ -71,7 +82,9 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   // The certified plan already excludes buildings, trees and the access ramp.
   // Only the main through path participates; seats and the rail plinth do not.
   if(link)paint(linkX,linkY,link.length,link.width-.7,2)
-  for(const {r,x,y} of roads) paint(x,y,r.tangentWidth-(driving?2.2:0),r.axialLength-(driving?2.2:0),driving?1:4)
+  const network=driving?drivingNetwork(plan,radius,curved):null
+  const roadHeights=network?paintDrivingStreets(network,{startAzimuth:start.azimuth,startAxial:start.axial,minX,minY,nx,ny,step,cost}):null
+  if(!driving)for(const {r,x,y} of roads) paint(x,y,r.tangentWidth,r.axialLength,4)
   if (!driving) {
     // Apply after ALL roads: a side street must not punch an unmarked path
     // across a larger carriageway. Shared lanes and local streets stay usable.
@@ -113,6 +126,10 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     }
   }
   const nearest = (p:SurfacePoint) => {
+    if(network&&!isDrivingStreetPoint(network,p.azimuth,p.axial)&&!parkingBays.some(bay=>{
+      const rect=carShareDrivewayRect(bay,radius)
+      return Math.abs(wrapAngle(p.azimuth-rect.azimuth))*radius<=(rect.tangentWidth+1)/2&&Math.abs(p.axial-rect.axial)<=(rect.axialLength+1)/2
+    }))return -1
     const [x,y]=local(p), ix=Math.round((x-minX)/step), iy=Math.round((y-minY)/step)
     let best=-1, distance=Infinity
     for(let j=iy-2;j<=iy+2;j++)for(let i=ix-2;i<=ix+2;i++) {
@@ -154,7 +171,7 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     (cost[id]===3)!==(cost[ids[i-1]]===3)||(cost[id]===3)!==(cost[ids[i+1]]===3)||
     (cost[id]===2)!==(cost[ids[i-1]]===2)||(cost[id]===2)!==(cost[ids[i+1]]===2))
   const points=simplified.map(id=>({azimuth:start.azimuth+(minX+id%nx*step)/radius,axial:start.axial+minY+Math.floor(id/nx)*step,
-    ...(cost[id]===3?{crosswalk:true}:{}),...(cost[id]===2?{coveredWalk:true,groundHeight:UNDERPASS_HEIGHT}:{})}))
+    ...(cost[id]===3?{crosswalk:true}:{}),...(cost[id]===2?{coveredWalk:true,groundHeight:UNDERPASS_HEIGHT}:{}),...(roadHeights&&roadHeights[id]>.01?{groundHeight:roadHeights[id]}:{})}))
   return [...(indoorExit.length?indoorExit:[start]),...points,goal]
 }
 
