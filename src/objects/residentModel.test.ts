@@ -63,9 +63,9 @@ test('batched clothing variants reset when people or appearances change',async()
  batches.dispose()
 })
 
-test('seated body fits low outdoor and raised indoor benches without floating soles', async () => {
+test('seated body fits low, indoor and elevated benches without floating soles', async () => {
  const root=(await load()).getObjectByName('resident')!
- for(const [seatHeight,floor] of [[.53,.1],[.6,.25],[.7,.2]])for(const azimuth of [0,1.2,Math.PI-.01]){
+ for(const [seatHeight,floor] of [[.53,.1],[.6,.25],[.7,.2],[59.03,58.5]])for(const azimuth of [0,1.2,Math.PI-.01]){
   placeResident(root,azimuth,15,3200,.7,0)
   poseResident(root,0,false,true)
   fitSeatedBody(root,seatHeight,floor)

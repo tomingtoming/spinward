@@ -25,6 +25,7 @@ import { OldTownBlock } from './oldTownBlock'
 import { OldTownCourt } from './oldTownCourt'
 import { planCarShareBay, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
+import { ObservationDeck, hasObservationDeck, observationDeckColliders, observationDeckPoint } from './observationDeck'
 import { planPublicUnderpass } from './publicUnderpass'
 import { planPublicPark } from './publicPark'
 import { StreetAccessLayer } from './streetAccessLayer'
@@ -592,6 +593,7 @@ export const FACADE_LIT_CHANCE = 0.6
 export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
+  private readonly observationDeck = new ObservationDeck(this.group)
   private readonly riverLayer = new RiverDistrictLayer(this.group)
   private readonly riverBuildings = new ColonyBuildings(this.group)
   private riverDistrict: RiverDistrict | null = null
@@ -1410,7 +1412,9 @@ export class Cityscape {
     this.collisionBuildings.push(...this.oldTownBlock.getColliders(), ...this.oldTownCourt.plan.colliders)
     this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders)
     for (const b of this.riverDistrict?.buildings ?? []) this.collisionBuildings.push(...cityBlockCollision(b, colonyBuildingSpec(b), radius))
-    if (plan.tower !== null) {
+    if (hasObservationDeck(plan.tower, radius)) {
+      this.collisionBuildings.push(...observationDeckColliders(plan.tower, radius))
+    } else if (plan.tower !== null) {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
 
@@ -1443,7 +1447,8 @@ export class Cityscape {
       this.buildAxisSpine(radius, length)
     }
 
-    if (plan.tower !== null) {
+    this.observationDeck.setPlan(plan.tower, radius)
+    if (plan.tower !== null && !hasObservationDeck(plan.tower, radius)) {
       this.buildTower(plan.tower, radius)
     }
 
@@ -1482,6 +1487,16 @@ export class Cityscape {
   sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
   getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
+    if (kind === 'deck') {
+      const tower = this.cityPlan?.tower ?? null
+      if (!hasObservationDeck(tower, this.radius)) return null
+      const p = observationDeckPoint(tower, this.radius, 0, tower.height, -6)
+      const up = new THREE.Vector3(-Math.cos(p.azimuth), 0, -Math.sin(p.azimuth))
+      const eye = new THREE.Vector3(Math.cos(p.azimuth) * (this.radius - p.height - 1.8), p.axial, Math.sin(p.azimuth) * (this.radius - p.height - 1.8))
+      const target = eye.clone().add(new THREE.Vector3(0, 12, 0)).addScaledVector(up, -1)
+      return { azimuth: p.azimuth, axial: p.axial, groundHeight: p.height,
+        orientation: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, target, up)) }
+    }
     if (kind === 'river') {
       const p = this.riverDistrict
       if (!p) return null
@@ -1659,6 +1674,7 @@ export class Cityscape {
     this.riverLayer.dispose()
     this.riverBuildings.dispose()
     this.civicDetails.dispose()
+    this.observationDeck.dispose()
     this.interiorLayer.dispose()
     this.neighborhoodFronts.dispose()
     this.streetAccessLayer.dispose()
@@ -1702,6 +1718,7 @@ export class Cityscape {
   }
 
   private clear() {
+    this.observationDeck.setPlan(null, 0)
     this.oldTownBlock.clear()
     this.oldTownCourt.clear()
     this.riverLayer.clear()

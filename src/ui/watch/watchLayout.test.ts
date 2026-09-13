@@ -142,7 +142,7 @@ test('wrist places offer the same destinations as the ordinary travel menus', ()
     expect(button.height).toBeGreaterThanOrEqual(80)
     expect(button.y + button.height).toBeLessThan(layout.placesSection!.top + layout.placesSection!.height)
   }
-  expect(layout.placesSection!.top + layout.placesSection!.height + 92).toBeLessThanOrEqual(layout.height)
+  expect(layout.placesSection!.top + layout.placesSection!.height + (layout.placesFooter ? 92 : 20)).toBeLessThanOrEqual(layout.height)
 })
 
 test('every wrist target is inside the canvas, disjoint and reachable through its UV centre', () => {

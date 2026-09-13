@@ -9,11 +9,12 @@ import { PARK_PATH_HEIGHT, parkPathTiles, planPublicPark, type PublicPark } from
 import type { StreetLampSource } from './streetLampLighting'
 import { UNDERPASS_HEIGHT, underpassGroundAndRail, underpassWalkSurfaces, type PublicUnderpass } from './publicUnderpass'
 import { citySurfaceVertices } from './citySurfaceMesh'
+import { hasObservationDeck, observationDeckPoint } from './observationDeck'
 
 // A small authored layer around the plaza, public garden and observation deck. All
 // pieces merge by material; no lights, textures or per-frame object creation.
 // Public benches and garden trunks share their placement with collision.
-// The tower bench remains decorative, without a certified landing floor.
+// The observation bench uses the authored deck's certified floor.
 export class CivicDetails {
   readonly group = new THREE.Group()
   readonly seats: RoomSeat[] = []
@@ -199,9 +200,15 @@ export class CivicDetails {
     // upward-pointing public telescope make its purpose visible without UI.
     if (plan.tower !== null) {
       const tower = plan.tower
-      const deck = surface(tower.azimuth, tower.axial, tower.height + 0.08)
+      const deck = surface(tower.azimuth, tower.axial, tower.height)
       const offset = Math.min(2.2, tower.deckRadius * 0.35)
-      bench(deck, -offset, 0)
+      if (hasObservationDeck(tower, radius)) {
+        const p = observationDeckPoint(tower, radius, -offset, tower.height, 0)
+        bench(surface(p.azimuth, p.axial, p.height), 0, 0, true, p.height)
+        this.seats.push({ id: 'observation-bench', label: 'Observation deck bench', radius,
+          azimuth: p.azimuth, axialPosition: p.axial + .18, groundHeight: p.height, seatHeight: p.height + .53,
+          exit: { azimuth: p.azimuth, axialPosition: p.axial + 1.05 } })
+      } else bench(deck, -offset, 0)
       planter(deck, offset, -offset)
       box(deck, 1, 0, 0.65, -offset, 0.12, 1.3, 0.12)
       const tube = new THREE.CylinderGeometry(0.13, 0.1, 1.05, 12)
@@ -214,6 +221,8 @@ export class CivicDetails {
       lens.translate(0, 1.83, -offset + 0.38)
       lens.applyMatrix4(deck)
       parts[4].push(lens)
+      // The two skids share a cross-member carrying the central pedestal.
+      box(deck, 1, 0, .1, -offset, .76, .12, .12)
       for (const x of [-0.32, 0.32]) box(deck, 1, x, 0.06, -offset, 0.12, 0.12, 0.75)
     }
 

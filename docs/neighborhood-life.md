@@ -336,3 +336,17 @@ local ground plane, including on slopes. This improves contact without adding
 full foot IK; foot sliding and simple contact shadows remain. The player body
 and seated residents keep their separate motion systems. Actual support,
 walking/yielding and stereo checks: [River residents](../qa/neighborhood-life/river-walkers.md).
+
+## Observation deck (2026-09-13)
+
+The existing landmark now has a supported walkable floor, guard collision and
+a usable bench. Places → Observation deck arrives at height 58.5 m; the same
+destination is available through the wrist. The old Explore → Overlook
+free-fall starting point is unchanged. Ground stairs/elevator access and
+walking directions have not been added.
+
+An original Blender model supplies three LODs while the floor and barrier
+remain physical at every distance, including a missing-asset fallback. The
+bench uses the deck's real floor and a clear standing exit. The wrist keeps
+its button dimensions and fits the ninth destination without footer clipping.
+Model budget, visual limitations and checks: [Observation deck](../qa/neighborhood-life/observation-deck.md).

@@ -485,7 +485,7 @@ export const renderWatch = (
   if (layout.screen === 'places' && layout.placesSection) {
     const directions=layout.buttons.find(b=>b.id==='nav-outing')
     if(directions) drawButton(ctx,directions,hoveredAction,{accent:true})
-    drawSectionCard(ctx, layout.width, layout.placesSection, 'Arrive at the entrance, ready to explore')
+    drawSectionCard(ctx, layout.width, layout.placesSection, layout.placesFooter ? 'Arrive at the entrance, ready to explore' : 'Choose a place; dimmed places are unavailable')
     for (const button of layout.placeButtons ?? []) drawButton(ctx, button, hoveredAction, {
       accent: true, disabled: isWatchActionDisabled(snapshot, button.id)
     })
@@ -493,8 +493,10 @@ export const renderWatch = (
     ctx.font = '500 19px "Avenir Next", sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, layout.placesSection.top + layout.placesSection.height + 22)
-    ctx.fillText('Surface returns to Central Square.', 50, layout.placesSection.top + layout.placesSection.height + 50)
+    if (layout.placesFooter) {
+      ctx.fillText(snapshot.availablePlaces.size ? 'Dimmed places are absent from this colony.' : 'This small habitat has no street-life destinations.', 50, layout.placesSection.top + layout.placesSection.height + 22)
+      ctx.fillText('Surface returns to Central Square.', 50, layout.placesSection.top + layout.placesSection.height + 50)
+    }
     return
   }
 

@@ -504,3 +504,25 @@ precise contact. These are emulation results, not physical Quest measurements.
 Evidence is retained under `qa/webxr/evidence/river-walkers-20260913/`, with
 initial and final builds separated. Route, actual GLB shoe tests, browser
 yield/resume and retained limitations: [River residents](../neighborhood-life/river-walkers.md).
+
+## Observation deck (2026-09-13)
+
+`observation-deck.xr.mjs` enters VR through the app, opens Places with the real
+controller ray/trigger, selects Observation deck and checks supported arrival
+at 58.5 m. It captures the full wrist texture plus stereo views at 0/±25°
+head roll, verifies the floor/guard root remains fixed, and waits for the
+matching session end. Both eye viewports are 1280×960 with 64 mm IPD. The fifth
+Places row retains 290×80 targets and has no cropped footer.
+
+The expanded suite has 19 tests (21 session entries/exits including the two
+re-entry cases). Evidence is kept under ignored
+`qa/webxr/evidence/observation-deck-20260913/`. All checks use the pinned
+playwright-webxr 0.2.0 and hardware-GPU preflight; physical Quest comfort and
+performance remain untested. Browser walking, seating, fallback and model
+budget: [Observation deck](../neighborhood-life/observation-deck.md).
+
+The broad run passed all 19 tests / 21 entries / 21 exits in 4.4 minutes.
+A subsequent rail-joint geometry correction passed the focused deck test
+again on the final model. The broad result is in `full-suite/`, and the focused
+result in `final-deck-xr/`; the UI did not change between them. All 879 unit
+tests and the final TypeScript/production build also pass.

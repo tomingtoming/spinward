@@ -81,6 +81,7 @@ export type WatchScreenLayout = {
   categoryButtons?: WatchButton[]
   // PLACES.
   placesSection?: WatchSection
+  placesFooter?: boolean
   placeButtons?: WatchButton[]
   // HABITAT.
   presetSection?: WatchSection
@@ -228,13 +229,16 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
 
 const createPlacesLayout = (width: number, height: number): WatchScreenLayout => {
   const backButton = makeBackButton()
-  const placesSection: WatchSection = { top: 108, height: Math.max(424, 84 + Math.ceil(PLACE_DESTINATIONS.length / 2) * 104), title: 'STREET LIFE' }
+  const rows = Math.ceil(PLACE_DESTINATIONS.length / 2)
+  const placesFooter = rows <= 4
+  const step = Math.min(104, Math.floor((height - 108 - 84 - (placesFooter ? 92 : 20)) / rows))
+  const placesSection: WatchSection = { top: 108, height: 84 + rows * step, title: 'STREET LIFE' }
   const placeButtons = PLACE_DESTINATIONS.map((place, i) => makeActionButton(
     place.id, place.label, CONTENT_LEFT + (i % 2) * 310,
-    placesSection.top + 84 + Math.floor(i / 2) * 104, 290, 80
+    placesSection.top + 84 + Math.floor(i / 2) * step, 290, 80
   ))
   return { screen: 'places', width, height, backButton, title: 'PLACES',
-    placesSection, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons] }
+    placesSection, placesFooter, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons] }
 }
 
 const createHabitatLayout = (width: number, height: number): WatchScreenLayout => {
