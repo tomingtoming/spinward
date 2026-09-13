@@ -5,7 +5,29 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest local verification (2026-09-14): **33 passed, 11.4 minutes, no retries**
+Latest local verification (2026-09-14, whole-band planning): **32 passed / 1
+failed in the full run (12.6 minutes); the failing body-traffic case passed alone
+in 56.5 seconds**, with unchanged assertions and the same fixed application
+bundle (`index-CZlDWu0D.js`, SHA256
+`740ea945c3d691bd7cee0e399e9c1f0d21f65da62308e0d8a12b9d18d4daf510`).
+The new planning generator is not imported by the running simulation.
+
+In the first run, the stationary VR body drifted 6.12 cm and the yielding car
+followed 6.11 cm while retaining its body clearance. The concurrent unit run
+also hit two existing wall-clock timeouts. In the isolated XR check the body
+moved at most 1.12 cm, the car's progress stayed at zero, and moving the controller
+stick cleared the lane and allowed the car to resume at 5 m/s. The first drift
+is not explained or fixed by this rerun; retain it as a load-sensitive observation,
+not evidence of a playwright-webxr API bug. Run heavy unit suites and XR checks
+sequentially when checking this condition on this host.
+
+Actual desktop/Quest-style entry, wrist Home/Places, controller operation, stereo
+roll, exit and re-entry passed in the full run. Chrome 152 / Apple M1 Pro / ANGLE
+Metal, playwright-webxr 0.3.0; physical Quest remains untested. First-run traces
+and isolated evidence: `evidence/band-plan-20260914/`. Planning scope, reference
+hashes and checks: [whole-band street plan](../neighborhood-life/band-street-plan.md).
+
+Previous settlement verification (2026-09-14): **33 passed, 11.4 minutes, no retries**
 on one fixed build, following the district-centre settlement increment.
 The new cases read the two centres, land parcels and building entrance identities
 from the live plan. Actual entry, wrist Places/Home, stereo head roll, 9.732 m of

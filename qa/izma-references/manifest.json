@@ -70,7 +70,7 @@
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元画像とSHA256を再確認。手前に高さ・窓形式の異なる塔と低層の屋上設備、頭上に密な市街と大きさの違う街区が続く。白い筋の原因・道路の個々の接続位置は確定できず、演出光や霧の色は採用しない。",
-      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。 qa/neighborhood-life/settlement-corridor.md: 商業・住宅の中心を土地座標へ先に置き、その間の幹線、枝道、敷地と建物の高さへ接続。個々の道路配置・用途境界は原画から同定したものではなくSpinwardの設計。"
+      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。 qa/neighborhood-life/settlement-corridor.md: 商業・住宅の中心を土地座標へ先に置き、その間の幹線、枝道、敷地と建物の高さへ接続。個々の道路配置・用途境界は原画から同定したものではなくSpinwardの設計。 qa/neighborhood-life/band-street-plan.md: 居住帯全域で地区中心・用途から道路を計画する独自設計の背景。今回の成果は計画図であり3Dの密度や景観へは未反映。"
     },
     {
       "id": "izma-0007",
@@ -881,7 +881,8 @@
         "川の橋を既存の街路へ接続する自動交通の周回。画像で車の周回を観察したものではなく、橋の地形を使うSpinward側の体験改善。docs/izma-reference-program.md の2026-09-13川沿い交通を参照。",
         "橋上街路・下段護岸の高さの違いを保つ徒歩案内。実在する上段遊歩道と両端の坂を使い、橋の欄干は支持地盤のある接続部だけ開く。案内UIは画像に描かれたものではない。qa/neighborhood-life/river-directions.md を参照。",
         "既存の上段遊歩道・端の坂・下段護岸を歩く住民の2経路。橋と生活の尺度を使うSpinward独自の動作で、作品の人物や行動は複製しない。qa/neighborhood-life/river-walkers.md を参照。",
-        "qa/neighborhood-life/land-street-growth.md: 橋に渡河位置が制約されるという観察を、道路生成器の障害物・既存の渡河路の入力分離へ使用。河川条件は生成器の検査用場面であり、今回の実景で川や橋を増設したものではない。"
+        "qa/neighborhood-life/land-street-growth.md: 橋に渡河位置が制約されるという観察を、道路生成器の障害物・既存の渡河路の入力分離へ使用。河川条件は生成器の検査用場面であり、今回の実景で川や橋を増設したものではない。",
+        "qa/neighborhood-life/band-street-plan.md: 川と渡河位置を道路より先に与える全居住帯の計画生成器。橋閉鎖・移動で接続を再選択する検査。新しい川筋・橋の数・施設位置は独自の仮配置で、原画からの地図復元や3D地形への適用ではない。"
       ]
     },
     {
