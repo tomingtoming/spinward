@@ -6,10 +6,13 @@ import { getStreetProfile } from './streetProfile'
 import { intersectStreetPolygons, polygonArea } from './streetPolygon'
 import { SurfaceIndex } from './surfaceIndex'
 import { districtBlockLinks } from './districtLinks'
+import { appendPlaceDistrict } from './placeDistrict'
+import type { StreetPolygon } from './streetPolygon'
 
 export type NativeDistrict = {
   id: string; azimuth: number; axial: number; width: number; length: number
   band: number; character: 'mixed' | 'residential' | 'centre'
+  layout?: 'place-led'; reserves?: StreetPolygon[]
   streets: StreetPath[]; buildings: CityBuilding[]; replacedBuildings: number; replacedRoads: number
 }
 /** The axis descriptor survives only as a traffic station coordinate. All
@@ -97,6 +100,8 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
       districts.push(d)
     }
   }
+  const place=appendPlaceDistrict(city,roads,buildings,radius)
+  if(place){districts.push(place.district);traffic.push(place.traffic);roads=place.roads;buildings=place.buildings}
   if (!districts.length) return {districts,traffic}
   const network = new StreetNetwork([...legacyStreetPaths(roads),...districts.flatMap(d=>d.streets)],radius)
   // Plan rows in metres along the centreline, with independently varied lot
@@ -126,6 +131,7 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
         const box=bounds(b)
         if(Math.abs(p.x)+box.tangentWidth/2>d.width/2-14||Math.abs(p.y)+box.axialLength/2>d.length/2-14)continue
         const footprint=buildingFootprint(b)
+        if(d.reserves?.some(reserve=>polygonArea(intersectStreetPolygons(footprint,reserve.map(v=>({...v,x:v.x-p.x,y:v.y-p.y}))))>1e-6))continue
         const conflict=[...index.query(box)].some(j=>{
           const other=placed[j],dx=wrap(other.azimuth-b.azimuth)*radius,dy=other.axial-b.axial
           return polygonArea(intersectStreetPolygons(footprint,buildingFootprint(other).map(v=>({...v,x:v.x+dx,y:v.y+dy}))))>1e-6

@@ -1,5 +1,5 @@
 import { rebuildNativeDistricts } from './nativeDistricts'
-import { DistrictTrafficRoute, planDistrictTraffic } from './districtTraffic'
+import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
 import {CityCollisionOverlay} from './cityCollisionOverlay'
@@ -1418,7 +1418,8 @@ export class Cityscape {
     plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius)
     plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork!)
     plan.streetSignals=new StreetSignalPlan(plan.streetMarkings, plan.intersections)
-    this.districtTraffic = planDistrictTraffic(native.traffic,radius,plan.streetSignals)
+    const trafficCoverage=districtTrafficCoverage(planDistrictTraffic(native.traffic,radius,plan.streetSignals),plan.roads,radius)
+    this.districtTraffic = trafficCoverage.routes
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)
@@ -1462,7 +1463,7 @@ export class Cityscape {
     this.collisionIndex = this.balconyCollisionOverlay.index
     this.cityPlanRoads = plan.roads
     this.trafficRoadSpans = [
-      ...[...this.districtTraffic.values()].flatMap(t=>planTrafficRoadSpans([t.source.road],radius).map(s=>({...s,sourceRoadIds:t.source.sourceRoadIds}))),
+      ...trafficCoverage.spans,
       ...planTrafficRoadSpans(plan.roads.filter(r=>!native.traffic.some(t=>t.sourceRoadIds.includes(r.id??''))), radius)
     ]
     this.cityPlan = plan

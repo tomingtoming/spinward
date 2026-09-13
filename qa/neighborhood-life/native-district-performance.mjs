@@ -14,7 +14,7 @@ try{
  if(/SwiftShader|Software|llvmpipe/i.test(report.gpu))throw Error('Hardware GPU required')
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
  const old=await fs.readFile(baseline)
- for(const name of ['corridor-seam','corridor-band-0'])for(const version of ['before','after','after','before']){
+ for(const name of (process.env.VIEWS??'corridor-seam,corridor-band-0').split(','))for(const version of ['before','after','after','before']){
   await page.unroute('**/assets/index-*.js')
   if(version==='before')await page.route('**/assets/index-*.js',r=>r.fulfill({status:200,body:old,contentType:'application/javascript'}))
   await page.goto(`${base}/?debug&stats&metrics=off&lock=0&dpr=1&tier=quest&${signalPose(nativeDistrictViews.find(v=>v.name===name))}`)

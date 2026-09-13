@@ -912,10 +912,11 @@
       "sha256": "dcdd1d7d26089c8e0eb3348f478cc5f91739d142e00263c2119ca095fb12270a",
       "size": 1306791,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。改札状のゲートと通行人、案内表示が見える。地区全体の道路配置を判断できる画像ではなく、今回の道路構造へ新規採用しない。人物や作品固有の表示を複製しない。"
     },
     {
       "id": "izma-ep04-0028",
@@ -1471,10 +1472,12 @@
       "sha256": "eb89b59044d615cff7149f4f423cca80ca5da174be937fe9a6d8d094cdc8c96a",
       "size": 1627689,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。樹木と開いた足元、人間の大きさ、周囲の構造との関係が見える。人物、祠や灯籠、作品固有の配色と強い背景光は複製しない。都市の道路中心線・環状路・施設用途はこの画像から確定できない。",
+      "relatedWork": "qa/neighborhood-life/place-district.md: 緑地を先に確保する地区の独自設計。道路トポロジーはユーザーの格子に対する問題提起を起点とし、原画の街路配置を再現した成果とはしない。"
     },
     {
       "id": "izma-ep06-0079",

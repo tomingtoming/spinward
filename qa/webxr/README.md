@@ -823,3 +823,30 @@ the region boundary without changing their route IDs.
 [Implementation, generation cost, evidence and limitations](../neighborhood-life/district-corridors.md).
 Evidence: `evidence/district-corridors-20260913/`; `xr-initial/` retains the
 initial failure and `xr-seam/` contains the successful corrected test.
+
+## District connectivity beyond the grid — 2026-09-13
+
+A separate pilot district reserves a green space before defining a bypass,
+one circuit and branches that terminate at that circuit. Its interior has
+twelve T junctions and one independent cycle; it does not retain grid rows and
+columns. The nine previous curved districts remain as comparison/regression
+scenes. External grid connections, building/actor limits and existing assets
+are preserved. Park entrances/paths and ambient turns remain unfinished.
+
+The fixture adds `park-walk`: actual Menu entry, wrist Places/Home, both eyes
+at 0/±25° roll, then a left-stick walk of approximately **9.497 m**, with grounded
+endpoints (groundHeight 0), moving residents/traffic and session-scoped exit.
+The full **31-case suite passed in 9.2 minutes**, without retries, on one frozen
+app build. This includes both entry paths, wrist interactions, exit/re-entry,
+the previous district boundary, balconies, river, stairs and other scenery.
+
+playwright-webxr **0.3.0**, Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal.
+The new district captures are 2560×960 stereo with IPD 0.064 m. Independent
+review found no one-eye loss or detached surfaces and could read Places in
+both eyes. Physical Quest performance/comfort and continuous-contact/flicker
+remain unmeasured. Unit tests: **971 passed**; TypeScript/build passed.
+
+[Implementation, references, traffic/navigation corrections and limitations](../neighborhood-life/place-district.md).
+Evidence: `evidence/place-district-20260913/`; `pc-initial/` retains the initial
+removed-road traffic defect, `pc-final/` the corrected comparisons and `xr/`
+the full successful suite.

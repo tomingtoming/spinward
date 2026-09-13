@@ -2,7 +2,8 @@ import type { DistrictTrafficStreet } from './nativeDistricts'
 import { sampleStreetPath, streetPathSamples } from './streetPath'
 import type { StreetSignalPlan } from './streetSignals'
 import type { TrafficPosition } from './riverTraffic'
-import { trafficRoadKey } from './trafficRoadSpans'
+import { trafficRoadKey,planTrafficRoadSpans,type TrafficRoadSpan } from './trafficRoadSpans'
+import type { CityRoad } from './cityLayout'
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 /** Keep a through car's station, identity and queue across the old/new boundary.
  * Only the bounded bend is sampled; the long outside approaches remain exact. */
@@ -90,4 +91,24 @@ export function planDistrictTraffic(sources:readonly DistrictTrafficStreet[],rad
   const groups=new Map<string,DistrictTrafficStreet[]>()
   for(const source of sources){const key=trafficRoadKey(source.road),group=groups.get(key)??[];group.push(source);groups.set(key,group)}
   return new Map([...groups].map(([key,group])=>[key,new DistrictTrafficRoute(group,radius,signals)]))
+}
+
+/** A later district may terminate a former through road. Only existing legacy
+ * ribbons and authored curved pieces can carry its fleet; straight fallback
+ * sampling alone is not evidence that a road still exists at that station. */
+export function districtTrafficCoverage(routes:ReadonlyMap<string,DistrictTrafficRoute>,roads:readonly CityRoad[],radius:number){
+  const mapped=new Map<string,DistrictTrafficRoute>(),spans:TrafficRoadSpan[]=[]
+  for(const route of routes.values()){
+    const source=route.source,vertical=source.road.axialLength>source.road.tangentWidth
+    let covered:CityRoad[]=[source.road]
+    if(vertical){
+      const ids=new Set(source.sourceRoadIds)
+      covered=[...roads.filter(r=>ids.has(r.id??'')),...route.pieces.map(p=>({...source.road,axial:(p.stations[0]+p.stations.at(-1)!)/2,axialLength:p.stations.at(-1)!-p.stations[0]}))]
+    }
+    for(const span of planTrafficRoadSpans(covered,radius)){
+      spans.push({...span,sourceRoadIds:source.sourceRoadIds})
+      mapped.set(trafficRoadKey(span.road),route)
+    }
+  }
+  return{routes:mapped,spans}
 }

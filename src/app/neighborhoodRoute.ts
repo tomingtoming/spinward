@@ -65,8 +65,19 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   // A 2.6 m walkway has a 1.9 m body-clear band. Align a grid row with its
   // centre so sub-cell phase cannot erase it or push the route onto the rail.
   const anchorY=link?linkY:0
-  const minX = Math.floor((Math.min(0,gx)-pad)/step)*step, minY = anchorY+Math.floor((Math.min(0,gy)-pad-anchorY)/step)*step
-  const nx = Math.ceil((Math.max(0,gx)+pad-minX)/step)+1, ny = Math.ceil((Math.max(0,gy)+pad-minY)/step)+1
+  const bounds={x0:Math.min(0,gx)-pad,x1:Math.max(0,gx)+pad,y0:Math.min(0,gy)-pad,y1:Math.max(0,gy)+pad}
+  // A reserved park may put the road connection beyond a short straight-line
+  // search window. Include that district's approaches; retain the displacement
+  // and cell limits instead of turning its green space into a driving shortcut.
+  if(driving)for(const d of plan.nativeDistricts??[]){
+    if(!d.reserves?.length)continue
+    const x=wrapAngle(d.azimuth-start.azimuth)*radius,y=d.axial-start.axial
+    if(![[0,0],[gx,gy]].some(([px,py])=>Math.abs(px-x)<d.width/2&&Math.abs(py-y)<d.length/2))continue
+    bounds.x0=Math.min(bounds.x0,x-d.width/2-20);bounds.x1=Math.max(bounds.x1,x+d.width/2+20)
+    bounds.y0=Math.min(bounds.y0,y-d.length/2-20);bounds.y1=Math.max(bounds.y1,y+d.length/2+20)
+  }
+  const minX = Math.floor(bounds.x0/step)*step, minY = anchorY+Math.floor((bounds.y0-anchorY)/step)*step
+  const nx = Math.ceil((bounds.x1-minX)/step)+1, ny = Math.ceil((bounds.y1-minY)/step)+1
   if (nx*ny>600000) return null
   const cost = new Uint8Array(nx*ny)
   const local = (p: SurfacePoint) => [wrapAngle(p.azimuth-start.azimuth)*radius, p.axial-start.axial]
@@ -77,7 +88,7 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     for(let j=y0;j<=y1;j++) cost.fill(value,j*nx+x0,j*nx+x1+1)
   }
   const roads = plan.roads.map(r=>({r,x:wrapAngle(r.azimuth-start.azimuth)*radius,y:r.axial-start.axial}))
-    .filter(({r,x,y})=>Math.abs(x-(gx/2))<r.tangentWidth/2+Math.abs(gx)/2+pad+4 && Math.abs(y-(gy/2))<r.axialLength/2+Math.abs(gy)/2+pad+4)
+    .filter(({r,x,y})=>x+r.tangentWidth/2>bounds.x0-4&&x-r.tangentWidth/2<bounds.x1+4&&y+r.axialLength/2>bounds.y0-4&&y-r.axialLength/2<bounds.y1+4)
   if (!driving) for(const {r:road,x,y} of roads) {
     const pavement=getStreetProfile(road.kind,radius).sidewalk
     if(pavement)paint(x,y,road.tangentWidth+pavement*2,road.axialLength+pavement*2,1)
@@ -119,7 +130,8 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   let indoorExit: SurfacePoint[] = []
   for(const b of plan.buildings) {
     const [x,y]=local(b)
-    if (Math.abs(x-gx/2)>b.width/2+Math.abs(gx)/2+pad+3 || Math.abs(y-gy/2)>b.depth/2+Math.abs(gy)/2+pad+3) continue
+    const extent=Math.max(b.width,b.depth)
+    if(x+extent<bounds.x0-3||x-extent>bounds.x1+3||y+extent<bounds.y0-3||y-extent>bounds.y1+3)continue
     const clearance=driving?2.2:.8
     if(b.yaw)paintStreetPolygon({startAzimuth:start.azimuth,startAxial:start.axial,minX,minY,nx,ny,step,cost},buildingFootprint({...b,width:b.width+clearance,depth:b.depth+clearance}).map(p=>({x:p.x+x,y:p.y+y})),0)
     else paint(x,y,b.width+clearance,b.depth+clearance,0)

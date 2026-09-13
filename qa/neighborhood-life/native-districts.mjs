@@ -24,7 +24,13 @@ try{
   if(!baseline&&view.name==='spine')await page.waitForFunction(()=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible))
   const probe=await page.evaluate(()=>{
    const city=window.__spinwardCity,p=city.getCityPlan(),routes=city.trafficRoutes,positions=city.getTrafficPositions(),lamps=window.__spinwardStreetLamps
-   return{buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length}))??[],
+   const place=p.nativeDistricts?.find(d=>d.layout==='place-led'),graph=p.streetNetwork
+   const placeTraffic=place?positions.filter(v=>v.height<1&&Math.abs(Math.atan2(Math.sin(v.azimuth-place.azimuth),Math.cos(v.azimuth-place.azimuth)))*3200<place.width/2&&Math.abs(v.axial-place.axial)<place.length/2).map(v=>({position:v,onRoad:graph.query(v.azimuth,v.axial,0,0).some(s=>{
+    const path=graph.streets[s.street],dx=s.end.x-s.start.x,dy=s.end.y-s.start.y,px=Math.atan2(Math.sin(v.azimuth-path.azimuth),Math.cos(v.azimuth-path.azimuth))*3200-s.start.x,py=v.axial-path.axial-s.start.y
+    const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy)))
+    return Math.hypot(px-t*dx,py-t*dy)<=path.width/2-.4
+   })})):[]
+   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length}))??[],
     nativeCars:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources?.map(s=>s.path.id),position:positions[i],stops:r.signals?.length??0}]:[]),
     walkers:window.__spinwardWalkers.group.userData,
     lamps:lamps?{focusAzimuth:lamps.focusAzimuth,focusAxial:lamps.focusAxial,capacity:lamps.posts.capacity,count:lamps.posts.mesh.count,
@@ -34,8 +40,10 @@ try{
     geometry:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,triangles:m.geometry.index.count/3})),
     player:window.__spinward,signals:window.__spinwardIntersections.group.getObjectByName('intersection-signal-heads').userData.nativeApproaches}
   })
-  if(!baseline&&(probe.districts.length!==9||!probe.nativeCars.some(c=>probe.districts.some(d=>Math.abs(c.position.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(c.position.azimuth-d.azimuth),Math.cos(c.position.azimuth-d.azimuth)))*3200<d.width/2))))throw Error('Native districts or actual cars on the rebuilt road are missing')
+  if(!baseline&&(probe.districts.length!==10||!probe.nativeCars.some(c=>probe.districts.some(d=>Math.abs(c.position.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(c.position.azimuth-d.azimuth),Math.cos(c.position.azimuth-d.azimuth)))*3200<d.width/2))))throw Error('Native districts or actual cars on the rebuilt road are missing')
   if(!baseline&&probe.walkers.people>probe.walkers.capacity)throw Error('Walker capacity exceeded')
+  if(!baseline&&probe.placeTraffic.some(v=>!v.onRoad))throw Error('A car is following a removed road through the park district')
+  if(!baseline&&view.name==='park-walk'&&!probe.placeTraffic.length)throw Error('No actual park-district traffic sampled')
   if(!baseline&&process.env.CHECK_CORRIDOR_TRAFFIC==='1'&&view.name==='corridor-seam'){
    probe.corridorTraffic=await page.evaluate(async()=>{
     const city=window.__spinwardCity,d=city.getCityPlan().nativeDistricts.find(d=>d.id==='district-0-region-1'),boundary=d.axial-d.length/2,previous=new Map(),crossings=[],seen=new Set(),until=performance.now()+45000
