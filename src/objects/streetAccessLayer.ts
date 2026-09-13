@@ -13,6 +13,8 @@ export class StreetAccessLayer {
   private readonly rejectedMaterial = new THREE.LineBasicMaterial({ color: 0xff4455, depthTest: false })
   constructor(parent: THREE.Group, private readonly debug = false) { parent.add(this.group) }
 
+  getPavementMaterials() { return [this.pathMaterial] }
+
   rebuild(plan: CityPlan, radius: number, azimuth: number, axial: number) {
     this.clear()
     const path: number[] = [], valid: number[] = [], rejected: number[] = []

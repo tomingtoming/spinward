@@ -1493,6 +1493,12 @@ export class Cityscape {
     return this.combinedRainRoofs
   }
   getRainArcs() { return this.rainArcs }
+  getPavementMaterials() {
+    return [this.roadMaterial, this.localRoadMaterial, this.collectorRoadMaterial,
+      this.alleyMaterial, this.roadSurfaceMaterial, this.expresswayRampMaterial,
+      ...this.riverLayer.getPavementMaterials(), ...this.curvedNeighborhood.getPavementMaterials(),
+      ...this.civicDetails.getPavementMaterials(), ...this.streetAccessLayer.getPavementMaterials()]
+  }
   sampleRainShelter(point: THREE.Vector3) { return sampleRainShelter(this.getRainRoofs(), this.rainArcs, point) }
   getSeats(): readonly RoomSeat[] { return this.seats }
   getCarShareBay() { return this.carShareBay }

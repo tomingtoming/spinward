@@ -135,6 +135,8 @@ export class Sidewalks {
     side: THREE.BackSide
   })
 
+  getPavementMaterials() { return [this.material] }
+
   setPlan(segments: SidewalkSegment[], radius: number) {
     this.clear()
     if (segments.length === 0 || radius <= 0) return

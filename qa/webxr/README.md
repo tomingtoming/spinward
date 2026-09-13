@@ -601,3 +601,34 @@ tested environment; physical Quest performance and comfort are unmeasured.
 Evidence, including the full initial run, failed fixture, final run and source
 mesh investigation, is under `evidence/body-traffic-20260913/` (ignored).
 [Behaviour, cost, reference provenance and limits](../neighborhood-life/body-traffic.md).
+
+
+## Rain-wet paving — 2026-09-13
+
+`wet-paving.xr.mjs` enters the app in a real immersive session on the lower
+river walk in rain. It inspects the bridge's dry underside and floor, and the
+exposed paving outside, in both 1280×960 eyes at 0/±25° roll. Material identities
+and the river transform stay fixed. A real left-stick walk then leaves the
+bridge cover while retaining the 1.2 m supported path and saturated paving
+state. Frame waits, captures and session termination use the public 0.3.0 API
+with the current session ID. The existing suite exercises wrist selection,
+both entry/re-entry routes and stale-session rejection.
+
+Independent desktop comparison first caught the bridge ceiling being treated
+as an upward surface. The production hook now follows Three's front/back face
+rules; an isolated real-GPU regression covers the ceiling, reversed footway
+winding and BackSide cylinder roads. The final 17 GPU cases preserve original
+dry pixels and shelter while allowing exposed paving to darken. The final
+six desktop comparisons preserve the ceiling, dry floors, texture and street
+lights. Mesh counts match each baseline view. Details, initial failed viewpoints
+and limits: [Wet paving](../neighborhood-life/wet-paving.md).
+
+The final full suite passed all 25 tests in 6.8 minutes without retries on
+playwright-webxr 0.3.0. The new case walked 15.204 m axially out of cover:
+shelter changed from 1 to 0, supported height stayed at 1.2 m and paving
+wetness stayed at 1. Independent review of the four final stereo captures
+found no one-eye loss, material detachment or new geometry gaps at 0/±25°
+roll or outside the bridge. Stone joints remain readable; strong gloss is
+not apparent from these views. Continuous motion, exact disparity and
+physical Quest performance/comfort remain unmeasured. Full artifacts and
+logs are retained under `evidence/wet-paving-20260913/` (ignored).

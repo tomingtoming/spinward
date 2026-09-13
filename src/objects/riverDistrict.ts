@@ -77,6 +77,8 @@ export class RiverDistrictLayer {
       }
     }).catch(e => console.warn('River bridge modules unavailable; retaining the matching arch fallback.', e))
   }
+  getPavementMaterials() { return [this.materials.road, this.materials.stone, this.materials.paint] }
+
   private frame(x: number, y: number, h = 0, yaw = 0) {
     const a = this.plan!.azimuth + x / this.radius, c = Math.cos(a), s = Math.sin(a)
     return new THREE.Matrix4().makeBasis(new THREE.Vector3(-s, 0, c), new THREE.Vector3(-c, 0, -s), new THREE.Vector3(0, -1, 0))

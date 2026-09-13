@@ -34,7 +34,8 @@ second CPU implementation of the shader. Its deterministic seeds/uniforms are
 isolated test fixtures; they are never written into the running game.
 
 Roof masks follow radial cover and are an approximation of shelter. They do
-not simulate wind-driven drops, roof runoff, puddles or wet materials. The
+not simulate wind-driven drops, roof runoff or puddles. Wet materials are now
+handled separately by [wet paving](wet-paving.md). The
 ramp apron at street height is not a rain shelter for standing pedestrians.
 The public cover does not turn the space into an enclosed room. Existing
 indoor audio attenuation remains stronger.

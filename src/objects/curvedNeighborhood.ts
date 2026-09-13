@@ -96,6 +96,7 @@ export class CurvedNeighborhoodLayer{
  private materials={road:new THREE.MeshStandardMaterial({color:'#454d4b',roughness:.97,side:THREE.DoubleSide}),walk:new THREE.MeshStandardMaterial({color:'#a3aa9d',roughness:.95,side:THREE.DoubleSide}),paint:new THREE.MeshStandardMaterial({color:'#c5c9b9',roughness:.95,side:THREE.DoubleSide})}
  private meshes:THREE.Mesh[]=[]
  constructor(parent:THREE.Group){this.group.name='curved-neighborhood';parent.add(this.group)}
+ getPavementMaterials(){return Object.values(this.materials)}
  rebuild(plan:CurvedNeighborhood|null,radius:number){
   for(const mesh of this.meshes){mesh.removeFromParent();mesh.geometry.dispose()}this.meshes=[];this.plan=plan
   this.buildings.rebuild(plan?.buildings??[],radius,new Map(),[],false)

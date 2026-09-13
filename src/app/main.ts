@@ -121,6 +121,7 @@ import {
 import { Cityscape } from '../objects/cityscape'
 import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
+import { WetPavement } from '../objects/wetPavement'
 import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
 import { StreetLamps } from '../objects/streetLamps'
 import { CylinderHabitat } from '../objects/cylinder'
@@ -697,6 +698,7 @@ export const bootstrapApp = async () => {
   // Paved sidewalks with a kerb along every grid road (objects/sidewalks.ts).
   // `?sidewalks=0` hides them for A/B.
   const sidewalks = new Sidewalks()
+  const wetPavement = new WetPavement([...cityscape.getPavementMaterials(), ...sidewalks.getPavementMaterials()], weather.raining)
   sidewalks.group.visible = bootParams.get('sidewalks') !== '0'
   nearLayer.add(sidewalks.group)
   // Near-field street lamps on every grid road (objects/streetLamps.ts):
@@ -2784,6 +2786,7 @@ export const bootstrapApp = async () => {
       roofs: cityscape.getRainRoofs(),
       arcs: cityscape.getRainArcs()
     })
+    wetPavement.update(rainLevel, deltaSeconds, carrierRotatingPosition, cityscape.getRainRoofs(), cityscape.getRainArcs())
     const rainShelter = carrierInAir && rainStrength > .002 ? cityscape.sampleRainShelter(carrierRotatingPosition) : 0
     const rainAudibility = 1 - Math.max(roomEnvironment.shelter * .85, rainShelter * .55)
     audio.setRainLevel(rainStrength * rainAudibility)
@@ -2930,7 +2933,7 @@ export const bootstrapApp = async () => {
       pixelRatio: renderer.getPixelRatio(),
       raining: weather.raining,
       parking: parkedCars.debugStats(),
-      rain: { strength: rainStrength, shelter: rainShelter, audibility: rainAudibility },
+      rain: { strength: rainStrength, shelter: rainShelter, audibility: rainAudibility, pavementWetness: wetPavement.uniforms.pavingWetness.value },
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,

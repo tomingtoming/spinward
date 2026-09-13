@@ -1453,8 +1453,9 @@
       "reviewedOn": "2026-09-13",
       "finding": "public-scale",
       "duplicateOf": null,
-      "implementation": "pending",
-      "observation": "小さな公共空間の屋根、樹木、柵と光を反射する舗装を元解像度で確認。降雨中かは断定しない。固有の祠や鳥居は今回追加しない。"
+      "implementation": "partial",
+      "observation": "元解像度で再確認。小さな公共空間の樹木・柵、暗い床と明るい光の写り込みが見える。降雨中かは断定しない。作品の人物、祠・鳥居、固有の看板と照明配置は採用しない。",
+      "relatedWork": "qa/neighborhood-life/wet-paving.md: 舗装の暗明と光沢の変化という部分を、既存の雨天操作へ接続。鏡像、原画の場所・建築の複製は実装していない。"
     },
     {
       "id": "izma-ep06-0078",

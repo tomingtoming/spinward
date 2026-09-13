@@ -34,6 +34,8 @@ export class CivicDetails {
 
   constructor(parent: THREE.Group) { parent.add(this.group) }
 
+  getPavementMaterials() { return [this.materials[0]] }
+
   rebuild(plan: CityPlan, radius: number, park = planPublicPark(plan, radius), underpass: PublicUnderpass | null = null) {
     this.clear()
     // Small physics playgrounds need open space; keep city dressing at city scale.
