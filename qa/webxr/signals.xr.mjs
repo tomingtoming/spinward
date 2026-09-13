@@ -20,7 +20,13 @@ test('signal hoods and support stay attached through stereo head roll',async({pa
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const target=await page.evaluate(()=>{
   const heads=window.__spinwardIntersections.group.getObjectByName('intersection-signal-heads'),camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0]
-  const m=heads.matrix.clone(), selected=heads.userData.nativeApproaches.findIndex(a=>a.street==='road-7'&&a.sign===-1&&Math.abs(window.__spinwardCity.getCityPlan().streetNetwork.nodes[a.node].axial-321.29)<1)
+  // Select the same physical incoming arm after distant migrations split its
+  // source road into independently identified pieces.
+  const network=window.__spinwardCity.getCityPlan().streetNetwork
+  const m=heads.matrix.clone(), selected=heads.userData.nativeApproaches.findIndex(a=>{
+   const n=network.nodes[a.node],s=network.streets.find(s=>s.id===a.street)
+   return s?.kind==='arterial'&&a.sign===-1&&Math.abs(n.azimuth)*3200<.01&&Math.abs(n.axial-321.29)<1
+  })
   if(selected<0)throw Error('Expected native incoming signal not rendered')
   heads.userData.qaSelectedHead=selected;heads.getMatrixAt(selected,m)
   return camera.parent.worldToLocal(heads.localToWorld(camera.position.clone().setFromMatrixPosition(m))).toArray()
@@ -33,12 +39,13 @@ test('signal hoods and support stay attached through stereo head roll',async({pa
    const group=window.__spinwardIntersections.group,heads=group.getObjectByName('intersection-signal-heads'),visors=group.getObjectByName('intersection-signal-visors'),lod=visors.getObjectByName('signal-visors-lod0'),camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0],m=heads.matrix.clone()
    heads.getMatrixAt(heads.userData.qaSelectedHead,m)
    const control=heads.userData.nativeApproaches[heads.userData.qaSelectedHead],plan=window.__spinwardCity.getCityPlan(),node=plan.streetNetwork.nodes[control.node]
-   return {control,legacyFallbackAtSelected:plan.streetSignals.legacyFallbacks.some(c=>Math.hypot(Math.atan2(Math.sin(c.azimuth-node.azimuth),Math.cos(c.azimuth-node.azimuth))*3200,c.axial-node.axial)<.01),nativeJunctionHeads:heads.userData.nativeApproaches.filter(a=>a.node===control.node).length,legacyStops:group.getObjectByName('crosswalk-stripes').count,stopLines:group.getObjectByName('street-junction-markings').userData.stopLines,head:m.elements,headWorld:heads.matrixWorld.elements,visorWorld:lod.matrixWorld.elements,instances:Array.from(lod.instanceMatrix.array.slice(0,lod.count*16)),counts:visors.userData.counts,asset:visors.userData.asset,
+   return {control,node,streetKind:plan.streetNetwork.streets.find(s=>s.id===control.street).kind,legacyFallbackAtSelected:plan.streetSignals.legacyFallbacks.some(c=>Math.hypot(Math.atan2(Math.sin(c.azimuth-node.azimuth),Math.cos(c.azimuth-node.azimuth))*3200,c.axial-node.axial)<.01),nativeJunctionHeads:heads.userData.nativeApproaches.filter(a=>a.node===control.node).length,legacyStops:group.getObjectByName('crosswalk-stripes').count,stopLines:group.getObjectByName('street-junction-markings').userData.stopLines,head:m.elements,headWorld:heads.matrixWorld.elements,visorWorld:lod.matrixWorld.elements,instances:Array.from(lod.instanceMatrix.array.slice(0,lod.count*16)),counts:visors.userData.counts,asset:visors.userData.asset,
     projected:[-.6,0,.6].map(y=>heads.localToWorld(camera.position.clone().set(0,y,.2).applyMatrix4(m)).project(camera).toArray())}
   })
   if(!baseline)baseline=probe
   for(const key of ['head','headWorld','visorWorld','instances'])expect(probe[key]).toEqual(baseline[key])
-  expect(probe.control.street).toBe('road-7');expect(probe.legacyFallbackAtSelected).toBe(false);expect(probe.nativeJunctionHeads).toBe(4);expect(probe.stopLines).toBeGreaterThan(0)
+  expect(probe.streetKind).toBe('arterial');expect(probe.control.sign).toBe(-1);expect(Math.abs(probe.node.azimuth)*3200).toBeLessThan(.01);expect(probe.node.axial).toBeCloseTo(321.29,1)
+  expect(probe.legacyFallbackAtSelected).toBe(false);expect(probe.nativeJunctionHeads).toBe(4);expect(probe.stopLines).toBeGreaterThan(0)
   expect(probe.asset).toBe('blender');expect(probe.counts[0]).toBeGreaterThan(0)
   for(const p of probe.projected){expect(Math.abs(p[0])).toBeLessThan(.9);expect(Math.abs(p[1])).toBeLessThan(.9);expect(p[2]).toBeGreaterThan(-1);expect(p[2]).toBeLessThan(1)}
   const path=info.outputPath(`signals-roll-${degrees}.png`),capture=await xr.screenshot(path,{metadata:true,canvas:'canvas',timeout:5000})

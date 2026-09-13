@@ -65,12 +65,12 @@
       "sha256": "e4f0ea23acbadfb815e487d4438223948a9613b89d87871595fdb0826a6c7ea4",
       "size": 2226262,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-14",
       "finding": "skyline",
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元画像とSHA256を再確認。手前に高さ・窓形式の異なる塔と低層の屋上設備、頭上に密な市街と大きさの違う街区が続く。白い筋の原因・道路の個々の接続位置は確定できず、演出光や霧の色は採用しない。",
-      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。"
+      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。 qa/neighborhood-life/settlement-corridor.md: 商業・住宅の中心を土地座標へ先に置き、その間の幹線、枝道、敷地と建物の高さへ接続。個々の道路配置・用途境界は原画から同定したものではなくSpinwardの設計。"
     },
     {
       "id": "izma-0007",

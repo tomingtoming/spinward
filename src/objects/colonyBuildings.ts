@@ -2,7 +2,7 @@ import {balconySectionColliders} from './balconyCollision'
 import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
 import {planBalconyLife,balconyLifeLod,BALCONY_LIFE_BAY_LIMIT,type BalconyLifeBay} from './balconyLife'
 import {loadBalconyLifeAssets,type BalconyLifeAssets} from './balconyLifeAssets'
-import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
+import {colonyGroundHeight,colonyShopBays,colonyShopDisplay} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
 import {colonyBalconies,BALCONY_COLLISION_SECTION_LIMIT,colonyBalconyWindowRange,colonyWindowPane,type BalconyWindowRange,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
@@ -262,15 +262,16 @@ export class ColonyBuildings {
     add(trim,e,{x:storefront.x,y:height-.08,z:face+.06,w:storefront.w,h:.16,d:.18})
     for(const bay of colonyShopBays(storefront)){
      if(e.spec.volumes.some(o=>o!==storefront&&Math.abs(bay.x-o.x)<o.w/2&&face<o.z+o.d/2+.05&&face>o.z-o.d/2))continue
+     const tenant=(bay.index+Math.floor(e.design.seed*31))%8,side=tenant%2?1:-1,display=colonyShopDisplay(bay,side)
      if(retail){
-      const tenant=(bay.index+Math.floor(e.design.seed*31))%8,color=this.shopColors[tenant]
+      const color=this.shopColors[tenant]
       label(e,{x:bay.x,y:3.7,z:face+.10,w:bay.width*(tenant===6?.72:1),h:.5,d:.10},tenant)
       if(awnings&&[0,1,3,7].includes(tenant))add(awnings,e,{x:bay.x,y:3.32,z:face+.025,w:bay.width+.1,h:1,d:tenant===3?1.15:.85},0,color)
       else add(trim,e,{x:bay.x,y:3.35,z:face+.26,w:bay.width+.12,h:.12,d:.6},0,color)
       // Alternate shop doors without moving the certified upstairs entrance.
-      const side=tenant%2?1:-1,dx=bay.x+side*bay.width*.26
+      const dx=display.doorX
       add(doors,e,{x:dx,y:1.25,z:face+.028,w:1.05,h:2.5,d:.03})
-      const displayX=bay.x-side*bay.width*.14,displayWidth=Math.max(.4,bay.width*.49)
+      const displayX=display.x,displayWidth=display.width
       if([1,2,3,6].includes(tenant))add(trim,e,{x:displayX,y:.43,z:face+.045,w:displayWidth,h:.7,d:.07},0,tenant===6?color:this.timber)
       if(detailed){
        add(trim,e,{x:dx-side*.35,y:1.1,z:face+.07,w:.04,h:.4,d:.05})
@@ -281,7 +282,7 @@ export class ColonyBuildings {
       }
      }
      if(detailed&&frames)for(let floor=0;floor*4.2+3.35<height;floor++)
-      add(frames,e,{x:bay.x,y:floor*4.2+1.9,z:face+.016,w:bay.width,h:2.9,d:1})
+      add(frames,e,{x:retail&&floor===0?display.x:bay.x,y:floor*4.2+1.9,z:face+.016,w:retail&&floor===0?display.width:bay.width,h:2.9,d:1})
     }
    }
    // Complete dwelling bays or continuous parapets; both follow the glazing grid.

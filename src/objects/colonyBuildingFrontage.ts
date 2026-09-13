@@ -12,3 +12,11 @@ export function colonyShopBays(v:BlockVolume){
   return Array.from({length:count},(_,i)=>({x:v.x+(i+.5)*pitch-v.w/2,width:pitch*.82,index:i}))
     .filter(b=>Math.abs(b.x-v.x)>1.1+b.width/2)
 }
+
+/** Display glazing and its lower frame stop before the separate shop door.
+ * A full-bay window frame would put its sill across the walk-through opening. */
+export function colonyShopDisplay(bay:{x:number;width:number},side:1|-1){
+  const doorX=bay.x+side*bay.width*.26
+  const near=doorX-side*(1.05/2+.12),far=bay.x-side*(bay.width/2-.08)
+  return{doorX,x:(near+far)/2,width:Math.abs(far-near)}
+}

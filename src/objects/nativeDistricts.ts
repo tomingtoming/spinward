@@ -10,11 +10,12 @@ import { appendPlaceDistrict } from './placeDistrict'
 import type { StreetPolygon } from './streetPolygon'
 import type { PlaceStreetGrowth } from './placeStreetGrowth'
 import { planStreetParcels } from './streetParcels'
+import { appendSettlementCorridor, settlementCharacter, type SettlementCentre } from './settlementCorridor'
 
 export type NativeDistrict = {
   id: string; azimuth: number; axial: number; width: number; length: number
   band: number; character: 'mixed' | 'residential' | 'centre'
-  layout?: 'place-led'; reserves?: StreetPolygon[]
+  layout?: 'place-led' | 'anchor-led'; reserves?: StreetPolygon[]; centres?: SettlementCentre[]
   growth?: Pick<PlaceStreetGrowth,'connections'|'links'|'deferredLinks'>
   land?: ReturnType<typeof planStreetParcels>
   streets: StreetPath[]; buildings: CityBuilding[]; replacedBuildings: number; replacedRoads: number
@@ -106,6 +107,8 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
   }
   const place=appendPlaceDistrict(city,roads,buildings,radius)
   if(place){districts.push(place.district);traffic.push(place.traffic);roads=place.roads;buildings=place.buildings}
+  const settlement=appendSettlementCorridor(city,roads,buildings,radius)
+  if(settlement){districts.push(settlement.district);traffic.push(settlement.traffic);roads=settlement.roads;buildings=settlement.buildings}
   if (!districts.length) return {districts,traffic}
   const network = new StreetNetwork([...legacyStreetPaths(roads),...districts.flatMap(d=>d.streets)],radius)
   // Plan rows in metres along the centreline, with independently varied lot
@@ -118,15 +121,17 @@ export function rebuildNativeDistricts(city: CityPlan, radius: number) {
   for (const d of districts) {
     let seed=9187+d.band*173+(d.character==='residential'?1031:d.character==='centre'?2062:0)
     const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
-    if(d.layout==='place-led'){
+    if(d.layout){
       d.land=planStreetParcels({id:d.id,azimuth:d.azimuth,axial:d.axial,
         bounds:{x0:-d.width/2+14,x1:d.width/2-14,y0:-d.length/2+14,y1:d.length/2-14},
         streets:d.streets,reserves:d.reserves??[],seed},radius)
       for(const parcel of d.land.parcels){
-        const p=parcel.building,b:CityBuilding={azimuth:d.azimuth+p.x/radius,axial:d.axial+p.y,
-          width:p.width,depth:p.depth,yaw:p.yaw,height:10+Math.floor(random()*12)*3,
+        const p=parcel.building,character=d.centres?settlementCharacter({centres:d.centres},p.x,p.y):d.character
+        const heightRoll=random(),height=character==='residential'?6+Math.floor(heightRoll*7)*3:character==='centre'?16+Math.floor(heightRoll*17)*3:10+Math.floor(heightRoll*12)*3
+        const b:CityBuilding={azimuth:d.azimuth+p.x/radius,axial:d.axial+p.y,
+          width:p.width,depth:p.depth,yaw:p.yaw,height,
           front:{axis:'axial',side:parcel.front.side===1?-1:1},kind:random()<.35?'setback':'block',
-          urban:.72,oldTown:0,tone:random(),nativeDistrict:d.id,nativeParcel:parcel.id}
+          urban:character==='residential'?.42:character==='centre'?.84:.72,oldTown:0,tone:random(),nativeDistrict:d.id,nativeParcel:parcel.id}
         const box=bounds(b),footprint=buildingFootprint(b)
         if([...index.query(box)].some(j=>{
           const other=placed[j],dx=wrap(other.azimuth-b.azimuth)*radius,dy=other.axial-b.axial

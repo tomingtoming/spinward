@@ -2,7 +2,7 @@ import {expect,test} from 'bun:test'
 import {planCity,type CityBuilding,type RoadKind} from './cityLayout'
 import {colonyBuildingUse} from './colonyBuildingUse'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
-import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
+import {colonyGroundHeight,colonyShopBays,colonyShopDisplay} from './colonyBuildingFrontage'
 import {colonyBuildingSpec} from './colonyBuildingPlan'
 
 const fixture:CityBuilding={azimuth:.1,axial:20,width:24,depth:20,height:40,tone:.5,kind:'tower',urban:.9,front:{axis:'axial',side:1}}
@@ -48,4 +48,13 @@ test('enterable public rooms keep their actual use when the district classificat
  expect(colonyBuildingDesign(fixture,'passage').use.ground).toBe('lobby')
  expect(colonyBuildingDesign(fixture,'apartment').use.primary).toBe('apartments')
  expect(colonyBuildingDesign(fixture,'apartment').use.ground).toBe('residential')
+})
+
+test('shop display frames and shelves leave the full door opening clear on either side',()=>{
+ for(let width=6;width<=60;width+=.5)for(const bay of colonyShopBays({x:0,y:10,z:0,w:width,h:20,d:12}))for(const side of [-1,1] as const){
+  const display=colonyShopDisplay(bay,side),low=display.x-display.width/2,high=display.x+display.width/2
+  expect(display.width).toBeGreaterThan(.4)
+  expect(low).toBeGreaterThan(bay.x-bay.width/2);expect(high).toBeLessThan(bay.x+bay.width/2)
+  expect(Math.max(low,display.doorX-.525)).toBeGreaterThan(Math.min(high,display.doorX+.525))
+ }
 })

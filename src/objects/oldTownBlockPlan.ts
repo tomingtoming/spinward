@@ -50,8 +50,11 @@ export function planOldTownBlock(buildings: CityBuilding[], roads: CityRoad[], r
   const square = getArrivalSquare(radius, length)
   if (!square || radius < 800) return []
   const pitch = getCityBlockLength(radius, length)
-  // First parallel avenue east of arrival, rather than a radius-specific coordinate.
-  const avenue = roads.filter(r => r.kind !== 'alley' && r.axialLength > length * .5 && r.azimuth > 1e-5)
+  // The first avenue spanning this block and its neighbours is its boundary.
+  // A distant road replacement can split that avenue without changing this
+  // block; its length relative to the whole colony is not a local boundary.
+  const avenue = roads.filter(r => r.kind !== 'alley' && r.axialLength > pitch * 2 && r.azimuth > 1e-5 &&
+    r.axial - r.axialLength / 2 < square.axial - pitch && r.axial + r.axialLength / 2 > square.axial)
     .sort((a, b) => a.azimuth - b.azimuth)[0]
   if (!avenue) return []
   return buildings.filter(b => b.azimuth > 0 && b.azimuth < avenue.azimuth &&

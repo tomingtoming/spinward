@@ -30,7 +30,7 @@ try{
     const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy)))
     return Math.hypot(px-t*dx,py-t*dy)<=path.width/2-.4
    })})):[]
-   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth,
+   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,centres:d.centres,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth,
     land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,unallocatedArea:d.land.unallocatedArea,built:d.buildings.map(b=>({id:b.nativeParcel,azimuth:b.azimuth,axial:b.axial,width:b.width,depth:b.depth,height:b.height,access:b.access}))}:undefined}))??[],
     nativeCars:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources?.map(s=>s.path.id),position:positions[i],stops:r.signals?.length??0}]:[]),
     walkers:window.__spinwardWalkers.group.userData,
@@ -41,7 +41,10 @@ try{
     geometry:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,triangles:m.geometry.index.count/3})),
     player:window.__spinward,signals:window.__spinwardIntersections.group.getObjectByName('intersection-signal-heads').userData.nativeApproaches}
   })
-  if(!baseline&&(probe.districts.length!==10||!probe.nativeCars.some(c=>probe.districts.some(d=>Math.abs(c.position.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(c.position.azimuth-d.azimuth),Math.cos(c.position.azimuth-d.azimuth)))*3200<d.width/2))))throw Error('Native districts or actual cars on the rebuilt road are missing')
+  const insideDistrict=p=>probe.districts.some(d=>Math.abs(p.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(p.azimuth-d.azimuth),Math.cos(p.azimuth-d.azimuth)))*3200<d.width/2)
+  // A distant camera can be outside every traffic activation window. Require
+  // nearby cars when the player is actually inside a rebuilt district.
+  if(!baseline&&(probe.districts.length!==11||insideDistrict(probe.player)&&!probe.nativeCars.some(c=>insideDistrict(c.position))))throw Error('Native districts or actual nearby cars on the rebuilt road are missing')
   if(!baseline&&probe.walkers.people>probe.walkers.capacity)throw Error('Walker capacity exceeded')
   if(!baseline&&probe.placeTraffic.some(v=>!v.onRoad))throw Error('A car is following a removed road through the park district')
   if(!baseline&&!probe.districts.some(d=>d.growth?.links.some(l=>l.added&&l.before>l.after*1.8)&&d.growth.deferredLinks.length===0))throw Error('Generated access and detour reduction are missing')

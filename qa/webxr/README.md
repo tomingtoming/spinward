@@ -5,18 +5,24 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest local verification (2026-09-14): **31 passed, 9.6 minutes, no retries**
-on one fixed build, following the street-derived blocks and parcels increment.
-The park-walk case reads the live land plan and its buildings' parcel/road
-identities. Actual entry, wrist Places/Home, stereo head roll, approximately
-9.684 m of stick walking, session exit and the full suite's re-entry paths
-passed. The existing street connections and detour-reduction checks remain.
+Latest local verification (2026-09-14): **33 passed, 11.4 minutes, no retries**
+on one fixed build, following the district-centre settlement increment.
+The new cases read the two centres, land parcels and building entrance identities
+from the live plan. Actual entry, wrist Places/Home, stereo head roll, 9.732 m of
+stick walking, a 20.528 m walk across the old/new street boundary, session exit
+and the full suite's re-entry paths passed. Existing park, traffic, river,
+navigation and courtyard checks remain.
 Chrome 152 / Apple M1 Pro / ANGLE Metal; this is emulation, not a physical Quest.
-Independent review found the principal wrist controls readable in both eyes,
-but did not confirm all text in the small faint explanatory line. Evidence is
-in `evidence/street-parcels-20260914/`; implementation, source hashes and
-remaining citywide work are in
-[street-derived parcels](../neighborhood-life/street-parcels.md).
+Independent review found the principal wrist controls and courtyard furniture
+visible in both eyes, with no obvious separation during the sampled head rolls.
+A fine discontinuous line on the footway after the boundary walk and faint small
+explanatory text remain visual concerns; neither proves a physical break.
+The first full run exposed a courtyard-selection regression from splitting a
+distant avenue and a signal fixture tied to the old road ID. Both were corrected
+before this complete rerun. Evidence, including the first failure traces, is in
+`evidence/settlement-corridor-20260914/`; source hashes, implementation, observations
+and remaining citywide work are in
+[district-centre streets](../neighborhood-life/settlement-corridor.md).
 
 ## Run
 
