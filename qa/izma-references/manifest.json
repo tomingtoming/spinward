@@ -1261,10 +1261,10 @@
       "sha256": "5d4135551f96c63035077fd7346100247fdda30e0bd916d2c404a1e90e710e95",
       "size": 1093631,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
-      "finding": "service-entry",
+      "reviewedOn": "2026-09-13",
+      "finding": "indoor-stair-upstairs-room",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial"
     },
     {
       "id": "izma-ep06-0060",
@@ -1305,10 +1305,10 @@
       "sha256": "ae4e8e9c64e39d82051d9d15a5f7958ae3eeb9ee2f1cb0888b9827accce6e796",
       "size": 1124117,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
-      "finding": "night-city",
+      "reviewedOn": "2026-09-13",
+      "finding": "upstairs-apartment-exterior",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "partial"
     },
     {
       "id": "izma-ep06-0064",

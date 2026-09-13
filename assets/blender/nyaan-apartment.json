@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "habitat": {
     "radius": 3200,
     "length": 40000,
@@ -48,10 +48,10 @@
       {
         "name": "upper-storeys",
         "x": 0,
-        "y": 8.6,
+        "y": 10.2,
         "z": 0,
         "width": 8.905746326535759,
-        "height": 10.8,
+        "height": 7.6,
         "depth": 24.575252585193653,
         "material": "upper",
         "finish": "upper",
@@ -59,22 +59,9 @@
         "solid": true
       },
       {
-        "name": "right-units",
-        "x": 2.7264365816339398,
-        "y": 1.6,
-        "z": 0,
-        "width": 3.4528731632678795,
-        "height": 3.2,
-        "depth": 24.575252585193653,
-        "material": "wall",
-        "finish": "plaster",
-        "detail": 3,
-        "solid": true
-      },
-      {
         "name": "left-rear-units",
         "x": -2.7264365816339398,
-        "y": 1.6,
+        "y": 4.800000000000001,
         "z": -3.6,
         "width": 3.4528731632678795,
         "height": 3.2,
@@ -87,7 +74,7 @@
       {
         "name": "rear-hall-wall",
         "x": 0,
-        "y": 1.6,
+        "y": 4.800000000000001,
         "z": -12.167626292596827,
         "width": 2,
         "height": 3.2,
@@ -100,7 +87,7 @@
       {
         "name": "left-room-wall",
         "x": -4.332873163267879,
-        "y": 1.6,
+        "y": 4.800000000000001,
         "z": 8.687626292596827,
         "width": 0.24,
         "height": 3.2,
@@ -113,7 +100,7 @@
       {
         "name": "window-sill-wall",
         "x": -2.7264365816339398,
-        "y": 0.45,
+        "y": 3.6500000000000004,
         "z": 12.167626292596827,
         "width": 3.4528731632678795,
         "height": 0.9,
@@ -126,7 +113,7 @@
       {
         "name": "window-head-wall",
         "x": -2.7264365816339398,
-        "y": 2.87,
+        "y": 6.07,
         "z": 12.167626292596827,
         "width": 3.4528731632678795,
         "height": 0.66,
@@ -139,7 +126,7 @@
       {
         "name": "window-side",
         "x": -4.1771548724509096,
-        "y": 1.72,
+        "y": 4.92,
         "z": 12.167626292596827,
         "width": 0.5514365816339399,
         "height": 1.64,
@@ -152,7 +139,7 @@
       {
         "name": "window-side",
         "x": -1.27571829081697,
-        "y": 1.72,
+        "y": 4.92,
         "z": 12.167626292596827,
         "width": 0.5514365816339397,
         "height": 1.64,
@@ -165,7 +152,7 @@
       {
         "name": "window-pane",
         "x": -2.7264365816339398,
-        "y": 1.72,
+        "y": 4.92,
         "z": 12.192626292596826,
         "width": 2.35,
         "height": 1.64,
@@ -217,7 +204,7 @@
       {
         "name": "room-hall-wall",
         "x": -1,
-        "y": 1.6,
+        "y": 4.800000000000001,
         "z": 6.200126292596826,
         "width": 0.18,
         "height": 3.2,
@@ -230,7 +217,7 @@
       {
         "name": "room-hall-wall",
         "x": -1,
-        "y": 1.6,
+        "y": 4.800000000000001,
         "z": 10.375126292596825,
         "width": 0.18,
         "height": 3.2,
@@ -243,7 +230,7 @@
       {
         "name": "room-door-lintel",
         "x": -1,
-        "y": 2.77,
+        "y": 5.970000000000001,
         "z": 7.887626292596826,
         "width": 0.18,
         "height": 0.86,
@@ -256,7 +243,7 @@
       {
         "name": "open-door-leaf",
         "x": -1.15,
-        "y": 1.32,
+        "y": 4.5200000000000005,
         "z": 9.037626292596826,
         "width": 0.055,
         "height": 2.14,
@@ -269,7 +256,7 @@
       {
         "name": "bath-front-wall",
         "x": -3.3828731632678797,
-        "y": 1.35,
+        "y": 4.550000000000001,
         "z": 7.487626292596826,
         "width": 1.9,
         "height": 2.7,
@@ -282,7 +269,7 @@
       {
         "name": "bath-side-wall",
         "x": -2.4828731632678798,
-        "y": 1.35,
+        "y": 4.550000000000001,
         "z": 5.437626292596827,
         "width": 0.1,
         "height": 2.7,
@@ -295,7 +282,7 @@
       {
         "name": "bath-side-wall",
         "x": -2.4828731632678798,
-        "y": 1.35,
+        "y": 4.550000000000001,
         "z": 7.062626292596827,
         "width": 0.1,
         "height": 2.7,
@@ -308,7 +295,7 @@
       {
         "name": "bath-door-head",
         "x": -2.4828731632678798,
-        "y": 2.47,
+        "y": 5.67,
         "z": 6.237626292596826,
         "width": 0.1,
         "height": 0.46,
@@ -321,7 +308,7 @@
       {
         "name": "bath-tub",
         "x": -3.5228731632678794,
-        "y": 0.48,
+        "y": 3.68,
         "z": 5.647626292596827,
         "width": 1.32,
         "height": 0.46,
@@ -334,7 +321,7 @@
       {
         "name": "bath-basin",
         "x": -4.02287316326788,
-        "y": 0.96,
+        "y": 4.16,
         "z": 7.087626292596826,
         "width": 0.48,
         "height": 0.15,
@@ -347,7 +334,7 @@
       {
         "name": "toilet",
         "x": -3.0,
-        "y": 0.64,
+        "y": 3.8400000000000003,
         "z": 7.187626292596827,
         "width": 0.46,
         "height": 0.75,
@@ -360,7 +347,7 @@
       {
         "name": "bed-base",
         "x": -3.5728731632678796,
-        "y": 0.36,
+        "y": 3.56,
         "z": 10.707626292596826,
         "width": 1.08,
         "height": 0.22,
@@ -373,7 +360,7 @@
       {
         "name": "mattress",
         "x": -3.5728731632678796,
-        "y": 0.55,
+        "y": 3.75,
         "z": 10.707626292596826,
         "width": 1.04,
         "height": 0.16,
@@ -386,7 +373,7 @@
       {
         "name": "low-table",
         "x": -2.65,
-        "y": 0.64,
+        "y": 3.8400000000000003,
         "z": 8.587626292596827,
         "width": 0.72,
         "height": 0.09,
@@ -399,7 +386,7 @@
       {
         "name": "table-leg",
         "x": -2.9299999999999997,
-        "y": 0.44,
+        "y": 3.64,
         "z": 8.317626292596827,
         "width": 0.055,
         "height": 0.32,
@@ -412,7 +399,7 @@
       {
         "name": "table-leg",
         "x": -2.9299999999999997,
-        "y": 0.44,
+        "y": 3.64,
         "z": 8.857626292596827,
         "width": 0.055,
         "height": 0.32,
@@ -425,7 +412,7 @@
       {
         "name": "table-leg",
         "x": -2.37,
-        "y": 0.44,
+        "y": 3.64,
         "z": 8.317626292596827,
         "width": 0.055,
         "height": 0.32,
@@ -438,7 +425,7 @@
       {
         "name": "table-leg",
         "x": -2.37,
-        "y": 0.44,
+        "y": 3.64,
         "z": 8.857626292596827,
         "width": 0.055,
         "height": 0.32,
@@ -451,7 +438,7 @@
       {
         "name": "desk-top",
         "x": -1.85,
-        "y": 1.01,
+        "y": 4.21,
         "z": 11.687626292596827,
         "width": 1.23,
         "height": 0.08,
@@ -464,7 +451,7 @@
       {
         "name": "desk-leg",
         "x": -2.37,
-        "y": 0.63,
+        "y": 3.83,
         "z": 11.687626292596827,
         "width": 0.055,
         "height": 0.72,
@@ -477,7 +464,7 @@
       {
         "name": "desk-leg",
         "x": -1.33,
-        "y": 0.63,
+        "y": 3.83,
         "z": 11.687626292596827,
         "width": 0.055,
         "height": 0.72,
@@ -490,7 +477,7 @@
       {
         "name": "desk-chair-seat",
         "x": -1.85,
-        "y": 0.66,
+        "y": 3.8600000000000003,
         "z": 11.237626292596826,
         "width": 0.43,
         "height": 0.08,
@@ -503,7 +490,7 @@
       {
         "name": "desk-chair-back",
         "x": -1.85,
-        "y": 0.92,
+        "y": 4.12,
         "z": 11.027626292596826,
         "width": 0.43,
         "height": 0.52,
@@ -516,7 +503,7 @@
       {
         "name": "chair-leg",
         "x": -2.02,
-        "y": 0.44,
+        "y": 3.64,
         "z": 11.067626292596826,
         "width": 0.035,
         "height": 0.35,
@@ -529,7 +516,7 @@
       {
         "name": "chair-leg",
         "x": -2.02,
-        "y": 0.44,
+        "y": 3.64,
         "z": 11.407626292596825,
         "width": 0.035,
         "height": 0.35,
@@ -542,7 +529,7 @@
       {
         "name": "chair-leg",
         "x": -1.6800000000000002,
-        "y": 0.44,
+        "y": 3.64,
         "z": 11.067626292596826,
         "width": 0.035,
         "height": 0.35,
@@ -555,7 +542,7 @@
       {
         "name": "chair-leg",
         "x": -1.6800000000000002,
-        "y": 0.44,
+        "y": 3.64,
         "z": 11.407626292596825,
         "width": 0.035,
         "height": 0.35,
@@ -568,7 +555,7 @@
       {
         "name": "bookshelf",
         "x": -4.06287316326788,
-        "y": 0.92,
+        "y": 4.12,
         "z": 8.557626292596826,
         "width": 0.38,
         "height": 1.34,
@@ -581,7 +568,7 @@
       {
         "name": "kitchen-base",
         "x": -1.64,
-        "y": 0.68,
+        "y": 3.8800000000000003,
         "z": 5.407626292596826,
         "width": 1.05,
         "height": 0.86,
@@ -594,7 +581,7 @@
       {
         "name": "fridge",
         "x": -1.42,
-        "y": 0.74,
+        "y": 3.9400000000000004,
         "z": 6.337626292596826,
         "width": 0.5,
         "height": 0.98,
@@ -607,7 +594,7 @@
       {
         "name": "room-floor",
         "x": -2.7264365816339398,
-        "y": 0.262,
+        "y": 3.462,
         "z": 8.687626292596827,
         "width": 3.2128731632678793,
         "height": 0.022,
@@ -615,12 +602,12 @@
         "material": "wood",
         "finish": "wood",
         "detail": 2,
-        "solid": false
+        "solid": true
       },
       {
         "name": "bath-floor",
         "x": -3.4328731632678795,
-        "y": 0.28,
+        "y": 3.4800000000000004,
         "z": 6.237626292596826,
         "width": 1.7,
         "height": 0.012,
@@ -628,12 +615,12 @@
         "material": "wall",
         "finish": "concrete",
         "detail": 2,
-        "solid": false
+        "solid": true
       },
       {
         "name": "ceiling-light",
         "x": -2.6,
-        "y": 3.15,
+        "y": 6.35,
         "z": 8.787626292596826,
         "width": 0.14,
         "height": 0.04,
@@ -642,11 +629,401 @@
         "finish": "light",
         "detail": 1,
         "solid": false
+      },
+      {
+        "name": "ground-left-units",
+        "x": -2.7264365816339398,
+        "y": 1.6,
+        "z": 0,
+        "width": 3.4528731632678795,
+        "height": 3.2,
+        "depth": 24.575252585193653,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "right-outer-units",
+        "x": 3.67643658163394,
+        "y": 3.2,
+        "z": 0,
+        "width": 1.5528731632678796,
+        "height": 6.4,
+        "depth": 24.575252585193653,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "right-rear-units",
+        "x": 1.95,
+        "y": 3.2,
+        "z": -4.4,
+        "width": 1.9,
+        "height": 6.4,
+        "depth": 15.775252585193652,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "right-front-units",
+        "x": 1.95,
+        "y": 3.2,
+        "z": 11.687626292596827,
+        "width": 1.9,
+        "height": 6.4,
+        "depth": 1.2,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "upper-hall-floor",
+        "x": 0,
+        "y": 3.35,
+        "z": 0,
+        "width": 2,
+        "height": 0.2,
+        "depth": 24.575252585193653,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "top-stair-landing",
+        "x": 1.95,
+        "y": 3.35,
+        "z": 3.9876262925968256,
+        "width": 1.9,
+        "height": 0.2,
+        "depth": 1,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "hall-stair-guard",
+        "x": 1.03,
+        "y": 3.97,
+        "z": 7.787626292596826,
+        "width": 0.12,
+        "height": 1.04,
+        "depth": 6.6,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.20500000000000002,
+        "z": 10.142626292596827,
+        "width": 1.7,
+        "height": 0.41000000000000003,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.28500000000000003,
+        "z": 9.852626292596826,
+        "width": 1.7,
+        "height": 0.5700000000000001,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.36500000000000005,
+        "z": 9.562626292596827,
+        "width": 1.7,
+        "height": 0.7300000000000001,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.445,
+        "z": 9.272626292596826,
+        "width": 1.7,
+        "height": 0.89,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.525,
+        "z": 8.982626292596827,
+        "width": 1.7,
+        "height": 1.05,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.6050000000000001,
+        "z": 8.692626292596826,
+        "width": 1.7,
+        "height": 1.2100000000000002,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.685,
+        "z": 8.402626292596826,
+        "width": 1.7,
+        "height": 1.37,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.765,
+        "z": 8.112626292596826,
+        "width": 1.7,
+        "height": 1.53,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.845,
+        "z": 7.822626292596826,
+        "width": 1.7,
+        "height": 1.69,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 0.925,
+        "z": 7.532626292596826,
+        "width": 1.7,
+        "height": 1.85,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.0050000000000001,
+        "z": 7.242626292596826,
+        "width": 1.7,
+        "height": 2.0100000000000002,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.0850000000000002,
+        "z": 6.952626292596826,
+        "width": 1.7,
+        "height": 2.1700000000000004,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.165,
+        "z": 6.662626292596826,
+        "width": 1.7,
+        "height": 2.33,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.245,
+        "z": 6.372626292596827,
+        "width": 1.7,
+        "height": 2.49,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.325,
+        "z": 6.082626292596826,
+        "width": 1.7,
+        "height": 2.65,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.405,
+        "z": 5.792626292596826,
+        "width": 1.7,
+        "height": 2.81,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.485,
+        "z": 5.502626292596827,
+        "width": 1.7,
+        "height": 2.97,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.565,
+        "z": 5.212626292596827,
+        "width": 1.7,
+        "height": 3.13,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.645,
+        "z": 4.922626292596827,
+        "width": 1.7,
+        "height": 3.29,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "stair-tread",
+        "x": 1.95,
+        "y": 1.725,
+        "z": 4.632626292596827,
+        "width": 1.7,
+        "height": 3.45,
+        "depth": 0.29,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "ground-hall-rear",
+        "x": 0,
+        "y": 1.6,
+        "z": -12.167626292596827,
+        "width": 2,
+        "height": 3.2,
+        "depth": 0.24,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
+      },
+      {
+        "name": "stair-entry-plinth",
+        "x": 1.95,
+        "y": 0.125,
+        "z": 10.687626292596827,
+        "width": 1.7,
+        "height": 0.25,
+        "depth": 0.8,
+        "material": "wall",
+        "finish": "concrete",
+        "detail": 3,
+        "solid": false
+      },
+      {
+        "name": "upper-hall-front-wall",
+        "x": 0,
+        "y": 4.8,
+        "z": 12.167626292596827,
+        "width": 2,
+        "height": 3.2,
+        "depth": 0.24,
+        "material": "wall",
+        "finish": "plaster",
+        "detail": 3,
+        "solid": true
       }
     ]
   },
   "room": {
-    "id": "nyaan-101",
+    "id": "nyaan-201",
     "doorX": -1,
     "doorZ": 7.887626292596826,
     "bounds": {
@@ -655,7 +1032,125 @@
       "minZ": 5.087626292596826,
       "maxZ": 12.047626292596826
     },
-    "height": 3.2
+    "height": 3.2,
+    "floorHeight": 3.4730000000000003,
+    "level": 1
   },
-  "design": "Spinward fan reconstruction inspired by Nyaan’s modest Side 6 apartment; floor number, dimensions and exterior are original, not verified production plans."
+  "design": "Original Spinward apartment with a shared indoor stair and an upstairs room. References ep06-0059 and ep06-0063 establish upstairs access; dimensions, level number and plan are staging choices, not verified production plans.",
+  "stairs": {
+    "rise": 3.2,
+    "width": 1.7,
+    "treads": 20,
+    "riser": 0.16,
+    "going": 0.29,
+    "route": [
+      [
+        0,
+        0,
+        14.787626292596826
+      ],
+      [
+        0,
+        0,
+        10.637626292596826
+      ],
+      [
+        1.95,
+        0.25,
+        10.637626292596826
+      ],
+      [
+        1.95,
+        0.25,
+        10.287626292596826
+      ],
+      [
+        1.95,
+        3.45,
+        4.487626292596826
+      ],
+      [
+        1.95,
+        3.45,
+        4.037626292596826
+      ],
+      [
+        0,
+        3.45,
+        4.037626292596826
+      ],
+      [
+        0,
+        3.45,
+        7.887626292596826
+      ],
+      [
+        -1.85,
+        3.4730000000000003,
+        7.887626292596826
+      ]
+    ],
+    "collisionMeshes": [
+      [
+        1.1,
+        0.25,
+        10.287626292596826,
+        2.8,
+        0.25,
+        10.287626292596826,
+        2.8,
+        3.45,
+        4.487626292596826,
+        1.1,
+        0.25,
+        10.287626292596826,
+        2.8,
+        3.45,
+        4.487626292596826,
+        1.1,
+        3.45,
+        4.487626292596826
+      ],
+      [
+        1.1,
+        0.25,
+        11.087626292596827,
+        2.8,
+        0.25,
+        11.087626292596827,
+        2.8,
+        0.25,
+        10.287626292596826,
+        1.1,
+        0.25,
+        11.087626292596827,
+        2.8,
+        0.25,
+        10.287626292596826,
+        1.1,
+        0.25,
+        10.287626292596826
+      ],
+      [
+        0.55,
+        0,
+        11.087626292596827,
+        1.1,
+        0.25,
+        11.087626292596827,
+        1.1,
+        0.25,
+        10.287626292596826,
+        0.55,
+        0,
+        11.087626292596827,
+        1.1,
+        0.25,
+        10.287626292596826,
+        0.55,
+        0,
+        10.287626292596826
+      ]
+    ]
+  }
 }

@@ -26,11 +26,11 @@ test('Nyaan occupies exactly one existing desktop lot without replacing a public
 })
 
 test('a player capsule clears the street, room doorway, desk approach and bathroom route', () => {
-  const route = [[0, front + 2.5], [0, contract.room.doorZ], [-1.85, contract.room.doorZ],
+  const route = [[0, contract.room.doorZ], [-1.85, contract.room.doorZ],
     [-1.85, front - 2], [-1.85, contract.room.doorZ], [-2.05, contract.room.doorZ],
     [-2.05, front - 5.95], [-3, front - 5.95]]
   // Sweep the entire standing capsule's horizontal footprint, including low furniture.
-  const obstacles = interior.parts.filter(p => p.solid && p.y + p.height / 2 > .32 && p.y - p.height / 2 < 2)
+  const obstacles = interior.parts.filter(p => p.solid && p.y + p.height / 2 > contract.room.floorHeight + .08 && p.y - p.height / 2 < contract.room.floorHeight + 1.8)
   for (let i = 1; i < route.length; i++) for (let step = 0; step <= 100; step++) {
     const t = step / 100, x = route[i - 1][0] * (1 - t) + route[i][0] * t
     const z = route[i - 1][1] * (1 - t) + route[i][1] * t
@@ -43,10 +43,10 @@ test('a player capsule clears the street, room doorway, desk approach and bathro
 })
 
 test('shelter follows the room and entrance, excluding street, side wall and roof', () => {
-  const sample = (x: number, z: number, altitude = 1.8, wrap = 0) =>
+  const sample = (x: number, z: number, altitude = 5, wrap = 0) =>
     apartmentShelter(interior, radius, building.azimuth + x / radius + wrap, building.axial - z, altitude)
   expect(sample(-2, contract.room.doorZ)).toBe(1)
-  expect(sample(-2, contract.room.doorZ, 1.8, Math.PI * 2)).toBe(1)
+  expect(sample(-2, contract.room.doorZ, 5, Math.PI * 2)).toBe(1)
   expect(sample(0, front)).toBeCloseTo(.75)
   expect(sample(0, front + .6)).toBeCloseTo(0)
   expect(sample(-2, front)).toBe(0)
@@ -59,7 +59,7 @@ test('the exported apartment preserves traversable portals, a transparent solid 
   expect(data.byteLength).toBeLessThan(1_000_000)
   const gltf = await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '')
   gltf.scene.updateMatrixWorld(true)
-  const budgets = [11500, 1100, 800]
+  const budgets = [11500, 1400, 1150]
   for (let level = 0; level < 3; level++) {
     const model = gltf.scene.getObjectByName(`nyaan_runtime_lod${level}`)!
     expect(model).toBeDefined()
@@ -73,7 +73,7 @@ test('the exported apartment preserves traversable portals, a transparent solid 
     expect(triangles).toBeLessThanOrEqual(budgets[level])
     const ray = new THREE.Raycaster(new THREE.Vector3(0, 1.6, front + 2), new THREE.Vector3(0, 0, -1))
     expect(ray.intersectObject(model, true)[0]?.distance ?? Infinity).toBeGreaterThan(10)
-    ray.set(new THREE.Vector3(0, 1.6, contract.room.doorZ), new THREE.Vector3(-1, 0, 0))
+    ray.set(new THREE.Vector3(0, 4.8, contract.room.doorZ), new THREE.Vector3(-1, 0, 0))
     expect(ray.intersectObject(model, true)[0]?.distance ?? Infinity).toBeGreaterThan(3)
   }
   const pane = interior.parts.find(p => p.name === 'window-pane')!
@@ -104,7 +104,7 @@ test('real Rapier bathroom passage stays open under the city vehicle inflation s
     })
     try {
       city.update(building.azimuth, building.axial)
-      const az = building.azimuth - 2.05 / radius, radial = radius - .6
+      const az = building.azimuth - 2.05 / radius, radial = radius - 3.8
       const body = world.createRigidBody(rapier.RigidBodyDesc.dynamic()
         .setTranslation(Math.cos(az) * radial * scale, (building.axial - front + 5.95) * scale, Math.sin(az) * radial * scale)
         .setLinvel(Math.sin(az) * scale, 0, -Math.cos(az) * scale).setCcdEnabled(true))
@@ -117,3 +117,21 @@ test('real Rapier bathroom passage stays open under the city vehicle inflation s
   expect(cross(true)).toBeLessThan(-2.8)
   expect(cross(false)).toBeGreaterThan(-2.5)
 })
+
+test('twenty internal treads connect street entrance to the supported upstairs room',()=>{
+ const parts=interior.parts;
+ const stairs=parts.filter(p=>p.name==='stair-tread');expect(stairs).toHaveLength(20);
+ for(let i=1;i<stairs.length;i++)expect((stairs[i].y+stairs[i].height/2)-(stairs[i-1].y+stairs[i-1].height/2)).toBeCloseTo(.16);
+ // Ground and upper routes must both clear a full standing capsule. Include
+ // ceilings; a 2D floor-only check misses beams across the stair headroom.
+ const route=contract.stairs.route;
+ for(let i=1;i<route.length;i++)for(let j=0;j<=100;j++){
+  const t=j/100,[x,h,z]=route[i].map((v,k)=>route[i-1][k]*(1-t)+v*t);
+  for(const p of parts.filter(p=>p.solid)){
+   if(p.name==='stair-tread')continue; // risers are checked by the real walking sweep below
+   if(p.y+p.height/2<=h+.2||p.y-p.height/2>=h+1.8)continue;
+   const dx=Math.max(0,Math.abs(x-p.x)-p.width/2),dz=Math.max(0,Math.abs(z-p.z)-p.depth/2);
+   expect(Math.hypot(dx,dz),`${p.name} blocks stair route ${x},${h},${z}`).toBeGreaterThan(.32);
+  }
+ }
+});

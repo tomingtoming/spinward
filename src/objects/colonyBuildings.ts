@@ -1,10 +1,11 @@
+import {balconySectionColliders} from './balconyCollision'
 import {StableInstanceBatch,type InstanceSlot} from './stableInstanceBatch'
 import {planBalconyLife,balconyLifeLod,BALCONY_LIFE_BAY_LIMIT,type BalconyLifeBay} from './balconyLife'
 import {loadBalconyLifeAssets,type BalconyLifeAssets} from './balconyLifeAssets'
 import {colonyGroundHeight,colonyShopBays} from './colonyBuildingFrontage'
 import {colonyShopSignMaterial} from './colonyShopSigns'
 import {colonyBuildingDesign} from './colonyBuildingDesign'
-import {colonyBalconies,colonyBalconyWindowRange,colonyWindowPane,type BalconyWindowRange,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
+import {colonyBalconies,BALCONY_COLLISION_SECTION_LIMIT,colonyBalconyWindowRange,colonyWindowPane,type BalconyWindowRange,BALCONY_BUILDING_LIMIT,BALCONY_SECTION_LIMIT} from './colonyBalconies'
 import {colonyRoofSurface,colonyRoofUnits,colonyRoofLod,ROOF_BUILDING_LIMIT,ROOF_DETAIL_LIMIT,ROOF_UNIT_LIMIT} from './colonyRoofs'
 import {planColonyStairs,colonyStairParts,colonyStairCollider,STAIR_BUILDING_LIMIT,STAIR_CORE_LIMIT,type ColonyStair} from './colonyStairs'
 import {planColonyForecourts,forecourtCollider,type ForecourtPlanter} from './colonyForecourts'
@@ -17,11 +18,15 @@ import { colonyFacadeMaterial, prepareColonyGeometry,writeColonyFacade, loadColo
 
 type StructureKind='structure'|'entrance-structure'|'mixed-structure'
 type StructurePart={volume:BlockVolume;kind:StructureKind;ground:number;slot:InstanceSlot;balcony:BalconyWindowRange}
-type Entry={parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2;life:Array<BalconyLifeBay & {lod:0|1|2}>|null}
+type BalconyContact={point:THREE.Vector3;boxes:CityBuilding[]}
+type Entry={contacts?:BalconyContact[];parts:StructurePart[];design:ReturnType<typeof colonyBuildingDesign>;trim:THREE.Color;spec:BlockSpec;matrix:THREE.Matrix4;color:THREE.Color;interior:boolean;size:number;visible:boolean;roof:BlockVolume|null;roofLod:0|1|2;life:Array<BalconyLifeBay & {lod:0|1|2}>|null}
 /** All non-pilot lots. Shared Blender parts, bounded close detail, persistent instance buffers. */
 export class ColonyBuildings {
  readonly group=new THREE.Group()
  private entries:Entry[]=[]
+ private contactOwners=new Set<Entry>()
+ private balconyContacts:CityBuilding[]=[]
+ getBalconyColliders(){return this.balconyContacts}
  private forecourts=new Map<CityBuilding,ForecourtPlanter[]>()
  private stairwells=new Map<CityBuilding,ColonyStair>()
  private capacities={shell:1,entrance:1,mixed:1}
@@ -60,7 +65,7 @@ export class ColonyBuildings {
  setProjection(value:number){if(Math.abs(value-this.projection)>1){this.projection=value;this.invalidate()}}
  private invalidate(){this.focus.set(Infinity,Infinity,Infinity)}
  rebuild(buildings:CityBuilding[],radius:number,interiors:Map<CityBuilding,BuildingInterior>,roads:CityRoad[],streetDetails=true){
-  this.clearBatches();this.radius=radius;this.nearInteriors.clear()
+  this.clearBatches();this.balconyContacts=[];this.contactOwners.clear();this.radius=radius;this.nearInteriors.clear()
   this.entries=buildings.filter(b=>!cityBlockSpec(b,radius)).map(b=>{
    const interior=interiors.get(b),spec=colonyBuildingSpec(b,interior),a=b.azimuth,side=b.front?.side??-1,tangent=b.front?.axis==='tangent'
    const x=tangent?new THREE.Vector3(0,side,0):new THREE.Vector3(side*Math.sin(a),0,-side*Math.cos(a))
@@ -144,6 +149,8 @@ export class ColonyBuildings {
    const index=signs.count;if(index>=signs.instanceMatrix.count)return
    add(signs,e,v);(signs.geometry.getAttribute('aShopSign') as THREE.InstancedBufferAttribute).setX(index,id)
   }
+  const owners=new Set<Entry>()
+  const contacts:Array<{contact:BalconyContact;distance:number}>=[]
   let visible=0,near=0,framed=0,balconyBuildings=0,retailBuildings=0,stairBuildings=0,enclosedStairs=0
   const close:Array<{e:Entry;distance:number}>=[]
   const roofClose:Array<{e:Entry;distance:number}>=[]
@@ -280,6 +287,9 @@ export class ColonyBuildings {
    // Complete dwelling bays or continuous parapets; both follow the glazing grid.
    if(balconies&&railBalconies&&e.design.use.primary==='apartments'&&distance<65&&balconyBuildings++<BALCONY_BUILDING_LIMIT){
     const plan=colonyBalconies(e.spec,e.design),batch=plan.style==='rail'?railBalconies:balconies,parapet=e.color.clone().lerp(e.trim,.25),tint=plan.style==='rail'?e.trim:parapet
+    owners.add(e)
+    e.contacts??=plan.sections.map(section=>({point:new THREE.Vector3(section.x,section.y,section.z+section.depth*.48).applyMatrix4(e.matrix),boxes:balconySectionColliders(e.spec,section,plan.style,this.radius)}))
+    for(const contact of e.contacts){const d=camera.distanceTo(contact.point);if(d<24)contacts.push({contact,distance:d})}
     for(const section of plan.sections)add(batch,e,{x:section.x,y:section.y,z:section.z,w:section.width,h:1,d:section.depth},0,tint)
     if(detailed)for(const divider of plan.dividers)add(trim,e,divider,0,parapet)
     e.life??=planBalconyLife(e.spec,plan).map(bay=>({...bay,lod:2 as const}))
@@ -343,7 +353,10 @@ export class ColonyBuildings {
    if(this.structures.has(key as StructureKind))continue
    batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere()
   }
-  this.group.userData={buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0,roofBuildings,roofDetailed,roofUnits,balconyLifeBays,balconyLifePlants,balconyLifeChairs,balconyLifeTables}
+  for(const e of this.contactOwners)if(!owners.has(e))e.contacts=undefined
+  this.contactOwners=owners
+  this.balconyContacts=contacts.sort((a,b)=>a.distance-b.distance).slice(0,BALCONY_COLLISION_SECTION_LIMIT).flatMap(c=>c.contact.boxes)
+  this.group.userData={balconyColliders:this.balconyContacts.length,buildings:this.entries.length,visible,near,asset:!!this.modules,legacyBuildings:0,structuralInstances:shell.mesh.count+frontShell.mesh.count+mixedShell.mesh.count,structuralWrites,windowFrames:frames?.count??0,balconies:(balconies?.count??0)+(railBalconies?.count??0),railBalconies:railBalconies?.count??0,shopSigns:signs.count,awnings:awnings?.count??0,retailBuildings,planters:pots.count,stairBuildings,enclosedStairs,stairFlights:stairFlights?.count??0,roofBuildings,roofDetailed,roofUnits,balconyLifeBays,balconyLifePlants,balconyLifeChairs,balconyLifeTables}
 
  }
  setDaylight(daylight:number){this.facade.emissiveIntensity=this.entranceFacade.emissiveIntensity=this.mixedFacade.emissiveIntensity=.015+(1-daylight)*.5}

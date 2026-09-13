@@ -526,3 +526,10 @@ A subsequent rail-joint geometry correction passed the focused deck test
 again on the final model. The broad result is in `full-suite/`, and the focused
 result in `final-deck-xr/`; the UI did not change between them. All 879 unit
 tests and the final TypeScript/production build also pass.
+
+
+## Upstairs apartment and curved neighborhood (2026-09-13)
+
+`city-access.xr.mjs` uses the actual wrist Places → Apartment action, checks the shared street entrance and controller locomotion, then verifies the upstairs room and curved district in stereo at 0/±20° head roll. Diagnostics and capture metadata are tied to each session and its end event. The full suite passed 21 tests. Driveway and navigation changes subsequently passed the seven affected UI/scenery tests; the final Blender door correction passed both city-access tests again.
+
+Evidence is in `evidence/city-access-20260913/`: `full-before-driveway`, `final-ui-and-seams`, and `final-apartment`. Tests used hardware Chrome / ANGLE Metal on Apple M1 Pro and playwright-webxr 0.2.0. Physical Quest comfort and performance are unverified. Walking, parking envelopes, balcony contact costs and reference provenance are recorded in [city-access.md](../neighborhood-life/city-access.md).

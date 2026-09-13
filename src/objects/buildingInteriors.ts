@@ -17,6 +17,7 @@ export type BuildingInterior = {
   kind: InteriorKind
   frontage: number
   depth: number
+  collisionMeshes?: number[][]
   parts: InteriorPart[]
 }
 
@@ -146,7 +147,16 @@ export const interiorPartBuilding = (interior: BuildingInterior, part: InteriorP
 }
 
 export const interiorCollisionBuildings = (interior: BuildingInterior, radius: number) =>
-  interior.parts.filter(part => part.solid).map(part => interiorPartBuilding(interior, part, radius))
+  [...interior.parts.filter(part => part.solid).map(part => interiorPartBuilding(interior, part, radius)),
+   ...(interior.collisionMeshes??[]).map(vertices=>{
+    const b=interior.building,front=b.front!,surfaceMesh:number[]=[],xs:number[]=[],ys:number[]=[],heights:number[]=[]
+    for(let j=0;j<vertices.length;j+=3){
+     const x=vertices[j],h=vertices[j+1],z=vertices[j+2]
+     const t=front.axis==='tangent'?front.side*z:-front.side*x,a=front.axis==='tangent'?front.side*x:front.side*z
+     surfaceMesh.push(t,a,h);xs.push(t);ys.push(a);heights.push(h)
+    }
+    return {...b,width:Math.max(...xs.map(Math.abs))*2,depth:Math.max(...ys.map(Math.abs))*2,height:Math.max(...heights)-Math.min(...heights),baseHeight:Math.min(...heights),groundSurface:true,groundMargin:0,collisionMargin:0,surfaceMesh}
+   })]
 
 // Distance to the footprint, including altitude, not its centre. A large room
 // stays loaded at its corners, and flying over its roof does not load furniture.

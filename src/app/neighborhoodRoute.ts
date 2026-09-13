@@ -3,7 +3,7 @@ import { routeThroughRiver } from './riverWalkRoute'
 import { getStreetProfile } from '../objects/streetProfile'
 import type { CityPlan } from '../objects/cityLayout'
 import type { PublicPark } from '../objects/publicPark'
-import type { CarShareBay } from '../objects/carShare'
+import {carShareDrivewayRect,type CarShareBay} from '../objects/carShare'
 import { UNDERPASS_HEIGHT, type PublicUnderpass } from '../objects/publicUnderpass'
 import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from '../objects/intersectionSignals'
 
@@ -26,10 +26,10 @@ export const surfaceDistance = (a: SurfacePoint, b: SurfacePoint, radius: number
  * Buildings remain obstacles; an indoor start leaves via its certified door.
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
-  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null): SurfacePoint[] | null {
+  driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null, parkingBays:readonly CarShareBay[]=[]): SurfacePoint[] | null {
   if (river && !driving) {
     const route = routeThroughRiver(river, radius, start, goal,
-      (a, b) => planNeighborhoodRoute(plan, radius, a, b, false, park, underpass))
+      (a, b) => planNeighborhoodRoute(plan, radius, a, b, false, park, underpass, null, parkingBays))
     if (route !== undefined) return route
   }
   // The central square omits its junction markings, so the next crossing can
@@ -84,6 +84,12 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     const squareX=wrapAngle(-start.azimuth)*radius, squareY=-start.axial
     paint(squareX+13.25,squareY+12.25,6,5,1)
     if(park) for(const p of park.paths) paint(wrapAngle(park.azimuth-start.azimuth)*radius+p.x,park.axial-start.axial+p.y,p.width,p.depth,1)
+  }
+  // Only the certified off-street bays may connect to the road graph. This
+  // does not make arbitrary lawns or building forecourts drivable shortcuts.
+  for(const bay of parkingBays){
+    const rect=carShareDrivewayRect(bay,radius),[x,y]=local(rect)
+    paint(x,y,rect.tangentWidth+1,rect.axialLength+1,1)
   }
   let indoorExit: SurfacePoint[] = []
   for(const b of plan.buildings) {

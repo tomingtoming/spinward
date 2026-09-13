@@ -163,3 +163,13 @@ test('covered route endpoints cannot snap across a rail or down from the motorwa
  journey.update(point(0,8),r,.1);expect(journey.index).toBe(1)
  journey.update(point(0,9.5),r,.1);expect(journey.index).toBe(2)
 })
+
+test('certified off-street car-share bays connect to road directions without allowing arbitrary grass shortcuts',async()=>{
+ const {planCarShareBay}=await import('../objects/carShare')
+ const city=planCity({radius:r,length:40000,maxBuildings:16000}),park=planPublicPark(city,r),a=planCarShareBay(city,r)!,b=planCarShareBay(city,r,{azimuth:a.azimuth,axialPosition:a.axial},[a])!
+ expect(a.driveway).toBeGreaterThan(3);expect(b).not.toBeNull()
+ for(const driving of [true,false]){
+  const route=planNeighborhoodRoute(city,r,a,b,driving,park,null,null,[a,b]);expect(route).not.toBeNull()
+ }
+ expect(pavementExit(city,r,a,a.heading)).not.toBeNull()
+})

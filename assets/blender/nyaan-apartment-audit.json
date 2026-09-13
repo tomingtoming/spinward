@@ -1,22 +1,22 @@
 {
-  "bytes": 865372,
+  "bytes": 963312,
   "models": [
     {
       "name": "nyaan_runtime_lod0",
-      "triangles": 10568,
+      "triangles": 11277,
       "materials": 15
     },
     {
       "name": "nyaan_runtime_lod1",
-      "triangles": 977,
+      "triangles": 1327,
       "materials": 10
     },
     {
       "name": "nyaan_runtime_lod2",
-      "triangles": 756,
+      "triangles": 1106,
       "materials": 10
     }
   ],
-  "room": "Compact ground-floor 101; inferred layout and exterior, not a measured set reconstruction",
-  "collision": "Contract solid parts, shared entry and open room doorway; other units remain closed"
+  "room": "Upstairs 201 reached by a shared indoor staircase; inferred plan and level number",
+  "collision": "Contract floors, a continuous stair collision slope under twenty visual treads, entry bevel, landing and guards"
 }

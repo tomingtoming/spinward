@@ -1,3 +1,6 @@
+import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
+import {CurvedNeighborhoodLayer,planCurvedNeighborhood} from './curvedNeighborhood'
+import {CityCollisionOverlay} from './cityCollisionOverlay'
 import { planExpresswayRainRoofs, sampleRainShelter, type RainArcRoof, type RainRoof } from './rainShelter'
 import { RiverDistrictLayer } from './riverDistrict'
 import {planRiverTraffic, sampleRiverTraffic, trafficFollowingGap, riverTrafficYieldGap, type RiverTrafficLoop} from './riverTraffic'
@@ -23,7 +26,7 @@ import { planBuildingInteriors, interiorCollisionBuildings, type BuildingInterio
 import * as THREE from 'three'
 import { OldTownBlock } from './oldTownBlock'
 import { OldTownCourt } from './oldTownCourt'
-import { planCarShareBay, type CarShareBay } from './carShare'
+import { planCarShareBay, carShareBayColliders, carShareDrivewayRect, type CarShareBay } from './carShare'
 import { CivicDetails } from './civicDetails'
 import { ObservationDeck, hasObservationDeck, observationDeckColliders, observationDeckPoint } from './observationDeck'
 import { planPublicUnderpass } from './publicUnderpass'
@@ -594,6 +597,7 @@ export class Cityscape {
   readonly group = new THREE.Group()
   private readonly civicDetails = new CivicDetails(this.group)
   private readonly observationDeck = new ObservationDeck(this.group)
+  readonly curvedNeighborhood=new CurvedNeighborhoodLayer(this.group)
   private readonly riverLayer = new RiverDistrictLayer(this.group)
   private readonly riverBuildings = new ColonyBuildings(this.group)
   private riverDistrict: RiverDistrict | null = null
@@ -727,7 +731,7 @@ export class Cityscape {
   readonly oldTownBlock = new OldTownBlock(this.group)
   readonly oldTownCourt = new OldTownCourt(this.group)
   readonly authoredBlock=new AuthoredCityBlock(this.group)
-  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian);this.riverBuildings.setProjection(pixelsPerRadian)}
+  setBuildingProjection(pixelsPerRadian:number){this.authoredBlock.setProjection(pixelsPerRadian);this.colonyBuildings.setProjection(pixelsPerRadian);this.riverBuildings.setProjection(pixelsPerRadian);this.curvedNeighborhood.buildings.setProjection(pixelsPerRadian)}
 
   private readonly parkMaterial = new THREE.MeshStandardMaterial({
     color: 0x59764b,
@@ -912,6 +916,8 @@ export class Cityscape {
   private carShareBay: CarShareBay | null = null
   private cityExpressway: CityExpressway | null = null
   private expresswayGroup: THREE.Group | null = null
+  private balconyCollisionSources:CityBuilding[][]=[]
+  private balconyCollisionOverlay:CityCollisionOverlay|null=null
   private collisionBuildings: CityBuilding[] = []
   private collisionIndex: CityCollisionIndex = buildCityCollisionIndex([], 1, 1)
   private windowStrips: THREE.Mesh[] = []
@@ -1381,6 +1387,9 @@ export class Cityscape {
       plan.patches = plan.patches.filter(patch => patch !== p.patch)
       plan.trees = plan.trees.filter(t => Math.abs(Math.atan2(Math.sin(t.azimuth-p.azimuth),Math.cos(t.azimuth-p.azimuth))) * radius > p.width / 2 + 3 || Math.abs(t.axial-p.axial) > p.length / 2 + 3)
     }
+    const curved=this.habitatType==='cylinder'?planCurvedNeighborhood(plan,radius):null
+    this.curvedNeighborhood.rebuild(curved,radius)
+    if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)
     this.riverBuildings.rebuild(this.riverDistrict?.buildings ?? [], radius, new Map(), [], false)
     // Structural collision follows the same authored recipes as the visible city.
@@ -1410,7 +1419,7 @@ export class Cityscape {
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
     this.collisionBuildings.push(...this.oldTownBlock.getColliders(), ...this.oldTownCourt.plan.colliders)
-    this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders)
+    this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders, ...this.curvedNeighborhood.plan?.colliders??[])
     for (const b of this.riverDistrict?.buildings ?? []) this.collisionBuildings.push(...cityBlockCollision(b, colonyBuildingSpec(b), radius))
     if (hasObservationDeck(plan.tower, radius)) {
       this.collisionBuildings.push(...observationDeckColliders(plan.tower, radius))
@@ -1418,7 +1427,8 @@ export class Cityscape {
       this.collisionBuildings.push(this.getTowerFootprint(plan.tower))
     }
 
-    this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
+    this.balconyCollisionOverlay=new CityCollisionOverlay(buildCityCollisionIndex(this.collisionBuildings, radius, length),length)
+    this.collisionIndex = this.balconyCollisionOverlay.index
     this.cityPlanRoads = plan.roads
     this.trafficRoadSpans = planTrafficRoadSpans(plan.roads, radius)
     this.cityPlan = plan
@@ -1484,6 +1494,10 @@ export class Cityscape {
   getParkLamps() { return this.civicDetails.lamps }
   getCoffeeStation() { return this.coffeeStation }
   getRiverDistrict() { return this.riverDistrict }
+  private carShareBays:readonly CarShareBay[]=[]
+  getCarShareBays(){return this.carShareBays}
+  setCarShareBays(bays:readonly CarShareBay[]){this.carShareBays=bays;this.balconyCollisionOverlay?.setPermanent(bays.flatMap(b=>carShareBayColliders(b,this.radius)))}
+  getStreetSidewalkCuts(){return [...this.riverDistrict?.sidewalkCuts??[],...this.curvedNeighborhood.plan?.sidewalkCuts??[],...this.carShareBays.map(b=>carShareDrivewayRect(b,this.radius))]}
   sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
   getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
@@ -1607,6 +1621,7 @@ export class Cityscape {
   setDaylight(daylight: number) {
     this.riverLayer.setDaylight(daylight)
     this.riverBuildings.setDaylight(daylight)
+    this.curvedNeighborhood.buildings.setDaylight(daylight)
     this.civicDetails.setDaylight(daylight)
     this.authoredBlock.setDaylight(daylight)
     this.colonyBuildings.setDaylight(daylight)
@@ -1673,6 +1688,7 @@ export class Cityscape {
     this.oldTownCourt.dispose()
     this.riverLayer.dispose()
     this.riverBuildings.dispose()
+    this.curvedNeighborhood.dispose()
     this.civicDetails.dispose()
     this.observationDeck.dispose()
     this.interiorLayer.dispose()
@@ -1722,6 +1738,7 @@ export class Cityscape {
     this.oldTownBlock.clear()
     this.oldTownCourt.clear()
     this.riverLayer.clear()
+    this.curvedNeighborhood.rebuild(null,this.radius)
     this.riverDistrict = null
     this.riverTraffic = null
     this.interiorRainSource = null
@@ -1737,6 +1754,9 @@ export class Cityscape {
     this.coffeeStation = null
     this.streetAccessLayer.clear()
     this.clearRoadTiles()
+    this.carShareBays=[]
+    this.balconyCollisionSources=[]
+    this.balconyCollisionOverlay=null
     this.collisionBuildings = []
     this.collisionIndex = buildCityCollisionIndex([], 1, 1)
     this.cityPlanBuildings = []
@@ -1881,7 +1901,15 @@ export class Cityscape {
     this.authoredBlock.update(azimuth,axial,altitude)
     this.riverLayer.setFocus(azimuth, axial, altitude)
     this.riverBuildings.update(azimuth, axial, altitude)
+    this.curvedNeighborhood.buildings.update(azimuth,axial,altitude)
     this.colonyBuildings.update(azimuth,axial,altitude)
+    const balconySources=[this.colonyBuildings.getBalconyColliders(),this.riverBuildings.getBalconyColliders(),this.curvedNeighborhood.buildings.getBalconyColliders()]
+    if(balconySources.some((source,i)=>source!==this.balconyCollisionSources[i])){
+      this.balconyCollisionSources=balconySources
+      const sections=balconySources.flatMap(source=>Array.from({length:source.length/4},(_,i)=>source.slice(i*4,i*4+4)))
+      const distance=(parts:CityBuilding[])=>{const b=parts[0];return Math.hypot(Math.atan2(Math.sin(b.azimuth-azimuth),Math.cos(b.azimuth-azimuth))*this.radius,b.axial-axial,(b.baseHeight??0)+b.height-altitude)}
+      this.balconyCollisionOverlay?.set(sections.sort((a,b)=>distance(a)-distance(b)).slice(0,BALCONY_COLLISION_SECTION_LIMIT).flat())
+    }
     this.oldTownBlock.update(azimuth, axial, altitude)
     this.oldTownCourt.update(azimuth, axial, altitude)
     this.updateBeaconVisibility()

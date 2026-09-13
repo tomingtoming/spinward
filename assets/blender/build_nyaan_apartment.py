@@ -1,5 +1,5 @@
 """Nyaan-inspired compact apartment. Contract dimensions are original Spinward staging."""
-import bpy,math,json,sys,importlib
+import bpy,math,json,sys,importlib,unicodedata
 from pathlib import Path
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'assets/blender'))
@@ -17,25 +17,29 @@ def mat(name,h,rough=.8,emit=.04,alpha=1):
  return m
 plaster=mat('plaster','b3b3a8');concrete=mat('concrete','8c9189');wood=mat('wood','7e644e');fabric=mat('fabric','8f9f9d');metal=mat('metal','4d6662',.5);glass=mat('glass','a4b9b3',.28,.02,.16);upper=mat('upper','9c9e94');light=mat('LIGHT','eee2b7',.4,.8);dark=mat('dark','293c3e');ivory=mat('ivory','d6d2ba',.5);red=mat('red','964f47');blue=mat('blue','4d7386');paper=mat('paper','d5c5a3');tile=mat('tile','cad0c2',.42);rust=mat('rust','857262')
 mats=[plaster,concrete,wood,fabric,metal,glass,upper,light,dark,ivory,red,blue,paper,tile,rust];palette=dict(plaster=plaster,concrete=concrete,wood=wood,fabric=fabric,metal=metal,glass=glass,upper=upper,light=light,sign=dark)
-font=bpy.data.fonts.load('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',check_existing=True)
+font_paths=[Path('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'), *[p for p in Path('/System/Library/Fonts').glob('*.ttc') if unicodedata.normalize('NFC',p.name)=='ヒラギノ角ゴシック W3.ttc']]
+font=bpy.data.fonts.load(str(next(p for p in font_paths if p.exists())),check_existing=True)
+room_shift=C['stairs']['rise']; decoration_shift=0
 def text(parts,body,x,y,z,size,material=ivory,side=0,jp=False):
  c=bpy.data.curves.new('SWNY_text','FONT');c.body=body;c.align_x='CENTER';c.align_y='CENTER';c.size=size;c.resolution_u=2
  if jp:c.font=font
- o=bpy.data.objects.new('SWNY_text',c);scene.collection.objects.link(o);o.location=local(x,y,z);o.rotation_euler=(math.pi/2,0,side*math.pi/2);c.materials.append(material)
+ o=bpy.data.objects.new('SWNY_text',c);scene.collection.objects.link(o);o.location=local(x,y+decoration_shift,z);o.rotation_euler=(math.pi/2,0,side*math.pi/2);c.materials.append(material)
  for a in list(bpy.context.selected_objects):a.select_set(False)
  o.select_set(True);bpy.context.view_layer.objects.active=o;bpy.ops.object.convert(target='MESH');parts.append(o)
 def disk(b,x,y,z,r,material,n=16,side=0):
+ y+=decoration_shift
  for j in range(n):
   a=j*math.tau/n;c=(j+1)*math.tau/n
   p=[(0,0),(r*math.cos(a),r*math.sin(a)),(r*math.cos(c),r*math.sin(c))]
   b.face([local(x+(u if not side else 0),y+v,z+(u if side else 0)) for u,v in p],material)
 def cylinder(b,x,y,z,r,h,material,n=16):
+ y+=decoration_shift
  for j in range(n):
   a=j*math.tau/n;c=(j+1)*math.tau/n
   b.face([local(x+r*math.cos(a),y,z+r*math.sin(a)),local(x+r*math.cos(c),y,z+r*math.sin(c)),local(x+r*math.cos(c),y+h,z+r*math.sin(c)),local(x+r*math.cos(a),y+h,z+r*math.sin(a))],material)
  b.face([local(x+r*math.cos(j*math.tau/n),y+h,z+r*math.sin(j*math.tau/n)) for j in reversed(range(n))],material)
 def rounded_box(parts,x,y,z,w,h,d,material,radius):
- builder=MeshBuilder(scene,'soft_form',mats);builder.box(x,y,z,w,h,d,material);o=builder.finish()
+ builder=MeshBuilder(scene,'soft_form',mats);builder.box(x,y+decoration_shift,z,w,h,d,material);o=builder.finish()
  import bmesh
  bm=bmesh.new();bm.from_mesh(o.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001);bm.to_mesh(o.data);bm.free()
  for selected in list(bpy.context.selected_objects):selected.select_set(False)
@@ -44,16 +48,22 @@ def rounded_box(parts,x,y,z,w,h,d,material,radius):
  bpy.ops.object.modifier_apply(modifier=modifier.name);parts.append(o)
 models=[];audit=[]
 for lod in [0,1,2]:
+ decoration_shift=0
  b=MeshBuilder(scene,'nyaan',mats);parts=[]
+ raw_box=b.box
+ b.box=lambda x,y,z,w,h,d,m:raw_box(x,y+decoration_shift,z,w,h,d,m)
  for p in I['parts']:
   if lod>0 and p['detail']<2:continue
   if p['name'] in ['bookshelf','toilet'] and lod==0:continue
   if p['name']=='mattress' and lod==0:
    rounded_box(parts,p['x'],p['y'],p['z'],p['width'],p['height'],p['depth'],fabric,.045);continue
   b.box(p['x'],p['y'],p['z'],p['width'],p['height'],p['depth'],palette[p['finish']])
+ # Side entry bevel is visible at every LOD; treads retain their stair shape.
+ bevel=C['stairs']['collisionMeshes'][-1]
+ for j in range(0,len(bevel),9):b.face([local(*bevel[k:k+3]) for k in range(j,j+9,3)],concrete)
  # Cornices and slightly projecting window frames establish an older apartment block.
  for row in range(3):
-  y=4.8+row*3.1
+  y=1.6+row*3.1 if row==0 else 7.9+(row-1)*3.1
   for side in range(4):
    span=W if side<2 else D;n=(D if side<2 else W)/2
    bays=2 if side<2 else 6
@@ -94,10 +104,12 @@ for lod in [0,1,2]:
  b.box(0,2.59,F-.31,1.8,.035,.65,light)
  b.box(0,3.00,F+.012,1.70,.36,.035,dark)
  if lod<2:text(parts,'APARTMENTS',0,3.00,F+.037,.17)
- # Ground floor window trim and a narrow shared entry.
+ # Raised room window trim; the street entrance remains at ground level.
+ decoration_shift=room_shift
  wx=(-W/2-1)/2
  for dx in [-1.175,0,1.175]:b.box(wx+dx,1.72,F-.055,.055,1.69,.07,metal)
  for y in [.90,2.54]:b.box(wx,y,F-.055,2.40,.055,.07,metal)
+ decoration_shift=0
  if lod==0:
   # Front wear/patches, pipes and a small mail/intercom panel.
   for x in [-W/2+.34,W/2-.30]:
@@ -108,18 +120,22 @@ for lod in [0,1,2]:
   for row in range(3):
    b.box(.86,1.18+row*.28,F-1.12,.08,.22,.60,metal)
    b.box(.808,1.22+row*.28,F-1.12,.01,.023,.40,dark)
-  # Door 101 is open; other ground-floor doors remain closed.
+  decoration_shift=room_shift
+  # Room 201 is reached from the indoor stair landing.
   dz=C['room']['doorZ']
   for z in [dz-.62,dz+.62]:b.box(-.88,1.28,z,.10,2.55,.07,metal)
   b.box(-.88,2.57,dz,.10,.07,1.31,metal)
   b.box(-.892,1.68,dz-1.02,.025,.36,.58,dark)
-  text(parts,'101',-.873,1.74,dz-1.02,.12,ivory,1)
+  text(parts,'201',-.873,1.74,dz-1.02,.12,ivory,1)
   text(parts,'ニャアン',-.871,1.57,dz-1.02,.12,ivory,1,True)
-  for j in range(4):
-   z=F-3.7-j*5.2
+  # Closed-unit doors belong to the rear solid wing. The new stair opening
+  # has only a guard wall, so it cannot support the former front unit door.
+  rear=next(p for p in I['parts'] if p['name']=='right-rear-units')
+  for j in range(3):
+   z=rear['z']+rear['depth']/2-1-j*5.2
    b.box(.97,1.34,z,.025,2.20,1.02,wood)
    b.box(.95,1.35,z-.34,.035,.10,.06,metal)
-   text(parts,str(102+j*2),.94,1.87,z,.12,ivory,-1)
+   text(parts,str(202+j*2),.94,1.87,z,.12,ivory,-1)
   # A low bed, folded bedding and pillow; no floor clutter in the clear aisle.
   bx=-W/2+.88;b.box(bx,.67,F-2.20,1.00,.08,.63,blue)
   rounded_box(parts,bx,.72,F-.91,.74,.18,.37,ivory,.065)
@@ -194,5 +210,5 @@ for lod in [0,1,2]:
  audit.append({'name':model.name,'triangles':len(model.data.loop_triangles),'materials':len(set(p.material_index for p in model.data.polygons))})
 path=ROOT/'public/assets/buildings/nyaan-apartment.glb';export(scene,models,path)
 bpy.data.libraries.write(str(ROOT/'assets/blender/nyaan-apartment.blend'),{scene},fake_user=True,compress=True)
-report={'bytes':path.stat().st_size,'models':audit,'room':'Compact ground-floor 101; inferred layout and exterior, not a measured set reconstruction','collision':'Contract solid parts, shared entry and open room doorway; other units remain closed'}
+report={'bytes':path.stat().st_size,'models':audit,'room':'Upstairs 201 reached by a shared indoor staircase; inferred plan and level number','collision':'Contract floors, a continuous stair collision slope under twenty visual treads, entry bevel, landing and guards'}
 (ROOT/'assets/blender/nyaan-apartment-audit.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))

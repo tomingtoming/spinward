@@ -24,14 +24,14 @@ test('parked cars draw only the authored body and own their geometry copies',()=
   source.dispose();material.dispose()
 })
 const sidewalk = 5
-const avenue: CityRoad = { azimuth: 0.02, axial: 0, tangentWidth: 8, axialLength: 40000, kind: 'local' }
+const avenue: CityRoad = { azimuth: 0.02, axial: 0, tangentWidth: 12, axialLength: 40000, kind: 'local' }
 const street: CityRoad = { azimuth: 0, axial: 500, tangentWidth: 3000, axialLength: 24, kind: 'arterial' }
 const alley: CityRoad = { azimuth: 0.02 + 40 / R, axial: 300, tangentWidth: 7.5, axialLength: 60, kind: 'alley' }
 const roads = [avenue, street, alley]
 
 const parcelOnAvenue = (side: 1 | -1): CityBuilding => ({
   // building centre 20 m from the avenue centreline on the −tangent side
-  azimuth: 0.02 + (side === -1 ? 1 : -1) * (4 + sidewalk + 12) / R,
+  azimuth: 0.02 + (side === -1 ? 1 : -1) * (6 + sidewalk + 12) / R,
   axial: 200,
   width: 10,
   depth: 10,
@@ -49,8 +49,8 @@ describe('parkingSlotFor', () => {
     expect(slot).not.toBeNull()
     expect(slot!.along).toBe('axial')
     expect(slot!.roadKind).toBe('local')
-    // kerb lane: 4 − 1.35 = 2.65 m from the avenue centreline
-    expect(Math.abs((slot!.azimuth - avenue.azimuth) * R)).toBeCloseTo(4 - 1.35, 1)
+    // kerb lane: 6 − 1.35 = 4.65 m from the avenue centreline
+    expect(Math.abs((slot!.azimuth - avenue.azimuth) * R)).toBeCloseTo(6 - 1.35, 1)
     expect(slot!.axial).toBeCloseTo(200, 6)
     expect([1, -1]).toContain(slot!.facing)
     expect(slot!.variant).toBeGreaterThanOrEqual(0)
@@ -83,7 +83,7 @@ describe('occupancy and hashing', () => {
     let suburb = 0
     for (let i = 0; i < 400; i++) {
       const b = parcelOnAvenue(-1)
-      b.axial = 200 + i * 7
+      b.axial = 700 + i * 7
       const slot = parkingSlotFor(b, R, roads, sidewalk, 6)!
       if (isSlotOccupied(slot, { ...b, urban: 1 })) downtown++
       if (isSlotOccupied(slot, { ...b, urban: 0.2 })) suburb++
@@ -114,3 +114,21 @@ describe('parkingSlotsFor', () => {
     expect(parkingSlotsFor(short, R, roads, sidewalk, 6).length).toBe(1)
   })
 })
+
+test('actual marked carriageways cannot be repurposed as parking lanes', () => {
+  for(const [kind,width] of [['local',6],['arterial',19.5]] as const){
+    const road={...avenue,kind,tangentWidth:width}; const b=parcelOnAvenue(-1);
+    b.azimuth=road.azimuth+(width/2+sidewalk+12)/R;
+    expect(parkingSlotsFor(b,R,[road],sidewalk,6)).toEqual([]);
+  }
+});
+test('the full parking envelope clears crosswalks, junctions, road ends and entrances', () => {
+  const b=parcelOnAvenue(-1);
+  for(const axial of [street.axial,street.axial+18,19997]){
+    expect(parkingSlotFor({...b,axial},R,roads,sidewalk,6)).toBeNull();
+  }
+  const roadEdge={azimuth:avenue.azimuth+6/R,axial:b.axial};
+  const withAccess={...b,access:{roadId:'parking-test',roadIndex:0,entrance:roadEdge,roadEdge,width:2,length:2}};
+  expect(parkingSlotFor(withAccess,R,roads,sidewalk,6)).toBeNull();
+  expect(parkingSlotsFor(withAccess,R,roads,sidewalk,6)).toHaveLength(2);
+});

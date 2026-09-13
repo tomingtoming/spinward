@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import type { CityBuilding, CityRoad } from "./cityLayout";
+import { getStreetProfile } from "./streetProfile";
 import type { KenneyCarGeometryPack } from "./buildingAssets";
 
 // Parked cars along the kerb (2026-09-03, 緻密さ①): the cheapest sign of
@@ -9,10 +10,9 @@ import type { KenneyCarGeometryPack } from "./buildingAssets";
 // Near-field only (same scheme as intersectionFurniture): the parcels within
 // PARKING_RANGE of the player are laid out, refreshed every REFOCUS metres.
 //
-// Rules: only fronts on arterial/local grid roads (alleys are service lanes);
-// the car sits in the kerb lane just off the sidewalk, nose along the road.
-// Arterial traffic runs in the inner lanes (cityscape laneOffset ≈ 0.22·w),
-// so the kerb lane is free on both road kinds.
+// A kerb is not a parking lane: moving traffic uses every marked lane.
+// Only surplus carriageway width may hold a parked vehicle, with its whole
+// envelope clear of junctions, crossings and the parcel's pedestrian access.
 
 export const PARKING_RANGE_METERS = 300;
 export const PARKING_REFOCUS_METERS = 60;
@@ -111,6 +111,24 @@ export const parkingSlotFor = (
   // parks axially; a parcel on a street parks tangentially.
   const along: "axial" | "tangent" = isAvenue ? "axial" : "tangent";
   if ((front.axis === "tangent") !== isAvenue) return null;
+  const across = isAvenue ? wrapToPi(azimuth-road.azimuth)*radius : axial-road.axial;
+  const longitudinal = isAvenue ? axial-road.axial : wrapToPi(azimuth-road.azimuth)*radius;
+  const halfWidth = (isAvenue ? road.tangentWidth : road.axialLength)/2;
+  const halfLength = (isAvenue ? road.axialLength : road.tangentWidth)/2;
+  // Largest fleet vehicle is 5 x 2m. Include door/clearance space, not just
+  // the origin, and reserve the full marked carriageway for moving traffic.
+  const halfCarWidth = 1.15, halfCarLength = CAR_LENGTH_ALLOWANCE/2;
+  if (Math.abs(across)+halfCarWidth > halfWidth ||
+      Math.abs(across)-halfCarWidth < getStreetProfile(road.kind, radius).carriageway/2+.15 ||
+      Math.abs(longitudinal)+halfCarLength+5 > halfLength) return null;
+  if (gridRoads.some(other => other!==road &&
+    Math.abs(wrapToPi(azimuth-other.azimuth))*radius < other.tangentWidth/2+(isAvenue?halfCarWidth:halfCarLength)+5 &&
+    Math.abs(axial-other.axial) < other.axialLength/2+(isAvenue?halfCarLength:halfCarWidth)+5)) return null;
+  if (building.access) {
+    const entry=building.access.roadEdge;
+    const gap=isAvenue ? Math.abs(axial-entry.axial) : Math.abs(wrapToPi(azimuth-entry.azimuth))*radius;
+    if(gap < halfCarLength+building.access.width/2+.5)return null;
+  }
   return {
     azimuth,
     axial,

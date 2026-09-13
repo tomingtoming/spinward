@@ -6,8 +6,8 @@ import {colonyWindowGrid} from './colonyBuildingPlan'
 
 export const BALCONY_BUILDING_LIMIT=8
 export const BALCONY_SECTION_LIMIT=144
-type Section={volume:BlockVolume;row:number;first:number;last:number;pitch:number;x:number;y:number;z:number;width:number;depth:number}
-export type ColonyBalconyPlan={style:'solid'|'rail';sections:Section[];dividers:BlockVolume[]}
+export type BalconySection={volume:BlockVolume;row:number;first:number;last:number;pitch:number;x:number;y:number;z:number;width:number;depth:number}
+export type ColonyBalconyPlan={style:'solid'|'rail';sections:BalconySection[];dividers:BlockVolume[]}
 export type BalconyWindowRange=readonly [number,number,number,number]
 export const NO_BALCONY_WINDOWS:BalconyWindowRange=[-1,-1,-1,-1]
 
@@ -27,7 +27,7 @@ export function colonyWindowPane(profile:{paneBottom:number;paneHeight:number},r
 export function colonyBalconies(spec:BlockSpec,design:ReturnType<typeof colonyBuildingDesign>):ColonyBalconyPlan{
  const empty:ColonyBalconyPlan={style:'solid',sections:[],dividers:[]}
  if(design.use.primary!=='apartments'||spec.id.startsWith('public-'))return empty
- const seed=colonyBuildingSeed(spec.building),depth=[.95,1.05,1.15][(seed>>>4)%3],rows:Section[][]=[]
+ const seed=colonyBuildingSeed(spec.building),depth=[.95,1.05,1.15][(seed>>>4)%3],rows:BalconySection[][]=[]
  for(const volume of spec.volumes){
   const ground=colonyGroundHeight(volume,design),upper=volume.h-ground
   if(volume.w<2||upper<2.5)continue
@@ -35,7 +35,7 @@ export function colonyBalconies(spec:BlockSpec,design:ReturnType<typeof colonyBu
   for(let row=0;row<grid.floors;row++){
    const y=volume.y-volume.h/2+ground+row*upper/grid.floors,z=volume.z+volume.d/2-.04
    if(y<3.4)continue // Keep the lobby portal and its canopy below the first deck.
-   const bays:Section[]=[]
+   const bays:BalconySection[]=[]
    for(let col=0;col<grid.columnsX;col++){
     const x=volume.x+(col+.5)*pitch-volume.w/2,width=pitch-.16
     // Check the whole projecting section, including the slab below floor level.
@@ -47,9 +47,9 @@ export function colonyBalconies(spec:BlockSpec,design:ReturnType<typeof colonyBu
  }
  // Tall/wide slabs keep a continuous parapet; never cut off half a floor to fit a cap.
  const rail=(seed>>>10)%2===1&&rows.reduce((n,r)=>n+r.length,0)<=BALCONY_SECTION_LIMIT
- const sections:Section[]=[],dividers:BlockVolume[]=[]
+ const sections:BalconySection[]=[],dividers:BlockVolume[]=[]
  for(const bays of rows){
-  const runs:Section[]=[]
+  const runs:BalconySection[]=[]
   for(const bay of bays){
    const run=runs.at(-1)
    if(!rail&&run&&run.last===bay.first-1){run.last=bay.last;run.width+=bay.pitch;run.x=(run.x*(run.last-run.first)+bay.x)/(run.last-run.first+1)}
@@ -65,3 +65,5 @@ export function colonyBalconies(spec:BlockSpec,design:ReturnType<typeof colonyBu
  }
  return {style:rail?'rail':'solid',sections,dividers}
 }
+
+export const BALCONY_COLLISION_SECTION_LIMIT=64

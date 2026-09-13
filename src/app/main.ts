@@ -773,13 +773,14 @@ export const bootstrapApp = async () => {
         const riverEntrance=cityscape.getInteriorVisit('river')
         if(riverEntrance)outingDestinations.set('guide-river',{label:'Riverside',entrance:riverEntrance,bay:null})
         parkedCars.reserve(bays)
-      } else parkedCars.reserve(bay)
+        cityscape.setCarShareBays(bays)
+      } else {parkedCars.reserve(bay);cityscape.setCarShareBays(bay?[bay]:[])}
     }
     if (key === carLayoutKey) return
     carLayoutKey = key
     carShareStation.configure(bay, habitatConfig.radius)
     drive.parkAt(bay?.azimuth ?? Math.min(4.5, habitatConfig.radius * .2) / habitatConfig.radius,
-      bay?.axial ?? 0, bay?.heading ?? 0, bay ? .2 : 0)
+      bay?.axial ?? 0, bay?.heading ?? 0, bay ? bay.height??.2 : 0)
     car.setPose(drive.surface.azimuth, drive.surface.axialPosition, drive.heading, habitatConfig.radius - drive.parkedElevation)
   }
 
@@ -1176,7 +1177,7 @@ export const bootstrapApp = async () => {
       ? {label:'Your car',entrance:carPoint,bay:null} : outingDestinations.get(journey.action)
     if(!plan||!destination){journey.setRoute(null,drive.driving,'Directions unavailable');return}
     const goal=drive.driving ? destination.bay : destination.entrance
-    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition,groundHeight:playerTraversal.groundHeight},goal,drive.driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict()) : null,
+    journey.setRoute(goal ? planNeighborhoodRoute(plan,radius,{azimuth:position.azimuth,axial:position.axialPosition,groundHeight:playerTraversal.groundHeight},goal,drive.driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict(),cityscape.getCarShareBays()) : null,
       drive.driving, destination.label)
     routeRetry=0
   }
@@ -1196,7 +1197,7 @@ export const bootstrapApp = async () => {
       const plan=cityscape.getCityPlan()
       if(!plan || !pavementExit(plan,habitatConfig.radius,bay,drive.heading))return false
       // A deliberate parking action assists only the final two metres.
-      drive.parkAt(bay.azimuth,bay.axial,drive.heading,.2)
+      drive.parkAt(bay.azimuth,bay.axial,drive.heading,bay.height??.2)
       drive.lastRotatingVelocity.set(0,0,0);drive.lastSpeed=0
       exitDrive(true);refreshJourney();return true
     }
@@ -1347,7 +1348,7 @@ export const bootstrapApp = async () => {
               habitatConfig.radius,
               getSidewalkWidth(habitatConfig.radius, span),
               isOpenSquare,
-              cityscape.getRiverDistrict()?.sidewalkCuts ?? []
+              cityscape.getStreetSidewalkCuts()
             )
           : []
       sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
@@ -1612,7 +1613,7 @@ export const bootstrapApp = async () => {
         const up=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)).transformDirection(cityscape.group.matrixWorld)
         desktopLookControls.cancelIntroReveal();desktopLookControls.faceDirection(direction,up)
       },
-      route:(start:{azimuth:number;axial:number;groundHeight?:number},goal:{azimuth:number;axial:number;groundHeight?:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict())}
+      route:(start:{azimuth:number;axial:number;groundHeight?:number},goal:{azimuth:number;axial:number;groundHeight?:number},driving:boolean)=>planNeighborhoodRoute(cityscape.getCityPlan()!,habitatConfig.radius,start,goal,driving,cityscape.getPublicPark(),cityscape.getPublicUnderpass(),cityscape.getRiverDistrict(),cityscape.getCarShareBays())}
     ;(window as unknown as Record<string, unknown>).__spinwardDrive = {
       runtime: drive,
       world: physicsWorld,

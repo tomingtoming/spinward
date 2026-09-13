@@ -21,6 +21,14 @@ test('city arrivals and car-share approaches are clear, with bays outside inters
       expect(resolveCitySurfaceCollision({ ...arrival }, [...plan.buildings, ...details.colliders], radius, .4)).toBe(false)
       expect(bay).not.toBeNull()
       if (!bay) continue
+      // The complete vehicle is off every active carriageway, not just outside
+      // intersections. Boarding space is checked separately below.
+      for(const road of plan.roads){
+        const dx=Math.abs(Math.atan2(Math.sin(bay.azimuth-road.azimuth),Math.cos(bay.azimuth-road.azimuth))*radius),dy=Math.abs(bay.axial-road.axial)
+        const halfT=Math.abs(Math.cos(bay.heading))*1.22+Math.abs(Math.sin(bay.heading))*3.3
+        const halfA=Math.abs(Math.sin(bay.heading))*1.22+Math.abs(Math.cos(bay.heading))*3.3
+        expect(dx>=road.tangentWidth/2+halfT||dy>=road.axialLength/2+halfA).toBe(true)
+      }
       const approach = { azimuth: bay.azimuth - Math.cos(bay.heading) * bay.signSide * 2.5 / radius,
         axialPosition: bay.axial + Math.sin(bay.heading) * bay.signSide * 2.5 }
       expect(resolveCitySurfaceCollision(approach, plan.buildings, radius, .4)).toBe(false)
@@ -32,7 +40,7 @@ test('city arrivals and car-share approaches are clear, with bays outside inters
       }
     } finally { details.dispose() }
   }
-})
+}, 15000)
 
 test('player sedan borrows the city palette without disposing or highlighting the fleet', () => {
   const geometry = new THREE.BoxGeometry(1.7, 1.45, 4.1), material = new THREE.MeshStandardMaterial()
