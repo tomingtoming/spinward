@@ -14,6 +14,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {createLandscapeCrown,createMeadowTexture} from './landscapeVegetation'
 import { sampleNeighborhoodTurn, junctionMajorBusy, turnYieldGap, TURN_APPROACH, TURN_LENGTH, type NeighborhoodTurn } from './neighborhoodTurn'
 import { advanceTraffic, canSpawnTrafficAt, crossingGap, fillLaneLeaderGaps, type CrossingGate } from './trafficMotion'
+import { trafficPedestrianGap, type TrafficPedestrian } from './trafficPedestrian'
 import { planTrafficRoadSpans, remapTrafficMotion, trafficRoadKey, trafficRoadSeed, type TrafficRoadSpan } from './trafficRoadSpans'
 import { createTrafficSignalIndex, routeTrafficSignals, trafficSignalGap, type TrafficSignalStop } from './intersectionSignals'
 import { planNyaanApartment } from './nyaanApartment'
@@ -897,6 +898,8 @@ export class Cityscape {
   }
   private crossingGate: CrossingGate | null = null
   setCrossingGate(gate: CrossingGate | null) { this.crossingGate = gate }
+  private trafficPedestrian: TrafficPedestrian | null = null
+  setTrafficPedestrian(person: TrafficPedestrian | null) { this.trafficPedestrian = person }
   getTrafficPositions() {
     return this.trafficRoutes.map((route,index) => {
       if(this.neighborhoodTurn&&index===this.trafficRoutes.length-1)return {...sampleNeighborhoodTurn(this.neighborhoodTurn,this.turnMotion.progress),speed:this.turnMotion.speed}
@@ -1202,6 +1205,8 @@ export class Cityscape {
       }
       if(this.crossingGate&&this.turnMotion.progress>=TURN_APPROACH)
         gap=Math.min(gap,crossingGap(this.crossingGate,this.radius,'street',own.azimuth,own.axial,-1))
+      gap=Math.min(gap,trafficPedestrianGap({...own,height:.2},this.trafficPedestrian,this.radius,
+        ahead=>({...sampleNeighborhoodTurn(junction,this.turnMotion.progress+ahead),height:.2}),TURN_LENGTH-this.turnMotion.progress))
       this.turnMotion=advanceTraffic(this.turnMotion,deltaSeconds,this.turnMotion.progress<TURN_APPROACH?6:4,gap)
       if(this.turnMotion.progress>=TURN_LENGTH)this.turnMotion={progress:0,speed:0}
     }
@@ -1231,6 +1236,8 @@ export class Cityscape {
       const previousAlong = route.direction === 1 ? route.spanStart + previous : route.spanStart + route.spanLength - previous
       let gap = leaderGaps.get(index) ?? Infinity
       const isTurn=!!junction&&index===this.trafficRoutes.length-1
+      if(!isTurn)gap=Math.min(gap,trafficPedestrianGap(snapshot[index],this.trafficPedestrian,this.radius,
+        route.path?ahead=>sampleRiverTraffic(route.path!,route.motion!.progress+ahead):undefined))
       if(route.path){
         const others=snapshot.filter((_,i)=>i!==index)
         gap=Math.min(gap,trafficFollowingGap(snapshot[index],others,this.radius),riverTrafficYieldGap(route.path,route.motion.progress,others))

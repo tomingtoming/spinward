@@ -3,7 +3,7 @@ import { planSidewalkSegments } from './sidewalks'
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { planCity, buildCityCollisionIndex, getCityGroundHeight, resolveCitySurfaceCollision, type CityBuilding } from './cityLayout'
-import { planRiverDistrict, riverCentre, riverWalkHeight, sampleRiverRoad } from './riverDistrictPlan'
+import { planRiverDistrict, riverCentre, riverWalkHeight, sampleRiverRoad, riverRoadGeometry } from './riverDistrictPlan'
 import { cityBlockCollision } from './authoredCityBlockPlan'
 import { colonyBuildingSpec } from './colonyBuildingPlan'
 import { initRapier } from '../physics/rapierContext'
@@ -12,6 +12,23 @@ import { createUnitsContext } from '../units/units'
 import { collideSphereWithBuildings } from '../sim/cityCollision'
 const R=3200,L=40000
 const city=planCity({radius:R,length:L,maxBuildings:64000}),p=planRiverDistrict(city,R)!
+
+test('both raised sidewalk risers occlude sightlines into the river below',()=>{
+ const vertices=p.surfaces.filter(s=>s.material==='stone').flatMap(({collider:b})=>{
+  const v=b.surfaceMesh!,x=(b.azimuth-p.azimuth)*R,y=b.axial-p.axial
+  return Array.from({length:v.length/3},(_,i)=>[v[i*3]+x,v[i*3+2],v[i*3+1]+y]).flat()
+ })
+ const geometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(vertices,3))
+ const material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),mesh=new THREE.Mesh(geometry,material),ray=new THREE.Raycaster()
+ const {point}=riverRoadGeometry(p,R)
+ for(const side of [-1,1])for(let x=-65;x<65;x+=2.7){
+  const a=point(x,0,.27),b=point(x,side*3.5,.27),origin=new THREE.Vector3(a[0],a[2],a[1]),target=new THREE.Vector3(b[0],b[2],b[1])
+  ray.set(origin,target.clone().sub(origin).normalize());ray.far=4
+  const hits=ray.intersectObject(mesh)
+  expect(hits.length).toBeGreaterThan(0);expect(hits[0].distance).toBeCloseTo(3.5,3)
+ }
+ geometry.dispose();material.dispose()
+})
 
 test('river district occupies an empty block and joins the same roads across quality tiers',()=>{
  expect(p).not.toBeNull()

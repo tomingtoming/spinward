@@ -132,7 +132,12 @@ export function planRiverDistrict(city: CityPlan, radius: number): RiverDistrict
     const a = left + i * (right - left) / n, b = left + (i + 1) * (right - left) / n
     if (i % 4 < 2) surface('paint', quad(roadPoint(a, -.055, .208), roadPoint(b, -.055, .208), roadPoint(b, .055, .208), roadPoint(a, .055, .208)), false)
     surface('road', quad(roadPoint(a, -3.5, .2), roadPoint(b, -3.5, .2), roadPoint(b, 3.5, .2), roadPoint(a, 3.5, .2)), true, true)
-    for (const side of [-1, 1]) surface('stone', quad(roadPoint(a, side * 3.5, .34), roadPoint(b, side * 3.5, .34), roadPoint(b, side * 5.8, .34), roadPoint(a, side * 5.8, .34)), true, true)
+    for (const side of [-1, 1]) {
+      surface('stone', quad(roadPoint(a, side * 3.5, .34), roadPoint(b, side * 3.5, .34), roadPoint(b, side * 5.8, .34), roadPoint(a, side * 5.8, .34)), true, true)
+      // Close the 14cm riser. Without this face a street-level sightline sees
+      // through the raised walkway into the river or grass below it.
+      surface('stone', quad(roadPoint(a, side * 3.5, .2), roadPoint(b, side * 3.5, .2), roadPoint(b, side * 3.5, .34), roadPoint(a, side * 3.5, .34)), false)
+    }
   }
   // Original masonry arch: deck carries the diagonal street, the lower paths
   // remain open beneath both springings. The Blender asset follows this recipe.

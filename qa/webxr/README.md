@@ -566,3 +566,38 @@ Garden street is now a real Places / Directions destination on PC, phone and VR.
 The complete suite passed **23 tests in 5.3 minutes**. Enlarged texture review then exposed the application's new fifth button row overlapping the direction text. A shared footer now reserves two instruction lines while retaining 290×80 buttons; a regression check covers text/target separation. The Garden hint also reports remaining walking distance. These final changes passed **six relevant XR UI tests in 1.3 minutes**, including the existing directions and both exit/re-entry cases.
 
 Unit tests: **897 passed**; TypeScript and build passed. Four entrance round trips and approximately 48 m of guided walking on desktop / Quest budgets also passed using actual keys. [Observations, scope and remaining work](../neighborhood-life/garden-directions.md). Evidence is under `evidence/garden-directions-20260913/` (ignored), with baseline, overlap and final UI captures kept separate. No package failure was observed. Validation remains Chrome 152 / Apple M1 Pro / ANGLE Metal emulation, with self-reviewed images; physical headset behavior is untested.
+
+
+## Traffic yielding to the player — 2026-09-13
+
+`body-traffic.xr.mjs` uses playwright-webxr **0.3.0** to enter through Menu, wait
+for an actual ambient car to stop before the grounded body, observe it in
+stereo at 0/±25° head roll, then walk sideways using the left controller stick.
+The car resumes when the body clears its lane; the player stays on the 5.34 m
+bridge sidewalk. Vehicle/body positions and clocks are never written. The
+public frame, screenshot and session-ending helpers retain session-ID checks.
+
+The initial full suite passed **24 tests in 6.1 minutes**. Follow-up side views
+exposed a missing 14 cm face between the bridge road and sidewalk. Adding 432
+triangles to the existing stone batch closes the gap, with the same 1,063
+colliders. The final build passed **11 affected traffic, river, Garden, covered
+walk and wrist/UI tests in 3.4 minutes**, including both exit/re-entry scenarios,
+without retries. All **901 unit tests** and TypeScript/production build passed.
+
+An intermediate fixture rejected 1.73 mm of car movement while the live body
+settled on the curved support. It now checks stopped speed, stable clearance
+to the body and bounded body settling separately. This was a fixture tolerance
+failure, not a package failure; its trace is preserved. No 0.3.0 package failure
+was observed in the final flows. At the bridge centre, the final probe records
+3.742 m centre-to-body clearance, then 10.191 m of resumed travel at 5 m/s.
+
+Independent review of final day/night passing images confirms the old water/
+railing slit is closed. The final stereo images retain matching car/road/curb
+geometry in both eyes at all three rolls, without observed one-eye loss or
+world detachment. Exact tyre contact and continuous head movement are outside
+that still-image review. Chrome 152 / Apple M1 Pro / ANGLE Metal remains the
+tested environment; physical Quest performance and comfort are unmeasured.
+
+Evidence, including the full initial run, failed fixture, final run and source
+mesh investigation, is under `evidence/body-traffic-20260913/` (ignored).
+[Behaviour, cost, reference provenance and limits](../neighborhood-life/body-traffic.md).

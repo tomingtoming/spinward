@@ -1605,10 +1605,12 @@
       "sha256": "3d436a496f758f8aa88f392078f5038e78ca33ad8b50fb4c3fe073da4dfc9a28",
       "size": 1161253,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-13",
       "finding": "street-signals",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "元解像度で再確認。交差点を囲む横断歩道、車道と歩道、人物と車の縮尺が見える。車の傾きや空中の紙片の原因は断定せず、平時の運転挙動へ採用しない。静止画から歩行者優先や信号運用は推定できない。",
+      "relatedWork": "qa/neighborhood-life/body-traffic.md: プレイヤーを認識する停止処理はSpinward側の機能改善。画像から新しい造形・交通規則を採用した成果ではなく、implementationはpendingを維持する。"
     },
     {
       "id": "izma-ep07-0093",

@@ -74,6 +74,7 @@ import {
   disposePlayerTraversalState,
   evaluateReattachPlayer,
   getIdleLocomotionIntent,
+  getPlayerBodyRadius,
   getPlayerTraversalRegion,
   mergeLocomotionIntent,
   resetPlayerToFreeFly,
@@ -2888,6 +2889,11 @@ export const bootstrapApp = async () => {
       height: drive.driving ? drive.lastElevation : playerTraversal.groundHeight,
       altitude: habitatConfig.radius-Math.hypot(rotatingCameraPosition.x,rotatingCameraPosition.z) },
       drive.driving ? { azimuth: drive.surface.azimuth, axial: drive.surface.axialPosition, height: drive.lastElevation } : null)
+    cityscape.setTrafficPedestrian(drive.driving ? null : {
+      azimuth:playerAzimuth, axial:playerFixedColliderPosition.y,
+      height:playerTraversal.mode==='grounded' ? playerTraversal.groundHeight
+        : getPlayerBodyRadius(habitatConfig.radius)-Math.hypot(playerFixedColliderPosition.x,playerFixedColliderPosition.z)
+    })
     cityscape.update(deltaSeconds)
     intersectionFurniture.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
