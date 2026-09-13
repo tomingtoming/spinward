@@ -35,10 +35,10 @@ import { planPublicPark } from './publicPark'
 import { StreetAccessLayer } from './streetAccessLayer'
 import { STREET_PROFILES, streetLaneCenters, streetLaneDividers } from './streetProfile'
 import { buildRoadTileSurface } from './roadTileSurface'
-import { compileRoadNetwork } from './roadNetwork'
+import { StreetSurfacePlan } from './streetSurfacePlan'
 import { StreetNetwork } from './streetNetwork'
 import { legacyStreetPaths } from './streetPath'
-import { buildRoadSurfaceGeometry } from './roadSurfaceGeometry'
+import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 
 import {
   ISLAND_THREE_TOPOLOGY,
@@ -1398,6 +1398,7 @@ export class Cityscape {
     }
     const curved=this.habitatType==='cylinder'?planCurvedNeighborhood(plan,radius):null
     plan.streetNetwork=new StreetNetwork([...legacyStreetPaths(plan.roads),...(curved?[curved.street,...curved.streetLinks]:[])],radius)
+    plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork.streets,radius)
     this.curvedNeighborhood.rebuild(curved,radius)
     if(curved)plan.trees=plan.trees.filter(t=>Math.abs(Math.atan2(Math.sin(t.azimuth-curved.azimuth),Math.cos(t.azimuth-curved.azimuth)))*radius>curved.patch.tangentExtent/2||Math.abs(t.axial-curved.axial)>curved.patch.axialExtent/2)
     this.riverLayer.rebuild(this.riverDistrict, radius)
@@ -1446,7 +1447,7 @@ export class Cityscape {
     this.trafficSignals = createTrafficSignalIndex(this.habitatType === 'ring' ? [] : plan.intersections)
     this.buildBuildings(plan.buildings)
     this.rebuildRoadTiles()
-    this.buildRoads(plan.roads, radius)
+    this.buildRoads(plan.streetSurfaces, radius)
     this.buildPatches(plan.patches, radius, length)
     this.buildTrees(plan.trees, radius)
     this.buildHeroUtilities(plan.roads, radius)
@@ -2353,12 +2354,12 @@ export class Cityscape {
     this.updateTraffic(0)
   }
 
-  private buildRoads(roads: CityRoad[], radius: number) {
-    const network = compileRoadNetwork(roads, radius)
+  private buildRoads(network: StreetSurfacePlan, radius: number) {
+    const pavement=network.roadSurfaces()
     for (const kind of ['arterial', 'collector', 'local', 'alley', 'junction'] as const) {
-      const surfaces = network.surfaces.filter(road => kind === 'junction'
-        ? road.junction : !road.junction && road.kind === kind)
-      const merged = buildRoadSurfaceGeometry(surfaces, radius, ROAD_TEXTURE_WORLD_METERS)
+      const surfaces = pavement.filter(road => kind === 'junction'
+        ? road.junction : !road.junction && road.source.kind === kind)
+      const merged = buildStreetSurfaceGeometry(surfaces, radius, ROAD_TEXTURE_WORLD_METERS)
       if (merged === null) {
         continue
       }
@@ -2373,6 +2374,8 @@ export class Cityscape {
             ? this.localRoadMaterial
             : this.alleyMaterial
       )
+      mesh.name = `street-surface-${kind}`
+      mesh.userData.surfaces = surfaces.length
       mesh.renderOrder = 1
 
       if (kind === 'arterial') {

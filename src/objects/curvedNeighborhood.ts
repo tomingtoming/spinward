@@ -35,7 +35,7 @@ export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighb
  if(left< -135||right>135)return null
  const span=(right-left)/2
  const knots:RoadKnot[]=[{point:[left,-45],tangent:[span,0]},{point:[(left+right)/2,12],tangent:[span,28]},{point:[right,38],tangent:[span,0]}]
- const street:StreetPath={id:'garden',azimuth,axial,knots,width:6,kind:'local',level:0,groundHeight:.2}
+ const street:StreetPath={id:'garden',surfaceOwner:'authored',azimuth,axial,knots,width:6,kind:'local',level:0,groundHeight:.2}
  // The shared junction connection runs from each avenue centre to the curve's
  // edge. This portion already has the avenue's visible and physical road.
  const streetLinks=[west,east].map((road,i)=>{

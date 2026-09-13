@@ -1356,7 +1356,8 @@ export const bootstrapApp = async () => {
               cityscape.getStreetSidewalkCuts()
             )
           : []
-      sidewalks.setPlan(sidewalkSegments, habitatConfig.radius)
+      sidewalks.setSurfaces(cityPlan?.streetSurfaces && habitatConfig.type!=='ring' && getSidewalkWidth(habitatConfig.radius,span)>0
+        ? cityPlan.streetSurfaces.sidewalks(isOpenSquare,cityscape.getStreetSidewalkCuts()) : [],habitatConfig.radius)
       playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
       playerBodyView.motion.reset()
       streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict(), cityscape.curvedNeighborhood.plan)

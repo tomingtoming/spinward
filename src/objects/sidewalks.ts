@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { StreetSurface } from './streetSurfacePlan'
+import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 
 import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArcSegments, getThetaStart } from './cityscape'
@@ -186,6 +188,15 @@ export class Sidewalks {
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = 1
     this.group.add(this.mesh)
+  }
+
+  setSurfaces(surfaces:StreetSurface[],radius:number){
+    this.clear()
+    const geometry=buildStreetSurfaceGeometry(surfaces,radius,SIDEWALK_TEXTURE_METERS)
+    if(!geometry)return
+    this.mesh=new THREE.Mesh(geometry,this.material)
+    this.mesh.name='street-surface-sidewalks';this.mesh.userData.surfaces=surfaces.length
+    this.mesh.frustumCulled=false;this.mesh.renderOrder=1;this.group.add(this.mesh)
   }
 
   private clear() {

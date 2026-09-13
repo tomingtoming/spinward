@@ -1612,7 +1612,7 @@
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元解像度で再確認。交差点を囲む横断歩道、車道と歩道、人物と車の縮尺が見える。車の傾きや空中の紙片の原因は断定せず、平時の運転挙動へ採用しない。静止画から歩行者優先や信号運用は推定できない。",
-      "relatedWork": "qa/neighborhood-life/body-traffic.md: プレイヤーを認識する停止処理はSpinward側の機能改善。画像から新しい造形・交通規則を採用した成果ではなく、implementationはpendingを維持する。"
+      "relatedWork": "qa/neighborhood-life/body-traffic.md: プレイヤーを認識する停止処理はSpinward側の機能改善。画像から新しい造形・交通規則を採用した成果ではなく、implementationはpendingを維持する。 2026-09-13: qa/neighborhood-life/street-surfaces.mdで全市の路面・歩道の共通多角形処理を検証。再閲覧で歩道・共有車道の関係を確認したが、作品固有の角丸・表示の新規採用ではなくpendingを保持。"
     },
     {
       "id": "izma-ep07-0093",

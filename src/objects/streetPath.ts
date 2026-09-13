@@ -6,6 +6,7 @@ import { sampleRoadCurve, type RoadKnot } from './roadCurve'
 export type StreetPath = {
   id: string; azimuth: number; axial: number; kind: RoadKind; width: number
   knots: RoadKnot[]; level: number; groundHeight: number
+  surfaceOwner?: 'authored'; walkHeight?: number
 }
 export type StreetPathSample = ReturnType<typeof sampleRoadCurve> & { t: number }
 
@@ -57,7 +58,7 @@ export function legacyStreetPaths(roads: readonly CityRoad[]): StreetPath[] {
     const axial = road.axialLength > road.tangentWidth
     const dx = axial ? 0 : road.tangentWidth, dy = axial ? road.axialLength : 0
     return { id: road.id ?? `road-${index}`, azimuth: road.azimuth, axial: road.axial,
-      width: axial ? road.tangentWidth : road.axialLength, kind: road.kind, level: 0, groundHeight: 0,
+      width: axial ? road.tangentWidth : road.axialLength, kind: road.kind, level: 0, groundHeight: 0, walkHeight: axial ? .32 : .33,
       knots: [{ point: [-dx / 2, -dy / 2], tangent: [dx, dy] },
         { point: [dx / 2, dy / 2], tangent: [dx, dy] }] }
   })

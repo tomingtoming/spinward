@@ -665,3 +665,34 @@ Exact tyre contact is hidden in the frontal view. Continuous motion, exact
 disparity and physical Quest comfort/performance remain unmeasured.
 Chrome 152 / Apple M1 Pro / ANGLE Metal; full final artifacts are in
 `evidence/street-network-20260913/xr-final/`.
+
+
+## Native pavement polygons — 2026-09-13
+
+All 13,173 ground streets now render through the shared polygon compiler;
+ordinary street sidewalks use the same clipping and cylindrical geometry.
+The current layout and the authored Garden floor/ramps are preserved.
+Native crossings own shared asphalt once, and sidewalks are cut against
+carriageways and each other. The full-city road area and triangle count match
+the old compiler; the common-input sidewalk geometry loses 93,940 triangles.
+Generation CPU cost increases and is reported separately from rendering.
+
+`street-surfaces.xr.mjs` enters VR through the actual desktop Menu, verifies
+all six pavement batches through stereo 0/±25° roll, then walks with the real
+left controller and exits. It checks geometry/material identity, transforms,
+2560×960 captures and the current session ID using playwright-webxr 0.3.0.
+The dedicated run passed and moved about 3.03 m while remaining grounded.
+Independent review found no visible holes, one-eye loss or kerb detachment
+in those four captures. Six desktop before/after pairs also had no new
+confirmed defect. An initial crosswalk-shortening concern was withdrawn
+after exact-coordinate comparison showed a maximum RGB difference of 1/255.
+Physical Quest performance/comfort and exact tyre/foot contact are unmeasured.
+
+The same final application build passed all 26 XR tests in 6.8 minutes with
+retries disabled, including body/traffic yielding, upstairs access, river,
+Garden, walking directions and wrist UI regressions. Full artifacts are in
+`evidence/street-surfaces-20260913/xr-final/`.
+
+Details, CPU/triangle measurements and the remaining migration:
+[Native road and sidewalk surfaces](../neighborhood-life/street-surfaces.md).
+Evidence: `evidence/street-surfaces-20260913/` (ignored).
