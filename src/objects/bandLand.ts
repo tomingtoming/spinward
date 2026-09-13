@@ -4,16 +4,23 @@ import type { BandCentre, BandPoint, BandSite } from './bandStreetPlan'
  * Physical strip bounds and independent land-use centres precede roads.
  * The existing river bridge is one retained anchor. New water reaches and
  * crossing candidates are provisional until terrain and transport review. */
-export function proposedBandLand(): BandSite {
-  const river: BandPoint[]=[
+export function proposedBandRiver(): BandPoint[] {
+  return [
     [220,-20100],[-210,-17100],[320,-13500],[90,-10000],
     [520,-5800],[280,-1800],[564.244684642744,1445.8064516129052],
     [470,4100],[-120,7400],[240,10100],[80,13300],[-260,16900],[120,20100]
   ]
-  const bankX=(y:number)=>{
-    const i=river.findIndex((p,j)=>j>0&&p[1]>=y),a=river[i-1],b=river[i]
-    return a[0]+(b[0]-a[0])*(y-a[1])/(b[1]-a[1])
-  }
+}
+
+/** The reservation and elevation model use the same authored river alignment. */
+export function bandRiverCentre(y:number,river=proposedBandRiver()) {
+  if(!Number.isFinite(y)||y<river[0][1]||y>river.at(-1)![1])throw Error('Outside river alignment')
+  const i=river.findIndex((p,j)=>j>0&&p[1]>=y),a=river[i-1],b=river[i]
+  return a[0]+(b[0]-a[0])*(y-a[1])/(b[1]-a[1])
+}
+
+export function proposedBandLand(): BandSite {
+  const river=proposedBandRiver(),bankX=(y:number)=>bandRiverCentre(y,river)
   const reserve=155 // water/bank envelope plus space for future road and sidewalk widths
   const water={id:'river',kind:'water' as const,polygon:[...river.map(([x,y])=>[x-reserve,y] as BandPoint),...[...river].reverse().map(([x,y])=>[x+reserve,y] as BandPoint)]}
   const centres: BandCentre[]=[

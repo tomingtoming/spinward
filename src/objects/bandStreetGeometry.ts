@@ -78,13 +78,38 @@ export function refineBandRoads(input:BandRoad[],site:BandSite,servedPoints:Band
       })).sort((a,b)=>Number(a.branch.kind==='arterial')-Number(b.branch.kind==='arterial')||distance(p,a.end)-distance(p,b.end))
       for(const {end,hostEnd,branch} of alternatives) {
         if(protectedRoad(branch))continue
-        let join=projection(end,p,hostEnd)
-        if(distance(join,hostEnd)<20)join=hostEnd
+        let host=roads.find(r=>(same(r.from,p)&&same(r.to,hostEnd))||(same(r.to,p)&&same(r.from,hostEnd)))!
+        let hostFrom=p,hostTo=hostEnd,join=projection(end,p,hostEnd)
+        const branchProfile=getStreetProfile(branch.kind),hostProfile=getStreetProfile(host.kind)
+        const localEnvelope=(branchProfile.carriageway+hostProfile.carriageway)/2+branchProfile.sidewalk+hostProfile.sidewalk
+        const followHost=distance(end,join)>localEnvelope
+        // A junction splits a continuous host into graph edges. Follow its
+        // forward continuation so a parallel approach can join at the far end,
+        // rather than just moving the needle to the next intersection.
+        const visited=new Set<BandRoad>([host,branch])
+        let previous=p,current=hostEnd,travel=distance(p,hostEnd)
+        while(followHost&&!isFixed(current)&&travel<distance(p,end)*1.5+100){
+          const dx=current[0]-previous[0],dy=current[1]-previous[1],span=Math.hypot(dx,dy)
+          const continuations=roads.flatMap(r=>{
+            if(visited.has(r)||protectedRoad(r)||r.kind!==host.kind)return []
+            const point=same(r.from,current)?r.to:same(r.to,current)?r.from:null
+            if(!point)return []
+            const length=distance(current,point),alignment=((point[0]-current[0])*dx+(point[1]-current[1])*dy)/(span*length)
+            return alignment>Math.cos(Math.PI/6)?[{r,point,alignment,length}]:[]
+          }).sort((a,b)=>b.alignment-a.alignment)
+          const next=continuations[0]
+          if(!next)break
+          visited.add(next.r)
+          const q=projection(end,current,next.point)
+          if(distance(end,q)<distance(end,join)){join=q;host=next.r;hostFrom=current;hostTo=next.point}
+          previous=current;current=next.point;travel+=next.length
+        }
+        if(distance(join,hostTo)<20)join=hostTo
+        else if(distance(join,hostFrom)<20)join=hostFrom
         if(distance(p,join)<20)continue
         // If the entire approach lies within one pavement envelope, move its
         // unfixed outer meeting onto the shared road instead of retaining a
         // tiny connector inside the carriageway. All attached roads follow.
-        const host=roads.find(r=>(same(r.from,p)&&same(r.to,hostEnd))||(same(r.to,p)&&same(r.from,hostEnd)))!
         const a=getStreetProfile(branch.kind),b=getStreetProfile(host.kind),envelope=(a.carriageway+b.carriageway)/2+a.sidewalk+b.sidewalk
         if(distance(end,join)<envelope&&!isFixed(end)&&!roads.some(r=>protectedRoad(r)&&(same(r.from,end)||same(r.to,end)))) {
           const candidate=roads.flatMap(r=>{

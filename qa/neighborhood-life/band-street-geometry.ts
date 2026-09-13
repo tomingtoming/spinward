@@ -50,7 +50,7 @@ const html=`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="vie
 <main><p class="muted">SPINWARD / 一居住帯の道路形状</p><h1>近い交差点をまとめ、並走する合流を共有する</h1>
 <p>車道は幹線19.5m・集散道路12m、歩道は片側3m・2.5m。線幅を誇張せず、共通の路面生成処理が作る多角形を表示します。</p>
 <p class="muted">全域案の一般道を検討する段階です。現行コロニーの配置には未反映。橋や高速道路の高さ・ランプの設計は含みません。</p>
-<div class="controls"><label>場所 <select id="focus"><option value="south">南端ICの近接合流</option><option value="east">東岸の合流</option><option value="short">公園地区の0.64m区間</option><option value="north">北部の残る鋭角</option></select></label><label><input id="lines" type="checkbox" checked>中心線を表示</label></div>
+<div class="controls"><label>場所 <select id="focus"><option value="south">南端ICの近接合流</option><option value="east">東岸の合流</option><option value="short">公園地区の0.64m区間</option><option value="north">北部の接近路の共有</option></select></label><label><input id="lines" type="checkbox" checked>中心線を表示</label></div>
 <p id="focus-note" role="status"></p><p class="legend">濃灰：車道　薄灰：歩道　紫：専用道路の予約地　赤円：30°未満の合流　橙点：固定した地区中心・IC。両図は同じ範囲・縮尺。</p>
 <div class="compare"><article><h2>整理前</h2><p class="metric">鋭角 ${after.before.sharp.length} / 20m未満の交差点間 ${after.before.short.length}</p>${map(before,0)}</article><article><h2>整理後</h2><p class="metric">鋭角 ${after.remaining.sharp.length} / 20m未満の交差点間 ${after.remaining.short.length}</p>${map(after,1)}</article></div>
 <h2>円筒面へ変換した路面の形状確認</h2><p class="muted">上の多角形から実行アプリと同じメッシュ生成器で作成。建物・地形・照明を省いた検査表示です。歩道端・交差部の角丸や勾配は今後の工程です。</p>

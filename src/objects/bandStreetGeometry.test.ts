@@ -39,6 +39,15 @@ test('two fixed gates cannot be merged merely to satisfy a minimum-link target',
   expect(result.edits).toEqual([]);expect(result.remaining.short).toHaveLength(1)
 })
 
+test('sharing follows the host through an intermediate junction to its fixed gate',()=>{
+  const input=[road([-100,0],[0,0],'arterial'),road([0,0],[200,0],'arterial'),road([200,0],[500,0],'arterial'),
+    road([200,0],[200,100]),road([0,0],[500,30]),road([500,30],[600,60])]
+  const result=refineBandRoads(input,{...site,accesses:[{id:'gate',point:[500,0],serves:[]}]},[[450,20],[600,60]])
+  expect(result.remaining.sharp).toEqual([])
+  expect(result.roads.some(r=>(near(r.from,[500,0])&&near(r.to,[500,30]))||(near(r.to,[500,0])&&near(r.from,[500,30])))).toBe(true)
+  expect(bandGraph(result.roads).components).toBe(1)
+})
+
 test('sharing an approach cannot cut protected land or create a crossing between disconnected banks',()=>{
   const input=[road([-400,0],[-200,0]),road([-200,0],[-100,0]),road([-200,0],[-150,5]),road([-150,5],[-100,100]),road([100,-100],[100,100])]
   const land={...site,reserves:[{id:'water',kind:'water' as const,polygon:[[-20,-1000],[20,-1000],[20,1000],[-20,1000]] as BandPoint[]},
@@ -51,7 +60,7 @@ test('sharing an approach cannot cut protected land or create a crossing between
 test('whole-band refinement preserves every named anchor, crossing and reachable demand',()=>{
   const original=bandGraph(planned.roads),g=bandGraph(geometry.roads)
   expect(g.components).toBe(1);expect(geometry.remaining.short).toEqual([])
-  expect(geometry.remaining.sharp.length).toBeLessThan(geometry.before.sharp.length)
+  expect(geometry.remaining.sharp).toEqual([])
   for(const p of [...planned.site.centres.map(c=>c.point),...planned.site.accesses!.map(a=>a.point),...planned.site.crossings.flatMap(c=>[c.from,c.to])]) {
     if(original.points.some(q=>near(p,q)))expect(g.points.some(q=>near(p,q))).toBe(true)
   }

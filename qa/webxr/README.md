@@ -5,7 +5,18 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, road width and endpoint bevels): **2 passed,
+Latest focused verification (2026-09-14, river/road elevations): **2 passed in
+59.6 seconds** on one fixed build. playwright-webxr **0.3.0**, Chrome 152 / Apple
+M1 Pro / ANGLE Metal. Actual desktop-menu and Quest-style entry, wrist menus,
+controller input ownership, stereo head roll, exit/re-entry and stale-session
+rejection passed. Four sessions and four exits; emulation only. This regression
+checks the existing inhabited colony, not the independent elevation proposal.
+Unit tests ran separately: **1,016 passed**, TypeScript/build passed. The earlier
+body-drift observation below is still unresolved and was not retested here.
+Evidence: `evidence/band-elevation-20260914/xr/`; fixed bundle and scope:
+[river and transport elevations](../neighborhood-life/band-elevation.md).
+
+Previous focused verification (2026-09-14, road width and endpoint bevels): **2 passed,
 about 1.1 minutes** on the final fixed build. Desktop-menu and Quest-style entry,
 wrist UI, controller input ownership, stereo roll, exit and re-entry passed with
 playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro / ANGLE Metal. Four sessions
