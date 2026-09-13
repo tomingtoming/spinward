@@ -1,3 +1,5 @@
+import { streetPathSamples, sampleStreetPath, type StreetPath } from './streetPath'
+import { buildingFootprint } from './streetFrontage'
 import {planBuildingInteriors} from './buildingInteriors'
 import {planNyaanApartment} from './nyaanApartment'
 import type {BlockSpec} from './authoredCityBlockPlan'
@@ -103,6 +105,23 @@ const createBakeContext = (
 // footprints crossing the U seam wrap instead of clipping. Sizes are FULL
 // extents in surface metres, centred on (azimuth, axial) — the same
 // convention as CityRoad / CityPatch / parcel extents.
+const bakePolygon = (bake:BakeContext,azimuth:number,axial:number,points:{x:number;y:number}[])=>{
+  const {ctx}=bake,x=azimuthToShellU(azimuth)*bake.width,y=axialToShellYFraction(axial,bake.length)*bake.height
+  for(const shift of [-bake.width,0,bake.width]){
+    ctx.beginPath()
+    points.forEach((p,i)=>{const px=x+shift-p.x*bake.metersToPxX,py=y-p.y*bake.metersToPxY;if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)})
+    ctx.closePath();ctx.fill()
+  }
+}
+const bakeStreet=(bake:BakeContext,path:StreetPath,margin=0)=>{
+  const samples=streetPathSamples(path),half=(path.width+margin)/2
+  bakePolygon(bake,path.azimuth,path.axial,[...samples.map(p=>sampleStreetPath(path,p.t,-half)),...[...samples].reverse().map(p=>sampleStreetPath(path,p.t,half))])
+}
+const bakeBuilding=(bake:BakeContext,b:CityBuilding)=>{
+  if(b.yaw)bakePolygon(bake,b.azimuth,b.axial,buildingFootprint(b))
+  else bakeRect(bake,b.azimuth,b.axial,b.width,b.depth,1)
+}
+
 const bakeRect = (
   bake: BakeContext,
   azimuth: number,
@@ -183,6 +202,12 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan, recipes:Map<CityBuilding,
     bakeRect(bake, road.azimuth, road.axial, road.tangentWidth, road.axialLength, 1)
   }
 
+  for(const d of plan.nativeDistricts??[])for(const path of d.streets){
+    ctx.fillStyle=path.kind==='arterial'?ARTERIAL_TONE:LOCAL_TONE
+    ctx.globalAlpha=path.kind==='arterial'?.55:.4
+    bakeStreet(bake,path)
+  }
+
   if (plan.expressway !== null) {
     ctx.fillStyle = EXPRESSWAY_TONE
     ctx.globalAlpha = 0.6
@@ -201,7 +226,7 @@ const bakeAlbedo = (bake: BakeContext, plan: CityPlan, recipes:Map<CityBuilding,
     const block=recipes.get(building)
     if(block){
       ctx.fillStyle='#'+block.roof;ctx.globalAlpha=.85
-      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      for(const v of cityBlockCollision(building,block,bake.radius))bakeBuilding(bake,v)
       continue
     }
     const roof = KENNEY_ROOF_TONES[kenneyPickForBuilding(building).set]
@@ -335,6 +360,13 @@ const bakeEmissive = (
     bakeRect(bake, road.azimuth, road.axial, road.tangentWidth, road.axialLength, 1)
   }
 
+  for(const d of plan.nativeDistricts??[])for(const path of d.streets){
+    const kind=path.kind==='arterial'||path.kind==='collector'?path.kind:'local'
+    ctx.fillStyle=roadGlow;ctx.globalAlpha=SHELL_ROAD_HALO_ALPHA[kind]*roadGlowScale
+    bakeStreet(bake,path,haloMargin)
+    ctx.globalAlpha=SHELL_ROAD_CORE_ALPHA[kind]*roadGlowScale;bakeStreet(bake,path)
+  }
+
   if (plan.expressway !== null) {
     const y =
       axialToShellYFraction(plan.expressway.axial, bake.length) * bake.height
@@ -355,7 +387,7 @@ const bakeEmissive = (
       ctx.fillStyle=emission?cssColor(emission.color):'#ffd89b'
       ctx.globalAlpha=emission?.alpha??.12
       // Draw only occupied structural footprints, leaving courtyards dark.
-      for(const v of cityBlockCollision(building,block,bake.radius))bakeRect(bake,v.azimuth,v.axial,v.width,v.depth,1)
+      for(const v of cityBlockCollision(building,block,bake.radius))bakeBuilding(bake,v)
       continue
     }
     const litChance = FACADE_LIT_CHANCE * (building.industrial === true ? 0.4 : 1)

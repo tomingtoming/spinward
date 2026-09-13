@@ -1,7 +1,8 @@
 import { routeThroughCurve } from './curvedWalkRoute'
 import { StreetNetwork } from '../objects/streetNetwork'
 import { legacyStreetPaths } from '../objects/streetPath'
-import { paintDrivingStreets, isDrivingStreetPoint } from './streetRouteGrid'
+import { paintDrivingStreets, isDrivingStreetPoint, paintDistrictFootways, paintStreetPolygon } from './streetRouteGrid'
+import { buildingFootprint } from '../objects/streetFrontage'
 import type { CurvedNeighborhood } from '../objects/curvedNeighborhood'
 import type { RiverDistrict } from '../objects/riverDistrictPlan'
 import { routeThroughRiver } from './riverWalkRoute'
@@ -110,6 +111,7 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   }
   // Only the certified off-street bays may connect to the road graph. This
   // does not make arbitrary lawns or building forecourts drivable shortcuts.
+  if(!driving)paintDistrictFootways(plan,radius,{startAzimuth:start.azimuth,startAxial:start.axial,minX,minY,nx,ny,step,cost})
   for(const bay of parkingBays){
     const rect=carShareDrivewayRect(bay,radius),[x,y]=local(rect)
     paint(x,y,rect.tangentWidth+1,rect.axialLength+1,1)
@@ -118,8 +120,10 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
   for(const b of plan.buildings) {
     const [x,y]=local(b)
     if (Math.abs(x-gx/2)>b.width/2+Math.abs(gx)/2+pad+3 || Math.abs(y-gy/2)>b.depth/2+Math.abs(gy)/2+pad+3) continue
-    paint(x,y,b.width+(driving?2.2:.8),b.depth+(driving?2.2:.8),0)
-    if(!driving && Math.abs(x)<b.width/2+.5 && Math.abs(y)<b.depth/2+.5 && b.access) {
+    const clearance=driving?2.2:.8
+    if(b.yaw)paintStreetPolygon({startAzimuth:start.azimuth,startAxial:start.axial,minX,minY,nx,ny,step,cost},buildingFootprint({...b,width:b.width+clearance,depth:b.depth+clearance}).map(p=>({x:p.x+x,y:p.y+y})),0)
+    else paint(x,y,b.width+clearance,b.depth+clearance,0)
+    if(!driving && !b.nativeDistrict && Math.abs(x)<b.width/2+.5 && Math.abs(y)<b.depth/2+.5 && b.access) {
       // Keep the initial leg inside this one interior, then pass through its
       // real opening. No blanket permission to walk through other buildings.
       const door=b.access.entrance, edge=b.access.roadEdge

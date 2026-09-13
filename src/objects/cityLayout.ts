@@ -22,6 +22,7 @@ const ARC_EPSILON = 1e-6
 export type BuildingKind = 'block' | 'setback' | 'tower' | 'house' | 'slab' | 'lshape'
 
 export type CityBuilding = {
+  nativeDistrict?: string
   azimuth: number
   axial: number
   width: number
@@ -157,6 +158,7 @@ export type CityIntersection = {
 }
 
 export type CityPlan = {
+  nativeDistricts?: import('./nativeDistricts').NativeDistrict[]
   streetNetwork?: StreetNetwork
   streetSurfaces?: StreetSurfacePlan
   streetSignals?: StreetSignalPlan

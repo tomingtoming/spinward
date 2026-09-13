@@ -34,6 +34,7 @@ export const planBuildingInteriors = (buildings: readonly CityBuilding[], radius
   const columns = Math.ceil(circumference / 180)
   const pitch = circumference / columns
   for (const building of buildings) {
+    if (building.nativeDistrict) continue // District rooms await rotated interior routes and furniture.
     if (!building.front || !building.access || building.kind !== 'block' || fitSuburbanHouse(building)) continue
     const frontage = building.front.axis === 'tangent' ? building.depth : building.width
     const depth = building.front.axis === 'tangent' ? building.width : building.depth
@@ -175,4 +176,3 @@ export const selectBuildingExperienceLod = (distance: number, previous: Building
   }
   return 4
 }
-

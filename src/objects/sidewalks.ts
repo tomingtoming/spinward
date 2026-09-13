@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { StreetSurface } from './streetSurfacePlan'
-import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
+import { buildStreetSurfaceGeometry,buildDistrictKerbGeometry } from './streetSurfaceGeometry'
 
 import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArcSegments, getThetaStart } from './cityscape'
@@ -129,6 +129,8 @@ export const createSidewalkTexture = (size = 256) => {
 export class Sidewalks {
   readonly group = new THREE.Group()
   private mesh: THREE.Mesh | null = null
+  private kerbs: THREE.Mesh | null = null
+  private readonly kerbMaterial=new THREE.MeshStandardMaterial({color:0x909497,roughness:.96,side:THREE.DoubleSide})
   private readonly texture = createSidewalkTexture()
   private readonly material = new THREE.MeshStandardMaterial({
     map: this.texture,
@@ -190,16 +192,19 @@ export class Sidewalks {
     this.group.add(this.mesh)
   }
 
-  setSurfaces(surfaces:StreetSurface[],radius:number){
+  setSurfaces(surfaces:StreetSurface[],radius:number,regions:readonly {azimuth:number;axial:number;width:number;length:number}[]=[]){
     this.clear()
     const geometry=buildStreetSurfaceGeometry(surfaces,radius,SIDEWALK_TEXTURE_METERS)
     if(!geometry)return
     this.mesh=new THREE.Mesh(geometry,this.material)
     this.mesh.name='street-surface-sidewalks';this.mesh.userData.surfaces=surfaces.length
     this.mesh.frustumCulled=false;this.mesh.renderOrder=1;this.group.add(this.mesh)
+    const kerbs=buildDistrictKerbGeometry(surfaces,radius,regions)
+    if(kerbs){this.kerbs=new THREE.Mesh(kerbs,this.kerbMaterial);this.kerbs.name='district-pavement-edges';this.kerbs.frustumCulled=false;this.group.add(this.kerbs)}
   }
 
   private clear() {
+    if(this.kerbs){this.kerbs.removeFromParent();this.kerbs.geometry.dispose();this.kerbs=null}
     if (this.mesh !== null) {
       this.group.remove(this.mesh)
       this.mesh.geometry.dispose()
@@ -210,6 +215,7 @@ export class Sidewalks {
   dispose() {
     this.clear()
     this.material.dispose()
+    this.kerbMaterial.dispose()
     this.texture.dispose()
   }
 }

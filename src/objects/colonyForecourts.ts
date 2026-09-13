@@ -16,6 +16,7 @@ export const forecourtFootprint=(b:CityBuilding,p:ForecourtPlanter):Rect=>({azim
 /** Permanent layout shared by close rendering and collision. Never furnish a
  * certified access path, carriageway, neighbouring lot or the through-walking strip. */
 export function planColonyForecourts(sources:Source[],buildings:CityBuilding[],roads:CityRoad[],radius:number){
+ const byId=new Map(roads.map((r,i)=>[r.id??`road-${i}`,r]))
  const result=new Map<CityBuilding,ForecourtPlanter[]>()
  const roadIndex=new SurfaceIndex(radius),buildingIndex=new SurfaceIndex(radius),pathIndex=new SurfaceIndex(radius),placedIndex=new SurfaceIndex(radius)
  const paths:Rect[]=[],placed:Rect[]=[]
@@ -30,7 +31,7 @@ export function planColonyForecourts(sources:Source[],buildings:CityBuilding[],r
  for(const {spec,design,interior} of sources){
   const b=spec.building,{access,front}=b,use=design.use.primary
   if(interior||!access||!front||use==='house'||use==='industrial'||b.height<6)continue
-  const road=roads[access.roadIndex],tangent=front.axis==='tangent',side=front.side
+  const road=byId.get(access.roadId),tangent=front.axis==='tangent',side=front.side
   if(!road||tangent!==(road.axialLength>road.tangentWidth))continue
   const pavement=getStreetProfile(road.kind,radius).sidewalk
   if(pavement<FOOTPATH_WIDTH+.4)continue

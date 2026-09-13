@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { CityPlan } from './cityLayout'
+import { planDistrictWalkerRoutes } from './districtWalkerRoutes'
 import { planRiverWalkerRoutes } from './riverWalkerRoutes'
 import { planCurvedWalkerRoutes } from './curvedWalkerRoutes'
 import type { CurvedNeighborhood } from './curvedNeighborhood'
@@ -23,6 +25,7 @@ export class StreetWalkers {
   private riverRoutes: StreetWalkerRoute[] = []
   private curvedRoutes: StreetWalkerRoute[] = []
   private segments: readonly SidewalkSegment[] = []
+  private city:CityPlan|null=null
   private index = new SurfaceIndex(3200)
   private radius = 3200
   private walkers: Walker[] = []
@@ -39,8 +42,9 @@ export class StreetWalkers {
   constructor(parent: THREE.Object3D, private readonly capacity: number) {
     this.group.name = 'street-walkers'; parent.add(this.group)
   }
-  setPlan(segments: readonly SidewalkSegment[], radius: number, river: RiverDistrict | null = null, curved: CurvedNeighborhood | null = null) {
+  setPlan(segments: readonly SidewalkSegment[], radius: number, river: RiverDistrict | null = null, curved: CurvedNeighborhood | null = null, city:CityPlan|null=null) {
     this.radius = radius
+    this.city=city
     this.segments = this.enabled && radius >= 100 ? segments : []
     this.routes = []
     this.riverRoutes = this.enabled ? planRiverWalkerRoutes(river, radius) : []
@@ -60,6 +64,7 @@ export class StreetWalkers {
     this.routes = [...this.index.query({ ...focus, tangentWidth: RANGE * 2, axialLength: RANGE * 2 })]
       .flatMap(i => planStreetWalkerRoutes([this.segments[i]], this.radius, i, { ...focus, range: RANGE }))
     this.routes.push(...this.riverRoutes, ...this.curvedRoutes)
+    if(this.city)this.routes.push(...planDistrictWalkerRoutes(this.city,{...focus,range:RANGE}))
     const candidates = this.routes.filter(r => !occupied.has(r.id))
       .map(route => ({ route, distance: walkerDistance(sampleStreetWalker(route, this.radius, this.clock + route.phase), focus, this.radius) }))
       .filter(r => r.distance < RANGE && (this.firstPopulation || r.distance > 22))

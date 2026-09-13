@@ -123,7 +123,7 @@ import { IntersectionFurniture } from '../objects/intersectionFurniture'
 import { ParkedCars } from '../objects/parkedCars'
 import { WetPavement } from '../objects/wetPavement'
 import { Sidewalks, planSidewalkSegments } from '../objects/sidewalks'
-import { StreetLamps } from '../objects/streetLamps'
+import { StreetLamps, planDistrictLampSpots } from '../objects/streetLamps'
 import { CylinderHabitat } from '../objects/cylinder'
 import { createCityShellTextureSet, resolveShellRoadGlowScale } from '../objects/cityShellBake'
 import { RainStreaks } from '../objects/rain'
@@ -1346,7 +1346,8 @@ export const bootstrapApp = async () => {
         cityPlan?.intersections ?? [],
         habitatConfig.radius,
         span,
-        cityscape.getParkLamps()
+        cityscape.getParkLamps(),
+        cityPlan?.streetMarkings ? planDistrictLampSpots(cityPlan.nativeDistricts??[],habitatConfig.radius,cityPlan.streetMarkings) : []
       )
       const sidewalkSegments = cityPlan !== null && habitatConfig.type !== 'ring'
           ? planSidewalkSegments(
@@ -1359,10 +1360,10 @@ export const bootstrapApp = async () => {
             )
           : []
       sidewalks.setSurfaces(cityPlan?.streetSurfaces && habitatConfig.type!=='ring' && getSidewalkWidth(habitatConfig.radius,span)>0
-        ? cityPlan.streetSurfaces.sidewalks(isOpenSquare,cityscape.getStreetSidewalkCuts()) : [],habitatConfig.radius)
+        ? cityPlan.streetSurfaces.sidewalks(isOpenSquare,cityscape.getStreetSidewalkCuts()) : [],habitatConfig.radius,cityPlan?.nativeDistricts)
       playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
       playerBodyView.motion.reset()
-      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict(), cityscape.curvedNeighborhood.plan)
+      streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict(), cityscape.curvedNeighborhood.plan,cityPlan)
     }
     habitat.setCityShellTextures(
       cityPlan !== null && habitatConfig.type !== 'ring'

@@ -12,10 +12,11 @@ const wrap=(v:number)=>Math.atan2(Math.sin(v),Math.cos(v))
 export type LifeCrossing=CrossingGate & { road:CityRoad }
 /** Select a real street at a public doorway, away from an intersection. */
 export function planLifeCrossing(plan:CityPlan,radius:number):LifeCrossing|null {
+ const roads=new Map(plan.roads.map((r,i)=>[r.id??`road-${i}`,r]))
  const interiors=[...planBuildingInteriors(plan.buildings,radius).values()].filter(i=>i.kind==='cafe')
  interiors.sort((a,b)=>Math.hypot(a.building.azimuth*radius,a.building.axial)-Math.hypot(b.building.azimuth*radius,b.building.axial))
  for(const i of interiors.slice(0,20)){
-  const b=i.building,road=plan.roads[b.access!.roadIndex]
+  const b=i.building,road=roads.get(b.access!.roadId)
   if(!road||road.kind==='alley')continue
   const axis=road.axialLength>road.tangentWidth?'axial':'tangent'
   const azimuth=axis==='axial'?road.azimuth:b.azimuth,axial=axis==='axial'?b.axial:road.axial

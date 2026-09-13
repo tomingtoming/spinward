@@ -74,3 +74,13 @@ export function subtractStreetPolygon(subject:StreetPolygon,clip:StreetPolygon):
  }
  return pieces
 }
+
+export function containsStreetPolygon(polygon:{x:number;y:number}[],px:number,py:number){
+  if(polygon.length<3)return false
+  let positive=false,negative=false
+  for(let k=0;k<polygon.length;k++){
+    const a=polygon[k],b=polygon[(k+1)%polygon.length],side=(b.x-a.x)*(py-a.y)-(b.y-a.y)*(px-a.x)
+    if(side>1e-7)positive=true;if(side< -1e-7)negative=true
+  }
+  return !(positive&&negative)
+}

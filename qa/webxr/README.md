@@ -738,3 +738,29 @@ remain unmeasured. Unit tests: **945 passed**; TypeScript/production build passe
 
 [Implementation, CPU cost, desktop walking and retained observations](../neighborhood-life/street-frontage.md).
 Evidence: `evidence/street-frontage-20260913/`, including `xr-full/`.
+
+## Connected native districts — 2026-09-13
+
+`native-districts.xr.mjs` visits the rebuilt arterial sidewalk using the actual
+app entry. It checks three connected district plans, actual traffic and native
+residents within the existing Quest population cap, and uses controller poses,
+raycasts and trigger input to open wrist Places and return home. Stereo views
+use 2560×960, IPD 0.064 m, with road geometry and world transforms checked at
+0/±25° head roll. Left-stick walking, traffic/resident movement, grounded state
+and session-scoped termination are separate assertions. The Garden fixture
+counts the district paths when checking the shared graph instead of assuming
+all streets come from axis-aligned legacy roads.
+
+[Implementation, generation cost, desktop evidence and remaining work](../neighborhood-life/native-districts.md).
+Evidence: `evidence/native-districts-20260913/`.
+
+The frozen build passed all **27 cases in 7.6 minutes**, with **zero retries**,
+on playwright-webxr **0.3.0**, Chrome 152.0.7977.83 / Apple M1 Pro / ANGLE Metal.
+The new district case walked about 2.96 m while grounded, observed both traffic
+and resident movement, and completed actual wrist Places actions and the
+matching session's end event. Independent review of its four stereo captures
+found no new one-eye disappearance, world-roll detachment or Places overflow.
+The separate four-position shoe/actual-pavement probe resolved a distant PC
+pedestrian's uncertain foot placement; it does not validate continuous gait.
+Unit tests: **965 passed**; TypeScript/production build passed. Physical Quest
+performance, comfort and continuous flicker remain unmeasured.

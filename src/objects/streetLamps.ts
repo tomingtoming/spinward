@@ -3,6 +3,9 @@ import * as THREE from 'three'
 import type { CityIntersection, CityRoad } from './cityLayout'
 import { getArterialRoadWidth, getLocalRoadWidth } from './cityLayout'
 import { StreetLampLighting, type StreetLampSource } from './streetLampLighting'
+import type { NativeDistrict } from './nativeDistricts'
+import type { StreetMarkingPlan } from './streetMarkings'
+import { sampleStreetPath, streetPathSamples } from './streetPath'
 
 // Near-field street lamps (2026-09-03, toming「街路灯の間隔」): posts with an
 // arm, a warm head and a light pool on the road, on EVERY grid road at real
@@ -21,6 +24,7 @@ export const LAMP_SPACING_LOCAL = 60
 export const LAMP_CROSSING_CLEARANCE = 7
 
 export type LampSpot = {
+  heading?: number
   azimuth: number
   axial: number
   // Road orientation: avenues run axially (lamp arm reaches tangentially).
@@ -30,6 +34,23 @@ export type LampSpot = {
   side: 1 | -1
   roadHalfWidth: number
   kind: 'arterial' | 'collector' | 'local'
+}
+
+export function planDistrictLampSpots(districts:readonly NativeDistrict[],radius:number,markings:StreetMarkingPlan):LampSpot[]{
+  const spots:LampSpot[]=[]
+  for(const d of districts)for(const path of d.streets){
+    const spacing=path.kind==='arterial'?LAMP_SPACING_ARTERIAL:LAMP_SPACING_LOCAL,samples=streetPathSamples(path),distances=[0]
+    for(let i=1;i<samples.length;i++)distances.push(distances[i-1]+Math.hypot(samples[i].x-samples[i-1].x,samples[i].y-samples[i-1].y))
+    const junctions=markings.junctions.filter(j=>j.arms.some(a=>markings.network.streets[a.street].id===path.id)).map(j=>({node:markings.network.nodes[j.node],clearance:Math.max(...j.arms.map(a=>markings.network.streets[a.street].width/2))+LAMP_CROSSING_CLEARANCE+5}))
+    for(let distance=spacing/2,index=0;distance<distances.at(-1)!;distance+=spacing,index++){
+      let i=1;while(i<distances.length-1&&distances[i]<distance)i++
+      const t=samples[i-1].t+(samples[i].t-samples[i-1].t)*(distance-distances[i-1])/(distances[i]-distances[i-1]),p=sampleStreetPath(path,t)
+      const azimuth=path.azimuth+p.x/radius,axial=path.axial+p.y
+      if(junctions.some(j=>Math.hypot(wrapToPi(azimuth-j.node.azimuth)*radius,axial-j.node.axial)<j.clearance))continue
+      spots.push({azimuth,axial,heading:p.heading,isAvenue:Math.abs(Math.sin(p.heading))>.7,side:index%2?1:-1,roadHalfWidth:path.width/2,kind:path.kind as LampSpot['kind']})
+    }
+  }
+  return spots
 }
 
 const TWO_PI = Math.PI * 2
@@ -59,7 +80,7 @@ export const planLampSpots = (
     const crossings = isAvenue
       ? intersections
           .filter((x) => Math.abs(wrapToPi(x.azimuth - road.azimuth)) * radius < 0.5)
-          .map((x) => ({ at: x.axial, half: x.streetWidth * 0.5 }))
+          .map((x) => ({ at: x.axial-road.axial, half: x.streetWidth * 0.5 }))
       : intersections
           .filter((x) => Math.abs(x.axial - road.axial) < 0.5)
           .map((x) => ({ at: wrapToPi(x.azimuth - road.azimuth) * radius, half: x.avenueWidth * 0.5 }))
@@ -223,9 +244,9 @@ export class StreetLamps {
     this.pools.mesh.renderOrder = 20
   }
 
-  setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number, additionalLights: readonly StreetLampSource[] = []) {
+  setPlan(roads: CityRoad[], intersections: CityIntersection[], radius: number, length: number, additionalLights: readonly StreetLampSource[] = [], nativeSpots:readonly LampSpot[] = []) {
     this.lighting.reset()
-    this.spots = planLampSpots(roads, intersections, radius)
+    this.spots = [...planLampSpots(roads, intersections, radius),...nativeSpots]
     this.additionalLights = [...additionalLights]
     this.radius = radius
     // Size supported fixtures to the road scale, capped at 12 metres.
@@ -276,9 +297,10 @@ export class StreetLamps {
       basis.makeBasis(tangent.clone().negate(), inward, unitY)
       postQuaternion.setFromRotationMatrix(basis)
       // Across-road direction for this lamp: tangent for avenues, axial for streets.
-      const acrossX = s.isAvenue ? tangent.x : 0
-      const acrossY = s.isAvenue ? 0 : 1
-      const acrossZ = s.isAvenue ? tangent.z : 0
+      const normalT=s.heading===undefined?(s.isAvenue?1:0):-Math.sin(s.heading),normalA=s.heading===undefined?(s.isAvenue?0:1):Math.cos(s.heading)
+      const acrossX = tangent.x*normalT
+      const acrossY = normalA
+      const acrossZ = tangent.z*normalT
       const kerb = s.roadHalfWidth + 0.6
       const deck = this.radius - 0.2 - (s.isAvenue && s.kind === 'arterial' ? gap : 0)
       // Post at the kerb.
@@ -292,6 +314,10 @@ export class StreetLamps {
       this.posts.mesh.setMatrixAt(n, matrix)
       // Arm: from the post top, horizontally over the road (toward −side).
       lampArmQuaternion(s.azimuth, s.isAvenue, s.side, armQuaternion)
+      if(s.heading!==undefined){
+        armAlong.set(acrossX,acrossY,acrossZ).multiplyScalar(-s.side);armX.crossVectors(armAlong,inward)
+        armBasis.makeBasis(armX,armAlong,inward);armQuaternion.setFromRotationMatrix(armBasis)
+      }
       position.set(cos, 0, sin).multiplyScalar(deck - (h - 0.3))
       position.y = s.axial
       position.x += acrossX * s.side * kerb
