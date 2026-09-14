@@ -12,7 +12,7 @@ async function press(page,xr,id){
 import {signalPose} from '../neighborhood-life/signal-views.mjs'
 import {nativeDistrictViews} from '../neighborhood-life/native-district-views.mjs'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-seam-walk','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
+for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-seam-walk','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
  const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto('about:blank');const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
@@ -23,7 +23,7 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
  const state=()=>page.evaluate(()=>{
   const city=window.__spinwardCity,p=city.getCityPlan(),poses=city.getTrafficPositions(),routes=city.trafficRoutes
   return{azimuth:window.__spinward.azimuth,axial:window.__spinward.axial,ground:window.__spinward.groundHeight,mode:window.__spinward.mode,
-   districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,
+   districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,localLinks:d.localLinks,
     land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
    junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
    traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources.map(s=>s.path.id),...poses[i],onRoad:p.streetNetwork.query(poses[i].azimuth,poses[i].axial,0,0).some(s=>{
@@ -37,11 +37,16 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
  await page.waitForFunction(view=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible&&(view!=='t-approach'||a.id.includes(':link-0:'))),viewName)
  const before=await state();expect(before.districts).toHaveLength(16);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
  if(viewName.startsWith('arrival-')){
-  const id=viewName.startsWith('arrival-east-')?'district-arrival-east':viewName.startsWith('arrival-core-')?'district-arrival-core':(viewName==='arrival-street'||viewName==='arrival-seam-walk')?'district-arrival-west':viewName==='arrival-north-street'?'district-arrival-north':'district-arrival-south'
+  const id=viewName.startsWith('arrival-east-')?'district-arrival-east':viewName.startsWith('arrival-core-')?'district-arrival-core':(viewName==='arrival-street'||viewName==='arrival-seam-walk'||viewName==='arrival-local-west')?'district-arrival-west':viewName==='arrival-north-street'?'district-arrival-north':'district-arrival-south'
   expect(before.districts.find(d=>d.id===id).land.built.length).toBeGreaterThan(id==='district-arrival-east'?0:20)
   const cars=before.traffic.filter(v=>v.paths.some(p=>p.startsWith(`${id}:`)))
   expect(cars.length).toBeGreaterThan(0);expect(cars.every(v=>v.onRoad)).toBe(true)
   expect(before.walkers.actors.some(a=>a.id.startsWith(`native:${id}:`)&&a.visible)).toBe(true)
+  if(viewName.startsWith('arrival-local-')){
+   expect(before.districts.flatMap(d=>d.localLinks??[])).toHaveLength(4)
+   expect(before.districts.find(d=>d.id===id).localLinks).toHaveLength(2)
+   expect(cars.some(v=>v.paths.some(p=>p.includes(':local-link-')))).toBe(true)
+  }
  }
  const growth=before.districts.find(d=>d.growth).growth
  expect(growth.deferredLinks).toEqual([]);expect(growth.links.some(l=>l.added&&l.before>l.after*1.8)).toBe(true)
@@ -116,6 +121,16 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
   await fs.writeFile(info.outputPath('seam-traffic.json'),JSON.stringify(seamTraffic,null,2))
   expect(seamTraffic.crossings.length).toBeGreaterThan(0)
   expect(seamTraffic.crossings.every(c=>c.paths.length===2)).toBe(true)
+ }else if(viewName.startsWith('arrival-local-')){
+  for(let i=0;i<20;i++){
+   await xr.settle(150)
+   rampSamples.push(await page.evaluate(()=>({x:window.__spinward.azimuth*3200,y:window.__spinward.axial,h:window.__spinward.groundHeight,mode:window.__spinward.mode})))
+  }
+  await xr.setAxes('left',0,0)
+  const v=nativeDistrictViews.find(v=>v.name===viewName),dx=(v.aim[0]-v.at[0])*3200,dy=v.aim[1]-v.at[1],length=Math.hypot(dx,dy)
+  expect(rampSamples.every(p=>p.mode==='grounded'&&Math.abs(p.h)<.05&&Math.abs((p.x-v.at[0]*3200)*dy-(p.y-v.at[1])*dx)/length<.7)).toBe(true)
+  expect(Math.hypot(rampSamples.at(-1).x-v.at[0]*3200,rampSamples.at(-1).y-v.at[1])).toBeGreaterThan(8)
+  await xr.screenshot(info.outputPath('local-after-walk.png'),{canvas:'canvas',metadata:true,timeout:5000})
  }else{
   await xr.settle(viewName==='corridor-seam'?7500:viewName==='settlement-boundary'?7500:viewName==='settlement-walk'||viewName==='park-walk'?3500:viewName.startsWith('arrival-')?1500:viewName==='spine'?1000:350)
   await xr.setAxes('left',0,0)

@@ -1,4 +1,10 @@
 export const nativeDistrictViews=[
+  {name:'arrival-local-west-low',at:[-783/3200,540,10],aim:[-766.21022322527/3200,530.1706289133361,.32]},
+  {name:'arrival-local-south-low',at:[-77/3200,-333,7],aim:[-105/3200,-320,0]},
+  {name:'arrival-local-west',at:[-626.4665011660576/3200,674.8772806684257,1.8],aim:[-670.6810166913152/3200,627.231959629873,1.8],ground:true},
+  {name:'arrival-local-south',at:[32.35136240657101/3200,-378.62990176875775,1.8],aim:[-28.034658661982476/3200,-354.5772832105173,1.8],ground:true},
+  {name:'arrival-local-west-junction',at:[-766.21022322527/3200,465,105],aim:[-766.21022322527/3200,530.1706289133361,0]},
+  {name:'arrival-local-south-junction',at:[-100.79459960836992/3200,-385,105],aim:[-100.79459960836992/3200,-321.29032258064535,0]},
   {name:'arrival-seam-walk',at:[-475/3200,416.426,1.8],aim:[-400/3200,410.69,1.8],ground:true},
   {name:'arrival-seam-close',at:[-460/3200,367,27],aim:[-450/3200,406.986,0]},
   {name:'arrival-seams-overview',at:[-350/3200,-1150,1700],aim:[-350/3200,0,0]},

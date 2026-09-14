@@ -5,7 +5,30 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, arrival district boundaries):
+Latest focused verification (2026-09-14, arrival local connections):
+**11 passed in 5.5 minutes**, with playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build, rehashed after XR.
+Four local roads, about 1.38 km in total, connect real dead ends to existing
+streets across available land. Their endpoint road detours fall from about
+1.1–1.7 km to 270–410 m. Existing buildings, doors, public places and candidate
+lots are retained at all three building budgets. The west-to-square and park
+walking examples remain 2,085.24 m and 933.11 m; those routes were not shortened.
+Actual stick walking on the new west/south sidewalks covered 13.52/13.93 m,
+with 20 grounded samples each. Traffic, residents, wrist laser/trigger and head
+roll passed. Park, café/apartment entrances, shops, boundary walking/car passage,
+west/Garden directions, input ownership, exit/re-entry and stale-session guards
+also passed. All eleven page-error logs are empty; the two entry/return checks
+have no failed resources and four grants/four ends in total.
+**1,071 unit tests**, TypeScript/build, six desktop comparisons and two additional
+low views passed. Independent review covered those desktop images and eight XR
+images. A west junction paving fill still has constant UVs and a visible colour
+seam; the low view showed a closed surface, not an opening. Infill, public walking
+shortcuts, other bands and the proposed river/IC/JCT remain. Physical Quest,
+full-route walking and the existing body-drift case were not tested.
+Evidence: `evidence/arrival-links-20260914/`;
+[scope, fixed build and visual observations](../neighborhood-life/arrival-local-links.md).
+
+Previous focused verification (2026-09-14, arrival district boundaries):
 **9 cases verified** with playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
 ANGLE Metal on a fixed build, rehashed after XR. The first run passed eight and
 failed the new car-observation case (4.0 minutes): a nine-second window missed

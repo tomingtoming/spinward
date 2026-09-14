@@ -93,16 +93,20 @@ export function retireArrivalSeams(city:CityPlan,radius:number){
     const x=wrap(p.azimuth)*radius,at=s.vertical?x:p.axial,along=s.vertical?p.axial:x
     return Math.abs(at-s.at)<epsilon&&along>=s.low-epsilon&&along<=s.high+epsilon
   }))
-  // Regenerate the nearby joined surfaces: old boundary roads must no longer
-  // punch holes in the pavements stored for walking guidance.
-  const areas=districts.filter(d=>d.streets.some(isArrivalStreet))
+  refreshArrivalSurfaces(city,radius)
+  return {retiredLength,retiredPieces,seams,restored,unchangedRejections:unchangedRejections.map(r=>({azimuth:r.building.azimuth,axial:r.building.axial,reason:r.reason}))}
+}
+
+/** Recompile the same nearby joined surfaces for rendering and guidance when
+ * a boundary road is retired or a new local connection is inserted. */
+export function refreshArrivalSurfaces(city:CityPlan,radius:number){
+  const paths=city.streetNetwork!.streets,areas=(city.nativeDistricts??[]).filter(d=>d.streets.some(isArrivalStreet))
   const nearby=paths.filter(p=>areas.some(d=>{
     const x=wrap(p.azimuth-d.azimuth)*radius,y=p.axial-d.axial,xs=p.knots.map(k=>x+k.point[0]),ys=p.knots.map(k=>y+k.point[1])
     return Math.max(...xs)>-d.width/2-30&&Math.min(...xs)<d.width/2+30&&Math.max(...ys)>-d.length/2-30&&Math.min(...ys)<d.length/2+30
   }))
   const surface=new StreetSurfacePlan(nearby,radius,isArrivalStreet),carriageways=surface.roadSurfaces(),sidewalks=surface.sidewalks()
   for(const d of areas)d.surfaces={carriageways:carriageways.filter(s=>d.streets.includes(s.source)),sidewalks:sidewalks.filter(s=>d.streets.includes(s.source))}
-  return {retiredLength,retiredPieces,seams,restored,unchangedRejections:unchangedRejections.map(r=>({azimuth:r.building.azimuth,axial:r.building.axial,reason:r.reason}))}
 }
 
 /** Co-linear fragments of one band road share a single fleet coordinate.
@@ -112,9 +116,9 @@ export function joinedArrivalTraffic(city:CityPlan,radius:number):DistrictTraffi
   const sources=(city.nativeDistricts??[]).flatMap(d=>d.streets.filter(isArrivalStreet)).map(p=>arrivalTrafficStreet(p,radius))
   const groups:DistrictTrafficStreet[][]=[]
   for(const source of sources){
-    const band=source.path.id.match(/:band-(\d+)$/)?.[1]
+    const band=source.path.id.match(/:((?:band|local-link)-\d+)$/)?.[1]
     const ends=source.path.knots.map(k=>k.point)
-    const matches=groups.filter(g=>band!==undefined&&g[0].path.id.endsWith(`:band-${band}`)&&g.some(p=>p.path.knots.some(k=>ends.some(v=>Math.hypot(k.point[0]-v[0],k.point[1]-v[1])<epsilon))))
+    const matches=groups.filter(g=>band!==undefined&&g[0].path.id.endsWith(`:${band}`)&&g.some(p=>p.path.knots.some(k=>ends.some(v=>Math.hypot(k.point[0]-v[0],k.point[1]-v[1])<epsilon))))
     if(!matches.length)groups.push([source])
     else{matches[0].push(source,...matches.slice(1).flat());for(const g of matches.slice(1))groups.splice(groups.indexOf(g),1)}
   }
