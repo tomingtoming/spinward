@@ -1,6 +1,7 @@
 import { rebuildNativeDistricts } from './nativeDistricts'
 import {preserveCityPlaces} from './cityPlaces'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from './arrivalDistrict'
+import {rebuildArrivalCore} from './arrivalCore'
 import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
@@ -728,6 +729,10 @@ export class Cityscape {
     side: THREE.BackSide
   })
 
+  // Junctions are unmarked asphalt. Reusing the lighter alley concrete makes
+  // the clipped overlap polygons look like separate star-shaped patches.
+  private readonly junctionRoadMaterial = new THREE.MeshStandardMaterial({color:0x36383f,roughness:.9,metalness:0,side:THREE.BackSide})
+
   private readonly roadMaterial = new THREE.MeshStandardMaterial({
     map: this.arterialRoadTexture,
     emissive: ROAD_GLOW.clone(),
@@ -999,6 +1004,7 @@ export class Cityscape {
       this.localRoadMaterial,
       this.collectorRoadMaterial,
       this.alleyMaterial,
+      this.junctionRoadMaterial,
       this.bridgeMaterial,
       this.bridgeEdgeMaterial
     ]) {
@@ -1406,6 +1412,7 @@ export class Cityscape {
     if(this.habitatType==='cylinder')preserveCityPlaces(plan,radius)
     const arrival=this.habitatType==='cylinder'&&this.topology===ISLAND_THREE_TOPOLOGY?rebuildArrivalWest(plan,radius,length):null
     if(arrival)native.traffic.push(...arrival.traffic,...rebuildArrivalCentral(plan,radius,length).flatMap(r=>r.traffic))
+    if(arrival)native.traffic.push(...rebuildArrivalCore(plan,radius,length)!.traffic)
     this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
     this.riverTraffic = planRiverTraffic(this.riverDistrict, plan, radius)
     if (this.riverDistrict) {
@@ -1530,7 +1537,7 @@ export class Cityscape {
   getRainArcs() { return this.rainArcs }
   getPavementMaterials() {
     return [this.roadMaterial, this.localRoadMaterial, this.collectorRoadMaterial,
-      this.alleyMaterial, this.roadSurfaceMaterial, this.expresswayRampMaterial,
+      this.alleyMaterial, this.junctionRoadMaterial, this.roadSurfaceMaterial, this.expresswayRampMaterial,
       ...this.riverLayer.getPavementMaterials(), ...this.curvedNeighborhood.getPavementMaterials(),
       ...this.civicDetails.getPavementMaterials(), ...this.streetAccessLayer.getPavementMaterials()]
   }
@@ -1764,6 +1771,7 @@ export class Cityscape {
     this.localRoadMaterial.map?.dispose()
     this.localRoadMaterial.dispose()
     this.alleyMaterial.dispose()
+    this.junctionRoadMaterial.dispose()
     this.arterialRoadGlowTexture.dispose()
     this.localRoadGlowTexture.dispose()
     this.bridgeMaterial.map?.dispose()
@@ -2407,7 +2415,7 @@ export class Cityscape {
             ? this.collectorRoadMaterial
           : kind === 'local' || kind === 'arterial' || kind === 'collector'
             ? this.localRoadMaterial
-            : this.alleyMaterial
+            : kind==='junction'?this.junctionRoadMaterial:this.alleyMaterial
       )
       mesh.name = `street-surface-${kind}`
       mesh.userData.surfaces = surfaces.length

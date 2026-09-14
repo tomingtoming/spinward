@@ -5,7 +5,32 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, arrival-central north/south roads):
+Latest focused verification (2026-09-14, occupied arrival core):
+**9 passed in 3.8 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build, rehashed after XR.
+The core now uses 12 band-plan segments plus two retained civic frontage/approach
+segments; 18 legacy pieces are retired. The applied arrival area totals 2.60 km².
+Public places, park grass/trees and CityBlock entrances are retained. A 2.2 m wide,
+11.52 m connector joins the existing park path to the new sidewalk.
+Actual stick movement covered 4.23 m at the civic frontage and 19.41 m from the
+park to the sidewalk. All 28 park samples remained grounded, including the ramp;
+each new view had nine cars on its roads and four visible residents.
+West walking/directions, north/south walking, Garden, actual desktop-menu and
+Quest-style entry, wrist input ownership, exit/re-entry and stale-session guards
+passed. All nine page-error logs were empty; the two entry/return cases also
+recorded no failed resources and four grants/four ends in total.
+Final unit run: **1,059 passed**; TypeScript/build and five desktop views passed.
+Visual review exposed missing park inputs and a multiway pavement gap; these
+were fixed before repeating unit, build, desktop and all nine XR cases.
+Independent review of five final desktop and eight XR images passed within the
+sampled views. A small dark sidewalk seam and a carriageway brightness boundary
+remain; neither appears to be a pavement hole.
+East, other bands, the proposed river/IC/JCT, migration perimeter roads and unused
+land remain to develop. Physical Quest, full-length physical route walking and
+the prior body-drift case were not tested. Evidence: `evidence/arrival-core-20260914/xr/`;
+[scope, failures, fixed build and visual observations](../neighborhood-life/arrival-core.md).
+
+Previous focused verification (2026-09-14, arrival-central north/south roads):
 **7 passed in 2.7 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build. The new north/south roads are
 used at normal startup: 19 segments across 0.87 km², or 2.17 km² with the west.

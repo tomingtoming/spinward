@@ -2,6 +2,7 @@ import {expect,test} from 'bun:test'
 import {planCity} from '../objects/cityLayout'
 import {rebuildNativeDistricts} from '../objects/nativeDistricts'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from '../objects/arrivalDistrict'
+import {rebuildArrivalCore} from '../objects/arrivalCore'
 import {StreetSurfacePlan} from '../objects/streetSurfacePlan'
 import {StreetMarkingPlan} from '../objects/streetMarkings'
 import {captureBandPublicPlaces} from '../objects/bandPublicPlaces'
@@ -13,6 +14,7 @@ import {planNeighborhoodRoute,surfaceDistance,wrapAngle,NeighborhoodJourney} fro
 for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the square and park on real crossings at ${maxBuildings}`,()=>{
   const radius=3200,city=planCity({radius,length:40000,maxBuildings})
   rebuildNativeDistricts(city,radius);rebuildArrivalWest(city,radius,40000);rebuildArrivalCentral(city,radius,40000)
+  rebuildArrivalCore(city,radius,40000)
   city.streetSurfaces=new StreetSurfacePlan(city.streetNetwork!.streets,radius,isArrivalStreet)
   city.streetMarkings=new StreetMarkingPlan(city.streetNetwork!)
   const places=captureBandPublicPlaces(city,radius).slice(0,2),park=city.places!.park,covered=city.places!.covered

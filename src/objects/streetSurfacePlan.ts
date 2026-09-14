@@ -7,6 +7,12 @@ import { positivePolygon, polygonArea, intersectStreetPolygons, subtractStreetPo
 export type StreetSurface = { source:StreetPath; polygon:StreetPolygon; junction:boolean; lift:number }
 type Envelope={azimuth:number;axial:number;tangentWidth:number;axialLength:number}
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
+function endpointHull(points:StreetPolygon):StreetPolygon{
+ const sorted=[...points].sort((a,b)=>a.x-b.x||a.y-b.y)
+ const turn=(a:StreetPolygon[number],b:StreetPolygon[number],c:StreetPolygon[number])=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)
+ const chain=(vertices:StreetPolygon)=>{const out:StreetPolygon=[];for(const p of vertices){while(out.length>1&&turn(out.at(-2)!,out.at(-1)!,p)<=1e-8)out.pop();out.push(p)}return out.slice(0,-1)}
+ return positivePolygon([...chain(sorted),...chain([...sorted].reverse())])
+}
 export function streetSurfaceEnvelope(s:StreetSurface,radius:number):Envelope{
  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity
  for(const p of s.polygon){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y)}
@@ -97,8 +103,8 @@ export class StreetSurfacePlan{
   }
   // Opt in when the resulting polygons also feed the new layout's support
   // and frontage. Two butt-ended ribbons otherwise leave an outside V notch.
-  // Bevel only a pair of matching endpoints; crossings and height transitions
-  // require their own junction/grade design, not an inferred filled corner.
+  // Join matching endpoints on the same deck. Multiway joins need the small
+  // hull of their kerbs too: unioning butt-ended ribbons leaves outside gaps.
   if(joinEnds){
    const ends=new Map<string,{path:StreetPath;t:number}[]>()
    for(const path of this.sources.filter(p=>typeof joinEnds!=='function'||joinEnds(p)))for(const t of [0,1]){
@@ -106,7 +112,21 @@ export class StreetSurfacePlan{
     const key=[path.level,Math.round(x*1e5),Math.round((path.axial+p.y)*1e5)].join(':')
     const row=ends.get(key)??[];row.push({path,t});ends.set(key,row)
    }
-   for(const row of ends.values())if(row.length===2){
+   for(const row of ends.values())if(row.length>=2){
+    const first=row[0].path
+    if(row.some(e=>e.path.groundHeight!==first.groundHeight||(e.path.walkHeight??e.path.groundHeight+SIDEWALK_LIFT)!==(first.walkHeight??first.groundHeight+SIDEWALK_LIFT)))continue
+    if(row.length>2){
+     for(const walk of [false,true]){
+      const polygon=endpointHull(row.flatMap(({path,t})=>[-1,1].map(side=>{
+       const p=sampleStreetPath(path,t,side*(path.width/2+(walk?getStreetProfile(path.kind,radius).sidewalk:0)))
+       return{x:p.x+wrap(path.azimuth-first.azimuth)*radius,y:p.y+path.axial-first.axial,u:0,v:0}
+      })))
+      if(polygonArea(polygon)<1e-7)continue
+      const s={source:first,polygon,junction:true,lift:walk?(first.walkHeight??first.groundHeight+SIDEWALK_LIFT):Math.max(.2,first.groundHeight)}
+      if(walk)this.walkJoins.push(s);else this.carriageways.add(s)
+     }
+     continue
+    }
     const [a,b]=row
     if(a.path===b.path||a.path.groundHeight!==b.path.groundHeight||(a.path.walkHeight??a.path.groundHeight+SIDEWALK_LIFT)!==(b.path.walkHeight??b.path.groundHeight+SIDEWALK_LIFT))continue
     const centre=sampleStreetPath(a.path,a.t)
@@ -117,7 +137,7 @@ export class StreetSurfacePlan{
      const dx=wrap(b.path.azimuth-a.path.azimuth)*radius,dy=b.path.axial-a.path.axial
      const polygon=positivePolygon([{x:centre.x,y:centre.y,u:.5,v:0},{x:p.x,y:p.y,u:0,v:0},{x:q.x+dx,y:q.y+dy,u:1,v:0}])
      if(polygonArea(polygon)<1e-7)continue
-     const s={source:a.path,polygon,junction:false,lift:walk?(a.path.walkHeight??a.path.groundHeight+SIDEWALK_LIFT):Math.max(.2,a.path.groundHeight)}
+     const s={source:a.path,polygon,junction:true,lift:walk?(a.path.walkHeight??a.path.groundHeight+SIDEWALK_LIFT):Math.max(.2,a.path.groundHeight)}
      if(walk)this.walkJoins.push(s);else this.carriageways.add(s)
     }
    }

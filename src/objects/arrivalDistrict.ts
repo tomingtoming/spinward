@@ -9,6 +9,7 @@ import {certifyStreetAccess} from './streetFrontage'
 import {preserveCityPlaces} from './cityPlaces'
 import {getStreetProfile} from './streetProfile'
 import type {BandPoint} from './bandStreetPlan'
+import type {StreetPolygon} from './streetPolygon'
 
 export const ARRIVAL_WEST_ID='district-arrival-west'
 export const ARRIVAL_CENTRAL_IDS=['district-arrival-north','district-arrival-south'] as const
@@ -22,7 +23,7 @@ export const ARRIVAL_CENTRAL:readonly ArrivalBounds[]=[
   {x0:ARRIVAL_WEST.x1,x1:224.99787385709756,y0:ARRIVAL_WEST.y0,y1:-321.29032258064535}
 ]
 const inside=(bounds:ArrivalBounds,x:number,y:number,margin=0)=>x>bounds.x0+margin+1e-5&&x<bounds.x1-margin-1e-5&&y>bounds.y0+margin+1e-5&&y<bounds.y1-margin-1e-5
-const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS].map(id=>`${id}:`)
+const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS,'district-arrival-core'].map(id=>`${id}:`)
 export const isArrivalStreet=(p:StreetPath)=>arrivalStreetPrefixes.some(prefix=>p.id.startsWith(prefix))
 
 /** Clip a source centreline without moving either its interior vertices or
@@ -92,12 +93,13 @@ export function rebuildArrivalCentral(city:CityPlan,radius:number,length:number)
   })
 }
 
-function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:string,bounds:ArrivalBounds,deferBoundarySpurs=false){
+export function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:string,bounds:ArrivalBounds,deferBoundarySpurs=false,
+  retained?:{buildings:CityBuilding[];reserves:StreetPolygon[];streets:StreetPath[];patches?:CityPlan['patches'];trees?:CityPlan['trees']}){
   if(radius!==snapshot.radius||length!==snapshot.length||!city.streetNetwork)return null
   if(city.nativeDistricts?.some(d=>d.id===id))throw Error('Arrival district already applied')
   preserveCityPlaces(city,radius)
   const {x0,x1,y0,y1}=bounds,azimuth=(x0+x1)/(2*radius),axial=(y0+y1)/2
-  const streets=arrivalStreets(radius,id,bounds,deferBoundarySpurs),roads:CityRoad[]=[]
+  const streets=[...arrivalStreets(radius,id,bounds,deferBoundarySpurs),...retained?.streets??[]],roads:CityRoad[]=[]
   let replacedRoads=0
   for(const r of city.roads){
     const vertical=r.axialLength>r.tangentWidth,x=wrap(r.azimuth)*radius,at=vertical?x:r.axial
@@ -111,7 +113,8 @@ function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:strin
         tangentWidth:vertical?r.tangentWidth:end-start,axialLength:vertical?end-start:r.axialLength})
     }
   }
-  const removed=city.buildings.filter(b=>inside(bounds,wrap(b.azimuth)*radius,b.axial)),kept=city.buildings.filter(b=>!inside(bounds,wrap(b.azimuth)*radius,b.axial))
+  const replace=(b:CityBuilding)=>inside(bounds,wrap(b.azimuth)*radius,b.axial)&&!retained?.buildings.includes(b)
+  const removed=city.buildings.filter(replace),kept=city.buildings.filter(b=>!replace(b))
   const paths=[...legacyStreetPaths(roads),...city.nativeDistricts?.flatMap(d=>d.streets)??[],...streets]
   const network=new StreetNetwork(paths,radius)
   if(new Set(network.components).size!==new Set(city.streetNetwork!.components).size)throw Error('Arrival migration disconnected the street network')
@@ -123,6 +126,7 @@ function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:strin
   const carriageways=surface.roadSurfaces(),sidewalks=surface.sidewalks()
   const origin={...streets[0],azimuth,axial}
   const reserves=[...carriageways,...sidewalks].map(s=>relativeStreetPolygon(s,origin,radius))
+  reserves.push(...(retained?.reserves??[]).map(p=>p.map(v=>({...v,x:v.x-azimuth*radius,y:v.y-axial}))))
   const land=planStreetParcels({id,azimuth,axial,bounds:{x0:-(x1-x0)/2+18,x1:(x1-x0)/2-18,y0:-(y1-y0)/2+18,y1:(y1-y0)/2-18},
     streets,reserves,seed:14092026,maximumFrontage:40},radius)
   let seed=14092026
@@ -137,6 +141,7 @@ function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:strin
   // are replaced with certification output; existing authored contracts retain
   // their dimensions and door coordinates.
   const certified=certifyStreetAccess([...kept,...candidates],network,radius,6)
+  if(retained?.buildings.some(b=>!certified.buildings.some(c=>c.azimuth===b.azimuth&&c.axial===b.axial)))throw Error('Arrival migration obstructed an inhabited entrance')
   const accepted=certified.buildings.filter(b=>b.nativeDistrict===id)
   const buildings=accepted.filter((_,i)=>accepted.length<=removed.length||Math.floor(i*removed.length/accepted.length)!==Math.floor((i-1)*removed.length/accepted.length))
   const d:NativeDistrict={id,band:0,character:'mixed',layout:'band-plan',azimuth,axial,width:x1-x0,length:y1-y0,
@@ -145,8 +150,8 @@ function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:strin
   const byPosition=new Map(certified.buildings.map(b=>[`${b.azimuth}:${b.axial}`,b.access]))
   city.buildings=[...kept.map(b=>({...b,access:byPosition.get(`${b.azimuth}:${b.axial}`)??b.access})),...buildings]
   city.roads=roads;city.streetNetwork=network;city.nativeDistricts=[...city.nativeDistricts??[],d]
-  city.patches=city.patches.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
-  city.trees=city.trees.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
+  city.patches=city.patches.filter(p=>retained?.patches?.includes(p)||!inside(bounds,wrap(p.azimuth)*radius,p.axial))
+  city.trees=city.trees.filter(p=>retained?.trees?.includes(p)||!inside(bounds,wrap(p.azimuth)*radius,p.axial))
   city.intersections=city.intersections.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
   return {district:d,traffic:streets.filter(p=>Math.hypot(p.knots[1].point[0]-p.knots[0].point[0],p.knots[1].point[1]-p.knots[0].point[1])>60).map(p=>arrivalTrafficStreet(p,radius))}
 }

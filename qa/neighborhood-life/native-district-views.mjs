@@ -1,4 +1,7 @@
 export const nativeDistrictViews=[
+  {name:'arrival-core-frontage',at:[80/3200,11.3,1.8],aim:[0,11.3,1.8],ground:true},
+  {name:'arrival-core-park',at:[-240/3200,36.75,1.8],aim:[-190/3200,36.75,1.8],ground:true},
+  {name:'arrival-core-square',at:[45/3200,-55,90],aim:[0,0,0]},
   {name:'arrival-central-seam',at:[-90/3200,280,20],aim:[-129/3200,333,0]},
   {"name": "arrival-central-overview", "at": [-0.03515625, -680, 1850], "aim": [-0.03515625, 0, 0]},
   {"name": "arrival-central-night", "at": [-0.03515625, -680, 1850], "aim": [-0.03515625, 0, 0], "phase": 0.02},

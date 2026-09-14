@@ -59,7 +59,7 @@ export function paintDistrictFootways(plan:CityPlan,radius:number,grid:Grid){
   const cx=grid.startAzimuth+(grid.minX+(grid.nx-1)*grid.step/2)/radius,cy=grid.startAxial+grid.minY+(grid.ny-1)*grid.step/2
   const districts=plan.nativeDistricts?.filter(d=>Math.abs(Math.atan2(Math.sin(d.azimuth-cx),Math.cos(d.azimuth-cx)))*radius<d.width/2+grid.nx*grid.step/2+20&&Math.abs(d.axial-cy)<d.length/2+grid.ny*grid.step/2+20)??[]
   const paths=districts.flatMap(d=>d.streets)
-  if(!paths.length)return
+  if(!paths.length&&!plan.entranceWalks?.length)return
   const relative=(source:{azimuth:number;axial:number},polygon:{x:number;y:number}[])=>{
     const x=Math.atan2(Math.sin(source.azimuth-grid.startAzimuth),Math.cos(source.azimuth-grid.startAzimuth))*radius
     return polygon.map(p=>({x:p.x+x,y:p.y+source.axial-grid.startAxial}))
@@ -81,4 +81,7 @@ export function paintDistrictFootways(plan:CityPlan,radius:number,grid:Grid){
     const half=c.source.width/2+getStreetProfile(c.source.kind,radius).sidewalk
     paintStreetPolygon(grid,relative(c.source,streetRibbon(c.source,c.start,c.end,-half,half)),3)
   }
+  // Certified ramps also connect longer journeys to the pavement. The exact
+  // short-walk solver alone cannot bridge a public entrance into a city route.
+  for(const w of plan.entranceWalks??[])for(const p of [...w.pieces,...w.landingPieces])paintStreetPolygon(grid,relative(w.source,p),1)
 }

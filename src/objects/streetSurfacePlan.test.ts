@@ -1,6 +1,6 @@
 import {test,expect} from 'bun:test'
 import {StreetSurfacePlan,streetSurfaceEnvelope,relativeStreetPolygon,type StreetSurface} from './streetSurfacePlan'
-import {polygonArea,intersectStreetPolygons,positivePolygon,subtractStreetPolygon,type StreetPolygon} from './streetPolygon'
+import {polygonArea,intersectStreetPolygons,positivePolygon,subtractStreetPolygon,containsStreetPolygon,type StreetPolygon} from './streetPolygon'
 import {buildStreetSurfaceGeometry} from './streetSurfaceGeometry'
 import {legacyStreetPaths,type StreetPath} from './streetPath'
 import {planCity} from './cityLayout'
@@ -52,6 +52,20 @@ test('T and multiway junctions, duplicates and disconnected decks retain their s
  for(const p of [plan,duplicate]){expect(overlaps(p.roadSurfaces()).count).toBe(0);expect(overlaps(p.sidewalks()).count).toBe(0);expect(overlaps(p.sidewalks(),p.roadSurfaces()).count).toBe(0)}
  const decks=new StreetSurfacePlan([line('low',[-20,0],[20,0]),line('high',[0,-20],[0,20],6,1)],R)
  expect(decks.roadSurfaces().every(s=>!s.junction)).toBe(true);expect(area(decks.roadSurfaces())).toBeCloseTo(480,7)
+})
+test('three butt-ended arms close the observed civic road and footway wedge',()=>{
+ const paths=[line('northwest',[-36,-34],[-70,0],19.5),line('southeast',[65.21464479427735,-101.52035173032738],[-36,-34],19.5),line('east',[0,-34],[-36,-34],19.5)].map(p=>({...p,kind:'arterial' as const}))
+ const raw=new StreetSurfacePlan(paths,R),joined=new StreetSurfacePlan(paths,R,true)
+ const contains=(surfaces:StreetSurface[],x:number,y:number)=>surfaces.some(s=>containsStreetPolygon(s.polygon,x,y))
+ expect(contains(raw.roadSurfaces(),-42,-41)).toBe(false)
+ expect(contains(joined.roadSurfaces(),-42,-41)).toBe(true)
+ expect(contains(raw.sidewalks(),-44,-43)).toBe(false)
+ expect(contains(joined.sidewalks(),-44,-43)).toBe(true)
+ expect(overlaps(joined.roadSurfaces()).count).toBe(0)
+ expect(overlaps(joined.sidewalks()).count).toBe(0)
+ expect(overlaps(joined.sidewalks(),joined.roadSurfaces()).count).toBe(0)
+ const split=[...paths.slice(0,2),{...paths[2],groundHeight:5,walkHeight:5.32}]
+ expect(contains(new StreetSurfacePlan(split,R,true).roadSurfaces(),-42,-41)).toBe(false)
 })
 test('curves, parallel roads and the cylindrical seam are clipped in metric space',()=>{
  const curve={...line('curve',[-40,0],[40,0]),knots:[{point:[-40,0],tangent:[80,50]},{point:[40,0],tangent:[80,50]}]} as StreetPath
