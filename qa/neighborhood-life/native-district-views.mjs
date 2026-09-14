@@ -1,4 +1,8 @@
 export const nativeDistrictViews=[
+  {name:'arrival-crossings-overview',at:[-100/3200,-95,95],aim:[-45/3200,-18,0]},
+  {name:'arrival-crossings-night',at:[-100/3200,-95,95],aim:[-45/3200,-18,0],phase:.02},
+  {name:'arrival-crossings-low',at:[-95/3200,-28,7],aim:[-64/3200,-6,0]},
+  {name:'arrival-core-crossing',at:[-61.384110521952924/3200,-24.172238664151124,1.8],aim:[-45.82776133584888/3200,-8.61588947804708,1.8],ground:true},
   {name:'arrival-infill-west-night',at:[-626.4665011660576/3200,674.8772806684257,1.8],aim:[-670.6810166913152/3200,627.231959629873,1.8],ground:true,phase:.02},
   {name:'arrival-infill-south-night',at:[32.35136240657101/3200,-378.62990176875775,1.8],aim:[-28.034658661982476/3200,-354.5772832105173,1.8],ground:true,phase:.02},
   {name:'arrival-local-west-low',at:[-783/3200,540,10],aim:[-766.21022322527/3200,530.1706289133361,.32]},

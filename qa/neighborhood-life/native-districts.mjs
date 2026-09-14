@@ -41,7 +41,7 @@ try{
     geometry:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,triangles:m.geometry.index.count/3})),
     player:window.__spinward,signals:window.__spinwardIntersections.group.getObjectByName('intersection-signal-heads').userData.nativeApproaches}
   })
-  if(/^arrival-(east|seam|local)/.test(view.name)&&!view.ground&&(probe.player.mode!=='free-fly'||Math.abs(probe.player.axial-view.at[1])>.1||Math.abs(probe.player.azimuth-view.at[0])*3200>.1||Math.abs(probe.player.radial-(3200-view.at[2]+1.8))>.1))throw Error(`Comparison camera displaced at ${view.name}: ${JSON.stringify({requested:view.at,actual:{mode:probe.player.mode,azimuth:probe.player.azimuth,axial:probe.player.axial}})}`)
+  if(/^arrival-/.test(view.name)&&!view.ground&&(probe.player.mode!=='free-fly'||Math.abs(probe.player.axial-view.at[1])>.1||Math.abs(probe.player.azimuth-view.at[0])*3200>.1||Math.abs(probe.player.radial-(3200-view.at[2]+1.8))>.1))throw Error(`Comparison camera displaced at ${view.name}: ${JSON.stringify({requested:view.at,actual:{mode:probe.player.mode,azimuth:probe.player.azimuth,axial:probe.player.axial}})}`)
   const insideDistrict=p=>probe.districts.some(d=>Math.abs(p.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(p.azimuth-d.azimuth),Math.cos(p.azimuth-d.azimuth)))*3200<d.width/2)
   // A distant camera can be outside every traffic activation window. Require
   // nearby cars when the player is actually inside a rebuilt district.

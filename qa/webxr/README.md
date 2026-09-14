@@ -5,7 +5,30 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, local-street housing):
+Latest focused verification (2026-09-14, bending and short-block crossings):
+**14 passed in 6.2 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build, with the served asset rehashed
+after XR. Treating outgoing road ends correctly and sharing short blocks by
+their junction angles restores 13 crossing approaches without changing roads,
+buildings or public places. The central junction now has four crossings, and
+the adjacent 48 m block has one at each end. A real stereo stick walk covered
+22.49 m through a restored crossing, with 34 grounded samples; saved surface
+polygons place both endpoints on sidewalks outside roads and buildings.
+West/Garden directions, local streets, park and eastern entrances, shops,
+district-boundary traffic and walking, another district's spine/T junction,
+wrist controls, head roll, input ownership, exit/re-entry and stale-session
+guards passed. All fourteen page-error logs are empty; both entry/return cases
+have no failed resources and four grants/four ends in total. **1,076 unit tests**,
+TypeScript/build, six desktop comparisons and independent review of twelve
+desktop/eight XR images passed within their stated scope. The square walking
+example is 1,842.69 m, still a detour. Centre-line paint remains visible within
+the crossing area; its appearance at white-stripe edges needs finishing review.
+Other bands, perimeter roads and the proposed river/IC/JCT remain. Physical
+Quest, full-route walking and the existing body-drift case were not tested.
+Evidence: `evidence/arrival-public-walks-20260914/`;
+[scope, fixed build and visual observations](../neighborhood-life/arrival-crossings.md).
+
+Previous focused verification (2026-09-14, local-street housing):
 **11 passed in 5.7 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build. The served asset still matched
 its file hash after XR. Four existing local roads now have 64 additional

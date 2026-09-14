@@ -12,7 +12,7 @@ async function press(page,xr,id){
 import {signalPose} from '../neighborhood-life/signal-views.mjs'
 import {nativeDistrictViews} from '../neighborhood-life/native-district-views.mjs'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-seam-walk','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
+for(const viewName of ['arrival-core-crossing','arrival-local-west','arrival-local-south','spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-seam-walk','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
  const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto('about:blank');const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
@@ -36,6 +36,10 @@ for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-app
  })
  await page.waitForFunction(view=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible&&(view!=='t-approach'||a.id.includes(':link-0:'))),viewName)
  const before=await state();expect(before.districts).toHaveLength(16);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
+ if(viewName==='arrival-core-crossing'){
+  const topology=await page.evaluate(()=>{const p=window.__spinwardCity.getCityPlan(),m=p.streetMarkings,j=m.junctions.find(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id==='district-arrival-core:band-164'));return{civic:m.junctionCrossings(j).length,link:m.crossings(-50/3200,-17,80).filter(c=>c.source.id==='district-arrival-core:band-159').length}})
+  expect(topology).toEqual({civic:4,link:2})
+ }
  if(viewName.startsWith('arrival-')){
   const id=viewName.startsWith('arrival-east-')?'district-arrival-east':viewName.startsWith('arrival-core-')?'district-arrival-core':(viewName==='arrival-street'||viewName==='arrival-seam-walk'||viewName==='arrival-local-west')?'district-arrival-west':viewName==='arrival-north-street'?'district-arrival-north':'district-arrival-south'
   expect(before.districts.find(d=>d.id===id).land.built.length).toBeGreaterThan(id==='district-arrival-east'?0:20)
@@ -123,6 +127,20 @@ for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-app
   await fs.writeFile(info.outputPath('seam-traffic.json'),JSON.stringify(seamTraffic,null,2))
   expect(seamTraffic.crossings.length).toBeGreaterThan(0)
   expect(seamTraffic.crossings.every(c=>c.paths.length===2)).toBe(true)
+ }else if(viewName==='arrival-core-crossing'){
+  const v=nativeDistrictViews.find(v=>v.name===viewName),dx=(v.aim[0]-v.at[0])*3200,dy=v.aim[1]-v.at[1],length=Math.hypot(dx,dy)
+  for(let i=0;i<60;i++){
+   await xr.settle(150)
+   const p=await page.evaluate(()=>({x:window.__spinward.azimuth*3200,y:window.__spinward.axial,h:window.__spinward.groundHeight,mode:window.__spinward.mode}))
+   rampSamples.push(p)
+   if(((p.x-v.at[0]*3200)*dx+(p.y-v.at[1])*dy)/length>=length)break
+  }
+  await xr.setAxes('left',0,0)
+  expect(rampSamples.every(p=>p.mode==='grounded'&&Math.abs(p.h)<.05&&Math.abs((p.x-v.at[0]*3200)*dy-(p.y-v.at[1])*dx)/length<.6)).toBe(true)
+  const last=rampSamples.at(-1)
+  expect(((last.x-v.at[0]*3200)*dx+(last.y-v.at[1])*dy)/length).toBeGreaterThanOrEqual(length)
+  expect(Math.hypot(last.x-v.aim[0]*3200,last.y-v.aim[1])).toBeLessThan(1.2)
+  await xr.screenshot(info.outputPath('crossing-after-walk.png'),{canvas:'canvas',metadata:true,timeout:5000})
  }else if(viewName.startsWith('arrival-local-')){
   for(let i=0;i<20;i++){
    await xr.settle(150)

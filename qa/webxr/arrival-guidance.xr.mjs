@@ -29,7 +29,7 @@ test('arrival west wrist directions reach public places without moving the playe
   await page.waitForFunction(({id,unavailable})=>window.__spinward.outing.action===id&&window.__spinward.outing.status===(unavailable?'unavailable':'active'),{id,unavailable})
   const guided=await state();expect(Math.hypot((guided.azimuth-origin.azimuth)*3200,guided.axial-origin.axial)).toBeLessThan(.15)
   journeys.push({id,uiResponseMs:Date.now()-started,...guided})
-  if(!unavailable){expect(guided.points.length).toBeGreaterThan(20);expect(guided.points.some(p=>p.crosswalk)).toBe(true);expect(guided.outing.remaining).toBeGreaterThan(600);expect(guided.outing.remaining).toBeLessThan(2200)}
+  if(!unavailable){expect(guided.points.length).toBeGreaterThan(20);expect(guided.points.some(p=>p.crosswalk)).toBe(true);expect(guided.outing.remaining).toBeGreaterThan(600);expect(guided.outing.remaining).toBeLessThan(id==='guide-square'?1900:2200)}
   else expect(guided.points).toHaveLength(0)
   for(const roll of id==='guide-park'?[0,25,-25]:[0]){
    await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,roll*Math.PI/180]});await xr.waitForFrames(2,{sessionId:diagnostics.session.id,timeout:5000})

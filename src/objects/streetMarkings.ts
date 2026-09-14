@@ -4,7 +4,7 @@ import { StreetNetwork, type StreetSegment } from './streetNetwork'
 import { intersectStreetPolygons, polygonArea, positivePolygon } from './streetPolygon'
 import { getStreetProfile } from './streetProfile'
 import { streetSurfaceEnvelope, relativeStreetPolygon, type StreetSurface } from './streetSurfacePlan'
-import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS } from './intersectionSignals'
+import { CROSSWALK_LENGTH_METERS, CROSSWALK_SETBACK_METERS, STOP_LINE_GAP_METERS } from './intersectionSignals'
 
 type Arm = { street: number; t: number; sign: 1 | -1; dx: number; dy: number }
 export type StreetJunction = { node: number; arms: Arm[] }
@@ -22,10 +22,12 @@ export class StreetMarkingPlan {
   private readonly index: SurfaceIndex
   private readonly segments: StreetSegment[][]
   private readonly stations: number[][]
+  private readonly stationJunctions: Map<number, StreetJunction>[]
   constructor(readonly network: StreetNetwork) {
     this.index = new SurfaceIndex(network.radius)
     this.segments = network.streets.map(() => [])
     this.stations = network.streets.map((_, i) => [0, network.streetLengths[i]])
+    this.stationJunctions = network.streets.map(() => new Map())
     for (const s of network.segments) this.segments[s.street].push(s)
     network.nodes.forEach((node, id) => {
       const arms: Arm[] = []
@@ -49,6 +51,8 @@ export class StreetMarkingPlan {
       this.junctions.push({ node: id, arms })
     })
     this.stations = this.stations.map(values => [...new Set(values)].sort((a, b) => a - b))
+    for (const junction of this.junctions) for (const arm of junction.arms)
+      this.stationJunctions[arm.street].set(this.distanceAt(arm.street, arm.t), junction)
   }
 
   distanceAt(street: number, t: number) {
@@ -84,29 +88,48 @@ export class StreetMarkingPlan {
     for (const arm of junction.arms) {
       const source = network.streets[arm.street], profile = getStreetProfile(source.kind, radius)
       if (!profile.sidewalk) continue
-      let setback = 0, hasCrossing = false
-      for (const other of junction.arms) {
-        const sine = Math.abs(arm.dx * other.dy - arm.dy * other.dx)
-        if (sine < 1e-5) continue
-        const road = network.streets[other.street], walk = getStreetProfile(road.kind, radius).sidewalk
-        if (!walk) continue
-        const cosine = Math.abs(arm.dx * other.dx + arm.dy * other.dy)
-        setback = Math.max(setback, (road.width / 2 + source.width / 2 * cosine) / sine)
-        hasCrossing = true
-      }
-      if (!hasCrossing || setback > MAX_SETBACK) continue
-      const station = this.distanceAt(arm.street, arm.t), start = setback + CROSSWALK_SETBACK_METERS, end = start + CROSSWALK_LENGTH_METERS
+      const end = this.crossingExtent(junction, arm)
+      if (end === null) continue
+      const station = this.distanceAt(arm.street, arm.t), start = end - CROSSWALK_LENGTH_METERS
       const next = arm.sign === 1 ? this.stations[arm.street].find(s => s > station + 1e-5)
         : this.stations[arm.street].filter(s => s < station - 1e-5).at(-1)
-      // Reserve both ends of a short block; opposing crossings must not overlap.
-      if (next === undefined || end > Math.abs(next - station) / 2) continue
+      if (next === undefined) continue
+      const span = Math.abs(next - station)
+      let limit = span / 2
+      const neighbor = this.stationJunctions[arm.street].get(next)
+      const opposite = neighbor?.arms.find(a => a.street === arm.street && a.sign === -arm.sign)
+      const otherEnd = opposite ? this.crossingExtent(neighbor!, opposite) : null
+      // Unequal junction angles need unequal shares of a short block. Split
+      // only the spare gap between both crossings, including both stop lines.
+      if (otherEnd !== null && (end > limit || otherEnd > limit) &&
+        span - end - otherEnd >= 2 * (STOP_LINE_GAP_METERS + .15))
+        limit = (span + end - otherEnd) / 2
+      if (end > limit) continue
       const a = this.parameterAt(arm.street, station + start * arm.sign)
       const b = this.parameterAt(arm.street, station + end * arm.sign)
-      const crossing: StreetCrossing = { node: junction.node, source, street: arm.street, sign: arm.sign, station, limit: Math.abs(next - station) / 2, start: Math.min(a, b), end: Math.max(a, b), distance: 0 }
+      const crossing: StreetCrossing = { node: junction.node, source, street: arm.street, sign: arm.sign, station, limit, start: Math.min(a, b), end: Math.max(a, b), distance: 0 }
       if (this.clearOfOtherRoads(crossing)) out.push(crossing)
     }
     this.crossingCache.set(junction.node, out)
     return out
+  }
+
+  private crossingExtent(junction: StreetJunction, arm: Arm): number | null {
+    const source = this.network.streets[arm.street]
+    let setback = 0, hasCrossing = false
+    for (const other of junction.arms) {
+      const sine = Math.abs(arm.dx * other.dy - arm.dy * other.dx)
+      if (sine < 1e-5) continue
+      const road = this.network.streets[other.street]
+      if (!getStreetProfile(road.kind, this.network.radius).sidewalk) continue
+      const cosine = arm.dx * other.dx + arm.dy * other.dy
+      // Arms are outgoing half-roads. For an obtuse continuation its end
+      // cap is furthest forward; an infinite line invents a road ahead.
+      const extent = cosine < 0 ? road.width / 2 * sine
+        : (road.width / 2 + source.width / 2 * cosine) / sine
+      setback = Math.max(setback, extent); hasCrossing = true
+    }
+    return hasCrossing && setback <= MAX_SETBACK ? setback + CROSSWALK_SETBACK_METERS + CROSSWALK_LENGTH_METERS : null
   }
 
   clearOfOtherRoads(crossing: Pick<StreetCrossing, 'source' | 'start' | 'end'>, margin = 0) {

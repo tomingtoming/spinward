@@ -25,6 +25,10 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
   populateArrivalLocalStreets(city,radius,maxBuildings)
   city.streetSurfaces=new StreetSurfacePlan(city.streetNetwork!.streets,radius,isArrivalStreet)
   city.streetMarkings=new StreetMarkingPlan(city.streetNetwork!)
+  const civic=city.streetMarkings.junctions.find(j=>j.arms.some(a=>city.streetNetwork!.streets[a.street].id==='district-arrival-core:band-164'))!
+  expect(city.streetMarkings.junctionCrossings(civic)).toHaveLength(4)
+  const shortLink=city.streetMarkings.crossings(-50/radius,-17,80).filter(c=>c.source.id==='district-arrival-core:band-159')
+  expect(shortLink).toHaveLength(2)
   const places=captureBandPublicPlaces(city,radius).slice(0,2),park=city.places!.park,covered=city.places!.covered
   const start={azimuth:-857.7680744967984/radius,axial:-292.73692295435166}
   const absolute=(p:{azimuth:number;axial:number},poly:{x:number;y:number}[])=>poly.map(v=>({x:v.x+p.azimuth*radius,y:v.y+p.axial}))
@@ -52,6 +56,7 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
     }
     expect(unmarked).toBe(0);expect(blocked).toBe(0)
     expect(length).toBeGreaterThan(surfaceDistance(a,b,radius));expect(length).toBeLessThan(2200)
+    if(place.id==='square')expect(length).toBeLessThan(1900)
     // Retiring the perimeter changes the route, but reversing its endpoints
     // must not erase a crossing through a different raster phase.
     const key=`${place.id}:${phase}`

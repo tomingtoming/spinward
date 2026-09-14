@@ -44,6 +44,27 @@ test('T junctions, multiway nodes, duplicate roads and decks do not invent close
   expect(plan([main, { ...stem, kind: 'alley', width: 4 }]).crossings(0, 0, 100)).toHaveLength(0)
 })
 
+test('a bending through road keeps crossings on both approaches of its side junction', () => {
+  for (const bend of [-.35, -.15, .15, .35]) for (const width of [6, 12, 19.5]) for (const rotation of [0, .7]) {
+    const turn = ([x, y]: [number, number]): [number, number] =>
+      [x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation)]
+    const roads = [line('south', turn([0, -200]), [0, 0], width),
+      line('north', [0, 0], turn([200 * Math.sin(bend), 200 * Math.cos(bend)]), width),
+      line('branch', [0, 0], turn([200, 0]), 12)]
+    const p = plan(roads), crossings = p.crossings(0, 0, 100)
+    expect(crossings).toHaveLength(3)
+    expect(new Set(crossings.map(c => c.source.id)).size).toBe(3)
+    for (const c of crossings) {
+      expect(p.clearOfOtherRoads(c)).toBe(true)
+      for (const stripe of p.paint([c])) for (const other of roads.filter(r => r !== c.source)) {
+        const surfaces = new StreetSurfacePlan([other], R).roadSurfaces()
+        for (const surface of surfaces)
+          expect(polygonArea(intersectStreetPolygons(stripe.polygon, relativeStreetPolygon(surface, stripe.source, R)))).toBeLessThan(1e-6)
+      }
+    }
+  }
+})
+
 test('nearby crossings are separated on short blocks and follow curves across the seam', () => {
   const main = line('main', [-100, 0], [100, 0])
   const short = plan([main, line('a', [-4, -50], [-4, 50]), line('b', [4, -50], [4, 50])])
@@ -60,6 +81,21 @@ test('nearby crossings are separated on short blocks and follow curves across th
     expect(p.crossings(azimuth + .5, 0, 20)).toHaveLength(0)
     expect(p.paint(crossings).every(s => polygonArea(s.polygon) > 0)).toBe(true)
   }
+})
+
+test('unequal junction angles share a short block without overlapping crossings or stops', () => {
+  const link = line('link', [0, 0], [48, 0], 19.5)
+  const p = plan([link, line('west', [-200, 0], [0, 0], 19.5), line('east', [48, 0], [250, 0], 19.5),
+    line('skew', [0, 0], [200, 200], 19.5), line('north', [48, 0], [48, 200], 19.5)])
+  const crossings = p.crossings(0, 0, 100).filter(c => c.source === link).sort((a, b) => a.start - b.start)
+  expect(crossings).toHaveLength(2)
+  expect(crossings[0].end * 48).toBeGreaterThan(24)
+  expect((crossings[1].start - crossings[0].end) * 48).toBeGreaterThan(1.9)
+  for (const c of crossings) {
+    expect(p.clearOfOtherRoads(c)).toBe(true)
+    expect(Math.abs(p.distanceAt(c.street, c.sign === 1 ? c.end : c.start) - c.station) + .95).toBeLessThanOrEqual(c.limit)
+  }
+  expect(crossings[0].limit + crossings[1].limit).toBeCloseTo(48, 8)
 })
 
 test('paint stays inside its road, does not overlap other zebra and follows the cylindrical floor', () => {
