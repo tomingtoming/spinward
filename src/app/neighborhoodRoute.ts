@@ -45,6 +45,17 @@ function drivingNetwork(plan:CityPlan,radius:number,curved:CurvedNeighborhood|nu
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
   driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null, parkingBays:readonly CarShareBay[]=[], curved:CurvedNeighborhood|null=null): SurfacePoint[] | null {
+  const route=searchNeighborhoodRoute(plan,radius,start,goal,driving,park,underpass,river,parkingBays,curved)
+  if(route||driving||!touchesNativeDistrict(plan,radius,start,goal))return route
+  // A coarse search may erase a narrow oblique pavement. Retry once with a
+  // finer, smaller window, after preserving any route the broad window found.
+  return searchNeighborhoodRoute(plan,radius,start,goal,false,park,underpass,river,parkingBays,curved,true)
+}
+function touchesNativeDistrict(plan:CityPlan,radius:number,...points:SurfacePoint[]){
+  return (plan.nativeDistricts??[]).some(d=>points.some(p=>Math.abs(wrapAngle(p.azimuth-d.azimuth))*radius<d.width/2&&Math.abs(p.axial-d.axial)<d.length/2))
+}
+function searchNeighborhoodRoute(plan:CityPlan,radius:number,start:SurfacePoint,goal:SurfacePoint,driving:boolean,
+  park:PublicPark|null,underpass:PublicUnderpass|null,river:RiverDistrict|null,parkingBays:readonly CarShareBay[],curved:CurvedNeighborhood|null,refine=false):SurfacePoint[]|null {
   if(!driving){
     const entrance=routeOnEntranceWalk(plan.entranceWalks??[],radius,start,goal)
     if(entrance!==undefined)return entrance
@@ -82,12 +93,23 @@ export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: Sur
     bounds.x0=Math.min(bounds.x0,x-d.width/2-20);bounds.x1=Math.max(bounds.x1,x+d.width/2+20)
     bounds.y0=Math.min(bounds.y0,y-d.length/2-20);bounds.y1=Math.max(bounds.y1,y+d.length/2+20)
   }
-  // A 2 m raster can disconnect a continuous 2.5 m oblique pavement when
-  // diagonal corner cutting is correctly forbidden. Refine local district
-  // walks within the same cell budget; retain the coarse long-range fallback.
-  if(!driving&&(plan.nativeDistricts??[]).some(d=>[start,goal].some(p=>
-    Math.abs(wrapAngle(p.azimuth-d.azimuth))*radius<d.width/2&&Math.abs(p.axial-d.axial)<d.length/2))&&
-    (Math.ceil((bounds.x1-bounds.x0)/1.5)+2)*(Math.ceil((bounds.y1-bounds.y0)/1.5)+2)<=600000)step=1.5
+  // A diagonal pavement needs finer cells without allowing corner cutting.
+  // Keep the 600,000-cell allocation cap. If the broad window already used
+  // fine cells, repeating it would not help. Otherwise trim only the longer
+  // margin for one retry; the endpoint envelope and transverse detour remain.
+  if(!driving&&touchesNativeDistrict(plan,radius,start,goal)){
+    const fits=()=> (Math.ceil((bounds.x1-bounds.x0)/1.5)+2)*(Math.ceil((bounds.y1-bounds.y0)/1.5)+2)<=600000
+    if(refine){
+      if(fits())return null
+      const axis=bounds.x1-bounds.x0>bounds.y1-bounds.y0?'x':'y',other=axis==='x'?'y':'x',delta=axis==='x'?gx:gy
+      const span=(Math.floor(600000/(Math.ceil((bounds[`${other}1`]-bounds[`${other}0`])/1.5)+2))-3)*1.5
+      if(span<Math.abs(delta)+3)return null
+      const margin=(span-Math.abs(delta))/2
+      bounds[`${axis}0`]=Math.min(0,delta)-margin;bounds[`${axis}1`]=Math.max(0,delta)+margin
+      if(!fits())return null
+    }
+    if(fits())step=1.5
+  }
   const minX = Math.floor(bounds.x0/step)*step, minY = anchorY+Math.floor((bounds.y0-anchorY)/step)*step
   const nx = Math.ceil((bounds.x1-minX)/step)+1, ny = Math.ceil((bounds.y1-minY)/step)+1
   if (nx*ny>600000) return null

@@ -5,7 +5,24 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, arrival-west roads at normal startup):
+Latest focused verification (2026-09-14, arrival-west walking directions):
+**5 cases verified**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal on one fixed build. The first run passed four cases; the new case
+incorrectly expected the Park's visual paving height as the physical floor.
+Correcting that assertion and rerunning only that case passed in 27.0 seconds.
+Actual wrist directions to Park/Square preserve position; stereo roll, 3.52 m of
+grounded stick movement with decreasing remaining distance, cancellation and
+Park arrival passed. Garden, arrival-west walking, desktop-menu and Quest-style
+entry, input ownership, exit/re-entry and stale-session guards also passed.
+All five cases recorded no page errors; the two entry/return cases recorded no
+failed resources and four session grants/four ends. Final unit run: **1,051 passed**;
+TypeScript/build and desktop day/night before/after checks passed. This fixes
+guidance from the applied west district; it does not expand the road layout.
+Physical Quest, full-length physical route walking and the prior body-drift
+case were not tested. Evidence: `evidence/arrival-guidance-20260914/{xr-first,xr}/`;
+[scope, initial failures, fixed build and remaining work](../neighborhood-life/arrival-guidance.md).
+
+Previous focused verification (2026-09-14, arrival-west roads at normal startup):
 **4 passed in 1.7 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build. Actual entry through desktop-menu
 and Quest-style UI, wrist controls, input ownership, exit/re-entry and stale-session

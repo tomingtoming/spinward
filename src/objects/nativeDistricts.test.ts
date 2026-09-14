@@ -48,6 +48,10 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
    const n=network.nodes[j.node];expect(s.controlsJunction(n.azimuth,n.axial)).toBe(true)
   }
  }
+ // Certify every rebuilt building together. Rebuilding the same road index
+ // separately for each district repeats setup and omits neighbouring districts
+ // from the obstacle set; a single batch retains and strengthens the check.
+ expect(certifyStreetAccess(districts.flatMap(d=>d.buildings),network,R,6).rejected).toEqual([])
  for(const d of districts){
   expect(d.buildings.length).toBe(d.replacedBuildings);expect(d.streets).toHaveLength(d.layout==='anchor-led'?32:d.layout==='place-led'?14:d.character==='mixed'?11:d.character==='residential'?9:13)
   for(const link of d.streets.filter(p=>p.id.includes(':link-'))){
@@ -56,7 +60,6 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
    const ends=junctions.filter(j=>j.arms.some(a=>a.street===index))
    expect(ends).toHaveLength(2);expect(ends.every(j=>j.arms.length===3)).toBe(true)
   }
-  const own=certifyStreetAccess(d.buildings,network,R,6);expect(own.rejected).toEqual([])
   if(d.layout){
    expect(d.land!.blocks.length).toBeGreaterThan(2)
    expect(d.land!.parcels.length).toBeGreaterThan(d.replacedBuildings)
