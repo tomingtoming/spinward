@@ -30,8 +30,8 @@ try{
     const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy)))
     return Math.hypot(px-t*dx,py-t*dy)<=path.width/2-.4
    })})):[]
-   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,centres:d.centres,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth,localLinks:d.localLinks,
-    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,unallocatedArea:d.land.unallocatedArea,built:d.buildings.map(b=>({id:b.nativeParcel,azimuth:b.azimuth,axial:b.axial,width:b.width,depth:b.depth,height:b.height,access:b.access}))}:undefined}))??[],
+   return{placeTraffic,buildings:p.buildings.length,districts:p.nativeDistricts?.map(d=>({id:d.id,centres:d.centres,azimuth:d.azimuth,axial:d.axial,width:d.width,length:d.length,buildings:d.buildings.length,roads:d.streets.length,growth:d.growth,localLinks:d.localLinks,infill:d.infill?{buildings:d.infill.buildings,parcels:d.infill.land.reduce((n,l)=>n+l.parcels.length,0)}:undefined,
+    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,unallocatedArea:d.land.unallocatedArea,built:d.buildings.filter(b=>!b.nativeParcel?.includes(':infill:')).map(b=>({id:b.nativeParcel,azimuth:b.azimuth,axial:b.axial,width:b.width,depth:b.depth,height:b.height,access:b.access}))}:undefined}))??[],
     nativeCars:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources?.map(s=>s.path.id),position:positions[i],stops:r.signals?.length??0}]:[]),
     walkers:window.__spinwardWalkers.group.userData,
     lamps:lamps?{focusAzimuth:lamps.focusAzimuth,focusAxial:lamps.focusAxial,capacity:lamps.posts.capacity,count:lamps.posts.mesh.count,

@@ -1076,10 +1076,12 @@
       "sha256": "5f9a82e5f36ec27442b786dbedb9883b64ae397087f9dd36d9126badd0bcf5c9",
       "size": 1745504,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-14",
       "finding": "street",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "原寸で再確認。道に近接する建物前面、異なる幅・高さの輪郭、看板や設備、奥へ続く通りを観察。見えない内部用途・実寸は断定しない。看板文字・武器関連表示・張り出す配線や黄色部材は採用しない。",
+      "relatedWork": "2026-09-14: qa/neighborhood-life/arrival-infill.md。道路に近接する建物が通りを囲む関係を、新生活道路4本の接道敷地と64棟の独自配置の参考にした。画像の固有造形・設備・表示は未採用で、implementationはpendingを維持。"
     },
     {
       "id": "izma-ep05-0042",
@@ -1496,10 +1498,12 @@
       "sha256": "374baf666ee25e2611ac5540841f1330b4f6ce3eaf29fb131cb9f536f1168867",
       "size": 1345482,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-14",
       "finding": "street",
       "duplicateOf": null,
-      "implementation": "pending"
+      "implementation": "pending",
+      "observation": "原寸で再確認。近い両壁、異なる高さの上端、その間に見える頭上市街の点光を観察。濃い青の光や配線・横架材の形状、見えない設備機能・寸法は採用しない。",
+      "relatedWork": "2026-09-14: qa/neighborhood-life/arrival-infill.md。道路に近接する建物が通りを囲む関係を、新生活道路4本の接道敷地と64棟の独自配置の参考にした。画像の固有造形・設備・表示は未採用で、implementationはpendingを維持。"
     },
     {
       "id": "izma-ep06-0080",

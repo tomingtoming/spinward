@@ -23,8 +23,8 @@ for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-app
  const state=()=>page.evaluate(()=>{
   const city=window.__spinwardCity,p=city.getCityPlan(),poses=city.getTrafficPositions(),routes=city.trafficRoutes
   return{azimuth:window.__spinward.azimuth,axial:window.__spinward.axial,ground:window.__spinward.groundHeight,mode:window.__spinward.mode,
-   districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,localLinks:d.localLinks,
-    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
+   districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,localLinks:d.localLinks,infill:d.infill?{buildings:d.infill.buildings,parcels:d.infill.land.reduce((n,l)=>n+l.parcels.length,0)}:undefined,
+    land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.filter(b=>!b.nativeParcel?.includes(':infill:')).map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
    junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
    traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources.map(s=>s.path.id),...poses[i],onRoad:p.streetNetwork.query(poses[i].azimuth,poses[i].axial,0,0).some(s=>{
     const path=p.streetNetwork.streets[s.street],a=s.start,b=s.end,dx=b.x-a.x,dy=b.y-a.y,x=Math.atan2(Math.sin(poses[i].azimuth-path.azimuth),Math.cos(poses[i].azimuth-path.azimuth))*3200-a.x,y=poses[i].axial-path.axial-a.y
@@ -44,6 +44,8 @@ for(const viewName of ['arrival-local-west','arrival-local-south','spine','t-app
   expect(before.walkers.actors.some(a=>a.id.startsWith(`native:${id}:`)&&a.visible)).toBe(true)
   if(viewName.startsWith('arrival-local-')){
    expect(before.districts.flatMap(d=>d.localLinks??[])).toHaveLength(4)
+   expect(before.districts.reduce((n,d)=>n+(d.infill?.buildings??0),0)).toBe(64)
+   expect(before.districts.find(d=>d.id===id).infill.buildings).toBe(id==='district-arrival-west'?44:20)
    expect(before.districts.find(d=>d.id===id).localLinks).toHaveLength(2)
    expect(cars.some(v=>v.paths.some(p=>p.includes(':local-link-')))).toBe(true)
   }

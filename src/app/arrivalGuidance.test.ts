@@ -6,6 +6,7 @@ import {rebuildArrivalCore} from '../objects/arrivalCore'
 import {rebuildArrivalEast} from '../objects/arrivalEast'
 import {retireArrivalSeams} from '../objects/arrivalSeams'
 import {connectArrivalLocalStreets} from '../objects/arrivalLocalLinks'
+import {populateArrivalLocalStreets} from '../objects/arrivalInfill'
 import {StreetSurfacePlan} from '../objects/streetSurfacePlan'
 import {StreetMarkingPlan} from '../objects/streetMarkings'
 import {captureBandPublicPlaces} from '../objects/bandPublicPlaces'
@@ -21,6 +22,7 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
   rebuildArrivalEast(city,radius,40000)
   retireArrivalSeams(city,radius)
   connectArrivalLocalStreets(city,radius)
+  populateArrivalLocalStreets(city,radius,maxBuildings)
   city.streetSurfaces=new StreetSurfacePlan(city.streetNetwork!.streets,radius,isArrivalStreet)
   city.streetMarkings=new StreetMarkingPlan(city.streetNetwork!)
   const places=captureBandPublicPlaces(city,radius).slice(0,2),park=city.places!.park,covered=city.places!.covered

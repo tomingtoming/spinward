@@ -5,7 +5,29 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, arrival local connections):
+Latest focused verification (2026-09-14, local-street housing):
+**11 passed in 5.7 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build. The served asset still matched
+its file hash after XR. Four existing local roads now have 64 additional
+buildings: 59 apartments, three offices and two commercial buildings, including
+seven mixed-use buildings. Existing lots, buildings, entrances, public places
+and roads remain; the 18k plan has 17,907 buildings within its budget.
+Actual stereo stick walking covered 14.89 m west and 14.02 m south, with 20
+grounded samples each. Traffic, residents, wrist controls, head roll, park and
+eastern entrances, shops, district-boundary passage, west/Garden directions,
+input ownership, exit/re-entry and stale-session guards passed. All eleven
+page-error logs are empty; both entry/return cases have no failed resources and
+four grants/four ends in total. **1,074 unit tests**, TypeScript/build and six
+desktop comparisons passed. Independent review covered twelve desktop images
+and eight XR images. Some new entrances still have grass before the footway;
+a west BOOKS sign is partly occluded by its awning. These remain finishing work.
+The west-to-square/park walking examples remain 2,085.24 m / 933.11 m. Other
+bands and the proposed river/IC/JCT remain to develop. Physical Quest,
+full-route walking and the existing body-drift case were not tested.
+Evidence: `evidence/arrival-infill-20260914/`;
+[scope, fixed build and visual observations](../neighborhood-life/arrival-infill.md).
+
+Previous focused verification (2026-09-14, arrival local connections):
 **11 passed in 5.5 minutes**, with playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build, rehashed after XR.
 Four local roads, about 1.38 km in total, connect real dead ends to existing

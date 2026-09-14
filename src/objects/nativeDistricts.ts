@@ -19,6 +19,7 @@ export type NativeDistrict = {
   layout?: 'place-led' | 'anchor-led' | 'band-plan'; reserves?: StreetPolygon[]; centres?: SettlementCentre[]
   growth?: Pick<PlaceStreetGrowth,'connections'|'links'|'deferredLinks'>
   localLinks?: {id:string;from:string;to:string;before:number;after:number}[]
+  infill?: {land:ReturnType<typeof planStreetParcels>[];buildings:number}
   land?: ReturnType<typeof planStreetParcels>
   surfaces?: {carriageways:StreetSurface[];sidewalks:StreetSurface[]}
   streets: StreetPath[]; buildings: CityBuilding[]; replacedBuildings: number; replacedRoads: number

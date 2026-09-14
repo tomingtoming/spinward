@@ -197,7 +197,7 @@ export const STRIP_ARC_RADIANS = TWO_PI / (LAND_STRIP_COUNT * 2)
 // along the window edges.
 const LAND_STRIP_USABLE_FRACTION = 0.94
 const DEFAULT_SEED = 0x1f2e3d4c
-const DEFAULT_MAX_BUILDINGS = 12000
+export const DEFAULT_MAX_BUILDINGS = 12000
 // Blocks are sized in surface meters relative to the city cell.
 const BLOCK_TANGENT_CELLS = 3
 const BLOCK_AXIAL_CELLS = 4
