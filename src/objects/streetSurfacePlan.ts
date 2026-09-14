@@ -79,7 +79,7 @@ export class StreetSurfacePlan{
  private readonly walkJoins:StreetSurface[]=[]
  readonly sources:readonly StreetPath[]
  private readonly carriageways:SurfaceOwners
- constructor(paths:readonly StreetPath[],readonly radius:number,joinEnds=false){
+ constructor(paths:readonly StreetPath[],readonly radius:number,joinEnds:boolean|((path:StreetPath)=>boolean)=false){
   this.sources=paths.filter(p=>p.surfaceOwner!=='authored')
   this.carriageways=new SurfaceOwners(radius)
   const junctions=this.junctions
@@ -101,7 +101,7 @@ export class StreetSurfacePlan{
   // require their own junction/grade design, not an inferred filled corner.
   if(joinEnds){
    const ends=new Map<string,{path:StreetPath;t:number}[]>()
-   for(const path of this.sources)for(const t of [0,1]){
+   for(const path of this.sources.filter(p=>typeof joinEnds!=='function'||joinEnds(p)))for(const t of [0,1]){
     const p=sampleStreetPath(path,t),period=2*Math.PI*radius,x=((path.azimuth*radius+p.x)%period+period)%period
     const key=[path.level,Math.round(x*1e5),Math.round((path.axial+p.y)*1e5)].join(':')
     const row=ends.get(key)??[];row.push({path,t});ends.set(key,row)

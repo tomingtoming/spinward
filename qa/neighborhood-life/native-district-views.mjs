@@ -1,4 +1,7 @@
 export const nativeDistrictViews=[
+  {name:'arrival-overview',at:[-.246,-650,1750],aim:[-.246,0,0]},
+  {name:'arrival-night',at:[-.246,-650,1750],aim:[-.246,0,0],phase:.02},
+  {name:'arrival-street',at:[-857.7680744967984/3200,-292.73692295435166,1.8],aim:[-823.583798550905/3200,-212.29583306347732,1.8],ground:true},
   {
     "name": "band-0",
     "at": [

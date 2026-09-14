@@ -12,7 +12,7 @@ async function press(page,xr,id){
 import {signalPose} from '../neighborhood-life/signal-views.mjs'
 import {nativeDistrictViews} from '../neighborhood-life/native-district-views.mjs'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
+for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
  const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto('about:blank');const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
@@ -26,12 +26,22 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
    districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,
     land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
    junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
-   traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,...poses[i]}]:[]),
+   traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,...poses[i],onRoad:p.streetNetwork.query(poses[i].azimuth,poses[i].axial,0,0).some(s=>{
+    const path=p.streetNetwork.streets[s.street],a=s.start,b=s.end,dx=b.x-a.x,dy=b.y-a.y,x=Math.atan2(Math.sin(poses[i].azimuth-path.azimuth),Math.cos(poses[i].azimuth-path.azimuth))*3200-a.x,y=poses[i].axial-path.axial-a.y
+    const t=Math.max(0,Math.min(1,(x*dx+y*dy)/(dx*dx+dy*dy)))
+    return Math.hypot(x-t*dx,y-t*dy)<path.width/2-.4
+   })}]:[]),
    walkers:window.__spinwardWalkers.group.userData,
    roadMatrices:window.__spinwardScene.getObjectsByProperty('isMesh',true).filter(m=>m.name.startsWith('street-surface-')).map(m=>({name:m.name,matrix:m.matrixWorld.elements,triangles:m.geometry.index.count/3}))}
  })
  await page.waitForFunction(view=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible&&(view!=='t-approach'||a.id.includes(':link-0:'))),viewName)
- const before=await state();expect(before.districts).toHaveLength(11);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
+ const before=await state();expect(before.districts).toHaveLength(12);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
+ if(viewName==='arrival-street'){
+  expect(before.districts.find(d=>d.id==='district-arrival-west').land.built.length).toBeGreaterThan(20)
+  const cars=before.traffic.filter(v=>v.path.startsWith('district-arrival-west:'))
+  expect(cars.length).toBeGreaterThan(0);expect(cars.every(v=>v.onRoad)).toBe(true)
+  expect(before.walkers.actors.some(a=>a.id.startsWith('native:district-arrival-west:')&&a.visible)).toBe(true)
+ }
  const growth=before.districts.find(d=>d.growth).growth
  expect(growth.deferredLinks).toEqual([]);expect(growth.links.some(l=>l.added&&l.before>l.after*1.8)).toBe(true)
  const land=before.districts.find(d=>d.land).land
@@ -47,7 +57,7 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
  await xr.setControllerPose('left',{position:[-.4,.6,-.2],quaternion:[0,0,0,1]})
  await expect.poll(()=>page.evaluate(()=>window.__spinwardScene.getObjectsByProperty('renderOrder',30).filter(o=>o.isMesh).every(o=>!o.visible)),{timeout:30000}).toBe(true)
  const head=new Quaternion()
- if(viewName==='corridor-seam'||viewName==='park-walk'||viewName.startsWith('settlement-')){
+ if(viewName==='corridor-seam'||viewName==='park-walk'||viewName.startsWith('settlement-')||viewName==='arrival-street'){
   const tracking=await page.evaluate(([azimuth,axial,height])=>{const city=window.__spinwardCity,camera=window.__spinwardScene.getObjectsByProperty('isPerspectiveCamera',true)[0],point=camera.position.clone().set(Math.cos(azimuth)*(3200-height),axial,Math.sin(azimuth)*(3200-height));return camera.parent.worldToLocal(city.group.localToWorld(point)).toArray()},nativeDistrictViews.find(v=>v.name===viewName).aim)
   head.setFromRotationMatrix(new Matrix4().lookAt(new Vector3(0,1.6,0),new Vector3(...tracking),new Vector3(0,1,0)))
  }
@@ -56,7 +66,7 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
   const probe=await state();expect(probe.roadMatrices).toEqual(before.roadMatrices)
   const capture=await xr.screenshot(info.outputPath(`district-roll-${roll}.png`),{canvas:'canvas',metadata:true,timeout:5000});expect(capture.sessionId).toBe(diagnostics.session.id);expect([capture.width,capture.height]).toEqual([2560,960]);frames.push(capture)
  }
- await xr.setHeadPose({position:[0,1.6,0],quaternion:head.toArray()});await xr.setAxes('left',0,viewName==='corridor-seam'?-.9:-.45);await xr.settle(viewName==='corridor-seam'?7500:viewName==='settlement-boundary'?7500:viewName==='settlement-walk'||viewName==='park-walk'?3500:viewName==='spine'?1000:350);await xr.setAxes('left',0,0)
+ await xr.setHeadPose({position:[0,1.6,0],quaternion:head.toArray()});await xr.setAxes('left',0,viewName==='corridor-seam'?-.9:-.45);await xr.settle(viewName==='corridor-seam'?7500:viewName==='settlement-boundary'?7500:viewName==='settlement-walk'||viewName==='park-walk'?3500:viewName==='arrival-street'?1500:viewName==='spine'?1000:350);await xr.setAxes('left',0,0)
  const after=await state();expect(Math.hypot((after.azimuth-before.azimuth)*3200,after.axial-before.axial)).toBeGreaterThan(.3);expect(after.mode).toBe('grounded');expect(Math.abs(after.ground)).toBeLessThan(.05)
  if(viewName==='settlement-boundary'){
   const edge=settlement.axial-settlement.length/2

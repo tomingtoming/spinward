@@ -57,14 +57,18 @@ export function paintStreetPolygon(grid:Grid,polygon:{x:number;y:number}[],value
  * the existing bounded foot search. No path may cut across a major road. */
 export function paintDistrictFootways(plan:CityPlan,radius:number,grid:Grid){
   const cx=grid.startAzimuth+(grid.minX+(grid.nx-1)*grid.step/2)/radius,cy=grid.startAxial+grid.minY+(grid.ny-1)*grid.step/2
-  const paths=plan.nativeDistricts?.filter(d=>Math.abs(Math.atan2(Math.sin(d.azimuth-cx),Math.cos(d.azimuth-cx)))*radius<d.width/2+grid.nx*grid.step/2+20&&Math.abs(d.axial-cy)<d.length/2+grid.ny*grid.step/2+20).flatMap(d=>d.streets)??[]
+  const districts=plan.nativeDistricts?.filter(d=>Math.abs(Math.atan2(Math.sin(d.azimuth-cx),Math.cos(d.azimuth-cx)))*radius<d.width/2+grid.nx*grid.step/2+20&&Math.abs(d.axial-cy)<d.length/2+grid.ny*grid.step/2+20)??[]
+  const paths=districts.flatMap(d=>d.streets)
   if(!paths.length)return
   const relative=(source:{azimuth:number;axial:number},polygon:{x:number;y:number}[])=>{
     const x=Math.atan2(Math.sin(source.azimuth-grid.startAzimuth),Math.cos(source.azimuth-grid.startAzimuth))*radius
     return polygon.map(p=>({x:p.x+x,y:p.y+source.axial-grid.startAxial}))
   }
-  for(const path of paths)for(const s of streetPathSurfaces(path,radius,true))paintStreetPolygon(grid,relative(path,s.polygon),1)
+  // A band district already owns its clipped, joined pavement. Reconstructing
+  // separate ribbons here loses the walkable outside of a bevelled corner.
+  for(const d of districts)for(const s of d.surfaces?.sidewalks??d.streets.flatMap(p=>streetPathSurfaces(p,radius,true)))paintStreetPolygon(grid,relative(s.source,s.polygon),1)
   for(const path of paths)for(const s of streetPathSurfaces(path,radius))paintStreetPolygon(grid,relative(path,s.polygon),path.kind==='local'?4:0)
+  for(const d of districts)for(const s of d.surfaces?.carriageways??[])paintStreetPolygon(grid,relative(s.source,s.polygon),s.source.kind==='local'?4:0)
   const range=Math.hypot(grid.nx,grid.ny)*grid.step
   // Restore major-road exclusion after every sidewalk/local ribbon, including
   // the old through road at a district edge. Reopen only real painted crossings.

@@ -8,6 +8,7 @@ import { SurfaceIndex } from './surfaceIndex'
 import { districtBlockLinks } from './districtLinks'
 import { appendPlaceDistrict } from './placeDistrict'
 import type { StreetPolygon } from './streetPolygon'
+import type { StreetSurface } from './streetSurfacePlan'
 import type { PlaceStreetGrowth } from './placeStreetGrowth'
 import { planStreetParcels } from './streetParcels'
 import { appendSettlementCorridor, settlementCharacter, type SettlementCentre } from './settlementCorridor'
@@ -15,9 +16,10 @@ import { appendSettlementCorridor, settlementCharacter, type SettlementCentre } 
 export type NativeDistrict = {
   id: string; azimuth: number; axial: number; width: number; length: number
   band: number; character: 'mixed' | 'residential' | 'centre'
-  layout?: 'place-led' | 'anchor-led'; reserves?: StreetPolygon[]; centres?: SettlementCentre[]
+  layout?: 'place-led' | 'anchor-led' | 'band-plan'; reserves?: StreetPolygon[]; centres?: SettlementCentre[]
   growth?: Pick<PlaceStreetGrowth,'connections'|'links'|'deferredLinks'>
   land?: ReturnType<typeof planStreetParcels>
+  surfaces?: {carriageways:StreetSurface[];sidewalks:StreetSurface[]}
   streets: StreetPath[]; buildings: CityBuilding[]; replacedBuildings: number; replacedRoads: number
 }
 /** The axis descriptor survives only as a traffic station coordinate. All
