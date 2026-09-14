@@ -4,6 +4,7 @@ import {rebuildNativeDistricts} from '../objects/nativeDistricts'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from '../objects/arrivalDistrict'
 import {rebuildArrivalCore} from '../objects/arrivalCore'
 import {rebuildArrivalEast} from '../objects/arrivalEast'
+import {retireArrivalSeams} from '../objects/arrivalSeams'
 import {StreetSurfacePlan} from '../objects/streetSurfacePlan'
 import {StreetMarkingPlan} from '../objects/streetMarkings'
 import {captureBandPublicPlaces} from '../objects/bandPublicPlaces'
@@ -17,6 +18,7 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
   rebuildNativeDistricts(city,radius);rebuildArrivalWest(city,radius,40000);rebuildArrivalCentral(city,radius,40000)
   rebuildArrivalCore(city,radius,40000)
   rebuildArrivalEast(city,radius,40000)
+  retireArrivalSeams(city,radius)
   city.streetSurfaces=new StreetSurfacePlan(city.streetNetwork!.streets,radius,isArrivalStreet)
   city.streetMarkings=new StreetMarkingPlan(city.streetNetwork!)
   const places=captureBandPublicPlaces(city,radius).slice(0,2),park=city.places!.park,covered=city.places!.covered
@@ -28,6 +30,7 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
   })
   const stripes=city.streetMarkings.crossings(-400/radius,0,1600).map(c=>absolute(c.source,streetRibbon(c.source,c.start,c.end,-c.source.width/2-5,c.source.width/2+5)))
   const obstacles=city.buildings.filter(b=>Math.abs(b.azimuth*radius+400)<1100&&Math.abs(b.axial)<1000).map(b=>absolute(b,buildingFootprint(b)))
+  const outwardLengths=new Map<string,number>()
   for(const place of places)for(const phase of [0,.37])for(const reverse of [false,true]){
     const door=place.walkingEntrances[0],goal={azimuth:door.point[0]/radius,axial:door.point[1]},near={...start,axial:start.axial+phase}
     const [a,b]=reverse?[goal,near]:[near,goal]
@@ -44,7 +47,11 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
       }
     }
     expect(unmarked).toBe(0);expect(blocked).toBe(0)
-    expect(length).toBeGreaterThan(surfaceDistance(a,b,radius));expect(length).toBeLessThan(2000)
+    expect(length).toBeGreaterThan(surfaceDistance(a,b,radius));expect(length).toBeLessThan(2200)
+    // Retiring the perimeter changes the route, but reversing its endpoints
+    // must not erase a crossing through a different raster phase.
+    const key=`${place.id}:${phase}`
+    if(reverse)expect(length).toBeCloseTo(outwardLengths.get(key)!,5);else outwardLengths.set(key,length)
     const journey=new NeighborhoodJourney();journey.setRoute(route,false,place.id)
     for(const p of route)journey.update({...p,groundHeight:p.groundHeight??0},radius,.1)
     expect(journey.status).toBe('arrived')

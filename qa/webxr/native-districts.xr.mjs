@@ -12,7 +12,7 @@ async function press(page,xr,id){
 import {signalPose} from '../neighborhood-life/signal-views.mjs'
 import {nativeDistrictViews} from '../neighborhood-life/native-district-views.mjs'
 test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
-for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
+for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlement-walk','settlement-boundary','arrival-street','arrival-north-street','arrival-south-street','arrival-core-frontage','arrival-core-park','arrival-seam-walk','arrival-east-cafe','arrival-east-apartment','arrival-east-shops'])test(`native district ${viewName} remains connected while walking and using the wrist in stereo`,async({page,xr},info)=>{
  const errors=[],frames=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto('about:blank');const gpu=await page.evaluate(()=>{const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info');if(!d)throw Error('Unknown GPU');const r=gl.getParameter(d.UNMASKED_RENDERER_WEBGL);gl.getExtension('WEBGL_lose_context')?.loseContext();return r});expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
@@ -26,7 +26,7 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
    districts:p.nativeDistricts.map(d=>({id:d.id,centres:d.centres,buildings:d.buildings.length,axial:d.axial,length:d.length,growth:d.growth,
     land:d.land?{blocks:d.land.blocks.length,parcels:d.land.parcels.length,built:d.buildings.map(b=>({id:b.nativeParcel,road:b.access?.roadId}))}:undefined})),
    junctions:p.streetMarkings.junctions.filter(j=>j.arms.some(a=>p.streetNetwork.streets[a.street].id.includes(':link-'))).map(j=>({node:j.node,arms:j.arms.length})),
-   traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,...poses[i],onRoad:p.streetNetwork.query(poses[i].azimuth,poses[i].axial,0,0).some(s=>{
+   traffic:routes.flatMap((r,i)=>r.native?[{id:r.id,path:r.native.source.path.id,paths:r.native.sources.map(s=>s.path.id),...poses[i],onRoad:p.streetNetwork.query(poses[i].azimuth,poses[i].axial,0,0).some(s=>{
     const path=p.streetNetwork.streets[s.street],a=s.start,b=s.end,dx=b.x-a.x,dy=b.y-a.y,x=Math.atan2(Math.sin(poses[i].azimuth-path.azimuth),Math.cos(poses[i].azimuth-path.azimuth))*3200-a.x,y=poses[i].axial-path.axial-a.y
     const t=Math.max(0,Math.min(1,(x*dx+y*dy)/(dx*dx+dy*dy)))
     return Math.hypot(x-t*dx,y-t*dy)<path.width/2-.4
@@ -37,9 +37,9 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
  await page.waitForFunction(view=>window.__spinwardWalkers.group.userData.actors?.some(a=>a.id.startsWith('native:')&&a.visible&&(view!=='t-approach'||a.id.includes(':link-0:'))),viewName)
  const before=await state();expect(before.districts).toHaveLength(16);expect(before.traffic.length).toBeGreaterThan(0);expect(before.walkers.people).toBeLessThanOrEqual(4)
  if(viewName.startsWith('arrival-')){
-  const id=viewName.startsWith('arrival-east-')?'district-arrival-east':viewName.startsWith('arrival-core-')?'district-arrival-core':viewName==='arrival-street'?'district-arrival-west':viewName==='arrival-north-street'?'district-arrival-north':'district-arrival-south'
+  const id=viewName.startsWith('arrival-east-')?'district-arrival-east':viewName.startsWith('arrival-core-')?'district-arrival-core':(viewName==='arrival-street'||viewName==='arrival-seam-walk')?'district-arrival-west':viewName==='arrival-north-street'?'district-arrival-north':'district-arrival-south'
   expect(before.districts.find(d=>d.id===id).land.built.length).toBeGreaterThan(id==='district-arrival-east'?0:20)
-  const cars=before.traffic.filter(v=>v.path.startsWith(`${id}:`))
+  const cars=before.traffic.filter(v=>v.paths.some(p=>p.startsWith(`${id}:`)))
   expect(cars.length).toBeGreaterThan(0);expect(cars.every(v=>v.onRoad)).toBe(true)
   expect(before.walkers.actors.some(a=>a.id.startsWith(`native:${id}:`)&&a.visible)).toBe(true)
  }
@@ -75,8 +75,8 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
   }
  }
  await xr.setHeadPose({position:[0,1.6,0],quaternion:head.toArray()})
- const rampSamples=[]
- await xr.setAxes('left',0,viewName==='corridor-seam'?-.9:-.45)
+ const rampSamples=[];let seamTraffic=null
+ await xr.setAxes('left',0,(viewName==='corridor-seam'||viewName==='arrival-seam-walk')?-.9:-.45)
  const entranceId={'arrival-core-park':'arrival-park','arrival-east-cafe':'arrival-cafe','arrival-east-apartment':'arrival-apartment'}[viewName]
  if(entranceId){
   const {entrance,landing}=await page.evaluate(id=>{const w=window.__spinwardCity.getCityPlan().entranceWalks.find(w=>w.id===id);return{entrance:w.entrance,landing:w.landing}},entranceId)
@@ -95,11 +95,36 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
   expect(rampSamples.every(p=>p.mode==='grounded'&&Math.abs((p.x-entrance.x)*ny-(p.y-entrance.y)*nx)<.7&&p.h>=0&&p.h<.35)).toBe(true)
   expect(Math.max(...rampSamples.map(p=>p.h))).toBeGreaterThan(.27)
   await xr.screenshot(info.outputPath(entranceId==='arrival-park'?'park-after-ramp.png':'entrance-after-ramp.png'),{canvas:'canvas',metadata:true,timeout:5000})
+ }else if(viewName==='arrival-seam-walk'){
+  await xr.settle(9000);await xr.setAxes('left',0,0)
+  // The car can pass during wrist/roll captures, before the walking sample
+  // starts. Observe its next real passage without extending the player's walk.
+  seamTraffic=await page.evaluate(async()=>{
+   const city=window.__spinwardCity,previous=new Map(),crossings=[],seen=new Set(),until=performance.now()+45000,boundary=-449.9957477141951
+   let samples=0,maxStep=0
+   while(performance.now()<until&&!crossings.length){
+    samples++;const poses=city.getTrafficPositions()
+    city.trafficRoutes.forEach((r,i)=>{
+     if(!r.native?.sources.some(s=>s.path.id.endsWith(':band-627')))return
+     const p={x:poses[i].azimuth*3200,y:poses[i].axial},old=previous.get(r.id);seen.add(r.id)
+     if(old){const step=Math.hypot(p.x-old.x,p.y-old.y);maxStep=Math.max(maxStep,step);if((old.x-boundary)*(p.x-boundary)<0&&step<10)crossings.push({id:r.id,from:old,to:p,paths:r.native.sources.map(s=>s.path.id)})}
+     previous.set(r.id,p)
+    });await new Promise(r=>setTimeout(r,100))
+   }
+   return{samples,cars:seen.size,crossings,maxStep,boundary}
+  })
+  await fs.writeFile(info.outputPath('seam-traffic.json'),JSON.stringify(seamTraffic,null,2))
+  expect(seamTraffic.crossings.length).toBeGreaterThan(0)
+  expect(seamTraffic.crossings.every(c=>c.paths.length===2)).toBe(true)
  }else{
   await xr.settle(viewName==='corridor-seam'?7500:viewName==='settlement-boundary'?7500:viewName==='settlement-walk'||viewName==='park-walk'?3500:viewName.startsWith('arrival-')?1500:viewName==='spine'?1000:350)
   await xr.setAxes('left',0,0)
  }
  const after=await state();expect(Math.hypot((after.azimuth-before.azimuth)*3200,after.axial-before.axial)).toBeGreaterThan(.3);expect(after.mode).toBe('grounded');expect(Math.abs(after.ground)).toBeLessThan(entranceId?.35:.05)
+ if(viewName==='arrival-seam-walk'){
+  expect(before.azimuth*3200).toBeLessThan(-460);expect(after.azimuth*3200).toBeGreaterThan(-440)
+  await xr.screenshot(info.outputPath('arrival-after-seam.png'),{canvas:'canvas',metadata:true,timeout:5000})
+ }
  if(viewName==='settlement-boundary'){
   const edge=settlement.axial-settlement.length/2
   expect(before.axial).toBeLessThan(edge-10);expect(after.axial).toBeGreaterThan(edge+5)
@@ -113,7 +138,7 @@ for(const viewName of ['spine','t-approach','corridor-seam','park-walk','settlem
  expect(after.traffic.some(v=>{const b=before.traffic.find(b=>b.id===v.id);return b&&Math.hypot((v.azimuth-b.azimuth)*3200,v.axial-b.axial)>1})).toBe(true)
  expect(after.walkers.actors.some(a=>{const b=before.walkers.actors.find(b=>b.id===a.id);return a.id.startsWith('native:')&&b&&Math.hypot((a.azimuth-b.azimuth)*3200,a.axial-b.axial)>.1})).toBe(true)
  const cursor=await xr.sessionCursor();await xr.endSession({sessionId:diagnostics.session.id,timeout:5000});await xr.waitForSessionEvent('end',{after:cursor,sessionId:diagnostics.session.id,timeout:5000});expect(await xr.sessionMode()).toBeNull();expect(errors).toEqual([])
- await fs.writeFile(info.outputPath('district-evidence.json'),JSON.stringify({gpu,diagnostics,before,after,rampSamples,frames,errors},null,2))
+ await fs.writeFile(info.outputPath('district-evidence.json'),JSON.stringify({gpu,diagnostics,before,after,rampSamples,seamTraffic,frames,errors},null,2))
 })
 
 // Ground-level approach captures can hide the junction behind the curve.

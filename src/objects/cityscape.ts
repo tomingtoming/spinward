@@ -3,6 +3,7 @@ import {preserveCityPlaces} from './cityPlaces'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from './arrivalDistrict'
 import {rebuildArrivalCore} from './arrivalCore'
 import {rebuildArrivalEast} from './arrivalEast'
+import {retireArrivalSeams,joinedArrivalTraffic} from './arrivalSeams'
 import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
@@ -1414,7 +1415,12 @@ export class Cityscape {
     const arrival=this.habitatType==='cylinder'&&this.topology===ISLAND_THREE_TOPOLOGY?rebuildArrivalWest(plan,radius,length):null
     if(arrival)native.traffic.push(...arrival.traffic,...rebuildArrivalCentral(plan,radius,length).flatMap(r=>r.traffic))
     if(arrival)native.traffic.push(...rebuildArrivalCore(plan,radius,length)!.traffic)
-    if(arrival)native.traffic.push(...rebuildArrivalEast(plan,radius,length)!.traffic)
+    if(arrival){
+      rebuildArrivalEast(plan,radius,length)
+      retireArrivalSeams(plan,radius)
+      native.traffic=native.traffic.filter(t=>!isArrivalStreet(t.path))
+      native.traffic.push(...joinedArrivalTraffic(plan,radius))
+    }
     this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
     this.riverTraffic = planRiverTraffic(this.riverDistrict, plan, radius)
     if (this.riverDistrict) {

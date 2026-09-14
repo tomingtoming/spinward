@@ -5,7 +5,29 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, eastern living places):
+Latest focused verification (2026-09-14, arrival district boundaries):
+**9 cases verified** with playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal on a fixed build, rehashed after XR. The first run passed eight and
+failed the new car-observation case (4.0 minutes): a nine-second window missed
+the passage. The unchanged app passed that case in 47.6 s after separating the
+nine-second walk from an observation of up to 45 seconds, ending at a real
+crossing. Evidence retains both runs. The player walked 49.14 m across the old
+boundary; the same car ID crossed it in adjacent samples 1.66 m apart.
+Removing 4.24 km of internal legacy roads joins 13 cross-district traffic routes
+and restores one previously deferred 57.47 m fragment. Buildings, doors and
+public places remain. Exact crossing transitions and a shared world grid make
+the sampled walking routes valid and symmetric; the west-to-square example is
+now longer (about 2.09 km), a remaining local-connectivity design issue.
+Park, café/apartment ramps, shops, west/Garden directions, wrist controls,
+input ownership, exit/re-entry and stale-session guards passed. All nine final
+page-error logs are empty; both entry/return cases have no failed resources and
+four grants/four ends in total. **1,066 unit tests**, TypeScript/build and four
+final desktop views passed. Physical Quest, full-route walking and the existing
+body-drift case were not tested. Outer legacy streets, unallocated land and
+dead-end finishing remain. Evidence: `evidence/arrival-seams-20260914/{xr,xr-seam}`;
+[scope, failures, fixed build and visual observations](../neighborhood-life/arrival-seams.md).
+
+Previous focused verification (2026-09-14, eastern living places):
 **8 passed in 3.8 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on a fixed build, rehashed after XR.
 The east adds 13 band-plan segments and three destination links, retiring 23 old

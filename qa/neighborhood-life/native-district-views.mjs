@@ -1,4 +1,8 @@
 export const nativeDistrictViews=[
+  {name:'arrival-seam-walk',at:[-475/3200,416.426,1.8],aim:[-400/3200,410.69,1.8],ground:true},
+  {name:'arrival-seam-close',at:[-460/3200,367,27],aim:[-450/3200,406.986,0]},
+  {name:'arrival-seams-overview',at:[-350/3200,-1150,1700],aim:[-350/3200,0,0]},
+  {name:'arrival-seams-night',at:[-350/3200,-1150,1700],aim:[-350/3200,0,0],phase:.02},
   {name:'arrival-east-cafe',at:[391.1212792499208/3200,-316.8,1.8],aim:[391.1212792499208/3200,-350,1.8],ground:true},
   {name:'arrival-east-cafe-front',at:[391.1212792499208/3200,-345,4.5],aim:[391.1212792499208/3200,-300,3]},
   {name:'arrival-east-apartment',at:[286.3095065390625/3200,-212.3,1.8],aim:[286.3095065390625/3200,-250,1.8],ground:true},

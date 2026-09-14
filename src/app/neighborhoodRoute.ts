@@ -2,7 +2,7 @@ import { routeOnEntranceWalk } from './entranceWalkRoute'
 import { routeThroughCurve } from './curvedWalkRoute'
 import { StreetNetwork } from '../objects/streetNetwork'
 import { legacyStreetPaths } from '../objects/streetPath'
-import { paintDrivingStreets, isDrivingStreetPoint, paintDistrictFootways, paintStreetPolygon } from './streetRouteGrid'
+import { paintDrivingStreets, isDrivingStreetPoint, paintDistrictFootways, paintStreetPolygon, crossingTransitionCheck } from './streetRouteGrid'
 import { buildingFootprint } from '../objects/streetFrontage'
 import type { CurvedNeighborhood } from '../objects/curvedNeighborhood'
 import type { RiverDistrict } from '../objects/riverDistrictPlan'
@@ -81,7 +81,9 @@ function searchNeighborhoodRoute(plan:CityPlan,radius:number,start:SurfacePoint,
   const link=!driving&&underpass&&Math.abs(linkX-gx/2)<underpass.length/2+Math.abs(gx)/2+pad&&Math.abs(linkY-gy/2)<Math.abs(gy)/2+pad?underpass:null
   // A 2.6 m walkway has a 1.9 m body-clear band. Align a grid row with its
   // centre so sub-cell phase cannot erase it or push the route onto the rail.
-  const anchorY=link?linkY:0
+  const nativeWalk=!driving&&touchesNativeDistrict(plan,radius,start,goal)
+  const anchorY=link?linkY:nativeWalk?-start.axial:0
+  const anchorX=nativeWalk?-wrapAngle(start.azimuth)*radius:0
   const bounds={x0:Math.min(0,gx)-pad,x1:Math.max(0,gx)+pad,y0:Math.min(0,gy)-pad,y1:Math.max(0,gy)+pad}
   // A reserved park may put the road connection beyond a short straight-line
   // search window. Include that district's approaches; retain the displacement
@@ -110,7 +112,9 @@ function searchNeighborhoodRoute(plan:CityPlan,radius:number,start:SurfacePoint,
     }
     if(fits())step=1.5
   }
-  const minX = Math.floor(bounds.x0/step)*step, minY = anchorY+Math.floor((bounds.y0-anchorY)/step)*step
+  // Keep native pavement cells on the same world grid in both directions.
+  // A start-relative phase can erase a crossing only on the return journey.
+  const minX = anchorX+Math.floor((bounds.x0-anchorX)/step)*step, minY = anchorY+Math.floor((bounds.y0-anchorY)/step)*step
   const nx = Math.ceil((bounds.x1-minX)/step)+1, ny = Math.ceil((bounds.y1-minY)/step)+1
   if (nx*ny>600000) return null
   const cost = new Uint8Array(nx*ny)
@@ -197,6 +201,7 @@ function searchNeighborhoodRoute(plan:CityPlan,radius:number,start:SurfacePoint,
   }
   const from = nearest(indoorExit.at(-1)??start), to=nearest(goal)
   if(from<0||to<0)return null
+  const crossingAllowed=!driving&&touchesNativeDistrict(plan,radius,start,goal)?crossingTransitionCheck(plan,radius,{startAzimuth:start.azimuth,startAxial:start.axial,minX,minY,nx,ny,step,cost}):null
   const distance = new Float64Array(nx*ny).fill(Infinity), parent=new Int32Array(nx*ny).fill(-1), closed=new Uint8Array(nx*ny)
   const heap: {id:number;score:number}[]=[]
   const push=(id:number,score:number)=>{let i=heap.length;heap.push({id,score});while(i){const p=(i-1)>>1;if(heap[p].score<=score)break;heap[i]=heap[p];i=p}heap[i]={id,score}}
@@ -211,6 +216,7 @@ function searchNeighborhoodRoute(plan:CityPlan,radius:number,start:SurfacePoint,
       const xx=x+dx,yy=y+dy, next=yy*nx+xx
       if(xx<0||xx>=nx||yy<0||yy>=ny||!cost[next]||closed[next])continue
       if(dx&&dy&&(!cost[y*nx+xx]||!cost[yy*nx+x]))continue
+      if(crossingAllowed&&(cost[id]===3)!==(cost[next]===3)&&!crossingAllowed(minX+x*step,minY+y*step,minX+xx*step,minY+yy*step))continue
       const d=distance[id]+Math.hypot(dx,dy)*(weight(cost[id])+weight(cost[next]))/2
       if(d<distance[next]){distance[next]=d;parent[next]=id;push(next,d+heuristic(next))}
     }

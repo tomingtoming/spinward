@@ -85,3 +85,40 @@ export function paintDistrictFootways(plan:CityPlan,radius:number,grid:Grid){
   // short-walk solver alone cannot bridge a public entrance into a city route.
   for(const w of plan.entranceWalks??[])for(const p of [...w.pieces,...w.landingPieces])paintStreetPolygon(grid,relative(w.source,p),1)
 }
+
+/** A raster step may enter a slanted crossing before it reaches its paint.
+ * Check the exact transition segment, without making every road-search edge
+ * pay for polygon intersections or widening the permitted crossing. */
+export function crossingTransitionCheck(plan:CityPlan,radius:number,grid:Grid){
+  const network=plan.streetNetwork
+  if(!network||!plan.streetMarkings)return()=>true
+  const relative=(source:{azimuth:number;axial:number},polygon:{x:number;y:number}[])=>{
+    const x=Math.atan2(Math.sin(source.azimuth-grid.startAzimuth),Math.cos(source.azimuth-grid.startAzimuth))*radius
+    return polygon.map(p=>({x:p.x+x,y:p.y+source.axial-grid.startAxial}))
+  }
+  const bound=(polygon:{x:number;y:number}[])=>({polygon,x0:Math.min(...polygon.map(p=>p.x)),x1:Math.max(...polygon.map(p=>p.x)),y0:Math.min(...polygon.map(p=>p.y)),y1:Math.max(...polygon.map(p=>p.y))})
+  const width=grid.nx*grid.step,height=grid.ny*grid.step,cx=grid.startAzimuth+(grid.minX+width/2)/radius,cy=grid.startAxial+grid.minY+height/2
+  const roads=network.query(cx,cy,width,height).flatMap(s=>{
+    const p=network.streets[s.street]
+    return p.kind==='arterial'||p.kind==='collector'?[bound(relative(p,streetRibbon(p,s.start.t,s.end.t,-p.width/2,p.width/2)))]:[]
+  })
+  const crossings=plan.streetMarkings.crossings(cx,cy,Math.hypot(width,height)).map(c=>bound(relative(c.source,streetRibbon(c.source,c.start,c.end,-c.source.width/2-5,c.source.width/2+5))))
+  return (x:number,y:number,xx:number,yy:number)=>{
+    const near=(p:typeof roads[number])=>p.x1>=Math.min(x,xx)&&p.x0<=Math.max(x,xx)&&p.y1>=Math.min(y,yy)&&p.y0<=Math.max(y,yy)
+    const blocked=roads.filter(near),allowed=crossings.filter(near)
+    if(!blocked.length)return true
+    const dx=xx-x,dy=yy-y,cuts=[0,1]
+    for(const {polygon} of [...blocked,...allowed])for(let i=0;i<polygon.length;i++){
+      const a=polygon[i],b=polygon[(i+1)%polygon.length],ex=b.x-a.x,ey=b.y-a.y,det=dx*ey-dy*ex
+      if(Math.abs(det)<1e-10)continue
+      const t=((a.x-x)*ey-(a.y-y)*ex)/det,s=((a.x-x)*dy-(a.y-y)*dx)/det
+      if(t>0&&t<1&&s>=0&&s<=1)cuts.push(t)
+    }
+    cuts.sort((a,b)=>a-b)
+    for(let i=1;i<cuts.length;i++){
+      const t=(cuts[i-1]+cuts[i])/2,px=x+dx*t,py=y+dy*t
+      if(blocked.some(p=>containsStreetPolygon(p.polygon,px,py))&&!allowed.some(p=>containsStreetPolygon(p.polygon,px,py)))return false
+    }
+    return true
+  }
+}

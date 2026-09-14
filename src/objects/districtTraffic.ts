@@ -2,7 +2,7 @@ import type { DistrictTrafficStreet } from './nativeDistricts'
 import { sampleStreetPath, streetPathSamples } from './streetPath'
 import type { StreetSignalPlan } from './streetSignals'
 import type { TrafficPosition } from './riverTraffic'
-import { trafficRoadKey,planTrafficRoadSpans,type TrafficRoadSpan } from './trafficRoadSpans'
+import { trafficRoadKey,planTrafficRoadSpans,mergeTrafficRoadSpans,type TrafficRoadSpan } from './trafficRoadSpans'
 import type { CityRoad } from './cityLayout'
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
 /** Keep a through car's station, identity and queue across the old/new boundary.
@@ -105,7 +105,10 @@ export function districtTrafficCoverage(routes:ReadonlyMap<string,DistrictTraffi
       const ids=new Set(source.sourceRoadIds)
       covered=[...roads.filter(r=>ids.has(r.id??'')),...route.pieces.map(p=>({...source.road,axial:(p.stations[0]+p.stations.at(-1)!)/2,axialLength:p.stations.at(-1)!-p.stations[0]}))]
     }
-    for(const span of planTrafficRoadSpans(covered,radius)){
+    // A clipped vertical fragment can be shorter than its carriageway width.
+    // Its axis belongs to the parent route, not to that rectangle's aspect ratio.
+    const physical=vertical?mergeTrafficRoadSpans(covered.filter(r=>r.kind!=='alley').map(road=>({road,isAvenue:true,spanStart:road.axial-road.axialLength/2,spanLength:road.axialLength,sourceRoadIds:[road.id!]}))):planTrafficRoadSpans(covered,radius)
+    for(const span of physical){
       spans.push({...span,sourceRoadIds:source.sourceRoadIds})
       mapped.set(trafficRoadKey(span.road),route)
     }
