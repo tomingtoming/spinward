@@ -24,7 +24,7 @@ export const ARRIVAL_CENTRAL:readonly ArrivalBounds[]=[
   {x0:ARRIVAL_WEST.x1,x1:224.99787385709756,y0:ARRIVAL_WEST.y0,y1:-321.29032258064535}
 ]
 const inside=(bounds:ArrivalBounds,x:number,y:number,margin=0)=>x>bounds.x0+margin+1e-5&&x<bounds.x1-margin-1e-5&&y>bounds.y0+margin+1e-5&&y<bounds.y1-margin-1e-5
-const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS,'district-arrival-core','district-arrival-east'].map(id=>`${id}:`)
+const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS,'district-arrival-core','district-arrival-east','district-arrival-southern-corridor'].map(id=>`${id}:`)
 export const isArrivalStreet=(p:StreetPath)=>arrivalStreetPrefixes.some(prefix=>p.id.startsWith(prefix))
 
 /** Clip a source centreline without moving either its interior vertices or

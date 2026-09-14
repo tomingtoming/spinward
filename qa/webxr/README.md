@@ -5,7 +5,29 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, bending and short-block crossings):
+Latest focused verification (2026-09-14, southern arrival corridor):
+**14 passed in 6.6 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build, with the served asset rehashed
+after XR. The whole-band plan now supplies 35 road segments to the next centre,
+2.57 km south; the applied arrival area increases from 3.04 to 6.51 km².
+Inhabited arrival lots, local infill, doors and public places remain. Actual
+stereo stick walking covered 40.80 m across the former southern boundary and
+14.28 m near the southern centre, with 61/20 grounded samples. New-road traffic,
+residents, wrist controls, head roll, existing crossings/local streets/entrances,
+west/Garden directions, exit/re-entry, input ownership and stale-session guards
+passed. All fourteen page-error logs are empty; both entry/return cases have
+no failed resources and four grants/four ends in total. **1,079 unit tests**,
+TypeScript/build and six desktop comparisons passed. Independent review covered
+twelve desktop and eight XR images. Large unallocated areas, shop-entry paving,
+an abrupt eastern road end and small wrist explanation text remain to improve.
+Other bands and the proposed river/IC/JCT remain. Physical Quest, full-route
+walking and the existing body-drift case were not tested. The new southern
+traffic join was checked geometrically; the actual same-car boundary passage
+case still covers the previous western seam.
+Evidence: `evidence/arrival-southern-corridor-20260914/`;
+[scope, fixed build and visual observations](../neighborhood-life/arrival-southern-corridor.md).
+
+Previous focused verification (2026-09-14, bending and short-block crossings):
 **14 passed in 6.2 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build, with the served asset rehashed
 after XR. Treating outgoing road ends correctly and sharing short blocks by

@@ -78,6 +78,7 @@ export function retireArrivalSeams(city:CityPlan,radius:number){
   })
   if(unchangedRejections.length!==blocked.length)throw Error('Retiring an arrival seam obstructs an entrance')
   const byPosition=new Map(certified.buildings.map(b=>[`${b.azimuth}:${b.axial}`,b.access]))
+  const roadIndices=new Map(network.streets.map((p,i)=>[p.id,i]))
   city.buildings=city.buildings.map(b=>{
     let access=byPosition.get(`${b.azimuth}:${b.axial}`)??b.access
     const pieces=access&&surviving.get(access.roadId)
@@ -85,6 +86,13 @@ export function retireArrivalSeams(city:CityPlan,radius:number){
       const edge=access!.roadEdge,r=pieces.find(r=>Math.abs(wrap(edge.azimuth-r.azimuth)*radius)<=r.tangentWidth/2+epsilon&&Math.abs(edge.axial-r.axial)<=r.axialLength/2+epsilon)
       if(!r)throw Error('A retained entrance lost its surviving road segment')
       access={...access!,roadId:r.id!,roadIndex:network.streets.findIndex(p=>p.id===r.id)}
+    }
+    // Retained authored walks and pre-existing rejections keep their access
+    // geometry, but its array index belongs to the freshly compiled network.
+    if(access){
+      const roadIndex=roadIndices.get(access.roadId)
+      if(roadIndex===undefined)throw Error('A retained entrance lost its road identity')
+      access={...access,roadIndex}
     }
     return {...b,access}
   })

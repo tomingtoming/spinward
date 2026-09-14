@@ -6,6 +6,7 @@ import {rebuildArrivalEast} from './arrivalEast'
 import {retireArrivalSeams,joinedArrivalTraffic} from './arrivalSeams'
 import {connectArrivalLocalStreets} from './arrivalLocalLinks'
 import {populateArrivalLocalStreets} from './arrivalInfill'
+import {rebuildArrivalSouthernCorridor} from './arrivalSouthernCorridor'
 import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
@@ -1422,6 +1423,7 @@ export class Cityscape {
       retireArrivalSeams(plan,radius)
       connectArrivalLocalStreets(plan,radius)
       populateArrivalLocalStreets(plan,radius,this.maxBuildings)
+      rebuildArrivalSouthernCorridor(plan,radius,length)
       native.traffic=native.traffic.filter(t=>!isArrivalStreet(t.path))
       native.traffic.push(...joinedArrivalTraffic(plan,radius))
     }

@@ -45,7 +45,7 @@ try{
   const insideDistrict=p=>probe.districts.some(d=>Math.abs(p.axial-d.axial)<d.length/2&&Math.abs(Math.atan2(Math.sin(p.azimuth-d.azimuth),Math.cos(p.azimuth-d.azimuth)))*3200<d.width/2)
   // A distant camera can be outside every traffic activation window. Require
   // nearby cars when the player is actually inside a rebuilt district.
-  if(!baseline&&(probe.districts.length!==16||insideDistrict(probe.player)&&!probe.nativeCars.some(c=>insideDistrict(c.position))))throw Error('Native districts or actual nearby cars on the rebuilt road are missing')
+  if(!baseline&&(probe.districts.length!==17||insideDistrict(probe.player)&&!probe.nativeCars.some(c=>insideDistrict(c.position))))throw Error('Native districts or actual nearby cars on the rebuilt road are missing')
   if(!baseline&&probe.walkers.people>probe.walkers.capacity)throw Error('Walker capacity exceeded')
   if(!baseline&&probe.placeTraffic.some(v=>!v.onRoad))throw Error('A car is following a removed road through the park district')
   if(!baseline&&!probe.districts.some(d=>d.growth?.links.some(l=>l.added&&l.before>l.after*1.8)&&d.growth.deferredLinks.length===0))throw Error('Generated access and detour reduction are missing')

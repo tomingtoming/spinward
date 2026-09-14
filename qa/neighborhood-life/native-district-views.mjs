@@ -1,4 +1,11 @@
 export const nativeDistrictViews=[
+  {"name":"arrival-southern-overview","at":[-0.140625,-3400,2800],"aim":[-0.140625,-1600,0]},
+  {"name":"arrival-southern-night","at":[-0.140625,-3400,2800],"aim":[-0.140625,-1600,0],"phase":0.02},
+  {"name":"arrival-old-town-overview","at":[-0.115625,-3420,540],"aim":[-0.115625,-3050,0]},
+  {"name":"arrival-old-town-night","at":[-0.115625,-3420,540],"aim":[-0.115625,-3050,0],"phase":0.02},
+  {"name":"arrival-southern-seam","at":[-0.05074375,-1110,250],"aim":[-0.05074375,-963.8709677419356,0]},
+  {"name":"arrival-old-town-walk","at":[-0.1049852242670297,-2892.686259023329,1.8],"aim":[-0.10701182291201232,-2960.347632450482,1.8],"ground":true},
+  {"name":"arrival-southern-walk","at":[-0.04688756473549774,-952.9990661305818,1.8],"aim":[-0.048080182288300924,-992.8165908268372,1.8],"ground":true},
   {name:'arrival-crossings-overview',at:[-100/3200,-95,95],aim:[-45/3200,-18,0]},
   {name:'arrival-crossings-night',at:[-100/3200,-95,95],aim:[-45/3200,-18,0],phase:.02},
   {name:'arrival-crossings-low',at:[-95/3200,-28,7],aim:[-64/3200,-6,0]},
