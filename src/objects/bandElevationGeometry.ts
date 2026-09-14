@@ -98,9 +98,10 @@ export function buildBandPavement(surfaces:readonly StreetSurface[],bridgeIds:Se
 }
 
 /** Extrude only boundary edges; the audit and rendering share the same top. */
-export function solidBandDeck(top:BandMesh,depth:number):BandMesh {
+export function solidBandDeck(top:BandMesh,depth:number,minimumHeight=-Infinity):BandMesh {
   if(!Number.isFinite(depth)||depth<=0)throw Error('Invalid deck depth')
-  const n=top.vertices.length,vertices=[...top.vertices,...top.vertices.map(p=>[p[0],p[1],p[2]-depth] as BandVertex)],indices=[...top.indices]
+  if(Number.isNaN(minimumHeight)||top.vertices.some(p=>p[2]<=minimumHeight))throw Error('Deck top must clear its base')
+  const n=top.vertices.length,vertices=[...top.vertices,...top.vertices.map(p=>[p[0],p[1],Math.max(minimumHeight,p[2]-depth)] as BandVertex)],indices=[...top.indices]
   const edges=new Map<string,{a:number;b:number;count:number}>()
   for(let i=0;i<top.indices.length;i+=3){
     const [a,b,c]=top.indices.slice(i,i+3);indices.push(a+n,c+n,b+n)
@@ -110,7 +111,9 @@ export function solidBandDeck(top:BandMesh,depth:number):BandMesh {
   return {vertices,indices}
 }
 
-export function buildExpresswayDeck(road:ElevatedRoad){return solidBandDeck(elevatedRoadMesh(road),road.depth)}
+// The ramp slab tapers to ground paving instead of cutting below the hull.
+// Clearance auditing conservatively retains the full nominal deck thickness.
+export function buildExpresswayDeck(road:ElevatedRoad){return solidBandDeck(elevatedRoadMesh(road),road.depth,0)}
 
 export function bandMeshGeometry(mesh:BandMesh,radius=3200) {
   const position=mesh.vertices.flatMap(([x,y,h])=>{const a=x/radius;return [Math.cos(a)*(radius-h),y,Math.sin(a)*(radius-h)]})

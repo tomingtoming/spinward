@@ -5,7 +5,18 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, river/road elevations): **2 passed in
+Latest focused verification (2026-09-14, IC geometry): **2 passed in about
+one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal. Actual desktop-menu and Quest-style entry, wrist controls,
+input ownership, stereo roll, exit/re-entry and stale-session rejection passed.
+Four sessions and four ends; no recorded page errors or failed resources.
+Unit tests ran separately: **1,019 passed**, TypeScript/build passed.
+This checks the existing inhabited colony; the redesigned ICs are a separate
+geometry preview. Physical Quest and the earlier body-drift case were not tested.
+Evidence: `evidence/band-interchanges-20260914/xr/`; scope and fixed bundle:
+[IC ground connections](../neighborhood-life/band-interchanges.md).
+
+Previous focused verification (2026-09-14, river/road elevations): **2 passed in
 59.6 seconds** on one fixed build. playwright-webxr **0.3.0**, Chrome 152 / Apple
 M1 Pro / ANGLE Metal. Actual desktop-menu and Quest-style entry, wrist menus,
 controller input ownership, stereo head roll, exit/re-entry and stale-session

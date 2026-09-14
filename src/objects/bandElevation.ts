@@ -50,10 +50,12 @@ export function sampleElevatedRoad(points:BandPoint[],height:(fraction:number)=>
 export function proposeExpresswayElevations(plan:BandExpressway):ElevatedRoad[] {
   const nodes=new Map(plan.nodes.map(n=>[n.id,n]))
   return plan.edges.map(e=>{
-    const start=nodes.get(e.from)!.role==='gate'?BAND_LEVELS.paving:BAND_LEVELS.expressway
-    const end=nodes.get(e.to)!.role==='gate'?BAND_LEVELS.paving:BAND_LEVELS.expressway
-    return {id:e.id,from:e.from,to:e.to,width:e.lanes*3.5+2,depth:BAND_LEVELS.expressDeckDepth,
-      samples:sampleElevatedRoad(e.points,t=>start+(end-start)*smooth(t)+(e.structure==='flyover'?BAND_LEVELS.flyoverRise*Math.sin(Math.PI*t)**2:0))}
+    const start=nodes.get(e.from)!.level===0?BAND_LEVELS.paving:BAND_LEVELS.expressway
+    const end=nodes.get(e.to)!.level===0?BAND_LEVELS.paving:BAND_LEVELS.expressway
+    const flat=e.levelEndLength??0
+    if(!Number.isFinite(flat)||flat<0||2*flat>=e.length)throw Error('Invalid level ramp ends')
+    return {id:e.id,from:e.from,to:e.to,width:e.lanes*3.5+2,depth:e.structure==='ground'?.2:BAND_LEVELS.expressDeckDepth,
+      samples:sampleElevatedRoad(e.points,t=>start+(end-start)*smooth(clamp((t*e.length-flat)/(e.length-2*flat)))+(e.structure==='flyover'?BAND_LEVELS.flyoverRise*Math.sin(Math.PI*t)**2:0))}
   })
 }
 

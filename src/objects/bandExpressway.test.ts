@@ -15,7 +15,7 @@ test('all seven IC gates have directed journeys both ways, including terminal an
     let current=a.node
     for(const id of path.edges){const e=fast.edges.find(e=>e.id===id)!;expect(e.from).toBe(current);current=e.to}
     expect(current).toBe(b.node)
-    expect(path.edges.slice(1,-1).every(id=>!fast.edges.find(e=>e.id===id)!.kind.startsWith('ic-'))).toBe(true)
+    expect(path.edges.every(id=>{const e=fast.edges.find(e=>e.id===id)!;return !e.kind.startsWith('ic-')||e.owner===a.id||e.owner===b.id})).toBe(true)
   }
   // Neither direction of the physical carriageways is left as a dead stub.
   for(const n of fast.nodes) {
@@ -76,6 +76,22 @@ test('plan generation is deterministic and keeps the original land inputs untouc
   const input=structuredClone(site),proposal=structuredClone(design)
   expect(reserveBandExpressway(input,proposal)).toEqual(fast)
   expect(input).toEqual(site);expect(proposal).toEqual(design)
+})
+
+test('IC redesign preserves each gate and served district while reserving its complete new road footprint',()=>{
+  const old=structuredClone(design);old.interchanges.forEach(ic=>{ic.layout='direct'})
+  const baseline=reserveBandExpressway(site,old)
+  for(const ic of fast.interchanges){
+    const before=baseline.interchanges.find(i=>i.id===ic.id)!
+    expect(ic.gate).toEqual(before.gate);expect(ic.serves).toEqual(before.serves)
+    const reserve=fast.reserves.find(r=>r.id==='ic:'+ic.id)!
+    for(const e of fast.edges.filter(e=>e.owner===ic.id))for(const p of e.points)expect(insideBandReserve(p,reserve.polygon)||distance(p,ic.gate)<1e-6).toBe(true)
+    for(let i=0;i<reserve.polygon.length;i++)expect(distance(reserve.polygon[i],reserve.polygon[(i+1)%reserve.polygon.length])).toBeGreaterThanOrEqual(1e-6)
+  }
+  const terminal=structuredClone(design);terminal.interchanges[0].layout='diamond'
+  expect(()=>reserveBandExpressway(site,terminal)).toThrow('both approaches')
+  const middle=structuredClone(design);middle.interchanges[1].layout='paired'
+  expect(()=>reserveBandExpressway(site,middle)).toThrow('route end')
 })
 
 test('serving another already connected district reuses the IC approach instead of duplicating it',()=>{

@@ -3,7 +3,7 @@ import { proposedBandLand, bandRiverCentre } from './bandLand'
 import { proposedBandExpressway } from './bandExpresswayLand'
 import { reserveBandExpressway } from './bandExpressway'
 import { BAND_LEVELS, auditElevatedRoads, bandBankHeight, bandRoadHeight, bandSoilHeight, elevatedRoadMesh, proposeExpresswayElevations, sampleElevatedRoad, type ElevatedRoad } from './bandElevation'
-import { bandMeshGeometry, buildBandPavement, buildBandRiverMeshes, solidBandDeck } from './bandElevationGeometry'
+import { bandMeshGeometry, buildBandPavement, buildBandRiverMeshes, buildExpresswayDeck, solidBandDeck } from './bandElevationGeometry'
 import { streetPathSurfaces } from './streetSurfacePlan'
 import type { BandPoint } from './bandStreetPlan'
 
@@ -82,14 +82,40 @@ test('deck extrusion closes the same top that was audited, with a real underside
   expect(()=>sampleElevatedRoad([[0,0],[1,0]],()=>NaN)).toThrow()
 })
 
-test('whole expressway elevations keep all explicit joins continuous but report the unresolved ramp crossings',()=>{
+test('whole expressway elevations keep all explicit joins continuous and all seven ICs clear, with JCT conflicts still reported',()=>{
   const plan=reserveBandExpressway(proposedBandLand(),proposedBandExpressway()),roads=proposeExpresswayElevations(plan),audit=auditElevatedRoads(roads)
   for(const node of plan.nodes){
     const ends=roads.flatMap(r=>[...(r.from===node.id?[r.samples[0]]:[]),...(r.to===node.id?[r.samples.at(-1)!]:[])])
     expect(ends.length).toBeGreaterThan(0)
-    for(const p of ends)expect(p[2]).toBeCloseTo(node.role==='gate'?.2:10.2,8)
+    for(const p of ends)expect(p[2]).toBeCloseTo(node.level===0?.2:10.2,8)
   }
   expect(audit.steep).toEqual([])
-  expect(audit.conflicts.some(c=>!c.sharedNode&&c.b.includes('arrival-ic'))).toBe(true)
+  const icEdges=new Set(plan.edges.filter(e=>e.kind.startsWith('ic-')).map(e=>e.id))
+  expect(audit.conflicts.filter(c=>icEdges.has(c.a)||icEdges.has(c.b))).toEqual([])
   expect(audit.conflicts.some(c=>c.b.includes('south-logistics-jct'))).toBe(true)
+  // The transverse streets actually overlap both carriageways, with space
+  // below the slab; zero conflicts alone must not pass an absent connection.
+  for(const ic of plan.interchanges.filter(ic=>ic.layout==='diamond')){
+    const links=new Set(plan.edges.filter(e=>e.owner===ic.id&&e.kind==='ic-link').map(e=>e.id))
+    const crossings=audit.crossings.filter(c=>links.has(c.a)||links.has(c.b))
+    expect(crossings).toHaveLength(4)
+    for(const c of crossings)expect(c.minimumClearance).toBeCloseTo(9,8)
+  }
+  for(const r of roads.filter(r=>icEdges.has(r.id)))expect(buildExpresswayDeck(r).vertices.every(p=>p[2]>=0)).toBe(true)
+})
+
+test('the unchanged finite-width audit still rejects the old direct-to-gate IC layout',()=>{
+  const design=proposedBandExpressway();design.interchanges.forEach(ic=>{ic.layout='direct'})
+  const plan=reserveBandExpressway(proposedBandLand(),design),audit=auditElevatedRoads(proposeExpresswayElevations(plan))
+  for(const ic of plan.interchanges)expect(audit.conflicts.some(c=>c.a.startsWith(ic.id+':')||c.b.startsWith(ic.id+':'))).toBe(true)
+  expect(audit.limits).toEqual({clearance:4.5,grade:.06})
+})
+
+test('a ramp deck rests on the hull at its ground end and keeps its full thickness aloft',()=>{
+  const r={...road('ramp',[[0,0],[300,0]],.2),samples:sampleElevatedRoad([[0,0],[300,0]],t=>.2+10*t)}
+  const top=elevatedRoadMesh(r),mesh=buildExpresswayDeck(r),n=top.vertices.length
+  expect(mesh.vertices[n][2]).toBe(0)
+  expect(mesh.vertices.at(-1)![2]).toBeCloseTo(9.2,8)
+  expect(mesh.vertices.every(p=>p[2]>=0)).toBe(true)
+  expect(()=>solidBandDeck(top,1,.2)).toThrow('Deck top')
 })

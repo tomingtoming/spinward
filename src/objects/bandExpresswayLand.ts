@@ -10,13 +10,13 @@ export function proposedBandExpressway():ExpressDesign {
   const station=(y:number)=>expressStationAtAxial(main,y)
   return {routes:[main,spur],junction:{id:'south-logistics-jct',name:'南部物流 JCT',main:main.id,station:station(-18100),branch:spur.id},
     interchanges:[
-      {id:'south-terminal',name:'南端 IC',route:main.id,station:0,side:1,serves:['repair']},
-      {id:'south-market-ic',name:'南部商業 IC',route:main.id,station:station(-11300),side:1,serves:['south-market','garden-housing']},
-      {id:'central-ic',name:'中央 IC',route:main.id,station:station(-4400),side:1,serves:['campus']},
-      {id:'arrival-ic',name:'到着地区 IC',route:main.id,station:station(1600),side:1,serves:['arrival','east-bank','old-town']},
-      {id:'north-market-ic',name:'北部商業 IC',route:main.id,station:station(9700),side:1,serves:['north-market','park-centre']},
-      {id:'north-terminal',name:'北端 IC',route:main.id,station:station(19600),side:1,serves:['north-port','north-housing']},
-      {id:'port-terminal',name:'物流ゲート IC',route:spur.id,station:Math.hypot(470,300)+1150,side:1,serves:['south-port']}
+      {id:'south-terminal',name:'南端 IC',route:main.id,station:0,side:1,serves:['repair'],layout:'paired'},
+      {id:'south-market-ic',name:'南部商業 IC',route:main.id,station:station(-11300),side:1,serves:['south-market','garden-housing'],layout:'diamond'},
+      {id:'central-ic',name:'中央 IC',route:main.id,station:station(-4400),side:1,serves:['campus'],layout:'diamond'},
+      {id:'arrival-ic',name:'到着地区 IC',route:main.id,station:station(1600),side:1,serves:['arrival','east-bank','old-town'],layout:'diamond'},
+      {id:'north-market-ic',name:'北部商業 IC',route:main.id,station:station(9700),side:1,serves:['north-market','park-centre'],layout:'diamond'},
+      {id:'north-terminal',name:'北端 IC',route:main.id,station:station(19600),side:1,serves:['north-port','north-housing'],layout:'paired'},
+      {id:'port-terminal',name:'物流ゲート IC',route:spur.id,station:Math.hypot(470,300)+1150,side:1,serves:['south-port'],layout:'paired'}
     ],underpasses:[...[-14000,-7200,4700,13700].map((y,i)=>({id:`east-underpass-${i}`,route:main.id,station:station(y)})),
       {id:'logistics-underpass',route:spur.id,station:260}]}
 }

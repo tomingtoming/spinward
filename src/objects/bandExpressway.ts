@@ -4,7 +4,7 @@ import { bandSegmentIntersection, clearBandSegment, insideBandReserve, planBandS
 /** Planning only: levels identify separate networks, not engineered heights.
  * The explicit directed graph must never be noded from XY intersections. */
 export type ExpressRoute = { id: string; name: string; points: BandPoint[]; reservationWidth: number; waterBridges: string[] }
-export type ExpressInterchange = { id: string; name: string; route: string; station: number; side: -1 | 1; serves: string[] }
+export type ExpressInterchange = { id: string; name: string; route: string; station: number; side: -1 | 1; serves: string[]; layout?:'direct'|'diamond'|'paired' }
 export type ExpressJunction = { id: string; name: string; main: string; station: number; branch: string }
 export type ExpressDesign = {
   routes: ExpressRoute[]; interchanges: ExpressInterchange[]; junction: ExpressJunction
@@ -13,8 +13,10 @@ export type ExpressDesign = {
 export type ExpressNode = { id: string; point: BandPoint; level: 0 | 1; role: 'gate' | 'carriageway' }
 export type ExpressEdge = {
   id: string; from: string; to: string; points: BandPoint[]
-  kind: 'mainline' | 'spur' | 'ic-ramp' | 'jct-ramp'; owner: string
-  length: number; lanes: number; structure: 'elevated' | 'transition' | 'flyover'
+  kind: 'mainline' | 'spur' | 'ic-ramp' | 'ic-link' | 'jct-ramp'; owner: string
+  length: number; lanes: number; structure: 'elevated' | 'transition' | 'flyover' | 'ground'
+  /** Metres held at constant height at both ends of a ramp. */
+  levelEndLength?:number
 }
 const dist=(a:BandPoint,b:BandPoint)=>Math.hypot(a[0]-b[0],a[1]-b[1])
 const lerp=(a:BandPoint,b:BandPoint,t:number):BandPoint=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]
@@ -47,10 +49,12 @@ function ribbon(route:ExpressRoute):BandPoint[] {
 function hull(points:BandPoint[]):BandPoint[] {
   const p=[...points].sort((a,b)=>a[0]-b[0]||a[1]-b[1]),cross=(a:BandPoint,b:BandPoint,c:BandPoint)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
   const half=(v:BandPoint[])=>{const out:BandPoint[]=[];for(const q of v){while(out.length>1&&cross(out.at(-2)!,out.at(-1)!,q)<=0)out.pop();out.push(q)}return out.slice(0,-1)}
-  return [...half(p),...half([...p].reverse())]
+  const result=[...half(p),...half([...p].reverse())],clean=result.filter((q,i)=>i===0||dist(q,result[i-1])>=1e-6)
+  if(clean.length>1&&dist(clean[0],clean.at(-1)!)<1e-6)clean.pop()
+  return clean
 }
-function curve(a:BandPoint,b:BandPoint,ta:BandPoint,tb:BandPoint):BandPoint[] {
-  const reach=Math.min(400,dist(a,b)*.45),c:BandPoint=[a[0]+ta[0]*reach,a[1]+ta[1]*reach],d:BandPoint=[b[0]-tb[0]*reach,b[1]-tb[1]*reach]
+function curve(a:BandPoint,b:BandPoint,ta:BandPoint,tb:BandPoint,handle?:number):BandPoint[] {
+  const reach=handle??Math.min(400,dist(a,b)*.45),c:BandPoint=[a[0]+ta[0]*reach,a[1]+ta[1]*reach],d:BandPoint=[b[0]-tb[0]*reach,b[1]-tb[1]*reach]
   return Array.from({length:25},(_,i)=>{const t=i/24,u=1-t;return [u*u*u*a[0]+3*u*u*t*c[0]+3*u*t*t*d[0]+t*t*t*b[0],u*u*u*a[1]+3*u*u*t*c[1]+3*u*t*t*d[1]+t*t*t*b[1]]})
 }
 
@@ -72,16 +76,18 @@ export function reserveBandExpressway(site:BandSite,design:ExpressDesign) {
   const gateSlots=new Map<string,{lo:number;hi:number;station:number}>()
   for(const ic of design.interchanges) {
     const r=route(ic.route),end=length(r.points),station=ic.station
-    if(!Number.isFinite(station)||!(ic.side===-1||ic.side===1)||!ic.serves.length||ic.serves.some(id=>!site.centres.some(c=>c.id===id)))throw Error('Invalid interchange')
-    const lo=Math.max(0,station-350),hi=Math.min(end,station+350)
+    if(!Number.isFinite(station)||!(ic.side===-1||ic.side===1)||!ic.serves.length||ic.serves.some(id=>!site.centres.some(c=>c.id===id))||ic.layout!==undefined&&!['direct','diamond','paired'].includes(ic.layout))throw Error('Invalid interchange')
+    if(ic.layout==='paired'&&station!==0&&station!==end)throw Error('Paired terminal needs a route end')
+    const reach=ic.layout==='diamond'?450:350,lo=Math.max(0,station-reach),hi=Math.min(end,station+reach)
+    if(ic.layout==='diamond'&&(station<reach||station>end-reach))throw Error('Diamond interchange needs both approaches')
     if(station<0||station>end||hi-lo<300)throw Error('Interchange outside route')
     if(design.interchanges.some(other=>other!==ic&&other.route===ic.route&&Math.abs(other.station-station)<1100)||ic.route===j.main&&Math.abs(station-j.station)<1500)throw Error('Overlapping interchange approaches')
     gateSlots.set(ic.id,{lo,hi,station});addSlot(ic.route,lo);addSlot(ic.route,hi)
   }
   const nodeId=(id:string,s:number,d:1|-1)=>`${id}:${s.toFixed(5)}:${d}`
   const addNode=(id:string,point:BandPoint,level:0|1,role:ExpressNode['role'])=>{nodes.push({id,point,level,role});return id}
-  const addEdge=(from:string,to:string,points:BandPoint[],kind:ExpressEdge['kind'],owner:string,structure:ExpressEdge['structure'])=>{
-    edges.push({id:`${owner}:${from}>${to}`,from,to,points,kind,owner,length:length(points),lanes:kind.endsWith('ramp')?1:2,structure})
+  const addEdge=(from:string,to:string,points:BandPoint[],kind:ExpressEdge['kind'],owner:string,structure:ExpressEdge['structure'],levelEndLength?:number)=>{
+    edges.push({id:`${owner}:${from}>${to}`,from,to,points,kind,owner,length:length(points),lanes:kind.endsWith('ramp')||kind==='ic-link'?1:2,structure,...(levelEndLength===undefined?{}:{levelEndLength})})
   }
   for(const r of design.routes) {
     const stations=[...slots.get(r.id)!].sort((a,b)=>a-b),breaks=offsets(r.points)
@@ -99,7 +105,38 @@ export function reserveBandExpressway(site:BandSite,design:ExpressDesign) {
     const tangent=tangentAt(r,s.station),normal:BandPoint=[-tangent[1]*ic.side,tangent[0]*ic.side],terminal=s.station===0||s.station===end
     const id=addNode(`gate:${ic.id}`,gate,0,'gate'),rampStart=edges.length
     accesses.push({id:ic.id,point:gate,serves:[...ic.serves]})
-    for(const d of [1,-1] as const) {
+    if(ic.layout==='diamond'){
+      const junctions=new Map<1|-1,string>()
+      for(const d of [1,-1] as const){
+        const junction=addNode(`${ic.id}:junction:${d}`,at(r,s.station,d*130),0,'carriageway');junctions.set(d,junction)
+        const from=nodeId(r.id,d===1?s.lo:s.hi,d),to=nodeId(r.id,d===1?s.hi:s.lo,d)
+        const normal:BandPoint=[-tangent[1]*d,tangent[0]*d]
+        // Fan clear of the mainline before beginning the vertical transition.
+        addEdge(from,junction,curve(node(from).point,node(junction).point,[tangent[0]*d,tangent[1]*d],normal,40),'ic-ramp',ic.id,'transition',60)
+        addEdge(junction,to,curve(node(junction).point,node(to).point,[-normal[0],-normal[1]],[tangent[0]*d,tangent[1]*d],40),'ic-ramp',ic.id,'transition',60)
+      }
+      const connect=(a:string,b:string)=>{
+        for(const [from,to] of [[a,b],[b,a]]){
+          const p=node(from).point,q=node(to).point,dx=q[0]-p[0],dy=q[1]-p[1],length=dist(p,q),nx=-dy/length*3,ny=dx/length*3
+          const along=(t:number):BandPoint=>[p[0]+dx*t,p[1]+dy*t]
+          const offset=(t:number):BandPoint=>{const p=along(t);return[p[0]+nx,p[1]+ny]}
+          const lead=Math.min(30,length/3),a=offset(lead/length),b=offset(1-lead/length),direction:BandPoint=[dx/length,dy/length]
+          addEdge(from,to,[...curve(p,a,direction,direction,lead/3).slice(0,-1),...curve(a,b,direction,direction,lead/3).slice(0,-1),...curve(b,q,direction,direction,lead/3)],'ic-link',ic.id,'ground')
+        }
+      }
+      connect(junctions.get(1)!,junctions.get(-1)!);connect(id,junctions.get(ic.side)!)
+    }else if(ic.layout==='paired'){
+      const entryDirection=s.station===0?1:-1,heading:BandPoint=[tangent[0]*entryDirection,tangent[1]*entryDirection]
+      const mid=curve(gate,centre,[-normal[0],-normal[1]],heading),stations=offsets(mid)
+      const lane=(side:1|-1)=>mid.map((p,i)=>{
+        const a=mid[Math.max(0,i-1)],b=mid[Math.min(mid.length-1,i+1)],l=dist(a,b)
+        const t=i===0?[-normal[0],-normal[1]]:i===mid.length-1?heading:[(b[0]-a[0])/l,(b[1]-a[1])/l]
+        const offset=6*side*Math.min(1,stations[i]/30)
+        return [p[0]-t[1]*offset,p[1]+t[0]*offset] as BandPoint
+      })
+      addEdge(id,nodeId(r.id,s.station,entryDirection),lane(1),'ic-ramp',ic.id,'transition',60)
+      addEdge(nodeId(r.id,s.station,entryDirection===1?-1:1),id,lane(-1).reverse(),'ic-ramp',ic.id,'transition',60)
+    }else for(const d of [1,-1] as const) {
       // Terminals have one entry and one exit, not roads dangling past an IC.
       if(d===1?s.station>0:s.station<end) {
         const from=nodeId(r.id,terminal?s.station:d===1?s.lo:s.hi,d)
@@ -161,6 +198,7 @@ export type BandExpressway=ReturnType<typeof reserveBandExpressway>
  * Closures remove directed movements without changing the reserved land. */
 export function expressJourney(plan:BandExpressway,from:string,to:string,closedOwners:string[]=[]):{edges:string[];length:number}|null {
   if(!plan.nodes.some(n=>n.id===from)||!plan.nodes.some(n=>n.id===to))throw Error('Unknown journey endpoint')
+  const allowedICs=new Set(plan.edges.filter(e=>e.kind.startsWith('ic-')&&(e.from===from||e.to===from||e.from===to||e.to===to)).map(e=>e.owner))
   const costs=new Map([[from,0]]),prev=new Map<string,ExpressEdge>(),done=new Set<string>()
   while(true) {
     const next=[...costs].filter(([id])=>!done.has(id)).sort((a,b)=>a[1]-b[1])[0]
@@ -169,7 +207,7 @@ export function expressJourney(plan:BandExpressway,from:string,to:string,closedO
     if(id===to){const path:string[]=[];for(let n=to;n!==from;){const e=prev.get(n)!;path.unshift(e.id);n=e.from}return {edges:path,length:cost}}
     done.add(id)
     if(id!==from&&plan.nodes.find(n=>n.id===id)!.role==='gate')continue
-    for(const e of plan.edges)if(e.from===id&&!closedOwners.includes(e.owner)&&cost+e.length<(costs.get(e.to)??Infinity)){costs.set(e.to,cost+e.length);prev.set(e.to,e)}
+    for(const e of plan.edges)if(e.from===id&&!closedOwners.includes(e.owner)&&(!e.kind.startsWith('ic-')||allowedICs.has(e.owner))&&cost+e.length<(costs.get(e.to)??Infinity)){costs.set(e.to,cost+e.length);prev.set(e.to,e)}
   }
 }
 
