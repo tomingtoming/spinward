@@ -5,7 +5,21 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, IC geometry): **2 passed in about
+Latest focused verification (2026-09-14, JCT geometry): **2 passed**, using
+playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro / ANGLE Metal on one fixed
+build. Actual desktop-menu and Quest-style entry, wrist controls, input ownership,
+stereo roll, exit/re-entry and stale-session rejection passed. Four sessions and
+four ends; no recorded page errors or failed resources. Emulation only.
+Unit tests ran separately: the final full run passed **1,020 tests**; TypeScript
+and build passed. One existing 10-second generation test timed out in the initial
+unit run and passed in 9.33 seconds on the complete rerun with unchanged limits;
+the first delay's cause is not established. Physical Quest and the earlier
+body-drift case were not tested. The JCT remains a separate geometry preview;
+these XR checks cover the existing inhabited colony.
+Evidence: `evidence/band-junction-20260914/xr/`; scope and fixed bundle:
+[JCT vertical separation](../neighborhood-life/band-junction.md).
+
+Previous focused verification (2026-09-14, IC geometry): **2 passed in about
 one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
 ANGLE Metal. Actual desktop-menu and Quest-style entry, wrist controls,
 input ownership, stereo roll, exit/re-entry and stale-session rejection passed.

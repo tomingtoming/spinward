@@ -45,8 +45,8 @@ export function sampleElevatedRoad(points:BandPoint[],height:(fraction:number)=>
   out.push([...points.at(-1)!,h]);return out
 }
 
-/** First vertical proposal. A flyover label alone cannot prove clearance;
- * auditElevatedRoads deliberately keeps the current ramp conflicts visible. */
+/** A structure label alone cannot prove clearance. Current and legacy
+ * alignments use the same sampled heights and finite-width audit. */
 export function proposeExpresswayElevations(plan:BandExpressway):ElevatedRoad[] {
   const nodes=new Map(plan.nodes.map(n=>[n.id,n]))
   return plan.edges.map(e=>{
@@ -54,8 +54,9 @@ export function proposeExpresswayElevations(plan:BandExpressway):ElevatedRoad[] 
     const end=nodes.get(e.to)!.level===0?BAND_LEVELS.paving:BAND_LEVELS.expressway
     const flat=e.levelEndLength??0
     if(!Number.isFinite(flat)||flat<0||2*flat>=e.length)throw Error('Invalid level ramp ends')
+    const rise=e.structure==='flyover'?BAND_LEVELS.flyoverRise:e.structure==='underpass'?-BAND_LEVELS.flyoverRise:0
     return {id:e.id,from:e.from,to:e.to,width:e.lanes*3.5+2,depth:e.structure==='ground'?.2:BAND_LEVELS.expressDeckDepth,
-      samples:sampleElevatedRoad(e.points,t=>start+(end-start)*smooth(clamp((t*e.length-flat)/(e.length-2*flat)))+(e.structure==='flyover'?BAND_LEVELS.flyoverRise*Math.sin(Math.PI*t)**2:0))}
+      samples:sampleElevatedRoad(e.points,t=>{const u=clamp((t*e.length-flat)/(e.length-2*flat));return start+(end-start)*smooth(u)+rise*Math.sin(Math.PI*u)**2})}
   })
 }
 

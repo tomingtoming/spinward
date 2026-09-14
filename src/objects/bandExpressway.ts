@@ -5,7 +5,7 @@ import { bandSegmentIntersection, clearBandSegment, insideBandReserve, planBandS
  * The explicit directed graph must never be noded from XY intersections. */
 export type ExpressRoute = { id: string; name: string; points: BandPoint[]; reservationWidth: number; waterBridges: string[] }
 export type ExpressInterchange = { id: string; name: string; route: string; station: number; side: -1 | 1; serves: string[]; layout?:'direct'|'diamond'|'paired' }
-export type ExpressJunction = { id: string; name: string; main: string; station: number; branch: string }
+export type ExpressJunction = { id: string; name: string; main: string; station: number; branch: string; layout?:'direct'|'split-level' }
 export type ExpressDesign = {
   routes: ExpressRoute[]; interchanges: ExpressInterchange[]; junction: ExpressJunction
   underpasses: { id: string; route: string; station: number }[]
@@ -14,7 +14,7 @@ export type ExpressNode = { id: string; point: BandPoint; level: 0 | 1; role: 'g
 export type ExpressEdge = {
   id: string; from: string; to: string; points: BandPoint[]
   kind: 'mainline' | 'spur' | 'ic-ramp' | 'ic-link' | 'jct-ramp'; owner: string
-  length: number; lanes: number; structure: 'elevated' | 'transition' | 'flyover' | 'ground'
+  length: number; lanes: number; structure: 'elevated' | 'transition' | 'flyover' | 'underpass' | 'ground'
   /** Metres held at constant height at both ends of a ramp. */
   levelEndLength?:number
 }
@@ -71,7 +71,7 @@ export function reserveBandExpressway(site:BandSite,design:ExpressDesign) {
   const slots=new Map(design.routes.map(r=>[r.id,new Set([0,length(r.points)])]))
   const addSlot=(id:string,s:number)=>{at(route(id),s);slots.get(id)!.add(s)}
   const j=design.junction,main=route(j.main),branch=route(j.branch)
-  if(j.main===j.branch||j.station<600||j.station>length(main.points)-600)throw Error('Invalid junction')
+  if(j.main===j.branch||j.station<600||j.station>length(main.points)-600||j.layout!==undefined&&!['direct','split-level'].includes(j.layout))throw Error('Invalid junction')
   for(const s of [j.station-600,j.station+600])addSlot(j.main,s)
   const gateSlots=new Map<string,{lo:number;hi:number;station:number}>()
   for(const ic of design.interchanges) {
@@ -160,7 +160,19 @@ export function reserveBandExpressway(site:BandSite,design:ExpressDesign) {
   })
   const rampsStart=edges.length,branchOut=nodeId(branch.id,0,1),branchIn=nodeId(branch.id,0,-1)
   const branchTangent:BandPoint=[(branch.points[1][0]-branch.points[0][0])/dist(branch.points[0],branch.points[1]),(branch.points[1][1]-branch.points[0][1])/dist(branch.points[0],branch.points[1])]
-  for(const d of [1,-1] as const) {
+  if(j.layout==='split-level'){
+    const tangent=tangentAt(main,j.station),left:BandPoint=[-tangent[1],tangent[0]],back:BandPoint=[-tangent[0],-tangent[1]],east:BandPoint=[-left[0],-left[1]]
+    const southIn=nodeId(main.id,j.station-600,1),northOut=nodeId(main.id,j.station+600,1)
+    const northIn=nodeId(main.id,j.station+600,-1),southOut=nodeId(main.id,j.station-600,-1)
+    // The near-side turns stay on the main deck. The two far-side turns
+    // cross the mainline in opposite vertical directions, with a long stem
+    // to regain branch height before their shared merge/diverge nodes.
+    addEdge(southIn,branchOut,curve(node(southIn).point,node(branchOut).point,tangent,branchTangent,120),'jct-ramp',j.id,'elevated',90)
+    addEdge(branchIn,northOut,curve(node(branchIn).point,node(northOut).point,[-branchTangent[0],-branchTangent[1]],tangent,120),'jct-ramp',j.id,'elevated',90)
+    const westbound=at(main,j.station-6,-85),eastbound=at(main,j.station+6,-85)
+    addEdge(northIn,branchOut,[...curve(node(northIn).point,westbound,back,left,120).slice(0,-1),...curve(westbound,node(branchOut).point,left,branchTangent,120)],'jct-ramp',j.id,'flyover',90)
+    addEdge(branchIn,southOut,[...curve(node(branchIn).point,eastbound,[-branchTangent[0],-branchTangent[1]],east,120).slice(0,-1),...curve(eastbound,node(southOut).point,east,back,120)],'jct-ramp',j.id,'underpass',90)
+  }else for(const d of [1,-1] as const) {
     const incoming=nodeId(main.id,j.station-d*600,d),outgoing=nodeId(main.id,j.station+d*600,d)
     addEdge(incoming,branchOut,curve(node(incoming).point,node(branchOut).point,[0,d],branchTangent),'jct-ramp',j.id,d===1?'elevated':'flyover')
     addEdge(branchIn,outgoing,curve(node(branchIn).point,node(outgoing).point,[-branchTangent[0],-branchTangent[1]],[0,d]),'jct-ramp',j.id,d===1?'flyover':'elevated')

@@ -82,7 +82,7 @@ test('deck extrusion closes the same top that was audited, with a real underside
   expect(()=>sampleElevatedRoad([[0,0],[1,0]],()=>NaN)).toThrow()
 })
 
-test('whole expressway elevations keep all explicit joins continuous and all seven ICs clear, with JCT conflicts still reported',()=>{
+test('whole expressway elevations keep all explicit joins continuous and all IC and JCT movements clear',()=>{
   const plan=reserveBandExpressway(proposedBandLand(),proposedBandExpressway()),roads=proposeExpresswayElevations(plan),audit=auditElevatedRoads(roads)
   for(const node of plan.nodes){
     const ends=roads.flatMap(r=>[...(r.from===node.id?[r.samples[0]]:[]),...(r.to===node.id?[r.samples.at(-1)!]:[])])
@@ -92,7 +92,7 @@ test('whole expressway elevations keep all explicit joins continuous and all sev
   expect(audit.steep).toEqual([])
   const icEdges=new Set(plan.edges.filter(e=>e.kind.startsWith('ic-')).map(e=>e.id))
   expect(audit.conflicts.filter(c=>icEdges.has(c.a)||icEdges.has(c.b))).toEqual([])
-  expect(audit.conflicts.some(c=>c.b.includes('south-logistics-jct'))).toBe(true)
+  expect(audit.conflicts).toEqual([])
   // The transverse streets actually overlap both carriageways, with space
   // below the slab; zero conflicts alone must not pass an absent connection.
   for(const ic of plan.interchanges.filter(ic=>ic.layout==='diamond')){
@@ -102,6 +102,36 @@ test('whole expressway elevations keep all explicit joins continuous and all sev
     for(const c of crossings)expect(c.minimumClearance).toBeCloseTo(9,8)
   }
   for(const r of roads.filter(r=>icEdges.has(r.id)))expect(buildExpresswayDeck(r).vertices.every(p=>p[2]>=0)).toBe(true)
+})
+
+test('the JCT raises and lowers its far-side turns before crossing the mainline, with unchanged audit limits',()=>{
+  const plan=reserveBandExpressway(proposedBandLand(),proposedBandExpressway()),roads=proposeExpresswayElevations(plan),audit=auditElevatedRoads(roads)
+  const ramps=plan.edges.filter(e=>e.kind==='jct-ramp')
+  // A clearance-only solution must not hide an almost hairpin turn. This is
+  // a three-knot geometric radius, not a design speed or a vehicle simulation.
+  for(const e of ramps)for(let i=1;i<e.points.length-1;i++){
+    const a=e.points[i-1],b=e.points[i],c=e.points[i+1],cross=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+    if(Math.abs(cross)<1e-8)continue
+    const radius=Math.hypot(b[0]-a[0],b[1]-a[1])*Math.hypot(c[0]-a[0],c[1]-a[1])*Math.hypot(b[0]-c[0],b[1]-c[1])/(2*Math.abs(cross))
+    expect(radius).toBeGreaterThan(30)
+  }
+  for(const kind of ['flyover','underpass'] as const){
+    const edge=ramps.find(e=>e.structure===kind)!,r=roads.find(r=>r.id===edge.id)!
+    const crosses=audit.crossings.filter(c=>c.a===r.id||c.b===r.id)
+    expect(crosses.length).toBeGreaterThan(1)
+    for(const c of crosses)expect(c.minimumClearance).toBeGreaterThanOrEqual(4.5)
+    if(kind==='flyover')expect(Math.max(...r.samples.map(p=>p[2]))).toBeGreaterThan(17.19)
+    else expect(Math.min(...r.samples.map(p=>p[2]))).toBeGreaterThanOrEqual(3.2-1e-8)
+    expect(buildExpresswayDeck(r).vertices.every(p=>p[2]>=0)).toBe(true)
+    let distance=0
+    r.samples.forEach((p,i)=>{if(i)distance+=Math.hypot(p[0]-r.samples[i-1][0],p[1]-r.samples[i-1][1]);if(distance<90||distance>edge.length-90)expect(p[2]).toBeCloseTo(10.2,8)})
+  }
+  const before=reserveBandExpressway(proposedBandLand(),proposedBandExpressway('direct'))
+  const old=auditElevatedRoads(proposeExpresswayElevations(before))
+  expect(old.conflicts).toHaveLength(8)
+  expect(audit.limits).toEqual(old.limits)
+  expect(plan.interchanges.map(ic=>ic.gate)).toEqual(before.interchanges.map(ic=>ic.gate))
+  expect(plan.bridges).toEqual(before.bridges)
 })
 
 test('the unchanged finite-width audit still rejects the old direct-to-gate IC layout',()=>{

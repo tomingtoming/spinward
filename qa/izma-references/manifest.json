@@ -830,7 +830,7 @@
       "duplicateOf": null,
       "implementation": "partial",
       "observation": "高架下面と支持柱、隣接する公共通路を再確認。画面自体は降雨を示していない。雨宿りは既存構造を天候へつなぐSpinward側の機能改善で、資料の雨を再現したという意味ではない。 2026-09-14: 元の1920×1080とhashを再確認。高架の下面・支持柱、下の車道と分離された歩行空間を確認。ICやJCTの配置を示す資料としては扱わない。",
-      "applied": "2026-09-13: 既存高架下通路の主歩行帯を徒歩案内へ接続。これはSpinward側の機能改善で、原画の川沿いの地形や固有意匠を追加したものではない。qa/neighborhood-life/covered-directions.mdを参照。 2026-09-14: qa/neighborhood-life/band-interchanges.md。下の生活動線を空ける上下関係を、独立した全域道路案のICへ部分採用。中間ICを両側の地上接続と本線下の横断道へ組み替えた。ダイヤモンド型の配置・寸法はSpinward独自。支柱・車線合流面・現行コロニーへの適用は未実装。"
+      "applied": "2026-09-13: 既存高架下通路の主歩行帯を徒歩案内へ接続。これはSpinward側の機能改善で、原画の川沿いの地形や固有意匠を追加したものではない。qa/neighborhood-life/covered-directions.mdを参照。 2026-09-14: qa/neighborhood-life/band-interchanges.md。下の生活動線を空ける上下関係を、独立した全域道路案のICへ部分採用。中間ICを両側の地上接続と本線下の横断道へ組み替えた。ダイヤモンド型の配置・寸法はSpinward独自。支柱・車線合流面・現行コロニーへの適用は未実装。 同日JCT回: 元画像とhashを再閲覧・照合。qa/neighborhood-life/band-junction.md で、下の動線を確保する上下分離の考え方を全域案の分岐・合流へ接続。JCTの三層配置はSpinward独自で、原画からの復元ではない。支持柱・合流路面・現行世界への適用は残件。"
     },
     {
       "id": "izma-ep03-0021",
