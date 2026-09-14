@@ -45,3 +45,14 @@ test('curved road and reserve changes alter parcels deterministically without mu
   expect(polygonArea(intersectStreetPolygons(piece,s.reserves[0]))).toBeLessThan(1e-5)
  }
 })
+test('bounded frontage keeps sparse dead-end cells from claiming distant land and retains the legacy default',()=>{
+ const s=site([line('dead',[-160,-80],[0,-80])]),legacy=planStreetParcels(s,3200)
+ const limited=planStreetParcels({...s,maximumFrontage:40},3200)
+ const reach=(p:typeof limited.parcels[number])=>Math.max(...p.pieces.flat().map(v=>Math.abs((v.x-p.front.point.x)*Math.cos(p.front.heading)+(v.y-p.front.point.y)*Math.sin(p.front.heading))))
+ expect(legacy.parcels.some(p=>reach(p)>40)).toBe(true)
+ expect(limited.parcels.length).toBeGreaterThan(0)
+ expect(limited.parcels.every(p=>reach(p)<=20.000001)).toBe(true)
+ expect(limited.unallocatedArea).toBeGreaterThan(legacy.unallocatedArea)
+ expect(planStreetParcels({...s,maximumFrontage:undefined},3200)).toEqual(legacy)
+ expect(()=>planStreetParcels({...s,maximumFrontage:NaN},3200)).toThrow('frontage limit')
+})

@@ -5,7 +5,21 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, joined deck surfaces): **2 passed in
+Latest focused verification (2026-09-14, whole-band parcels): **2 passed in
+about one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal on one fixed build. Actual desktop-menu and Quest-style entry,
+wrist controls, input ownership, stereo roll, exit/re-entry and stale-session
+rejection passed. Four sessions and four ends; no page errors or failed resources.
+Independent stereo image review found the principal controls readable in both
+eyes, with no obvious clipping, overlap or abnormal separation during the sampled roll.
+Final unit run: **1,029 passed**; the first full run had one existing 64,000-building
+timeout (10,129.89 ms against 10 s); the final full run passed it at 9,805.11 ms.
+No timeout threshold changed. TypeScript/build passed. The parcel generator is
+an offline proposal, not the inhabited scene under XR test. Physical Quest and
+the earlier body-drift case remain untested. Evidence: `evidence/band-parcels-20260914/xr/`;
+[scope, fixed bundle and reference](../neighborhood-life/band-parcels.md).
+
+Previous focused verification (2026-09-14, joined deck surfaces): **2 passed in
 about one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
 ANGLE Metal on one fixed build. Actual desktop-menu and Quest-style entry,
 wrist controls, input ownership, stereo roll, exit/re-entry and stale-session

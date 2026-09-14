@@ -1,4 +1,5 @@
 import type { BandCentre, BandPoint, BandSite } from './bandStreetPlan'
+import { bandLivingPlaces } from './bandLivingPlaces'
 
 /** An authored urban-planning proposal, not a reconstruction of an Izma map.
  * Physical strip bounds and independent land-use centres precede roads.
@@ -7,7 +8,7 @@ import type { BandCentre, BandPoint, BandSite } from './bandStreetPlan'
 export function proposedBandRiver(): BandPoint[] {
   return [
     [220,-20100],[-210,-17100],[320,-13500],[90,-10000],
-    [520,-5800],[280,-1800],[564.244684642744,1445.8064516129052],
+    [520,-5800],[280,-1800],[650,-850],[650,350],[564.244684642744,1445.8064516129052],
     [470,4100],[-120,7400],[240,10100],[80,13300],[-260,16900],[120,20100]
   ]
 }
@@ -40,11 +41,13 @@ export function proposedBandLand(): BandSite {
     {id:'north-housing',point:[650,17150],use:'housing',reach:1250,demand:3},
     {id:'north-port',point:[-530,19500],use:'port',reach:800,demand:2}
   ]
+  const living=bandLivingPlaces()
   return {id:'band-0-proposal',width:3200*Math.PI/3*.94,length:39840,seed:14092026,
     centres,reserves:[water,
       {id:'wetland',kind:'green',polygon:[[-1480,6300],[-620,6530],[-550,7390],[-1300,7730]]},
-      {id:'service-campus',kind:'facility',polygon:[[-1450,-18300],[-720,-18200],[-650,-17500],[-1380,-17300]]}
+      {id:'service-campus',kind:'facility',polygon:[[-1450,-18300],[-720,-18200],[-650,-17500],[-1380,-17300]]},
+      ...living.map(p=>p.reserve)
     ],
     crossings:[-11200,1445.8064516129052,9300,16800].map((y,i)=>({id:i===1?'existing-river-bridge':`proposed-bridge-${i}`,reserve:'river',from:[bankX(y)-reserve,y],to:[bankX(y)+reserve,y]})),
-    localDemand:360,detourRatio:1.7}
+    accesses:living.map(p=>p.access),localDemand:360,detourRatio:1.7}
 }

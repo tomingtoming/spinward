@@ -60,7 +60,7 @@ test('reservations precede surface roads and demand, and IC frontage reaches eac
   const p=planned.surface
   expect(p.unconnected).toEqual([]);expect(p.unallocatedDemand).toBe(0)
   expect(bandGraph(p.roads).components).toBe(1)
-  expect(p.accessLinks).toHaveLength(design.interchanges.reduce((s,i)=>s+i.serves.length,0))
+  expect(p.accessLinks).toHaveLength(design.interchanges.reduce((s,i)=>s+i.serves.length,0)+(site.accesses??[]).reduce((s,a)=>s+a.serves.length,0))
   expect(p.accessLinks.find(l=>l.access==='south-terminal')!.length).toBeLessThan(4000)
   for(const d of p.demand)expect(fast.reserves.some(r=>insideBandReserve(d.point,r.polygon))).toBe(false)
   for(const r of p.roads) {

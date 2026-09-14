@@ -8,6 +8,9 @@ type Bounds = { x0:number; x1:number; y0:number; y1:number }
 export type StreetParcelSite = {
   id:string; azimuth:number; axial:number; bounds:Bounds
   streets:StreetPath[]; reserves:StreetPolygon[]; seed:number
+  /** Optional full frontage span in metres. Whole-band end cells otherwise
+   * extend to distant bisectors in large, sparsely served land blocks. */
+  maximumFrontage?:number
 }
 export type StreetLandBlock = { id:string; pieces:StreetPolygon[]; area:number }
 export type StreetParcel = {
@@ -70,6 +73,7 @@ export function landContains(pieces:StreetPolygon[],polygon:StreetPolygon){
  * are convex pieces, so concave blocks and reservation holes need no fake
  * rectangle or loss of land. This is a flat, local subdivision, not zoning. */
 export function planStreetParcels(site:StreetParcelSite,radius:number){
+  if(site.maximumFrontage!==undefined&&(!Number.isFinite(site.maximumFrontage)||site.maximumFrontage<=0))throw Error('Invalid parcel frontage limit')
   const origin={...site.streets[0],azimuth:site.azimuth,axial:site.axial}
   let pieces=[rectangle(site.bounds)]
   const obstacles=[...site.reserves,...site.streets.filter(p=>p.level===0).flatMap(path=>{
@@ -103,6 +107,11 @@ export function planStreetParcels(site:StreetParcelSite,radius:number){
   const parcels:StreetParcel[]=[]
   for(const [i,s] of seeds.entries()){
     let cell=rectangle(site.bounds)
+    if(site.maximumFrontage!==undefined){
+      const x=Math.cos(s.front.heading),y=Math.sin(s.front.heading),centre=x*s.point.x+y*s.point.y,half=site.maximumFrontage/2
+      cell=clipStreetPolygon(cell,x,y,half-centre)
+      cell=clipStreetPolygon(cell,-x,-y,half+centre)
+    }
     for(const other of seeds){
       if(other===s||other.block!==s.block)continue
       const dx=s.point.x-other.point.x,dy=s.point.y-other.point.y

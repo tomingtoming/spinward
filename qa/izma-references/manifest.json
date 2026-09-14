@@ -1050,12 +1050,14 @@
       "sha256": "f12cea4b1e98d69771eacac21cfcf3a84240aae1ec5c241bf08230ddffd96088",
       "size": 2120452,
       "review": "viewed",
-      "reviewedOn": "2026-09-12",
+      "reviewedOn": "2026-09-14",
       "finding": "skyline",
       "duplicateOf": null,
       "implementation": "partial",
       "applied": "建物の縦横比と高低のある棟の組み合わせを、敷地内の共通構造レシピへ反映。docs/izma-reference-program.md の中遠景インクリメントを参照。",
-      "remaining": "照明・遠近の減衰・周辺の密度と公共空間。作品固有の意匠や機体は対象外。"
+      "remaining": "照明・遠近の減衰・周辺の密度と公共空間。作品固有の意匠や機体は対象外。",
+      "observation": "2026-09-14に原寸とhashを再確認。大小の建物・中庭状の隙間・木・沿道の小棟が見える。敷地境界そのものは不明。局所には直角街路もあり、非格子道路の地図資料とは扱わない。白い雲・煙状の遮蔽は原因不明として除外。",
+      "relatedWork": "2026-09-14: qa/neighborhood-life/band-parcels.md。建つ土地と残す土地を分ける解釈を全域案の敷地生成へ使用。凹形の予約地・道路面を差し引き、既存3生活拠点を保護。原画の区画境界・固有の屋根意匠を再現した成果ではない。現行コロニー未適用。"
     },
     {
       "id": "izma-ep05-0040",
