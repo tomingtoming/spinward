@@ -3,6 +3,7 @@ import { planStreetParcels } from './streetParcels'
 import { positivePolygon, polygonArea } from './streetPolygon'
 import type { BandReserve, BandStreetPlan } from './bandStreetPlan'
 import { prepareBandStreetGeometry } from './bandStreetGeometry'
+import {bandShopFootprint} from './bandShopFrontage'
 
 /** The parcel clipper accepts convex pieces. Whole-band river and transport
  * reserves may be concave: triangulate them, without bridging their concavities
@@ -22,6 +23,7 @@ export function bandReservePieces(reserve:BandReserve) {
  * not a request to spawn every candidate as a runtime building. */
 export function planBandParcels(plan:BandStreetPlan,radius=3200,geometry=prepareBandStreetGeometry(plan,radius)) {
   const site=plan.site,reserves=site.reserves.flatMap(bandReservePieces)
+  if(site.id==='band-0-proposal')reserves.push(positivePolygon(bandShopFootprint(3).map(([x,y])=>({x,y,u:0,v:0}))))
   // Include the actual bevelled junctions as well as expanded path ribbons.
   // A safe centreline offset alone does not certify a corner footprint.
   const pavement=[...geometry.carriageways,...geometry.sidewalks].map(s=>s.polygon)

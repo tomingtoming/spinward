@@ -3,6 +3,7 @@ import {planCity} from '../objects/cityLayout'
 import {rebuildNativeDistricts} from '../objects/nativeDistricts'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from '../objects/arrivalDistrict'
 import {rebuildArrivalCore} from '../objects/arrivalCore'
+import {rebuildArrivalEast} from '../objects/arrivalEast'
 import {StreetSurfacePlan} from '../objects/streetSurfacePlan'
 import {StreetMarkingPlan} from '../objects/streetMarkings'
 import {captureBandPublicPlaces} from '../objects/bandPublicPlaces'
@@ -15,6 +16,7 @@ for(const maxBuildings of [16000,18000,64000])test(`arrival streets reach the sq
   const radius=3200,city=planCity({radius,length:40000,maxBuildings})
   rebuildNativeDistricts(city,radius);rebuildArrivalWest(city,radius,40000);rebuildArrivalCentral(city,radius,40000)
   rebuildArrivalCore(city,radius,40000)
+  rebuildArrivalEast(city,radius,40000)
   city.streetSurfaces=new StreetSurfacePlan(city.streetNetwork!.streets,radius,isArrivalStreet)
   city.streetMarkings=new StreetMarkingPlan(city.streetNetwork!)
   const places=captureBandPublicPlaces(city,radius).slice(0,2),park=city.places!.park,covered=city.places!.covered

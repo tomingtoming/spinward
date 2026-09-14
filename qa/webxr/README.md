@@ -5,7 +5,33 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, occupied arrival core):
+Latest focused verification (2026-09-14, eastern living places):
+**8 passed in 3.8 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on a fixed build, rehashed after XR.
+The east adds 13 band-plan segments and three destination links, retiring 23 old
+road pieces while retaining the café, apartment, shops and CityBlock entrances.
+The applied arrival area now totals 3.04 km². Both existing doors have a 2 m wide,
+7.25 m connector to the new sidewalk. A road-width-aware detour avoids the shop.
+Actual stick walking covered 8.42 m at the café and 8.37 m at the apartment;
+each captured 11 grounded samples through the ramp. Shopfront walking, the
+existing park connector, west directions, Garden and both entry/return paths
+also passed. All eight error logs were empty; entry/return cases had no failed
+resources and four grants/four ends. The extra lamp-occlusion comparison passed
+in 25.8 s: hiding posts removed the one-eye black corner while the road remained
+continuous, identifying near-post occlusion. Posts are restored before walking.
+Unit verification covered 1,063 cases: the full run had 1,062 passes and one
+existing 64k-generation timeout; without concurrent browser QA, unchanged
+16k/18k/64k checks all passed, with the 64k case taking 7.02 s within its 10 s limit.
+TypeScript/build and six final desktop comparisons were checked. Collision had
+moved an initial baseline camera, so the corrected comparison verifies actual
+camera position instead of treating matching URLs as matching views.
+Independent image review confirmed retained façades, entrance surfaces and the
+shop junction. Rectangular unused land, migration perimeter roads and frontage
+dead ends remain. Physical Quest, full route walking and the previous body-drift
+case were not tested. Evidence: `evidence/arrival-east-20260914/`;
+[scope, failures, fixed build and visual observations](../neighborhood-life/arrival-east.md).
+
+Previous focused verification (2026-09-14, occupied arrival core):
 **9 passed in 3.8 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build, rehashed after XR.
 The core now uses 12 band-plan segments plus two retained civic frontage/approach

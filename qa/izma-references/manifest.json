@@ -1320,13 +1320,15 @@
       "sha256": "ae4e8e9c64e39d82051d9d15a5f7958ae3eeb9ee2f1cb0888b9827accce6e796",
       "size": 1124117,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-14",
       "finding": "upstairs-apartment-exterior",
       "duplicateOf": null,
       "implementation": "partial",
       "relatedWork": [
-        "qa/neighborhood-life/street-frontage.md"
-      ]
+        "qa/neighborhood-life/street-frontage.md",
+        "2026-09-14: qa/neighborhood-life/arrival-east.md。既存の集合住宅の位置・階段・住戸を保持して周囲の道路を更新する解釈。東側のカフェ・集合住宅の入口通路と店舗前の接続を実適用。原画の道路網・建築意匠の複製ではない。"
+      ],
+      "observation": "2026-09-14、1920×1080の原画とhashを再確認。複数階に連なる住戸の窓と小さな手すり、配管、張り出した庇を観察。地上の道路・玄関・敷地境界はこの画像では読めず、道路図や寸法の根拠にはしない。人物の影・作品固有の配線配置は採用しない。"
     },
     {
       "id": "izma-ep06-0064",

@@ -2,6 +2,7 @@ import { bandGraph, clearBandSegment, nodeBandRoads, type BandPoint, type BandRo
 import { getStreetProfile } from './streetProfile'
 import type { StreetPath } from './streetPath'
 import { StreetSurfacePlan } from './streetSurfacePlan'
+import {avoidBandShop} from './bandShopFrontage'
 
 const distance=(a:BandPoint,b:BandPoint)=>Math.hypot(a[0]-b[0],a[1]-b[1])
 const same=(a:BandPoint,b:BandPoint)=>distance(a,b)<.0001
@@ -134,6 +135,8 @@ export function refineBandRoads(input:BandRoad[],site:BandSite,servedPoints:Band
  * geometry pipeline. This stage does not invent bridge heights or IC grades. */
 export function prepareBandStreetGeometry(plan:BandStreetPlan,radius=3200) {
   const refined=refineBandRoads(plan.roads,plan.site,plan.demand.filter(d=>d.served).map(d=>d.point))
+  refined.roads=avoidBandShop(refined.roads,plan.site,radius)
+  refined.remaining=bandGeometryIssues(refined.roads)
   const paths:StreetPath[]=refined.roads.map((r,i)=>{
     const tangent:BandPoint=[r.to[0]-r.from[0],r.to[1]-r.from[1]]
     return {id:`${plan.site.id}:surface-${i}`,azimuth:0,axial:0,kind:r.kind,width:getStreetProfile(r.kind,radius).carriageway,

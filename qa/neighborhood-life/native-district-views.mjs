@@ -1,4 +1,12 @@
 export const nativeDistrictViews=[
+  {name:'arrival-east-cafe',at:[391.1212792499208/3200,-316.8,1.8],aim:[391.1212792499208/3200,-350,1.8],ground:true},
+  {name:'arrival-east-cafe-front',at:[391.1212792499208/3200,-345,4.5],aim:[391.1212792499208/3200,-300,3]},
+  {name:'arrival-east-apartment',at:[286.3095065390625/3200,-212.3,1.8],aim:[286.3095065390625/3200,-250,1.8],ground:true},
+  {name:'arrival-east-apartment-front',at:[286.3095065390625/3200,-218.5,5],aim:[286.3095065390625/3200,-194,5]},
+  {name:'arrival-east-shops',at:[339.7/3200,-300,1.8],aim:[339.7/3200,-255,1.8],ground:true},
+  {name:'arrival-east-shops-junction',at:[339.7/3200,-299,16],aim:[335/3200,-337,0]},
+  {name:'arrival-east-overview',at:[400/3200,-1000,1400],aim:[400/3200,-150,0]},
+  {name:'arrival-east-night',at:[400/3200,-1000,1400],aim:[400/3200,-150,0],phase:.02},
   {name:'arrival-core-frontage',at:[80/3200,11.3,1.8],aim:[0,11.3,1.8],ground:true},
   {name:'arrival-core-park',at:[-240/3200,36.75,1.8],aim:[-190/3200,36.75,1.8],ground:true},
   {name:'arrival-core-square',at:[45/3200,-55,90],aim:[0,0,0]},

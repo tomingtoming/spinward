@@ -9,12 +9,19 @@ import { buildStreetSurfaceGeometry } from './streetSurfaceGeometry'
 import { containsStreetPolygon, intersectStreetPolygons, polygonArea } from './streetPolygon'
 import { StreetSurfacePlan } from './streetSurfacePlan'
 import type { StreetPath } from './streetPath'
+import {bandShopFootprint} from './bandShopFrontage'
 
 const road=(from:BandPoint,to:BandPoint,kind:BandRoad['kind']='collector'):BandRoad=>({from,to,kind,reason:'fixture'})
 const site:BandSite={id:'fixture',width:2000,length:2000,centres:[],crossings:[],reserves:[],seed:1,localDemand:0,detourRatio:1.7}
 const near=(a:BandPoint,b:BandPoint)=>Math.hypot(a[0]-b[0],a[1]-b[1])<.0001
 const planned=planBandTransport(proposedBandLand(),proposedBandExpressway()).surface
 const geometry=prepareBandStreetGeometry(planned)
+
+test('band pavement diverts around the occupied shop without consuming its footprint',()=>{
+  const footprint=bandShopFootprint(1).map(([x,y])=>({x,y,u:0,v:0}))
+  for(const s of [...geometry.carriageways,...geometry.sidewalks])expect(polygonArea(intersectStreetPolygons(footprint,s.polygon))).toBeLessThan(1e-5)
+  expect(bandGraph(geometry.roads).components).toBe(bandGraph(planned.roads).components)
+})
 
 test('adjacent T junctions share one meeting and retain their four external approaches',()=>{
   const input=[road([-100,0],[0,0]),road([0,0],[8,0]),road([8,0],[100,0]),road([0,0],[0,100]),road([8,0],[8,-100])]

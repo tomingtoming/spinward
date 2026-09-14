@@ -5,7 +5,8 @@ import {legacyStreetPaths,type StreetPath} from './streetPath'
 import {StreetNetwork} from './streetNetwork'
 import {StreetSurfacePlan,relativeStreetPolygon} from './streetSurfacePlan'
 import {planStreetParcels} from './streetParcels'
-import {certifyStreetAccess} from './streetFrontage'
+import {buildingFootprint,certifyStreetAccess} from './streetFrontage'
+import {certifyEntranceWalk} from './streetEntranceWalk'
 import {preserveCityPlaces} from './cityPlaces'
 import {getStreetProfile} from './streetProfile'
 import type {BandPoint} from './bandStreetPlan'
@@ -23,7 +24,7 @@ export const ARRIVAL_CENTRAL:readonly ArrivalBounds[]=[
   {x0:ARRIVAL_WEST.x1,x1:224.99787385709756,y0:ARRIVAL_WEST.y0,y1:-321.29032258064535}
 ]
 const inside=(bounds:ArrivalBounds,x:number,y:number,margin=0)=>x>bounds.x0+margin+1e-5&&x<bounds.x1-margin-1e-5&&y>bounds.y0+margin+1e-5&&y<bounds.y1-margin-1e-5
-const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS,'district-arrival-core'].map(id=>`${id}:`)
+const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS,'district-arrival-core','district-arrival-east'].map(id=>`${id}:`)
 export const isArrivalStreet=(p:StreetPath)=>arrivalStreetPrefixes.some(prefix=>p.id.startsWith(prefix))
 
 /** Clip a source centreline without moving either its interior vertices or
@@ -94,7 +95,8 @@ export function rebuildArrivalCentral(city:CityPlan,radius:number,length:number)
 }
 
 export function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:string,bounds:ArrivalBounds,deferBoundarySpurs=false,
-  retained?:{buildings:CityBuilding[];reserves:StreetPolygon[];streets:StreetPath[];patches?:CityPlan['patches'];trees?:CityPlan['trees']}){
+  retained?:{buildings:CityBuilding[];reserves:StreetPolygon[];streets:StreetPath[];patches?:CityPlan['patches'];trees?:CityPlan['trees'];
+    entrances?:{id:string;building:CityBuilding;reserve:StreetPolygon}[]}){
   if(radius!==snapshot.radius||length!==snapshot.length||!city.streetNetwork)return null
   if(city.nativeDistricts?.some(d=>d.id===id))throw Error('Arrival district already applied')
   preserveCityPlaces(city,radius)
@@ -141,7 +143,26 @@ export function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,i
   // are replaced with certification output; existing authored contracts retain
   // their dimensions and door coordinates.
   const certified=certifyStreetAccess([...kept,...candidates],network,radius,6)
-  if(retained?.buildings.some(b=>!certified.buildings.some(c=>c.azimuth===b.azimuth&&c.axial===b.axial)))throw Error('Arrival migration obstructed an inhabited entrance')
+  const entrances=retained?.entrances??[],walks=[]
+  if(entrances.length){
+    // Only the retained destinations may have longer approaches. Keep nearby
+    // buildings in their certification so a path cannot cut through a new lot.
+    const nearby=[...kept,...candidates].filter(b=>entrances.some(e=>Math.hypot(wrap(b.azimuth-e.building.azimuth)*radius,b.axial-e.building.axial)<150+Math.max(b.width,b.depth)))
+    const extended=certifyStreetAccess(nearby,network,radius,40)
+    const global=(s:typeof carriageways[number])=>s.polygon.map(v=>({...v,x:v.x+s.source.azimuth*radius,y:v.y+s.source.axial}))
+    for(const e of entrances){
+      const b=extended.buildings.find(b=>b.azimuth===e.building.azimuth&&b.axial===e.building.axial)
+      if(!b)throw Error(`Arrival entrance ${e.id} has no connected frontage`)
+      const a=b.access,dx=wrap(a.roadEdge.azimuth-a.entrance.azimuth)*radius,dy=a.roadEdge.axial-a.entrance.axial,n=Math.hypot(dx,dy)
+      const result=certifyEntranceWalk({id:e.id,entrance:{x:a.entrance.azimuth*radius,y:a.entrance.axial},normal:{x:dx/n,y:dy/n},width:a.width,startHeight:(b.baseHeight??0)+.12,maxGap:40,
+        sidewalks:sidewalks.map(s=>({polygon:global(s),height:s.lift})),carriageways:carriageways.map(global),allowed:[e.reserve],
+        obstacles:nearby.filter(o=>o!==e.building).map(o=>buildingFootprint(o).map(v=>({...v,x:v.x+o.azimuth*radius,y:v.y+o.axial})))},radius)
+      if(!result.walk)throw Error(`Arrival entrance ${e.id}: ${result.rejected}`)
+      walks.push(result.walk);certified.buildings.push(b)
+    }
+  }
+  const blocked=retained?.buildings.find(b=>!certified.buildings.some(c=>c.azimuth===b.azimuth&&c.axial===b.axial))
+  if(blocked)throw Error(`Arrival migration obstructed an inhabited entrance at ${blocked.azimuth*radius},${blocked.axial}: ${certified.rejected.find(r=>r.building===blocked)?.reason}`)
   const accepted=certified.buildings.filter(b=>b.nativeDistrict===id)
   const buildings=accepted.filter((_,i)=>accepted.length<=removed.length||Math.floor(i*removed.length/accepted.length)!==Math.floor((i-1)*removed.length/accepted.length))
   const d:NativeDistrict={id,band:0,character:'mixed',layout:'band-plan',azimuth,axial,width:x1-x0,length:y1-y0,
@@ -149,6 +170,7 @@ export function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,i
     surfaces:{carriageways:carriageways.filter(s=>streets.includes(s.source)),sidewalks:sidewalks.filter(s=>streets.includes(s.source))}}
   const byPosition=new Map(certified.buildings.map(b=>[`${b.azimuth}:${b.axial}`,b.access]))
   city.buildings=[...kept.map(b=>({...b,access:byPosition.get(`${b.azimuth}:${b.axial}`)??b.access})),...buildings]
+  if(walks.length)city.entranceWalks=[...city.entranceWalks??[],...walks]
   city.roads=roads;city.streetNetwork=network;city.nativeDistricts=[...city.nativeDistricts??[],d]
   city.patches=city.patches.filter(p=>retained?.patches?.includes(p)||!inside(bounds,wrap(p.azimuth)*radius,p.axial))
   city.trees=city.trees.filter(p=>retained?.trees?.includes(p)||!inside(bounds,wrap(p.azimuth)*radius,p.axial))
