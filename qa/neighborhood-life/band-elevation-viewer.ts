@@ -10,16 +10,18 @@ document.querySelector('#gpu')!.textContent=gpu
 if(/SwiftShader|llvmpipe|Software/i.test(gpu))throw Error('Hardware GPU required')
 const point=(x:number,y:number,h:number)=>new THREE.Vector3(Math.cos(x/3200)*(3200-h),y,Math.sin(x/3200)*(3200-h))
 const scenes=places.map((p:any)=>{
-  const scene=new THREE.Scene(),issueGroup=new THREE.Group()
+  const scene=new THREE.Scene(),issueGroup=new THREE.Group(),joinedGroup=new THREE.Group(),separateGroup=new THREE.Group()
   const light=new THREE.DirectionalLight('#fff4db',2);light.position.copy(point(p.x-200,p.y-200,500));light.target.position.copy(point(p.x,p.y,0))
   light.castShadow=true;light.shadow.mapSize.set(2048,2048);Object.assign(light.shadow.camera,{left:-p.span,right:p.span,top:p.span,bottom:-p.span,near:1,far:4000});light.shadow.bias=-.00001;light.shadow.normalBias=.05
   scene.add(light,light.target,new THREE.AmbientLight('#d4e1eb',.9))
-  p.parts.forEach((part:any)=>{const mesh=new THREE.Mesh(new THREE.BufferGeometryLoader().parse(part.geometry),new THREE.MeshStandardMaterial({color:part.color,roughness:.93,metalness:0,side:THREE.DoubleSide,transparent:!!part.opacity,opacity:part.opacity??1}));mesh.castShadow=/橋桁|専用道路|一般道路面/.test(part.name);mesh.receiveShadow=true;scene.add(mesh)})
+  p.parts.forEach((part:any)=>{const mesh=new THREE.Mesh(new THREE.BufferGeometryLoader().parse(part.geometry),new THREE.MeshStandardMaterial({color:part.color,roughness:.93,metalness:0,side:THREE.DoubleSide,transparent:!!part.opacity,opacity:part.opacity??1}));mesh.castShadow=/橋桁|専用道路|一般道路面/.test(part.name);mesh.receiveShadow=true;(part.variant==='joined'?joinedGroup:part.variant==='separate'?separateGroup:scene).add(mesh)})
+  const boundaryGeometry=new THREE.BufferGeometry().setFromPoints(p.boundaries.flatMap((e:any)=>[e.from,e.to].map(([x,y,h]:number[])=>point(x,y,h+.01))))
+  const boundary=new THREE.LineSegments(boundaryGeometry,new THREE.LineBasicMaterial({color:'#244b3c'}))
   p.conflicts.forEach((c:any)=>{
     const marker=new THREE.Mesh(new THREE.SphereGeometry(p.id==='jct'?4:2,12,8),new THREE.MeshBasicMaterial({color:c.sharedNode?'#d88724':'#cb3b2e'}))
     marker.position.copy(point(c.point[0],c.point[1],12));issueGroup.add(marker)
   })
-  scene.add(issueGroup);return {scene,issueGroup}
+  scene.add(issueGroup,joinedGroup,separateGroup,boundary);return {scene,issueGroup,joinedGroup,separateGroup,boundary}
 })
 // The review has no sub-metre camera shots. Preserve depth precision for the
 // thin paving/grass layers instead of inheriting the inhabited world's range.
@@ -28,6 +30,9 @@ let revision=0
 async function draw(){
   const drawRevision=++revision
   const i=places.findIndex((p:any)=>p.id===select.value),p=places[i],s=scenes[i],river=p.id==='river'
+  for(const option of view.options)if(option.value.startsWith('join-'))option.disabled=!p.joinPoint
+  for(const option of view.options)if(option.value==='ground-join')option.disabled=!p.groundJoin
+  if(!p.joinPoint&&view.value.startsWith('join-')||!p.groundJoin&&view.value==='ground-join')view.value='near'
   for(const option of view.options)if(option.value.startsWith('jct-'))option.disabled=p.id!=='jct'
   if(p.id!=='jct'&&view.value.startsWith('jct-'))view.value='near'
   for(const option of view.options)if(option.value==='ic-crossing')option.disabled=p.id!=='ic'
@@ -41,18 +46,24 @@ async function draw(){
   const poses=river?{near:[-65,-65,12,0,0,2],wide:[-160,-160,90,0,0,1],side:[0,-90,3,0,0,2],top:[0,0,400,0,0,0],
     'west-walk':[-13.5,-24,2.9,-13.5,30,2.6],'east-walk':[13.5,-24,2.9,13.5,30,2.6]}:
     {near:[-p.span*.45,-p.span*.35,70,0,0,5],wide:[-p.span*.8,-p.span*.7,p.span*.5,0,0,5],side:[-p.span*.75,0,12,0,0,6],top:[0,0,p.span*1.4,0,0,0],'ic-crossing':[-75,3,1.9,75,3,2.2],'jct-lower':[-60,6,6,90,6,5],'jct-upper':[-60,-6,18.8,90,-6,17]}
-  const close=view.value==='conflict',v=close?[-30,-45,20,0,0,9]:poses[view.value as keyof typeof poses]
+  const join=view.value.startsWith('join-')?p.joinPoint:view.value==='ground-join'?p.groundJoin:null
+  const close=view.value==='conflict',v=join?(view.value==='join-low'?[-25,-35,join[2]+3,5,5,join[2]]:[-30,-30,join[2]+48,0,0,join[2]]):close?[-30,-45,20,0,0,9]:poses[view.value as keyof typeof poses]
   const jctView=view.value.startsWith('jct-')
-  const x=close?issue.point[0]:jctView?p.junctionPoint[0]:p.x,y=close?issue.point[1]:jctView?p.junctionPoint[1]:p.y
+  const x=join?join[0]:close?issue.point[0]:jctView?p.junctionPoint[0]:p.x,y=join?join[1]:close?issue.point[1]:jctView?p.junctionPoint[1]:p.y
   camera.position.copy(point(x+v[0],y+v[1],v[2]));camera.up.set(-Math.cos(x/3200),0,-Math.sin(x/3200))
   if(view.value==='top')camera.up.set(0,1,0)
   camera.lookAt(point(x+v[3],y+v[4],v[5]))
   s.issueGroup.visible=document.querySelector<HTMLInputElement>('#issues')!.checked
+  const joined=document.querySelector<HTMLInputElement>('#joined')!.checked
+  s.joinedGroup.visible=joined;s.separateGroup.visible=!joined;s.boundary.visible=document.querySelector<HTMLInputElement>('#boundary')!.checked
+  document.querySelector<HTMLInputElement>('#joined')!.disabled=!s.joinedGroup.children.length
+  document.querySelector<HTMLInputElement>('#boundary')!.disabled=!p.boundaries.length
   renderer.render(s.scene,camera)
-  document.querySelector('#note')!.textContent=river?'上の街路と低い川沿い歩道を分け、橋の下に通行空間を残します。桁下面から川沿い歩道まで3.39m。橋の構造・柵・上下移動の入口は次段です。':
+  document.querySelector('#note')!.textContent=join?`${joined?'統合後：合流の上面・下面を一度だけ描き、内部の端面を除去。':'統合前：同じ道路配置で、道路ごとの桁を重ねて表示。'}外周線は統合後の境界です。白線・ゴア・柵・支柱・走行制御はまだ含みません。`:
+    river?'上の街路と低い川沿い歩道を分け、橋の下に通行空間を残します。桁下面から川沿い歩道まで3.39m。橋の構造・柵・上下移動の入口は次段です。':
     p.id==='underpass'?'一般道を高さ0.2mで通し、高架本線の下面は9.2m。車道幅が重なる位置でも9.0mの空間を確認。支柱の位置と径間はまだ設計していません。':
-    p.id==='jct'?'JCTの交差する2方向を本線の上下へ分離。4方向の接続と物流ゲートを保持します。幅・桁厚を含む検査で干渉なし。灰＝地上道、紫＝ランプ、青＝本線。合流面・支柱・走行速度は次段です。':
-    ['ic','terminal','port'].includes(p.id)?'ICの高さ干渉を解消。中間ICは本線の両側で地上へ接続し、本線下を横断します。端部は往復を並行に配置。灰＝地上道、紫＝ランプ、青＝本線。合流面・支柱・交通制御は次段です。':
+    p.id==='jct'?'JCTの交差する2方向を本線の上下へ分離。4方向の接続と物流ゲートを保持します。幅・桁厚を含む検査で干渉なし。灰＝地上道、紫＝ランプ、青＝本線。車線設計・支柱・走行速度は次段です。':
+    ['ic','terminal','port'].includes(p.id)?'ICの高さ干渉を解消。中間ICは本線の両側で地上へ接続し、本線下を横断します。端部は往復を並行に配置。灰＝地上道、紫＝ランプ、青＝本線。車線設計・支柱・交通制御は次段です。':
     '未成立の高さ案。赤＝共通ノードなし、橙＝共通ノードありの干渉位置。反対車線との交差や、合流する路面の段差を平面配置と縦断から設計し直します。'
   document.querySelector('#dimensions')!.textContent=river?'水面 0.65m ／ 下歩道 1.26m ／ 上歩道 5.06m ／ 橋面 5.20m ／ 桁下面 4.65m。外殻＝0m。':
     close?`焦点の道路組の最小空間 ${issue.minimumClearance.toFixed(2)}m（負値＝桁への食い込み）。${p.conflicts.includes(issue)?'印は平面位置を示し、高さの目盛りではありません。':'展開座標での測定値です。'}`:
@@ -63,9 +74,10 @@ async function draw(){
   // captured. Rapid UI actions must not label an earlier compositor frame.
   await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))
   if(drawRevision!==revision)return
-  document.querySelector('#status')!.textContent=`${p.name} / ${view.selectedOptions[0].textContent} / 半径3,200m / 三角形 ${renderer.info.render.triangles.toLocaleString()} / ${renderer.shadowMap.enabled?'影あり':'影なし'} / 実寸比`
+  document.querySelector('#status')!.textContent=`${p.name} / ${view.selectedOptions[0].textContent} / ${s.joinedGroup.children.length?(joined?'重複除去後':'重複除去前'):p.id.endsWith('-before')?'旧配置':'比較対象外'} / 三角形 ${renderer.info.render.triangles.toLocaleString()} / ${renderer.shadowMap.enabled?'影あり':'影なし'} / 実寸比`
 }
 select.addEventListener('change',draw);view.addEventListener('change',draw);document.querySelector('#issues')!.addEventListener('change',draw);window.addEventListener('resize',draw)
+document.querySelector('#joined')!.addEventListener('change',draw);document.querySelector('#boundary')!.addEventListener('change',draw)
 document.querySelector('#shadows')!.addEventListener('change',e=>{
   const enabled=(e.target as HTMLInputElement).checked;renderer.shadowMap.enabled=enabled
   for(const s of scenes)s.scene.traverse((o:any)=>{if(o.isDirectionalLight)o.castShadow=enabled;if(o.material)o.material.needsUpdate=true})
