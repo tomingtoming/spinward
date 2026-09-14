@@ -1,4 +1,5 @@
 import type { StreetSignalPlan } from './streetSignals'
+import type { EntranceWalk } from './streetEntranceWalk'
 import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import type { StreetSurfacePlan } from './streetSurfacePlan'
 import type { StreetMarkingPlan } from './streetMarkings'
@@ -163,6 +164,7 @@ export type CityPlan = {
   nativeDistricts?: import('./nativeDistricts').NativeDistrict[]
   streetNetwork?: StreetNetwork
   streetSurfaces?: StreetSurfacePlan
+  entranceWalks?: EntranceWalk[]
   streetSignals?: StreetSignalPlan
   streetMarkings?: StreetMarkingPlan
   accessRejected?: StreetAccessRejection[]

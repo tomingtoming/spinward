@@ -35,7 +35,7 @@ type Kerb = { low: number; high: number; slope: number; intercept: number }
  * Sampling only the centre or the two corners misses gaps and intermediate
  * bends. Breakpoints include edge endpoints AND intersections of competing
  * edges, so every resulting interval has one exact, nearest boundary. */
-function corridorToRoad(polygons: StreetPolygon[], normal: Point, width: number, maxGap: number) {
+export function corridorToRoad(polygons: StreetPolygon[], normal: Point, width: number, maxGap: number) {
   const lateral = { x: normal.y, y: -normal.x }, half = width / 2, edges: Kerb[] = []
   for (const polygon of polygons) for (let i = 0; i < polygon.length; i++) {
     const a = polygon[i], b = polygon[(i + 1) % polygon.length]

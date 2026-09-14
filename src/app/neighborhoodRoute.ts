@@ -1,3 +1,4 @@
+import { routeOnEntranceWalk } from './entranceWalkRoute'
 import { routeThroughCurve } from './curvedWalkRoute'
 import { StreetNetwork } from '../objects/streetNetwork'
 import { legacyStreetPaths } from '../objects/streetPath'
@@ -44,6 +45,10 @@ function drivingNetwork(plan:CityPlan,radius:number,curved:CurvedNeighborhood|nu
  * This is guidance only: it never moves the player or drives the car. */
 export function planNeighborhoodRoute(plan: CityPlan, radius: number, start: SurfacePoint, goal: SurfacePoint,
   driving: boolean, park: PublicPark | null = null, underpass: PublicUnderpass | null = null, river: RiverDistrict | null = null, parkingBays:readonly CarShareBay[]=[], curved:CurvedNeighborhood|null=null): SurfacePoint[] | null {
+  if(!driving){
+    const entrance=routeOnEntranceWalk(plan.entranceWalks??[],radius,start,goal)
+    if(entrance!==undefined)return entrance
+  }
   if (curved && !driving) {
     const route=routeThroughCurve(curved,radius,start,goal,
       (a,b)=>planNeighborhoodRoute(plan,radius,a,b,false,park,underpass,river,parkingBays,null))

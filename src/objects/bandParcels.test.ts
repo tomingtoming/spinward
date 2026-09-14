@@ -1,7 +1,10 @@
 import {beforeAll,expect,test} from 'bun:test'
 import {bandReservePieces,planBandParcels} from './bandParcels'
 import {proposedBandLand,bandRiverCentre} from './bandLand'
+import {planNeighborhoodRoute} from '../app/neighborhoodRoute'
 import {bandLivingPlaces} from './bandLivingPlaces'
+import {planBandEntranceWalks} from './bandEntranceWalks'
+import {getCityGroundHeight,type CityBuilding} from './cityLayout'
 import {proposedBandExpressway} from './bandExpresswayLand'
 import {planBandTransport} from './bandExpressway'
 import {bandGraph,type BandPoint} from './bandStreetPlan'
@@ -81,3 +84,32 @@ test('every candidate fits its connected road-facing cell, and cells never own t
     if(a.id!==b.id&&overlaps(a.b,b.b))expect(overlap(a.p,b.p)).toBeLessThan(1e-5)
   }
 },30000)
+
+test('all three preserved doors join a near-side footway with continuous supported walking in both directions',()=>{
+  for(const result of planBandEntranceWalks(land)){
+    expect(result.rejected).toBeUndefined();const w=result.walk!,normal=result.place.normal
+    const a={...w.source,groundHeight:.12},b={azimuth:w.landing.x/3200,axial:w.landing.y,groundHeight:w.landingHeight}
+    const plan={roads:[],buildings:[],patches:[],trees:[],intersections:[],tower:null,expressway:null,entranceWalks:[w]}
+    for(const [start,goal]of [[a,b],[b,a]])expect(planNeighborhoodRoute(plan,3200,start,goal,false)).not.toBeNull()
+    expect(w.width).toBe(2);expect(w.maximumGrade).toBeLessThanOrEqual(.06)
+    const near=land.geometry.sidewalks.filter(s=>overlaps(box(s.polygon),{x0:w.landing.x-4,x1:w.landing.x+4,y0:w.landing.y-4,y1:w.landing.y+4}))
+    // Real owned sidewalk tops, not an invented bridge across a missing patch.
+    const paving:CityBuilding[]=near.map(s=>{
+      const p=s.polygon.map(v=>({x:v.x-w.entrance.x,y:v.y-w.entrance.y})),mesh:number[]=[]
+      for(let i=1;i<p.length-1;i++)for(const v of [p[0],p[i],p[i+1]])mesh.push(v.x,v.y,s.lift)
+      return{...w.collider,surfaceMesh:mesh}
+    })
+    for(const side of [-.65,0,.65])for(const reverse of [false,true]){
+      let height=reverse?w.landingHeight:.12
+      const length=Math.hypot(w.landing.x-w.entrance.x,w.landing.y-w.entrance.y),count=Math.ceil(length/.1)
+      for(let i=0;i<=count;i++){
+        const t=reverse?1-i/count:i/count,x=w.entrance.x+normal[0]*length*t+normal[1]*side,y=w.entrance.y+normal[1]*length*t-normal[0]*side
+        const next=getCityGroundHeight([w.collider,...paving],3200,x/3200,y,height,.04)
+        expect(next).toBeGreaterThanOrEqual(.119999)
+        expect(Math.abs(next-height)).toBeLessThan(.04)
+        expect(land.geometry.carriageways.some(s=>containsStreetPolygon(s.polygon,x,y))).toBe(false)
+        height=next
+      }
+    }
+  }
+})

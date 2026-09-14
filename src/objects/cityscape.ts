@@ -1449,6 +1449,7 @@ export class Cityscape {
     })
 
     this.collisionBuildings.push(...this.colonyBuildings.getForecourtColliders())
+    this.collisionBuildings.push(...(plan.entranceWalks??[]).map(w=>w.collider))
     this.collisionBuildings.push(...this.colonyBuildings.getStairColliders())
     this.collisionBuildings.push(...this.oldTownBlock.getColliders(), ...this.oldTownCourt.plan.colliders)
     this.collisionBuildings.push(...this.civicDetails.colliders, ...this.riverLayer.colliders, ...this.curvedNeighborhood.plan?.colliders??[])

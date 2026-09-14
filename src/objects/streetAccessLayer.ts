@@ -3,6 +3,7 @@ import type { CityPlan } from './cityLayout'
 import { streetAccessPolygons } from './streetFrontage'
 import { buildStreetSurfaceGeometry, type StreetSurfaceGeometryInput } from './streetSurfaceGeometry'
 import { clipStreetPolygon } from './streetPolygon'
+import { buildEntranceWalkGeometry } from './streetEntranceWalkGeometry'
 
 const wrap = (a: number) => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
 
@@ -29,6 +30,7 @@ export class StreetAccessLayer {
     for (const building of plan.buildings) {
       const { access } = building
       if (!access) continue
+      if(plan.entranceWalks?.some(w=>Math.abs(wrap(w.source.azimuth-access.entrance.azimuth))*radius<1e-5&&Math.abs(w.source.axial-access.entrance.axial)<1e-5))continue
       const t = wrap(access.entrance.azimuth - azimuth) * radius
       const a = access.entrance.axial - axial
       if (Math.abs(t) > 180 || Math.abs(a) > 180) continue
@@ -55,6 +57,11 @@ export class StreetAccessLayer {
       mesh.userData.pieces = path.length
       mesh.receiveShadow = true
       this.group.add(mesh)
+    }
+    for(const walk of plan.entranceWalks??[]){
+      if(Math.abs(wrap(walk.source.azimuth-azimuth))*radius>180||Math.abs(walk.source.axial-axial)>180)continue
+      const mesh=new THREE.Mesh(buildEntranceWalkGeometry(walk,radius),this.pathMaterial)
+      mesh.name='certified-entrance-'+walk.id;mesh.receiveShadow=true;this.group.add(mesh)
     }
     for (const [vertices, material] of [[valid, this.validMaterial], [rejected, this.rejectedMaterial]] as const) {
       if (!vertices.length) continue

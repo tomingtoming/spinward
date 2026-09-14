@@ -28,6 +28,6 @@ export function planBandParcels(plan:BandStreetPlan,radius=3200,geometry=prepare
   const land=planStreetParcels({id:site.id,azimuth:0,axial:0,
     bounds:{x0:-site.width/2,x1:site.width/2,y0:-site.length/2,y1:site.length/2},
     streets:geometry.paths,reserves:[...reserves,...pavement],seed:site.seed,maximumFrontage:40},radius)
-  return {...land,geometry,reserves,totalArea:site.width*site.length,
+  return {...land,site,geometry,reserves,totalArea:site.width*site.length,
     landArea:land.blocks.reduce((n,b)=>n+b.area,0),parcelArea:land.parcels.reduce((n,p)=>n+p.area,0)}
 }
