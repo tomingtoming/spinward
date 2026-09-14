@@ -11,17 +11,25 @@ import {getStreetProfile} from './streetProfile'
 import type {BandPoint} from './bandStreetPlan'
 
 export const ARRIVAL_WEST_ID='district-arrival-west'
+export const ARRIVAL_CENTRAL_IDS=['district-arrival-north','district-arrival-south'] as const
+export type ArrivalBounds={x0:number;x1:number;y0:number;y1:number}
 // A temporary migration perimeter on existing roads. It clips the whole-band
 // proposal; these boundaries never feed the upstream road generator.
 export const ARRIVAL_WEST={x0:-1124.9893692854876,x1:-449.9957477141951,y0:-963.8709677419356,y1:963.8709677419356}
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a))
-const inside=(x:number,y:number,margin=0)=>x>ARRIVAL_WEST.x0+margin+1e-5&&x<ARRIVAL_WEST.x1-margin-1e-5&&y>ARRIVAL_WEST.y0+margin+1e-5&&y<ARRIVAL_WEST.y1-margin-1e-5
+export const ARRIVAL_CENTRAL:readonly ArrivalBounds[]=[
+  {x0:ARRIVAL_WEST.x1,x1:224.99787385709756,y0:321.29032258064535,y1:ARRIVAL_WEST.y1},
+  {x0:ARRIVAL_WEST.x1,x1:224.99787385709756,y0:ARRIVAL_WEST.y0,y1:-321.29032258064535}
+]
+const inside=(bounds:ArrivalBounds,x:number,y:number,margin=0)=>x>bounds.x0+margin+1e-5&&x<bounds.x1-margin-1e-5&&y>bounds.y0+margin+1e-5&&y<bounds.y1-margin-1e-5
+const arrivalStreetPrefixes=[ARRIVAL_WEST_ID,...ARRIVAL_CENTRAL_IDS].map(id=>`${id}:`)
+export const isArrivalStreet=(p:StreetPath)=>arrivalStreetPrefixes.some(prefix=>p.id.startsWith(prefix))
 
 /** Clip a source centreline without moving either its interior vertices or
  * junctions. Surviving ends meet the retained perimeter roads exactly. */
-export function clipArrivalRoad(from:BandPoint,to:BandPoint):[BandPoint,BandPoint]|null{
+export function clipArrivalRoad(from:BandPoint,to:BandPoint,bounds:ArrivalBounds=ARRIVAL_WEST):[BandPoint,BandPoint]|null{
   let lo=0,hi=1
-  for(const [a,b,min,max] of [[from[0],to[0],ARRIVAL_WEST.x0,ARRIVAL_WEST.x1],[from[1],to[1],ARRIVAL_WEST.y0,ARRIVAL_WEST.y1]]){
+  for(const [a,b,min,max] of [[from[0],to[0],bounds.x0,bounds.x1],[from[1],to[1],bounds.y0,bounds.y1]]){
     const d=b-a
     if(Math.abs(d)<1e-10){if(a<min||a>max)return null;continue}
     const t0=(min-a)/d,t1=(max-a)/d
@@ -32,14 +40,26 @@ export function clipArrivalRoad(from:BandPoint,to:BandPoint):[BandPoint,BandPoin
 }
 
 export function arrivalWestStreets(radius:number):StreetPath[]{
-  return snapshot.roads.flatMap((r,i)=>{
-    const ends=clipArrivalRoad(r.from as BandPoint,r.to as BandPoint)
+  return arrivalStreets(radius,ARRIVAL_WEST_ID,ARRIVAL_WEST)
+}
+export function arrivalStreets(radius:number,id:string,bounds:ArrivalBounds,deferBoundarySpurs=false):StreetPath[]{
+  const streets:StreetPath[]=snapshot.roads.flatMap((r,i)=>{
+    const ends=clipArrivalRoad(r.from as BandPoint,r.to as BandPoint,bounds)
     if(!ends)return []
     if(r.bridge||r.underpass)throw Error('Arrival migration cannot flatten a bridge or underpass')
     const [from,to]=ends,tangent:BandPoint=[to[0]-from[0],to[1]-from[1]]
-    return [{id:`${ARRIVAL_WEST_ID}:band-${i}`,azimuth:0,axial:0,kind:r.kind as 'arterial'|'collector',
+    return [{id:`${id}:band-${i}`,azimuth:0,axial:0,kind:r.kind as 'arterial'|'collector',
       width:getStreetProfile(r.kind as 'arterial'|'collector',radius).carriageway,level:0,groundHeight:0,walkHeight:.32,
       knots:[{point:from,tangent},{point:to,tangent}]}]
+  })
+  if(!deferBoundarySpurs)return streets
+  // Hold short isolated terminals at the migration boundary until the
+  // adjoining area is built. Keep short links between real junctions.
+  return streets.filter(p=>{
+    const [a,b]=p.knots.map(k=>k.point)
+    if(Math.hypot(a[0]-b[0],a[1]-b[1])>=60)return true
+    const ends=[a,b].filter(q=>inside(bounds,q[0],q[1]))
+    return ends.length!==1||streets.some(other=>other!==p&&other.knots.some(k=>Math.hypot(k.point[0]-ends[0][0],k.point[1]-ends[0][1])<1e-6))
   })
 }
 
@@ -60,11 +80,24 @@ export function arrivalTrafficStreet(path:StreetPath,radius:number):DistrictTraf
  * streets, parcels, guidance, pedestrians and distant rendering share the
  * resulting CityPlan; no alternate preview-only world is generated. */
 export function rebuildArrivalWest(city:CityPlan,radius:number,length:number){
+  return rebuildArrivalRegion(city,radius,length,ARRIVAL_WEST_ID,ARRIVAL_WEST)
+}
+
+/** The occupied core remains on its existing streets until every entrance is
+ * connected. The northern and southern shoulders extend the same band plan. */
+export function rebuildArrivalCentral(city:CityPlan,radius:number,length:number){
+  return ARRIVAL_CENTRAL.flatMap((bounds,i)=>{
+    const result=rebuildArrivalRegion(city,radius,length,ARRIVAL_CENTRAL_IDS[i],bounds,true)
+    return result?[result]:[]
+  })
+}
+
+function rebuildArrivalRegion(city:CityPlan,radius:number,length:number,id:string,bounds:ArrivalBounds,deferBoundarySpurs=false){
   if(radius!==snapshot.radius||length!==snapshot.length||!city.streetNetwork)return null
-  if(city.nativeDistricts?.some(d=>d.id===ARRIVAL_WEST_ID))throw Error('Arrival district already applied')
+  if(city.nativeDistricts?.some(d=>d.id===id))throw Error('Arrival district already applied')
   preserveCityPlaces(city,radius)
-  const {x0,x1,y0,y1}=ARRIVAL_WEST,azimuth=(x0+x1)/(2*radius),axial=(y0+y1)/2
-  const streets=arrivalWestStreets(radius),roads:CityRoad[]=[]
+  const {x0,x1,y0,y1}=bounds,azimuth=(x0+x1)/(2*radius),axial=(y0+y1)/2
+  const streets=arrivalStreets(radius,id,bounds,deferBoundarySpurs),roads:CityRoad[]=[]
   let replacedRoads=0
   for(const r of city.roads){
     const vertical=r.axialLength>r.tangentWidth,x=wrap(r.azimuth)*radius,at=vertical?x:r.axial
@@ -74,11 +107,11 @@ export function rebuildArrivalWest(city:CityPlan,radius:number,length:number){
     replacedRoads++
     for(const [i,start,end] of [[0,mid-half,Math.min(mid+half,a)],[1,Math.max(mid-half,b),mid+half]]){
       if(end-start<1e-5)continue
-      roads.push({...r,id:`${r.id}:${ARRIVAL_WEST_ID}:${i}`,azimuth:vertical?r.azimuth:(start+end)/(2*radius),axial:vertical?(start+end)/2:r.axial,
+      roads.push({...r,id:`${r.id}:${id}:${i}`,azimuth:vertical?r.azimuth:(start+end)/(2*radius),axial:vertical?(start+end)/2:r.axial,
         tangentWidth:vertical?r.tangentWidth:end-start,axialLength:vertical?end-start:r.axialLength})
     }
   }
-  const removed=city.buildings.filter(b=>inside(wrap(b.azimuth)*radius,b.axial)),kept=city.buildings.filter(b=>!inside(wrap(b.azimuth)*radius,b.axial))
+  const removed=city.buildings.filter(b=>inside(bounds,wrap(b.azimuth)*radius,b.axial)),kept=city.buildings.filter(b=>!inside(bounds,wrap(b.azimuth)*radius,b.axial))
   const paths=[...legacyStreetPaths(roads),...city.nativeDistricts?.flatMap(d=>d.streets)??[],...streets]
   const network=new StreetNetwork(paths,radius)
   if(new Set(network.components).size!==new Set(city.streetNetwork!.components).size)throw Error('Arrival migration disconnected the street network')
@@ -90,7 +123,7 @@ export function rebuildArrivalWest(city:CityPlan,radius:number,length:number){
   const carriageways=surface.roadSurfaces(),sidewalks=surface.sidewalks()
   const origin={...streets[0],azimuth,axial}
   const reserves=[...carriageways,...sidewalks].map(s=>relativeStreetPolygon(s,origin,radius))
-  const land=planStreetParcels({id:ARRIVAL_WEST_ID,azimuth,axial,bounds:{x0:-(x1-x0)/2+18,x1:(x1-x0)/2-18,y0:-(y1-y0)/2+18,y1:(y1-y0)/2-18},
+  const land=planStreetParcels({id,azimuth,axial,bounds:{x0:-(x1-x0)/2+18,x1:(x1-x0)/2-18,y0:-(y1-y0)/2+18,y1:(y1-y0)/2-18},
     streets,reserves,seed:14092026,maximumFrontage:40},radius)
   let seed=14092026
   const candidates:CityBuilding[]=land.parcels.map((p,i)=>{
@@ -98,22 +131,22 @@ export function rebuildArrivalWest(city:CityPlan,radius:number,length:number){
     const b=p.building,tone=seed/4294967296
     return {azimuth:azimuth+b.x/radius,axial:axial+b.y,width:b.width,depth:b.depth,yaw:b.yaw,
       height:9+(i*17%13)*3,front:{axis:'axial',side:p.front.side===1?-1:1},kind:i%4===0?'setback':'block',urban:.72,oldTown:0,tone,
-      nativeDistrict:ARRIVAL_WEST_ID,nativeParcel:p.id}
+      nativeDistrict:id,nativeParcel:p.id}
   })
   // The perimeter's outside buildings participate as obstacles. Only new lots
   // are replaced with certification output; existing authored contracts retain
   // their dimensions and door coordinates.
   const certified=certifyStreetAccess([...kept,...candidates],network,radius,6)
-  const accepted=certified.buildings.filter(b=>b.nativeDistrict===ARRIVAL_WEST_ID)
+  const accepted=certified.buildings.filter(b=>b.nativeDistrict===id)
   const buildings=accepted.filter((_,i)=>accepted.length<=removed.length||Math.floor(i*removed.length/accepted.length)!==Math.floor((i-1)*removed.length/accepted.length))
-  const d:NativeDistrict={id:ARRIVAL_WEST_ID,band:0,character:'mixed',layout:'band-plan',azimuth,axial,width:x1-x0,length:y1-y0,
+  const d:NativeDistrict={id,band:0,character:'mixed',layout:'band-plan',azimuth,axial,width:x1-x0,length:y1-y0,
     streets,buildings,replacedBuildings:removed.length,replacedRoads,land,
     surfaces:{carriageways:carriageways.filter(s=>streets.includes(s.source)),sidewalks:sidewalks.filter(s=>streets.includes(s.source))}}
   const byPosition=new Map(certified.buildings.map(b=>[`${b.azimuth}:${b.axial}`,b.access]))
   city.buildings=[...kept.map(b=>({...b,access:byPosition.get(`${b.azimuth}:${b.axial}`)??b.access})),...buildings]
   city.roads=roads;city.streetNetwork=network;city.nativeDistricts=[...city.nativeDistricts??[],d]
-  city.patches=city.patches.filter(p=>!inside(wrap(p.azimuth)*radius,p.axial))
-  city.trees=city.trees.filter(p=>!inside(wrap(p.azimuth)*radius,p.axial))
-  city.intersections=city.intersections.filter(p=>!inside(wrap(p.azimuth)*radius,p.axial))
+  city.patches=city.patches.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
+  city.trees=city.trees.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
+  city.intersections=city.intersections.filter(p=>!inside(bounds,wrap(p.azimuth)*radius,p.axial))
   return {district:d,traffic:streets.filter(p=>Math.hypot(p.knots[1].point[0]-p.knots[0].point[0],p.knots[1].point[1]-p.knots[0].point[1])>60).map(p=>arrivalTrafficStreet(p,radius))}
 }

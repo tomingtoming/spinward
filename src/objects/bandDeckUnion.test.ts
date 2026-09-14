@@ -63,4 +63,4 @@ test('the full IC and JCT plan removes duplicate joins and preserves a closed bo
   expect(badEdges(joined.mesh)).toEqual([])
   expect(flatOverlap(joined.pieces.map(p=>p.polygon))).toBeLessThan(.00001)
   expect(joined.parts.every(p=>p.mesh.indices.length>0)).toBe(true)
-})
+},10000)

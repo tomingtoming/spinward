@@ -5,7 +5,30 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, arrival-west walking directions):
+Latest focused verification (2026-09-14, arrival-central north/south roads):
+**7 passed in 2.7 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal on one fixed build. The new north/south roads are
+used at normal startup: 19 segments across 0.87 km², or 2.17 km² with the west.
+Grounded stereo walking covered 4.41 m north and 4.38 m south, with 10/6 local
+cars on the actual roads and four visible local residents in each view.
+West walking/directions, Garden, actual desktop-menu and Quest-style entry,
+wrist laser/trigger, input ownership, exit/re-entry and stale-session guards
+passed. All seven page-error logs were empty; the two entry/return cases also
+recorded no failed resources and four grants/four ends in total.
+Final unit run: **1,055 passed**; TypeScript/build and five desktop views passed.
+An isolated clipped road stub found in visual review was deferred, then the
+build, unit, desktop and all seven XR cases were rerun. The existing full IC/JCT
+correctness test now has an explicit 10 s timeout after an initial 5 s timeout;
+its mesh assertions are unchanged. This is not a runtime performance improvement.
+Independent review of five final desktop and seven XR images found no obvious
+new road discontinuity, one-eye dropout or principal wrist-button clipping.
+The occupied central core, east, other bands and proposed river/IC/JCT remain
+unapplied; unused land still needs local streets and land-use development.
+Physical Quest, full-length physical route walking and the prior body-drift
+case were not tested. Evidence: `evidence/arrival-central-20260914/xr/`;
+[scope, failures, fixed build and visual observations](../neighborhood-life/arrival-central.md).
+
+Previous focused verification (2026-09-14, arrival-west walking directions):
 **5 cases verified**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
 ANGLE Metal on one fixed build. The first run passed four cases; the new case
 incorrectly expected the Park's visual paving height as the physical floor.

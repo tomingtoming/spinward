@@ -1,6 +1,6 @@
 import { rebuildNativeDistricts } from './nativeDistricts'
 import {preserveCityPlaces} from './cityPlaces'
-import {rebuildArrivalWest,ARRIVAL_WEST_ID} from './arrivalDistrict'
+import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from './arrivalDistrict'
 import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
@@ -1405,7 +1405,7 @@ export class Cityscape {
     const native = this.habitatType === 'cylinder' ? rebuildNativeDistricts(plan, radius) : {districts:[],traffic:[]}
     if(this.habitatType==='cylinder')preserveCityPlaces(plan,radius)
     const arrival=this.habitatType==='cylinder'&&this.topology===ISLAND_THREE_TOPOLOGY?rebuildArrivalWest(plan,radius,length):null
-    if(arrival)native.traffic.push(...arrival.traffic)
+    if(arrival)native.traffic.push(...arrival.traffic,...rebuildArrivalCentral(plan,radius,length).flatMap(r=>r.traffic))
     this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
     this.riverTraffic = planRiverTraffic(this.riverDistrict, plan, radius)
     if (this.riverDistrict) {
@@ -1421,7 +1421,7 @@ export class Cityscape {
       if(access.rejected.length)throw Error('Garden street has an obstructed building entrance')
       curved.buildings=access.buildings
     }
-    plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius,p=>p.id.startsWith(`${ARRIVAL_WEST_ID}:`))
+    plan.streetSurfaces=new StreetSurfacePlan(plan.streetNetwork!.streets,radius,isArrivalStreet)
     plan.streetMarkings=new StreetMarkingPlan(plan.streetNetwork!)
     plan.streetSignals=new StreetSignalPlan(plan.streetMarkings, plan.intersections)
     const trafficCoverage=districtTrafficCoverage(planDistrictTraffic(native.traffic,radius,plan.streetSignals),plan.roads,radius)
