@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import {retainedCityPlace} from './cityPlacePlan'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {type RoadKnot} from './roadCurve'
 import {sampleStreetPath,streetRibbon,type StreetPath} from './streetPath'
@@ -22,6 +23,8 @@ export function curvedFootwayHeight(p:CurvedNeighborhood,t:number){
 /** One clear district, bounded and deterministic across city budgets. Its
  * centreline is independent of the rectangular arterial parcel generator. */
 export function planCurvedNeighborhood(city:CityPlan,radius:number):CurvedNeighborhood|null{
+ const retained=retainedCityPlace(city,radius,'garden')
+ if(retained!==undefined)return retained
  if(radius<2000)return null
  const patch=city.patches.filter(p=>p.kind==='park'&&p.tangentExtent>205&&p.tangentExtent<230&&p.axialExtent>300&&p.axialExtent<330&&p.azimuth*radius>750&&p.azimuth*radius<1100&&p.axial>300&&p.axial<900).sort((a,b)=>a.axial-b.axial)[0]
  if(!patch)return null

@@ -161,6 +161,7 @@ export type CityIntersection = {
 }
 
 export type CityPlan = {
+  places?: import('./cityPlacePlan').CityPlaces
   nativeDistricts?: import('./nativeDistricts').NativeDistrict[]
   streetNetwork?: StreetNetwork
   streetSurfaces?: StreetSurfacePlan

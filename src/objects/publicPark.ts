@@ -1,4 +1,5 @@
 import type { CityPatch, CityPlan, CityTree } from './cityLayout'
+import {retainedCityPlace} from './cityPlacePlan'
 
 type Point = { x: number; y: number }
 export type ParkPath = { x: number; y: number; width: number; depth: number }
@@ -24,6 +25,8 @@ const inside = (p: Point, r: ParkPath, margin = 0) =>
 /** A small public garden in an existing green parcel. No RNG or city-layout
  * mutation: buildings, traffic and the surrounding tree distribution stay put. */
 export function planPublicPark(plan: CityPlan, radius: number): PublicPark | null {
+  const retained=retainedCityPlace(plan,radius,'park')
+  if(retained!==undefined)return retained
   if (radius < 800) return null
   const candidates: Array<{ patch: CityPatch; centre: Point; entrance: Point; forward: Point; roadIndex: number; score: number }> = []
   const patches = plan.patches.filter(p => p.kind === 'park' && Math.min(p.tangentExtent, p.axialExtent) >= 60)

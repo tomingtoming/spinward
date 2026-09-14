@@ -5,7 +5,22 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, preserved public places): **2 passed in
+Latest focused verification (2026-09-14, runtime city places): **6 passed in
+2.2 minutes**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal on one fixed build. Actual desktop-menu and Quest-style entry,
+wrist controls, input ownership, exit/re-entry and stale-session guards passed.
+Garden directions/arrival/walking, stereo river-bank/bridge roll, and directions
+through the real river ramp and covered walk also passed. The Garden case checks
+that all four public places use the same retained plans as the live scene and
+that the former river patch is removed. All six cases recorded no page errors;
+failed-resource tracking was enabled for the two entry/return cases, both empty.
+Unit tests: **1,042 passed**, separately from browser work; TypeScript/build passed.
+The retained places are now used at normal startup. Proposed citywide roads are
+still unapplied. Physical Quest and the prior body-drift case were not tested.
+Evidence: `evidence/city-places-20260914/xr/`;
+[scope, fixed build, visual review and remaining observation](../neighborhood-life/city-places.md).
+
+Previous focused verification (2026-09-14, preserved public places): **2 passed in
 about one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
 ANGLE Metal on one fixed build. Actual desktop-menu (mono) and Quest-style
 (stereo, IPD 0.064 m) entry, wrist controls, controller input ownership, roll,

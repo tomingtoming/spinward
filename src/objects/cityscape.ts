@@ -1,4 +1,5 @@
 import { rebuildNativeDistricts } from './nativeDistricts'
+import {preserveCityPlaces} from './cityPlaces'
 import { DistrictTrafficRoute, planDistrictTraffic, districtTrafficCoverage } from './districtTraffic'
 import {BALCONY_COLLISION_SECTION_LIMIT} from './colonyBalconies'
 import {CurvedNeighborhoodLayer,planCurvedNeighborhood,curvedStreetPoint} from './curvedNeighborhood'
@@ -1401,11 +1402,13 @@ export class Cityscape {
       topology: this.topology
     })
     const native = this.habitatType === 'cylinder' ? rebuildNativeDistricts(plan, radius) : {districts:[],traffic:[]}
+    if(this.habitatType==='cylinder')preserveCityPlaces(plan,radius)
     this.riverDistrict = this.habitatType === 'cylinder' ? planRiverDistrict(plan, radius) : null
     this.riverTraffic = planRiverTraffic(this.riverDistrict, plan, radius)
     if (this.riverDistrict) {
       const p = this.riverDistrict
-      plan.patches = plan.patches.filter(patch => patch !== p.patch)
+      plan.patches = plan.patches.filter(patch => patch.azimuth!==p.patch.azimuth||patch.axial!==p.patch.axial||
+        patch.tangentExtent!==p.patch.tangentExtent||patch.axialExtent!==p.patch.axialExtent)
       plan.trees = plan.trees.filter(t => Math.abs(Math.atan2(Math.sin(t.azimuth-p.azimuth),Math.cos(t.azimuth-p.azimuth))) * radius > p.width / 2 + 3 || Math.abs(t.axial-p.axial) > p.length / 2 + 3)
     }
     const curved=this.habitatType==='cylinder'?planCurvedNeighborhood(plan,radius):null

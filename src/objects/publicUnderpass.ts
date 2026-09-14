@@ -1,4 +1,5 @@
 import type { CityBuilding, CityPlan, CityRoad } from './cityLayout'
+import {retainedCityPlace} from './cityPlacePlan'
 import { getStreetProfile } from './streetProfile'
 import type { ParkPath } from './publicPark'
 
@@ -20,6 +21,8 @@ const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
  * open into real avenue sidewalks; never lay paving across a carriageway or
  * turn a leftover patch beside the viaduct into a decorative dead end. */
 export function planPublicUnderpass(plan: CityPlan, radius: number): PublicUnderpass | null {
+  const retained=retainedCityPlace(plan,radius,'covered')
+  if(retained!==undefined)return retained
   const ex = plan.expressway
   if (!ex || radius < 800 || ex.deckWidth < 19 || ex.deckHeight < 5) return null
   const axial = ex.axial - 6.5, width = 2.6

@@ -16,7 +16,10 @@ test('wrist Garden street directions preserve position and Go now reaches its su
  await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
  await page.goto('/?debug&metrics=off&lock=0&dpr=1&tier=quest&t=.42&m=g&a=.23313371027541227&ax=464.84167035358854&gh=.34')
  await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>window.__spinwardOuting?.destinations.has('guide-garden'));await page.evaluate(()=>document.querySelector('.lil-gui')?.remove())
- const network=await page.evaluate(()=>{const p=window.__spinwardCity.getCityPlan(),g=p.streetNetwork;return{legacy:p.roads.length,native:p.nativeDistricts?.flatMap(d=>d.streets).length??0,streets:g.streets.length,nodes:g.nodes.length,edges:g.edges.length,components:new Set(g.components).size}})
+ const network=await page.evaluate(()=>{const c=window.__spinwardCity,p=c.getCityPlan(),g=p.streetNetwork;return{legacy:p.roads.length,native:p.nativeDistricts?.flatMap(d=>d.streets).length??0,streets:g.streets.length,nodes:g.nodes.length,edges:g.edges.length,components:new Set(g.components).size,
+  retainedPlaces:!!p.places&&p.places.garden===c.curvedNeighborhood.plan&&p.places.park===c.getPublicPark()&&p.places.covered===c.getPublicUnderpass()&&p.places.river===c.getRiverDistrict(),
+  retiredRiverPatch:!!p.places?.river&&!p.patches.some(b=>b.azimuth===p.places.river.patch.azimuth&&b.axial===p.places.river.patch.axial)}})
+ expect(network.retainedPlaces).toBe(true);expect(network.retiredRiverPatch).toBe(true)
  expect(network.streets).toBe(network.legacy+network.native+3);expect(network.components).toBe(3);expect(network.nodes).toBeGreaterThan(network.streets);expect(network.edges).toBeGreaterThan(network.nodes)
  await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR();const diagnostics=await xr.diagnostics()
  expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0');expect(diagnostics.rendering.views.map(v=>v.viewport.width)).toEqual([1280,1280])

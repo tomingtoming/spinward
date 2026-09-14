@@ -1,4 +1,5 @@
 import type { CityBuilding, CityPatch, CityPlan, CityRoad } from './cityLayout'
+import {retainedCityPlace} from './cityPlacePlan'
 import { sampleCitySurface } from './citySurfaceMesh'
 
 export type RiverPoint = [number, number, number]
@@ -35,6 +36,8 @@ export function riverRoadGeometry(p: RiverDistrict, radius: number) {
  * The pressure hull stays continuous; soil and the water channel sit above it.
  * No generated occupied parcel or through-road is removed to force a fit. */
 export function planRiverDistrict(city: CityPlan, radius: number): RiverDistrict | null {
+  const retained=retainedCityPlace(city,radius,'river')
+  if(retained!==undefined)return retained
   if (radius < 2000) return null
   const patch = city.patches.filter(p => p.kind === 'park' && p.tangentExtent > 205 && p.tangentExtent < 230 && p.axialExtent > 300 && p.axialExtent < 330 &&
     p.azimuth > 0 && p.azimuth * radius < 750 && p.axial > 1200 && p.axial < 1800)
