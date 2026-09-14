@@ -4,6 +4,8 @@ const main=document.querySelector<HTMLCanvasElement>('#map')!,overview=document.
 const focus=document.querySelector<HTMLSelectElement>('#focus')!,parcels=document.querySelector<HTMLInputElement>('#parcels')!,buildings=document.querySelector<HTMLInputElement>('#buildings')!
 const views:Record<string,{x:number;y:number;span:number;note:string}>={
   arrival:{x:560,y:250,span:1800,note:'到着地区。カフェ・アパート・ロビーの位置を固定して、新しい道と川の案を調整。'},
+  public:{x:-100,y:115,span:700,note:'中央広場と公園。緑の輪郭が保持する実際の敷地。道路は保護域を回り、計画中心の移動で元の到着位置を守ります。'},
+  garden:{x:660,y:980,span:1750,note:'Garden streetと川沿い。川筋案を西へ寄せ、既存のGarden street敷地を保護。川沿いは既存橋と同じ水辺予約地に含めます。'},
   cafe:{x:380,y:-260,span:410,note:'カフェとアパート。実際の建物・敷地・入口を囲む保護域と、道路への接続点。'},
   lobby:{x:1170,y:100,span:330,note:'ロビー。元の敷地を保護。入口から道路の接続点までの横断設計は未確定。'},
   market:{x:80,y:-12500,span:2800,note:'南部商業・住宅地区。道路に接する敷地と、奥に残る広い土地。'},
@@ -19,6 +21,7 @@ const pavement=[...data.sidewalks.map(p=>shape(p,'#a9b6b0')),...data.carriageway
 const cells=data.parcels.flatMap((p,i)=>p.pieces.map(q=>shape(q,['#d9cdac','#d2c3a1','#ded2b5','#cfc5a7'][i%4])))
 const footprints=data.parcels.map(p=>{const b=p.building,c=Math.cos(b.yaw),s=Math.sin(b.yaw);return shape([[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>[b.x+c*x*b.width/2-s*y*b.depth/2,b.y+s*x*b.width/2+c*y*b.depth/2]),'#7d8177')})
 const living=data.places.map(p=>shape(p.footprint,'#985f39','#794421'))
+const publicPlaces=(data.publicPlaces??[]).map(p=>shape(p.footprint,p.sharedReserve?'#83b5b6':'#b0c296','#375f42'))
 function draw(canvas:HTMLCanvasElement,v:typeof view,mini=false){
   const w=canvas.clientWidth,h=canvas.clientHeight,dpr=devicePixelRatio
   canvas.width=w*dpr;canvas.height=h*dpr
@@ -33,11 +36,17 @@ function draw(canvas:HTMLCanvasElement,v:typeof view,mini=false){
   paint(shape([[-data.site.width/2,-data.site.length/2],[data.site.width/2,-data.site.length/2],[data.site.width/2,data.site.length/2],[-data.site.width/2,data.site.length/2]],'#cfd8be'))
   reserves.forEach(paint)
   if(!mini&&parcels.checked)cells.forEach(paint)
+  publicPlaces.forEach(paint)
   pavement.forEach(paint)
   if(!mini&&buildings.checked)footprints.forEach(paint)
   living.forEach(paint)
   if(!mini){
     ctx.font='13px system-ui';ctx.textAlign='left'
+    if(scale>.15)for(const p of data.publicPlaces??[]){
+      const x=p.footprint.reduce((n,v)=>n+v[0],0)/p.footprint.length,y=Math.max(...p.footprint.map(v=>v[1]))
+      const [px,py]=project([x,y]),label={square:'中央広場',park:'公園',garden:'Garden street',riverside:'既存の川沿い'}[p.id],width=ctx.measureText(label).width
+      ctx.fillStyle='#fffdf6e6';ctx.fillRect(px-width/2-4,py-23,width+8,20);ctx.fillStyle='#375f42';ctx.fillText(label,px-width/2,py-8)
+    }
     for(const p of data.places){
       const a=project(p.entrance),b=project(p.access.point)
       ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.strokeStyle='#a6632b';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([])

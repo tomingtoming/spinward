@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { bandGraph, clearBandSegment, insideBandReserve, nodeBandRoads, planBandStreets, type BandSite } from './bandStreetPlan'
 import { proposedBandLand } from './bandLand'
 import { StreetNetwork } from './streetNetwork'
+import {refineBandRoads} from './bandStreetGeometry'
 
 const small=():BandSite=>({id:'test',width:1000,length:1600,seed:42,localDemand:20,detourRatio:1.7,
   centres:[
@@ -11,6 +12,30 @@ const small=():BandSite=>({id:'test',width:1000,length:1600,seed:42,localDemand:
     {id:'east-north',point:[290,580],reach:300,demand:1,use:'centre'}
   ],reserves:[{id:'water',kind:'water',polygon:[[-60,-810],[60,-810],[60,810],[-60,810]]}],
   crossings:[{id:'bridge',reserve:'water',from:[-60,170],to:[60,170]}]})
+
+test('retained entrance frontages survive changed district routes and junction refinement',()=>{
+  for(const shift of [-90,120]){
+    const site=small();site.reserves=[];site.crossings=[];site.centres[0].point=[shift,-500]
+    site.frontages=[{from:[-24,0],to:[24,0],kind:'arterial',frontage:'door',reason:'entrance'}]
+    site.accesses=[{id:'door',point:[-24,0],serves:['west-south']}]
+    const before=JSON.stringify(site),p=planBandStreets(site),final=refineBandRoads(p.roads,site)
+    for(const roads of [p.roads,final.roads]){
+      expect(bandGraph(roads).components).toBe(1)
+      const retained=roads.filter(r=>r.frontage==='door')
+      expect(retained.reduce((n,r)=>n+Math.hypot(r.to[0]-r.from[0],r.to[1]-r.from[1]),0)).toBeCloseTo(48,5)
+      expect(retained.every(r=>Math.abs(r.from[1])+Math.abs(r.to[1])<1e-6&&r.kind==='arterial')).toBe(true)
+    }
+    expect(p.accessLinks[0].length).toBeGreaterThan(0);expect(JSON.stringify(site)).toBe(before)
+  }
+  const invalid=small();invalid.frontages=[{from:[-24,0],to:[24,0],kind:'arterial',frontage:'bad',reason:'through water'}]
+  expect(()=>planBandStreets(invalid)).toThrow('Invalid retained frontage')
+  const fixed={from:[-24,0],to:[24,0],kind:'collector',frontage:'fixed',reason:'entry'} as const
+  const shared={...fixed,kind:'arterial',frontage:undefined} as const
+  for(const roads of [[fixed,shared],[shared,fixed]]){
+    const merged=nodeBandRoads(structuredClone(roads) as any)
+    expect(merged).toHaveLength(1);expect(merged[0].kind).toBe('collector');expect(merged[0].frontage).toBe('fixed')
+  }
+})
 
 test('concave reservations block every interior interval, including corner entry',()=>{
   const r={id:'bend',kind:'water' as const,polygon:[[-50,-400],[50,-400],[50,0],[250,0],[250,400],[150,400],[150,100],[-50,100]] as [number,number][]}

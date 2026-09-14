@@ -3,6 +3,7 @@ import {bandReservePieces,planBandParcels} from './bandParcels'
 import {proposedBandLand,bandRiverCentre} from './bandLand'
 import {planNeighborhoodRoute} from '../app/neighborhoodRoute'
 import {bandLivingPlaces} from './bandLivingPlaces'
+import {bandPublicPlaces} from './bandPublicPlaces'
 import {planBandEntranceWalks} from './bandEntranceWalks'
 import {getCityGroundHeight,type CityBuilding} from './cityLayout'
 import {proposedBandExpressway} from './bandExpresswayLand'
@@ -110,6 +111,27 @@ test('all three preserved doors join a near-side footway with continuous support
         expect(land.geometry.carriageways.some(s=>containsStreetPolygon(s.polygon,x,y))).toBe(false)
         height=next
       }
+    }
+  }
+})
+
+test('public destinations keep their actual land and connected gates before the band streets are generated',()=>{
+  const graph=bandGraph(land.geometry.roads)
+  for(const place of bandPublicPlaces()){
+    const p=polygon(place.footprint)
+    if(place.sharedReserve){
+      const water=land.site.reserves.find(r=>r.id===place.sharedReserve)!
+      expect(landContains(bandReservePieces(water),p)).toBe(true)
+      expect(land.site.reserves.some(r=>r.id===place.reserve.id)).toBe(false)
+      continue
+    }
+    expect(land.site.reserves.find(r=>r.id===place.reserve.id)).toEqual(place.reserve)
+    for(const s of [...land.geometry.carriageways,...land.geometry.sidewalks])expect(overlap(p,s.polygon)).toBeLessThan(1e-5)
+    for(const reserve of land.site.reserves.filter(r=>r.id!==place.reserve.id))
+      for(const q of bandReservePieces(reserve))expect(overlap(p,q)).toBeLessThan(1e-5)
+    for(const gate of place.accesses){
+      expect(graph.points.some(q=>Math.hypot(q[0]-gate.point[0],q[1]-gate.point[1])<1e-5)).toBe(true)
+      expect(transport.surface.accessLinks.some(l=>l.access===gate.id&&l.centre==='arrival'&&Number.isFinite(l.length))).toBe(true)
     }
   }
 })

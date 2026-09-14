@@ -15,8 +15,9 @@ export type BandSite = {
   centres: BandCentre[]; reserves: BandReserve[]; crossings: BandCrossing[]
   localDemand: number; detourRatio: number
   accesses?: BandAccess[]
+  frontages?: BandRoad[]
 }
-export type BandRoad = { from: BandPoint; to: BandPoint; kind: 'arterial' | 'collector'; bridge?: string; underpass?: string; reason: string }
+export type BandRoad = { from: BandPoint; to: BandPoint; kind: 'arterial' | 'collector'; bridge?: string; underpass?: string; frontage?: string; reason: string }
 const EPS = 1e-6
 const distance = (a: BandPoint, b: BandPoint) => Math.hypot(a[0]-b[0],a[1]-b[1])
 const mix = (a: BandPoint,b: BandPoint,t: number): BandPoint => [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]
@@ -126,7 +127,7 @@ export function nodeBandRoads(roads: BandRoad[]) {
       const from=mix(r.from,r.to,values[j-1]),to=mix(r.from,r.to,values[j])
       if(distance(from,to)<.01)continue
       const k=[key(from),key(to)].sort().join('|'),old=unique.get(k)
-      if(!old||r.kind==='arterial')unique.set(k,{...r,from,to})
+      if(!old||r.frontage||(!old.frontage&&r.kind==='arterial'))unique.set(k,{...r,from,to})
     }
   })
   return [...unique.values()]
@@ -145,13 +146,14 @@ function roadDistance(roads: BandRoad[],a: BandPoint,b: BandPoint) {
 }
 
 export function planBandStreets(site: BandSite) {
-  const coordinates=[site.width,site.length,site.seed,site.detourRatio,...site.centres.flatMap(c=>[...c.point,c.reach,c.demand]),...site.reserves.flatMap(r=>r.polygon.flat()),...site.crossings.flatMap(c=>[...c.from,...c.to]),...(site.accesses??[]).flatMap(a=>a.point)]
+  const coordinates=[site.width,site.length,site.seed,site.detourRatio,...site.centres.flatMap(c=>[...c.point,c.reach,c.demand]),...site.reserves.flatMap(r=>r.polygon.flat()),...site.crossings.flatMap(c=>[...c.from,...c.to]),...(site.accesses??[]).flatMap(a=>a.point),...(site.frontages??[]).flatMap(r=>[...r.from,...r.to])]
   if(!coordinates.every(Number.isFinite)||!(site.width>0&&site.length>0&&site.detourRatio>1)||!Number.isInteger(site.localDemand)||site.localDemand<0||site.localDemand>1000)throw Error('Invalid band planning budget')
   if(new Set(site.reserves.map(r=>r.id)).size!==site.reserves.length||new Set(site.crossings.map(c=>c.id)).size!==site.crossings.length||site.reserves.some(r=>r.polygon.length<3||r.polygon.some((p,i)=>distance(p,r.polygon[(i+1)%r.polygon.length])<EPS)))throw Error('Invalid land reservation')
   const inside=(p: BandPoint)=>Math.abs(p[0])<site.width/2&&Math.abs(p[1])<site.length/2&&!site.reserves.some(r=>insideBandReserve(p,r.polygon))
   if(site.centres.length<2||new Set(site.centres.map(c=>c.id)).size!==site.centres.length||new Set(site.centres.map(c=>key(c.point))).size!==site.centres.length||site.centres.some(c=>!inside(c.point)||!(c.reach>0&&c.demand>0)))throw Error('Invalid district centre')
   if(new Set((site.accesses??[]).map(a=>a.id)).size!==(site.accesses??[]).length||(site.accesses??[]).some(a=>!inside(a.point)||!a.serves.length||a.serves.some(id=>!site.centres.some(c=>c.id===id))))throw Error('Invalid transport access')
-  const route=router(site),roads:BandRoad[]=[],unconnected:string[]=[],links:{from:string;to:string;before:number;after:number;added:boolean}[]=[]
+  if((site.frontages??[]).some(r=>!r.frontage||!inside(r.from)||!inside(r.to)||distance(r.from,r.to)<20||!clearBandSegment(r.from,r.to,site.reserves)))throw Error('Invalid retained frontage')
+  const route=router(site),roads:BandRoad[]=structuredClone(site.frontages??[]),unconnected:string[]=[],links:{from:string;to:string;before:number;after:number;added:boolean}[]=[]
   const append=(r:NonNullable<ReturnType<typeof route>>,kind:BandRoad['kind'],reason:string)=>{
     r.points.slice(1).forEach((to,i)=>{
       const crossing=site.crossings.find(c=>c.id===r.bridges[i])

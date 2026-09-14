@@ -6,7 +6,7 @@ import { StreetSurfacePlan } from './streetSurfacePlan'
 const distance=(a:BandPoint,b:BandPoint)=>Math.hypot(a[0]-b[0],a[1]-b[1])
 const same=(a:BandPoint,b:BandPoint)=>distance(a,b)<.0001
 const key=(p:BandPoint)=>p.map(n=>Math.round(n*1e5)).join(':')
-const protectedRoad=(r:BandRoad)=>Boolean(r.bridge||r.underpass)
+const protectedRoad=(r:BandRoad)=>Boolean(r.bridge||r.underpass||r.frontage)
 function projection(p:BandPoint,a:BandPoint,b:BandPoint):BandPoint {
   const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)))
   return [a[0]+dx*t,a[1]+dy*t]
@@ -34,7 +34,7 @@ export function bandGeometryIssues(roads:BandRoad[],minimumAngle=30,minimumLink=
  * endpoints. Unresolvable cases remain in the returned diagnostics. */
 export function refineBandRoads(input:BandRoad[],site:BandSite,servedPoints:BandPoint[]=[]) {
   let roads=nodeBandRoads(input)
-  const original=bandGraph(roads),fixed=[...site.centres.map(c=>c.point),...(site.accesses??[]).map(a=>a.point),...site.crossings.flatMap(c=>[c.from,c.to])]
+  const original=bandGraph(roads),fixed=[...site.centres.map(c=>c.point),...(site.accesses??[]).map(a=>a.point),...site.crossings.flatMap(c=>[c.from,c.to]),...(site.frontages??[]).flatMap(r=>[r.from,r.to])]
     .filter(p=>original.points.some(q=>same(p,q)))
   const isFixed=(p:BandPoint)=>fixed.some(q=>same(p,q))
   const edits:{kind:'merge-junctions'|'share-approach';from:BandPoint;to:BandPoint}[]=[]

@@ -5,7 +5,22 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, certified entrance walks): **2 passed**,
+Latest focused verification (2026-09-14, preserved public places): **2 passed in
+about one minute**, using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro /
+ANGLE Metal on one fixed build. Actual desktop-menu (mono) and Quest-style
+(stereo, IPD 0.064 m) entry, wrist controls, controller input ownership, roll,
+exit/re-entry and stale-session guards passed. Four sessions/four ends; no page
+errors or failed resources. Independent stereo review found the principal
+controls readable in both eyes without obvious clipping, overlap or abnormal
+separation in the sampled 25-degree roll.
+Unit tests: **1,038 passed**, separately from browser work; TypeScript/build passed.
+These XR cases cover the current inhabited colony. The public-space contracts,
+proposed roads and updated entrance walks are separate planning/geometry checks,
+not a new neighbourhood already traversed in VR. Physical Quest and the prior
+body-drift case were not tested. Evidence: `evidence/band-public-places-20260914/xr/`;
+[scope, fixed build and reference](../neighborhood-life/band-public-places.md).
+
+Previous focused verification (2026-09-14, certified entrance walks): **2 passed**,
 using playwright-webxr **0.3.0**, Chrome 152 / Apple M1 Pro / ANGLE Metal on a
 fixed build. Desktop-menu (mono) and Quest-style (stereo, IPD 0.064 m) entry,
 wrist controls, input ownership, roll, exit/re-entry and stale-session guards
