@@ -5,10 +5,11 @@ import { landscapeColliders } from './authoredLandscape'
 import type { LandscapeData, LandscapeMaterial } from './landscapeData'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
 
-export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number] }[] }
+export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[] }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
 export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[] }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
+  structures?: [number, number, number, number, number, number, number][];
   visits: Record<string, { band: number; position: [number, number] }> }
 
 export const COLONY_NEAR_DISTANCE = 850
@@ -21,6 +22,7 @@ export function readColonyManifest(value: unknown): ColonyManifest {
   const finiteTuple = (v: unknown, size: number) => Array.isArray(v) && v.length === size && v.every(Number.isFinite)
   if (p?.version !== 1 || p.radius !== 3200 || p.span !== 40000 || !Array.isArray(p.tiles) || !p.base || !p.palette || !p.visits) throw Error('Invalid colony manifest')
   const ids = new Set<string>()
+  for (const box of p.structures ?? []) if (!finiteTuple(box, 7) || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony structure')
   for (const tile of p.tiles) {
     if (ids.has(tile.id) || !/^\/landscapes\/izma\/[a-z0-9-]+\.json$/.test(tile.url) || !finiteTuple(tile.bounds, 4) || !Array.isArray(tile.boxes)) throw Error('Invalid colony tile')
     ids.add(tile.id)
@@ -41,7 +43,7 @@ export function decodeColonyMesh(packed: ColonyPackedMesh) {
     return values
   }
   return { meshes: Object.fromEntries(Object.entries(packed.meshes).map(([name, indices]) => [name, expand(indices)])),
-    surfaces: packed.surfaces.map(s => ({ bounds: s.bounds, vertices: expand(s.indices) })) }
+    surfaces: packed.surfaces.map(s => ({ bounds: s.bounds, vertices: expand(s.indices), groundSurface: s.groundSurface })) }
 }
 
 export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: number, axial: number) {
@@ -52,8 +54,11 @@ export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: nu
 }
 
 export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces): CityBuilding[] {
-  return landscapeColliders({ surfaces, solids: manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) =>
-    ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw }))) }, manifest.radius)
+  return landscapeColliders({ surfaces, solids: [
+    ...manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) =>
+      ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw }))),
+    ...(manifest.structures ?? []).map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw }))
+  ] }, manifest.radius)
 }
 
 type TileState = { group: THREE.Group; used: number }
@@ -95,7 +100,7 @@ export class AuthoredColony {
     if (manifest.version !== 1 || manifest.radius !== 3200 || manifest.span !== 40000) throw Error('Unsupported colony envelope')
     // The study and its extension share surface colour and metre-based UVs;
     // a tile boundary must not appear as a different river or grass rectangle.
-    const shared: Record<string, string> = { earth: 'earth', reserve: 'earth', water: 'water',
+    const shared: Record<string, string> = { earth: 'earth', reserve: 'earth', verge: 'earth', water: 'water',
       arterial: 'road', local: 'road', expressway: 'road', walk: 'walk' }
     for (const [name, color] of Object.entries(manifest.palette)) {
       const source = shared[name], surface = appearance?.materialDetails?.[source]?.surface

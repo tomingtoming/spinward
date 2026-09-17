@@ -5,7 +5,20 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest authored-colony verification (2026-09-17): three inhabited strips,
+Latest authored-colony transport verification (2026-09-17): **10 passed in
+5.4 minutes** on one fixed build, using playwright-webxr **0.3.0**, Chrome 152 /
+Apple M1 Pro / ANGLE Metal. Actual stereo walking covers three district centres,
+the original-study boundary, and motorway decks/parapets on all three strips;
+the preserved 420 m route/shop entry, night Places and four-world wrist switching
+also pass. The initial boundary walk caught a raised road edge that stopped
+the physical body; a modelled verge fixes it with the same walking fixture.
+All ten page-error logs and all nine recorded resource-failure lists are empty.
+[Model, measurements, visual review and remaining work](../neighborhood-life/colony-transport.md).
+Evidence: `evidence/colony-transport-20260917/verified/`. This verifies sampled
+transport surfaces and actual movement, not a finished city, complete IC/JCT
+network, inter-strip connections or physical Quest performance.
+
+Previous authored-colony terrain verification (2026-09-17): three inhabited strips,
 four continuous walking cases (three district centres and the original-study
 boundary), the preserved 420 m route, night lighting and four-world wrist
 switching. The seven-case run had six successes and one fixture start-height

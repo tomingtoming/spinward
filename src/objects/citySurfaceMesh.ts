@@ -2,7 +2,8 @@
  * height above the hull. Shared by rendering, grounding and streamed Rapier. */
 export type CitySurfaceMesh = readonly number[]
 
-type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number }
+type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number;
+  toleranceU: number; toleranceV: number; toleranceW: number }
 const projectedCache = new WeakMap<CitySurfaceMesh, { radius: number; triangles: ProjectedTriangle[] }>()
 
 /** A radial ray against the same curved vertices used by drawing and Rapier.
@@ -14,11 +15,18 @@ export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number
   if (!cached || cached.radius !== radius) {
     const positions = citySurfaceVertices(mesh, radius)
     const triangles: ProjectedTriangle[] = []
-    for (let i = 0; i < positions.length; i += 9) triangles.push({
-      ax: positions[i] + radius, ay: positions[i + 1], az: positions[i + 2],
-      bx: positions[i + 3] - positions[i], by: positions[i + 4] - positions[i + 1], bz: positions[i + 5] - positions[i + 2],
-      cx: positions[i + 6] - positions[i], cy: positions[i + 7] - positions[i + 1], cz: positions[i + 8] - positions[i + 2]
-    })
+    for (let i = 0; i < positions.length; i += 9) {
+      const bx = positions[i + 3] - positions[i], by = positions[i + 4] - positions[i + 1], bz = positions[i + 5] - positions[i + 2]
+      const cx = positions[i + 6] - positions[i], cy = positions[i + 7] - positions[i + 1], cz = positions[i + 8] - positions[i + 2]
+      const area = Math.hypot(by * cz - bz * cy, bz * cx - bx * cz, bx * cy - by * cx)
+      // Separate body origins round the same shared edge slightly differently.
+      // Bound the tolerance in metres, not a fixed barycentric fraction that
+      // would grow into centimetres on a large terrain face.
+      const tolerance = (length: number) => Math.max(1e-7, Math.min(.02, .002 * length / Math.max(area, 1e-12)))
+      triangles.push({ ax: positions[i] + radius, ay: positions[i + 1], az: positions[i + 2], bx, by, bz, cx, cy, cz,
+        toleranceU: tolerance(Math.hypot(cx, cy, cz)), toleranceV: tolerance(Math.hypot(bx, by, bz)),
+        toleranceW: tolerance(Math.hypot(bx - cx, by - cy, bz - cz)) })
+    }
     cached = { radius, triangles }; projectedCache.set(mesh, cached)
   }
   const dx = Math.cos(x / radius), dz = Math.sin(x / radius)
@@ -31,10 +39,10 @@ export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number
     if (Math.abs(det) < 1e-10) continue
     const tx = -t.ax, ty = y - t.ay, tz = -t.az
     const u = (tx * px + ty * py + tz * pz) / det
-    if (u < -1e-7 || u > 1 + 1e-7) continue
+    if (u < -t.toleranceU) continue
     const qx = ty * t.bz - tz * t.by, qy = tz * t.bx - tx * t.bz, qz = tx * t.by - ty * t.bx
     const v = (dx * qx + dz * qz) / det
-    if (v < -1e-7 || u + v > 1 + 1e-7) continue
+    if (v < -t.toleranceV || u + v > 1 + t.toleranceW) continue
     const radial = (t.cx * qx + t.cy * qy + t.cz * qz) / det
     const h = radius - radial
     if (radial > 0 && h > height && h <= ceiling) height = h

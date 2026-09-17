@@ -5,6 +5,11 @@ created: 2026-09-17
 
 # Whole-Izma terrain and streamed building massing
 
+This page records the earlier terrain integration. The following
+[transport increment](colony-transport.md) replaces the preliminary road
+ribbons and adds visible supports and parapet collision; its geometry counts
+and verification supersede the corresponding runtime quantities below.
+
 The full-colony goal remains active. This increment puts all three 40 km
 inhabited strips in the executable app and connects the existing riverside
 study to that terrain. It provides a stable runtime foundation for district

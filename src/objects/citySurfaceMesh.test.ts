@@ -44,3 +44,14 @@ test('projected ground respects overpass ceilings, vertical faces and cylinder-r
   expect(a).toBeGreaterThan(2.1)
   expect(sampleProjectedCitySurface(mesh, 3200, 0, 0, 4)).toBeCloseTo(2.062, 2)
 })
+
+test('projected triangle edges tolerate millimetre rounding without extending the walking floor', () => {
+  for (const size of [8, 256, 800]) {
+    const mesh = [0, 0, 18, size, 0, 18, 0, size, 18]
+    // A shared edge can be rounded on opposite sides by two collider origins.
+    expect(sampleProjectedCitySurface(mesh, 3200, size / 4, -.001)).toBeGreaterThan(17)
+    expect(sampleProjectedCitySurface(mesh, 3200, -.001, size / 4)).toBeGreaterThan(17)
+    expect(sampleProjectedCitySurface(mesh, 3200, size / 4, -.004)).toBe(0)
+    expect(sampleProjectedCitySurface(mesh, 3200, -.004, size / 4)).toBe(0)
+  }
+})

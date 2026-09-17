@@ -2,10 +2,11 @@ import { chromium } from '@playwright/test'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 
 const base = process.env.SPINWARD_URL
 if (!base) throw Error('SPINWARD_URL required')
-const out = fileURLToPath(new URL('../webxr/evidence/colony-runtime-20260917/desktop/', import.meta.url))
+const out = process.env.SPINWARD_EVIDENCE_DIR ? resolve(process.env.SPINWARD_EVIDENCE_DIR, 'desktop') + '/' : fileURLToPath(new URL('../webxr/evidence/colony-runtime-20260917/desktop/', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const errors = [], failures = [], cases = []
@@ -35,6 +36,7 @@ try {
     ['band-b-overview', pose([6702, -8500, 750], [6702, -7400, 10], true)],
     ['band-c-overview', pose([13404, 1200, 750], [13404, 2800, 10], true)],
   ]
+  if (process.env.SPINWARD_EXTRA_VIEWS) views.push(...JSON.parse(process.env.SPINWARD_EXTRA_VIEWS))
   let gpu
   for (const [period, time] of [['day', .42], ['night', .9]]) for (const [name, query] of views) {
     if (process.env.VIEWS && !process.env.VIEWS.split(',').includes(name)) continue
@@ -43,7 +45,8 @@ try {
       const s = window.__spinward, c = window.__spinwardCity
       const gl = document.querySelector('canvas').getContext('webgl2'), d = gl.getExtension('WEBGL_debug_renderer_info')
       return { gpu: d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown', mode: s.mode, x: s.azimuth * s.radius, y: s.axial,
-        h: s.groundHeight, radial: s.radial, colony: c.authoredColony.group.userData, study: c.authoredLandscape.group.userData }
+        h: s.groundHeight, radial: s.radial, colony: c.authoredColony.group.userData, study: c.authoredLandscape.group.userData,
+        jsHeap: performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize } : null }
     })
     gpu = state.gpu
     if (/unknown|SwiftShader|Software|llvmpipe/i.test(gpu)) throw Error('Hardware GPU required: ' + gpu)

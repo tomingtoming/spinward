@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import raw from '../../src/worlds/generated/izmaColony.json'
@@ -9,7 +9,7 @@ import { buildCityCollisionIndex, getCityGroundHeight } from '../../src/objects/
 
 // This is a diagnosis of the current massing model, not a pass/fail test of
 // finished transport. Keep route IDs and measured defects for the next edit.
-const manifest = readColonyManifest(raw), data = decodeColonyMesh(manifest.base)
+const manifest = readColonyManifest(process.env.SPINWARD_AUDIT_SOURCE ? JSON.parse(await readFile(process.env.SPINWARD_AUDIT_SOURCE, 'utf8')) : raw), data = decodeColonyMesh(manifest.base)
 function surfaceIndex(vertices: number[]) {
   const groups = new Map<string, number[]>()
   for (let i = 0; i < vertices.length; i += 9) {
@@ -26,7 +26,11 @@ function surfaceIndex(vertices: number[]) {
   return buildCityCollisionIndex(landscapeColliders({ surfaces, solids: [] }, plan.radius), plan.radius, plan.span)
 }
 const earth = surfaceIndex(data.meshes.earth)
-const routes = Object.fromEntries(['local', 'arterial', 'expressway', 'rail'].map(kind => [kind, surfaceIndex(data.meshes[kind] ?? [])]))
+const routes = Object.fromEntries(['local', 'arterial', 'expressway', 'rail'].map(kind => [kind, surfaceIndex(data.meshes[kind] ?? (kind === 'rail' ? data.meshes.ballast : []) ?? [])]))
+// Local/arterial intersections now share a single deck. A local route can
+// cross a junction owned by the arterial material without losing its floor.
+const streets = surfaceIndex([...(data.meshes.local ?? []), ...(data.meshes.arterial ?? [])])
+routes.local = streets; routes.arterial = streets
 const nodes = new Map(plan.nodes.map(n => [n.id, n]))
 const results = plan.routes.map(route => {
   const ns = route.nodes.map(id => nodes.get(id)!)
@@ -57,7 +61,7 @@ const results = plan.routes.map(route => {
     buriedOverTenCentimetres: samples.filter(s => s.gap < -.1),
     worst: samples.sort((a, b) => b.gap - a.gap).slice(0, 3) }
 })
-const out = fileURLToPath(new URL('../webxr/evidence/colony-runtime-20260917/transport-audit.json', import.meta.url))
+const out = process.env.SPINWARD_AUDIT_OUT ?? fileURLToPath(new URL('../webxr/evidence/colony-transport-20260917/transport-audit.json', import.meta.url))
 await mkdir(dirname(out), { recursive: true })
 await writeFile(out, JSON.stringify({ note: 'Actual exported surface heights; dry raised ribbon is not proof of a supported viaduct. Interval samples are not continuous route certification.', results }, null, 2) + '\n')
 console.log(JSON.stringify({ out, routes: results.length, unbuiltConnections: results.filter(r => 'status' in r).length,

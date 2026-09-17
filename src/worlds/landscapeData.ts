@@ -1,6 +1,6 @@
 import type { AuthoredWorldId } from './worldDefinitions'
 
-export type LandscapeSurface = { vertices: number[]; bounds: [number, number, number, number] }
+export type LandscapeSurface = { vertices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }
 export type LandscapeSolid = { x: number; y: number; z: number; width: number; depth: number; height: number; yaw: number }
 export type LandscapeMaterial = {
   surface?: 'plaster' | 'stone' | 'brick' | 'paving' | 'asphalt' | 'wood' | 'roof' | 'grass' | 'water' | 'curtain' | 'blinds'

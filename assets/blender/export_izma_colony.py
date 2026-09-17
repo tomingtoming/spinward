@@ -1,4 +1,4 @@
-"""Export the saved colony model as a small always-present terrain base and
+"""Export the saved colony model as a shared always-present terrain base and
 independently fetched 512 m building tiles. No background network job is made.
 The original neighbourhood is cut out exactly; its boundary meets a graded
 connection collar. This is the first runtime pass, not finished city content.
@@ -20,6 +20,8 @@ TILE=512
 palette={}
 base={}
 floors={}
+barriers={}
+structures=[]
 blocks=json.loads((ROOT/'assets/blender/izma-colony-blocks.json').read_text())
 plan=json.loads((ROOT/'assets/blender/izma-colony-plan.json').read_text())
 
@@ -65,7 +67,8 @@ def collar(p):
 
 def append(band,material,tri,surface):
     a,b,c=tri
-    if abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))<1e-8:return
+    area=abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))
+    if area<1e-8 and surface:return
     if band==0 and surface and any(abs(p[0])<540 and abs(p[1])<620 for p in tri):
         # Match the small study's curvature precision through the join.
         # A long edge at h=.03 rises above it after cylinder projection.
@@ -82,29 +85,36 @@ def append(band,material,tri,surface):
         # A 256 m terrain body still streams through the shared 64 m index.
         # Preserve all triangles; avoid one body descriptor per large face.
         floors.setdefault((math.floor(x/256),math.floor(y/256)),[]).extend(global_tri)
+    elif material=='parapet':
+        x=sum(p[0] for p in global_tri)/3;y=sum(p[1] for p in global_tri)/3
+        barriers.setdefault((math.floor(x/128),math.floor(y/128)),[]).extend(global_tri)
 
 
 for obj in SCENE.objects:
     if obj.type!='MESH' or 'band' not in obj:continue
     name=obj.name;band=obj['band'];material=obj['material']
+    if obj.get('runtime_replaced'):continue
+    if obj.get('collider_boxes'):
+        for box in json.loads(obj['collider_boxes']):structures.append([box[0]+band*SPACING,*box[1:]])
     # Building proxies are exported separately from surface geometry.
     if obj.get('massing_only') or name.startswith(('Reserved_','Supply_','Recovery_','Existing_')):continue
     if name.endswith('_diagram') or material=='return':continue
     if obj.get('transfer_reservation'):continue  # Their ramps/supports are not designed yet.
-    if material not in ['earth','reserve','water','rail','arterial','local','expressway','walk']:continue
+    if material not in ['earth','reserve','water','rail','arterial','local','expressway','walk','verge','ballast','structure','kerb','parapet']:continue
     palette[material]=obj.data.materials[0]['srgb']
     obj.data.calc_loop_triangles()
     for face in obj.data.loop_triangles:
         tri=[local(band,obj.matrix_world @ obj.data.vertices[i].co) for i in face.vertices]
         pieces=outside_study(tri) if band==0 else [tri]
         for poly in pieces:
-            if band==0 and material not in ['water']:
+            if band==0 and material not in ['water'] and not obj.get('runtime_transport'):
                 poly=[collar(p) for p in poly]
             if band==0 and material=='water':
                 # The preserved study uses 1.5 m water over its central reach.
                 poly=[(x,y,h+(1.5-1.55)*max(0,1-max(abs(y)-400,0)/1000)) for x,y,h in poly]
             for i in range(1,len(poly)-1):
-                append(band,material,[poly[0],poly[i],poly[i+1]],material not in ['water','rail'])
+                is_surface=bool(obj.get('runtime_surface')) if obj.get('runtime_transport') else material not in ['water','rail']
+                append(band,material,[poly[0],poly[i],poly[i+1]],is_surface)
 
 # Query the exported visible terrain, not the planning formula, for the base
 # of each candidate building. This includes the projection's chord height.
@@ -143,7 +153,7 @@ for n,block in enumerate(blocks):
     for face in box_faces:out.extend(vs[i] for i in face)
 
 
-def pack(groups,surfaces=None):
+def pack(groups,surfaces=None,walls=None):
     pool=[];lookup={}
     def indices(vs):
         result=[]
@@ -157,12 +167,15 @@ def pack(groups,surfaces=None):
     for vs in (surfaces or {}).values():
         xs=[p[0] for p in vs];ys=[p[1] for p in vs]
         ss.append({'indices':indices(vs),'bounds':[min(xs),min(ys),max(xs),max(ys)]})
+    for vs in (walls or {}).values():
+        xs=[p[0] for p in vs];ys=[p[1] for p in vs]
+        ss.append({'indices':indices(vs),'bounds':[min(xs),min(ys),max(xs),max(ys)],'groundSurface':False})
     return {'vertices':pool,'meshes':meshes,'surfaces':ss}
 
 
 asset_dir=ROOT/'public/landscapes/izma'
 asset_dir.mkdir(parents=True,exist_ok=True)
-manifest={'version':1,'radius':R,'span':40000,'palette':palette,'base':pack(base,floors),'tiles':[],
+manifest={'version':1,'radius':R,'span':40000,'palette':palette,'base':pack(base,floors,barriers),'tiles':[],'structures':structures,
           'visits':{d['id']:{'band':d['band'],'position':d['centre']} for d in plan['districts']}}
 for key,tile in sorted(tile_data.items()):
     packed=pack(tile['meshes'])
@@ -178,4 +191,4 @@ target=ROOT/'src/worlds/generated/izmaColony.json'
 target.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
 result={'output':str(target),'baseBytes':target.stat().st_size,'tiles':len(tile_data),'boxes':len(blocks),
         'baseTriangles':sum(len(v)//3 for v in base.values()),'surfaceTiles':len(floors),
-        'note':'terrain and box massing runtime base; not finished districts or transport'}
+        'note':'terrain, graded transport and box massing; districts and full transport remain unfinished'}
