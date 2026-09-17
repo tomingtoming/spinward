@@ -78,6 +78,9 @@ test('interior crossings join ordinary streets and carry rail above the road', (
 })
 
 test('junction and terminal caps meet a level approach even on short sampled segments', () => {
+  // This is the road-deck contract. Station crossing ramps intentionally sit
+  // above it; their final walking surface is checked by izmaRail.test.ts.
+  const roadIndex = buildCityCollisionIndex(colonyColliders(manifest, decoded.surfaces, [], [], [], []), 3200, 40000)
   for (const node of IZMA_MASTER_PLAN.nodes) {
     if (node.band === 0 && Math.abs(node.xy[0]) < 320 && Math.abs(node.xy[1]) < 400) continue
     const incident = IZMA_MASTER_PLAN.routes.filter(r => r.nodes.includes(node.id) && ['local', 'arterial', 'expressway'].includes(r.kind))
@@ -88,7 +91,7 @@ test('junction and terminal caps meet a level approach even on short sampled seg
     const radius = Math.max(...incident.map(r => r.width)) / 2
     for (let i = 0; i < 16; i++) {
       const x = node.xy[0] + Math.cos(i * Math.PI / 8) * radius, y = node.xy[1] + Math.sin(i * Math.PI / 8) * radius
-      const h = getCityGroundHeight(index, 3200, node.band * Math.PI * 2 / 3 + x / 3200, y, p[2] + .1, .05)
+      const h = getCityGroundHeight(roadIndex, 3200, node.band * Math.PI * 2 / 3 + x / 3200, y, p[2] + .1, .05)
       expect(Math.abs(h - p[2]), node.id).toBeLessThan(.05)
     }
     for (const road of incident) for (let i = 0; i < road.nodes.length; i++) {
@@ -98,7 +101,7 @@ test('junction and terminal caps meet a level approach even on short sampled seg
         if (other.band !== node.band) continue
         const dx = other.xy[0] - node.xy[0], dy = other.xy[1] - node.xy[1], length = Math.hypot(dx, dy)
         const x = node.xy[0] + dx / length * (radius + 1), y = node.xy[1] + dy / length * (radius + 1)
-        const h = getCityGroundHeight(index, 3200, node.band * Math.PI * 2 / 3 + x / 3200, y, p[2] + .1, .05)
+        const h = getCityGroundHeight(roadIndex, 3200, node.band * Math.PI * 2 / 3 + x / 3200, y, p[2] + .1, .05)
         expect(Math.abs(h - p[2]), `${node.id} approach ${road.id}`).toBeLessThan(.05)
       }
     }

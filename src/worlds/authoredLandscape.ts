@@ -36,6 +36,7 @@ export class AuthoredLandscape {
   private lightPool: THREE.PointLight[] = []
   private lightSelection: { index: number; fade: number }[] = []
   private lightSources: LandscapeLight[] = []
+  private fixedLightCount = 0
   private data: LandscapeData | null = null
   private radius = 1
   private readonly fill = new THREE.DirectionalLight('#fff3dd', 1.2)
@@ -49,6 +50,7 @@ export class AuthoredLandscape {
     this.clear(); this.data = data; this.radius = radius
     if (!data || !id) return
     this.lightSources = [...(data.lights ?? []), ...additionalLights]
+    this.fixedLightCount = this.lightSources.length
     // Each habitat retains its mirror/end-cap rig; local lights have a fixed
     // shadow-free pool so district growth cannot add unbounded GPU lights.
     this.fill.position.set(0, radius * .25, radius * .4)
@@ -101,6 +103,11 @@ export class AuthoredLandscape {
     }
     this.update(data.spawn[0] / radius, data.spawn[1], data.spawn[2])
     this.setDaylight(this.daylight)
+  }
+
+  setMovingLights(lights: readonly LandscapeLight[]) {
+    this.lightSources.length = this.fixedLightCount
+    this.lightSources.push(...lights)
   }
 
   visit(kind = 'landscape') {
@@ -158,7 +165,7 @@ export class AuthoredLandscape {
     for (const level of this.levels) level.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
     for (const material of this.materials) material.dispose()
     for (const texture of this.textures) texture.dispose()
-    this.textures = []; this.emissive = []; this.lightPool = []; this.lightSelection = []; this.lightSources = []
+    this.textures = []; this.emissive = []; this.lightPool = []; this.lightSelection = []; this.lightSources = []; this.fixedLightCount = 0
     this.group.clear(); this.group.userData = {}; this.levels = []; this.materials = []; this.data = null
   }
   dispose() { this.clear(); this.group.removeFromParent() }

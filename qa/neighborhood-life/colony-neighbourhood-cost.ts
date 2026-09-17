@@ -9,7 +9,7 @@ import { landscapeColliders } from '../../src/worlds/authoredLandscape'
 import { buildCityCollisionIndex, collectCityCollidersNear, type CityBuilding } from '../../src/objects/cityLayout'
 
 const m = readColonyManifest(raw), cache = new ColonyCollisionCache()
-const bodies = [m.base, m.architecture!.fixed, m.publicRealm!.fixed, m.neighbourhoods!.fixed].flatMap(p => cache.colliders(p, 3200))
+const bodies = [m.base, m.architecture!.fixed, m.publicRealm!.fixed, m.neighbourhoods!.fixed, ...(m.railways ? [m.railways.fixed] : [])].flatMap(p => cache.colliders(p, 3200))
 bodies.push(...landscapeColliders({ surfaces: [], solids: [...m.structures!, ...m.architecture!.solids, ...m.neighbourhoods!.solids]
   .map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw })) }, 3200))
 const index = buildCityCollisionIndex(bodies, 3200, 40000), near = new Set<CityBuilding>()

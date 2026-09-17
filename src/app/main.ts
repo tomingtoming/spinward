@@ -10,6 +10,9 @@ import { CoffeeService } from './coffeeService'
 import { CoffeeServiceView } from '../objects/coffeeServiceView'
 import { createCoffeeAction } from '../ui/coffeeAction'
 import { RoomSeating, nearestRoomSeat } from './roomSeating'
+import { RailRide } from './railRide'
+import { ColonyRail } from '../objects/colonyRail'
+import { RailColliders } from '../physics/railColliders'
 import { createRoomAction } from '../ui/roomAction'
 import * as THREE from 'three'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
@@ -721,9 +724,27 @@ export const bootstrapApp = async () => {
   nearLayer.add(streetLamps.group)
   const drive = new DriveRuntime()
   const roomSeating = new RoomSeating()
+  const rail = new ColonyRail(cityscape.group)
+  const railRide = new RailRide()
+  const railColliders = new RailColliders(rapier, physicsWorld)
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
+  const nearbyTrain = () => !drive.driving && !roomSeating.seat && playerTraversal.mode === 'grounded'
+    ? rail.service?.nearestBoarding(playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,
+      playerTraversal.groundHeight, habitatConfig.radius) ?? null : null
+  const toggleRailRide = () => {
+    if (railRide.riding) {
+      if (railRide.leave(playerTraversal, seatFrame())) { audio.playClick(); vibrate(12) }
+      return true
+    }
+    const train = nearbyTrain()
+    if (!train || !rail.service || !railRide.enter(rail.service, train, playerTraversal, seatFrame())) return false
+    journey.cancel(); coffeeService.reset(); desktopLookControls.cancelHeldInput(); mobileControls?.cancelHeldInput()
+    reportTour('tram')
+    audio.unlock(); audio.playClick(); vibrate(12)
+    return true
+  }
   const toggleRoomSeat = () => {
-    if (drive.driving || renderer.xr.isPresenting) return false
+    if (drive.driving || railRide.riding || renderer.xr.isPresenting) return false
     audio.unlock()
     roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
     if (roomSeating.leave(playerTraversal, seatFrame())) { audio.playClick(); return true }
@@ -738,7 +759,7 @@ export const bootstrapApp = async () => {
     desktopLookControls.setLook(look.y,look.x)
     audio.playClick(); return true
   }
-  const roomAction = createRoomAction(() => { if (!toggleRoomSeat()) tryToggleDrive() }, () => Math.max(
+  const roomAction = createRoomAction(() => { if (!toggleRailRide() && !toggleRoomSeat()) tryToggleDrive() }, () => Math.max(
     window.innerHeight - dock.root.getBoundingClientRect().top,
     mobileControls?.getReservedBottomHeight() ?? 0
   ))
@@ -838,6 +859,7 @@ export const bootstrapApp = async () => {
   let watchUiHot = false
   let watchUiFocusRemaining = 0
   let rightLaserOverCar = false
+  let rightLaserOverTrain = false
   let throwDebugTimer = 0
   const THROW_DEBUG_DURATION = 1.5
   let desktopUiCamera: THREE.PerspectiveCamera = camera
@@ -879,6 +901,8 @@ export const bootstrapApp = async () => {
       if (vrLocomotion?.getHandedness(controller) !== 'right') {
         return null
       }
+
+      if (rightLaserOverTrain) { toggleRailRide(); return null }
 
       // Aiming the right pointer at the car climbs in instead of spawning a
       // ball. Deciding it here — in the same select event that would otherwise
@@ -1048,6 +1072,7 @@ export const bootstrapApp = async () => {
   }
 
   const rebuildPlayerTraversal = (respawnMode: 'inner-wall' | 'axis-end' = 'inner-wall') => {
+    railRide.cancel(playerTraversal)
     coffeeService.reset()
     playerTraversal = rebuildPlayerTraversalRuntime(
       {
@@ -1116,6 +1141,7 @@ export const bootstrapApp = async () => {
   }
 
   const tryToggleDrive = (viaPointer = false) => {
+    if (railRide.riding) return
     if (roomSeating.seat) roomSeating.leave(playerTraversal, seatFrame())
     if (drive.driving) {
       exitDrive()
@@ -1168,6 +1194,7 @@ export const bootstrapApp = async () => {
   }
 
   const prepareTravel = () => {
+    railRide.cancel(playerTraversal)
     journey.cancel()
     // Travel leaves the old attachment before placing the new body. Otherwise
     // the next driving/seating update can pull the player back to the old spot.
@@ -1630,6 +1657,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
+    ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders }
     ;(window as unknown as Record<string, unknown>).__spinwardCar = car
     ;(window as unknown as Record<string, unknown>).__spinwardTarget = throwTarget
     ;(window as unknown as Record<string, unknown>).__spinwardWatch = watchPanel
@@ -2006,6 +2034,7 @@ export const bootstrapApp = async () => {
     }
 
     if (event.code === 'KeyE') {
+      if (toggleRailRide()) return
       if (toggleRoomSeat()) return
       tryToggleDrive()
       return
@@ -2252,6 +2281,13 @@ export const bootstrapApp = async () => {
     if (!renderer.xr.isPresenting) desktopLookControls.advanceReferenceFrame(omega * deltaSeconds)
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
+    const railData = cityscape.authoredColony.getRailData()
+    const railAppearance = cityscape.authoredColony.getRailAppearance()
+    if (rail.configure(railData, railAppearance.palette, railAppearance.details)) railRide.cancel(playerTraversal)
+    railColliders.configure(railData, getUnits())
+    rail.update(deltaSeconds, playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,
+      getDaylight(dayNightPhase) * (1 - .45 * weather.rainLevel), railRide.train?.id ?? null)
+    cityscape.authoredLandscape.setMovingLights(rail.lightSources)
     // The jetpack hiss follows EVERY thrust source, not just the VR trigger:
     // held jump climbing away, WASD/stick translation in the air, Shift
     // descent — if the pack is pushing, it is heard. Sampled before the step
@@ -2267,6 +2303,12 @@ export const bootstrapApp = async () => {
 
     roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getSeats())
     let jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
+    if (railRide.riding) {
+      if (xrWatchInput.jumpPressed) railRide.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
+      jumpRequested = false; locomotionIntent.detachRequested = false
+      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+      locomotionIntent.freeFlyThrust.set(0, 0, 0)
+    }
     if (roomSeating.seat && (renderer.xr.isPresenting || jumpRequested || locomotionIntent.detachRequested ||
         Math.hypot(locomotionIntent.groundedAxis, locomotionIntent.groundedTangent) > .1)) {
       roomSeating.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
@@ -2329,7 +2371,9 @@ export const bootstrapApp = async () => {
       justJumped = true
     }
 
-    if (roomSeating.seat) {
+    if (railRide.riding) {
+      railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
+    } else if (roomSeating.seat) {
       // Stay attached at the end-of-step angle; dismounts use the start angle
       // before normal walking advances the body through this frame.
       roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
@@ -2407,8 +2451,10 @@ export const bootstrapApp = async () => {
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
     )
     physicsWorld.timestep = deltaSeconds
+    railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null)
     physicsWorld.step()
-    if (!roomSeating.seat) {
+    if (railRide.riding) railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
+    if (!roomSeating.seat && !railRide.riding) {
       syncPlayerTraversalFromPhysics(playerTraversal)
       syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
     }
@@ -2471,7 +2517,7 @@ export const bootstrapApp = async () => {
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
     let landed = false
-    if (!drive.driving && !roomSeating.seat) {
+    if (!drive.driving && !roomSeating.seat && !railRide.riding) {
       landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
@@ -2759,6 +2805,7 @@ export const bootstrapApp = async () => {
     // Aim the right pointer at the car to highlight it; pull the trigger to
     // climb in. Gated off while the watch UI owns the laser or while driving.
     rightLaserOverCar = false
+    rightLaserOverTrain = false
     if (
       renderer.xr.isPresenting &&
       xrWatchInput.rightController &&
@@ -2767,7 +2814,9 @@ export const bootstrapApp = async () => {
     ) {
       car.group.updateWorldMatrix(true, true)
       carRaycaster.setFromXRController(xrWatchInput.rightController)
-      rightLaserOverCar = carRaycaster.intersectObject(car.group, true).length > 0
+      const train = railRide.train ?? nearbyTrain()
+      rightLaserOverTrain = !!train && rail.hit(train.id, carRaycaster)
+      rightLaserOverCar = !railRide.riding && !rightLaserOverTrain && car.group.visible && carRaycaster.intersectObject(car.group, true).length > 0
     }
     car.setHighlighted(rightLaserOverCar)
 
@@ -2970,6 +3019,9 @@ export const bootstrapApp = async () => {
       speed: playerTraversal.inertialVelocity.length(),
       frameAngle,
       groundHeight: playerTraversal.groundHeight,
+      rail: { time: rail.service?.time ?? 0, trains: rail.service?.trains.length ?? 0, rider: railRide.train?.id ?? null,
+        speed: railRide.train?.speed ?? 0, station: railRide.train?.station?.id ?? null, next: railRide.train?.next.id ?? null,
+        doors: railRide.train?.doorOpen ?? 0, pointed: rightLaserOverTrain, ...railColliders.stats },
       dip: landDipOffset,
       outing: {action:journey.action,status:journey.status,label:journey.label,remaining:journey.remaining,nextDistance:journey.nextDistance,index:journey.index,detail:outingDetail,canPark:outingCanPark},
       drive: {
@@ -2986,11 +3038,13 @@ export const bootstrapApp = async () => {
       }
     }
 
-    const nearSeat = !drive.driving ? nearestRoomSeat(cityscape.getSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
+    const nearTrain = nearbyTrain()
+    const nearSeat = !drive.driving && !railRide.riding ? nearestRoomSeat(cityscape.getSeats().filter(s => !neighborhoodLife.isSeatOccupied(s.id)), playerTraversal, habitatConfig.radius) : null
     const nearCar = car.group.visible && !nearSeat && !roomSeating.seat && playerTraversal.mode === 'grounded' &&
       drive.isPlayerNear(playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition, habitatConfig.radius)
     roomAction.update(nearSeat?.label ?? null, !!roomSeating.seat, renderer.xr.isPresenting, isTouchDevice(),
-      drive.driving ? (drive.mode==='street' && drive.lastSpeed>.8 ? 'Brake before leaving' : driveExitHint || 'Leave car') : nearCar ? 'Use car share' : null)
+      railRide.prompt() ?? (nearTrain ? `Board tram · ${nearTrain.next.name}` :
+        drive.driving ? (drive.mode==='street' && drive.lastSpeed>.8 ? 'Brake before leaving' : driveExitHint || 'Leave car') : nearCar ? 'Use car share' : null))
     const coffeeCtx = coffeeContext()
     coffeeService.update(deltaSeconds, coffeeCtx)
     coffeeAction.update(coffeeService.prompt(coffeeCtx), isTouchDevice())
@@ -3012,6 +3066,7 @@ export const bootstrapApp = async () => {
       groundHeight: playerTraversal.groundHeight, heading: bodyHeading, grounded: playerTraversal.mode === 'grounded',
       enabled: !drive.driving && (!renderer.xr.isPresenting || !!trackedBody), visible: bootParams.get('body') !== '0', deltaSeconds,
       seat: roomSeating.seat, holding: coffeeService.phase === 'holding' && playerTraversal.mode === 'grounded',
+      movingSupport: railRide.riding,
       indoors: roomEnvironment.shelter > .5, tracked: trackedBody,
       airborneView: playerTraversal.mode === 'free-fly' && !renderer.xr.isPresenting
         ? airborneBodyView.multiplyMatrices(bodyFrameInverse, camera.matrixWorld) : undefined
@@ -3026,7 +3081,7 @@ export const bootstrapApp = async () => {
     const activeTourCard = stepTourGuide(tourGuide, deltaSeconds)
     // Let the current room action teach itself. The large generic welcome
     // card otherwise covers the held cup and the seated body on portrait screens.
-    const roomInteraction = !!roomSeating.seat || coffeeService.phase !== 'idle'
+    const roomInteraction = !!roomSeating.seat || railRide.riding || coffeeService.phase !== 'idle'
     const practiceCard = !drive.driving && !roomInteraction ? throwTarget.getCard(rotatingCameraPosition, selectedProjectile === 'ball') : null
     const visibleTourCard = practiceCard ?? (roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard)
     const resolvedTourCard = resolveTourCard(visibleTourCard, currentControlPlatform())
@@ -3142,6 +3197,9 @@ export const bootstrapApp = async () => {
     roomAction.dispose()
     coffeeAction.dispose()
     playerBodyView.dispose()
+    railRide.cancel(playerTraversal)
+    railColliders.dispose()
+    rail.dispose()
     streetWalkers.dispose()
     neighborhoodLife.dispose()
     coffeeView.dispose()

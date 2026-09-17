@@ -1,0 +1,23 @@
+{
+  "origin": "ai", "created": "2026-09-18", "version": 1,
+  "concept": "Three independent double-track automated tram lines. Compact single cars serve walkable island platforms; end stations reverse via modelled crossovers.",
+  "trackCentres": 3.15, "gauge": 1.435,
+  "platformWidth": 3.4, "platformLength": 20, "platformHeight": 0.62,
+  "stopOffset": 42, "rampLength": 12,
+  "carLength": 12, "carWidth": 2.5, "carHeight": 3.05,
+  "carFloor": 0.62, "dwellSeconds": 45, "maxSpeed": 32,
+  "acceleration": 0.8, "braking": 0.9, "trainsPerLine": 12,
+  "lines": [
+    {"id":"rail-a","name":"River line","color":"#527e8d"},
+    {"id":"rail-b","name":"Campus line","color":"#a8754d"},
+    {"id":"rail-c","name":"Garden line","color":"#6b8660"}
+  ],
+  "stations": {
+    "a-port":"Port & Workshops", "a-old-town":"Old River Town", "a-river":"River Terraces",
+    "a-civic":"Civic Central", "a-upland":"Upland Homes", "a-water":"Reservoir Park",
+    "b-workshop":"Technical Quarter", "b-campus":"University & Medical", "b-station":"New Central",
+    "b-housing":"Neighbourhood Market", "b-commons":"Sports & Riverside", "b-north":"North Town",
+    "c-cargo":"Freight Gateway", "c-production":"Production Quarter", "c-fields":"Farm Village",
+    "c-market":"Food Market", "c-orchards":"Orchard Gardens", "c-forest":"Water Forest"
+  }
+}

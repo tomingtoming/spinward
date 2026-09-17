@@ -11,11 +11,12 @@ import {
 // The wrist keeps travel and spin on HOME, with everyday places, settings and
 // controls one page away. Each page has a Back target and uses the same canvas
 // bounds for drawing and laser hit-testing.
-export type WatchScreen = 'home' | 'outing' | 'places' | 'habitat' | 'tweaks' | 'legend'
+export type WatchScreen = 'home' | 'outing' | 'places' | 'places-more' | 'habitat' | 'tweaks' | 'legend'
 
 export type WatchNavActionId =
   | 'nav-home'
   | 'nav-places'
+  | 'nav-places-more'
   | 'nav-outing'
   | 'nav-habitat'
   | 'nav-tweaks'
@@ -169,6 +170,8 @@ export const navTargetForAction = (id: WatchActionId): WatchScreen | null => {
       return 'outing'
     case 'nav-places':
       return 'places'
+    case 'nav-places-more':
+      return 'places-more'
     case 'nav-habitat':
       return 'habitat'
     case 'nav-tweaks':
@@ -228,18 +231,23 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   }
 }
 
-const createPlacesLayout = (width: number, height: number): WatchScreenLayout => {
+const createPlacesLayout = (width: number, height: number, secondPage = false): WatchScreenLayout => {
   const backButton = makeBackButton()
-  const rows = Math.ceil(PLACE_DESTINATIONS.length / 2)
-  const placesFooter = rows <= 4
+  // Preserve large laser targets and breathing room as destinations grow.
+  const paginated = PLACE_DESTINATIONS.length > 12
+  const destinations = paginated ? PLACE_DESTINATIONS.slice(secondPage ? 8 : 0, secondPage ? undefined : 8) : PLACE_DESTINATIONS
+  const rows = Math.ceil(destinations.length / 2)
+  const placesFooter = !paginated && rows <= 4
   const step = Math.min(104, Math.floor((height - 108 - 84 - (placesFooter ? 92 : 20)) / rows))
-  const placesSection: WatchSection = { top: 108, height: 84 + rows * step, title: 'STREET LIFE' }
-  const placeButtons = PLACE_DESTINATIONS.map((place, i) => makeActionButton(
+  const placesSection: WatchSection = { top: 108, height: 84 + rows * step, title: paginated ? `STREET LIFE · ${secondPage ? 2 : 1}/2` : 'STREET LIFE' }
+  const placeButtons = destinations.map((place, i) => makeActionButton(
     place.id, place.label, CONTENT_LEFT + (i % 2) * 310,
     placesSection.top + 84 + Math.floor(i / 2) * step, 290, 80
   ))
-  return { screen: 'places', width, height, backButton, title: 'PLACES',
-    placesSection, placesFooter, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons] }
+  const pager = paginated ? [makeActionButton(secondPage ? 'nav-places' : 'nav-places-more',
+    secondPage ? '‹ First places' : 'More places ›', CONTENT_LEFT, height - 80, 290, 64)] : []
+  return { screen: secondPage ? 'places-more' : 'places', width, height, backButton, title: 'PLACES',
+    placesSection, placesFooter, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons, ...pager] }
 }
 
 const createHabitatLayout = (width: number, height: number): WatchScreenLayout => {
@@ -356,6 +364,8 @@ export const createWatchLayout = (
       return createOutingLayout(width,height)
     case 'places':
       return createPlacesLayout(width, height)
+    case 'places-more':
+      return createPlacesLayout(width, height, true)
     case 'habitat':
       return createHabitatLayout(width, height)
     case 'tweaks':
@@ -376,6 +386,7 @@ export const createAllWatchLayouts = (
   home: createWatchLayout('home', width, height),
   outing: createWatchLayout('outing', width, height),
   places: createWatchLayout('places', width, height),
+  'places-more': createWatchLayout('places-more', width, height),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),
   legend: createWatchLayout('legend', width, height)

@@ -65,12 +65,12 @@
       "sha256": "e4f0ea23acbadfb815e487d4438223948a9613b89d87871595fdb0826a6c7ea4",
       "size": 2226262,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-18",
       "finding": "skyline",
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "元画像とSHA256を再確認。手前に高さ・窓形式の異なる塔と低層の屋上設備、頭上に密な市街と大きさの違う街区が続く。白い筋の原因・道路の個々の接続位置は確定できず、演出光や霧の色は採用しない。",
-      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。 qa/neighborhood-life/settlement-corridor.md: 商業・住宅の中心を土地座標へ先に置き、その間の幹線、枝道、敷地と建物の高さへ接続。個々の道路配置・用途境界は原画から同定したものではなくSpinwardの設計。 qa/neighborhood-life/band-street-plan.md: 居住帯全域で地区中心・用途から道路を計画する独自設計の背景。今回の成果は計画図であり3Dの密度や景観へは未反映。 qa/neighborhood-life/arrival-seams.md: 2026-09-14に元画像・hashを再確認。適用済み到着地区の内部旧道を退役し、道路・歩道・交通を地区間で連続させる。個々の接続位置はSpinwardの全域案と入口契約から決め、原画から復元したものではない。景観密度と未割当土地は残件。 2026-09-14 南側連続適用: 原寸とhashを再確認。地区の連続と建つ土地・空ける土地の観察を検収に使い、全域案35区間を南の計画中心まで通常生成へ適用。qa/neighborhood-life/arrival-southern-corridor.md。道路の地図復元ではなく、元画像の密度・固有の造形・未反映事項は維持。"
+      "relatedWork": "qa/neighborhood-life/district-corridors.md: 地区が連なり、低層と高層の地域が混在するスケールの参考。道路中心線と地区配置はSpinward独自設計。原画の密度・大気・建物の再現は未完でpendingを維持。 qa/neighborhood-life/settlement-corridor.md: 商業・住宅の中心を土地座標へ先に置き、その間の幹線、枝道、敷地と建物の高さへ接続。個々の道路配置・用途境界は原画から同定したものではなくSpinwardの設計。 qa/neighborhood-life/band-street-plan.md: 居住帯全域で地区中心・用途から道路を計画する独自設計の背景。今回の成果は計画図であり3Dの密度や景観へは未反映。 qa/neighborhood-life/arrival-seams.md: 2026-09-14に元画像・hashを再確認。適用済み到着地区の内部旧道を退役し、道路・歩道・交通を地区間で連続させる。個々の接続位置はSpinwardの全域案と入口契約から決め、原画から復元したものではない。景観密度と未割当土地は残件。 2026-09-14 南側連続適用: 原寸とhashを再確認。地区の連続と建つ土地・空ける土地の観察を検収に使い、全域案35区間を南の計画中心まで通常生成へ適用。qa/neighborhood-life/arrival-southern-corridor.md。道路の地図復元ではなく、元画像の密度・固有の造形・未反映事項は維持。 2026-09-18: 原寸とSHA256を再照合。qa/neighborhood-life/colony-rail.md に今回の観察と現状との差を記録。交通機能を先行させた疎な駅周辺を参考景観の再現と数えず、連続市街地の密度・配置を次の優先とする。駅・車両の形状の復元は未実装。"
     },
     {
       "id": "izma-0007",
@@ -1051,14 +1051,14 @@
       "sha256": "f12cea4b1e98d69771eacac21cfcf3a84240aae1ec5c241bf08230ddffd96088",
       "size": 2120452,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-18",
       "finding": "skyline",
       "duplicateOf": null,
       "implementation": "partial",
       "applied": "建物の縦横比と高低のある棟の組み合わせを、敷地内の共通構造レシピへ反映。docs/izma-reference-program.md の中遠景インクリメントを参照。",
       "remaining": "照明・遠近の減衰・周辺の密度と公共空間。作品固有の意匠や機体は対象外。",
       "observation": "2026-09-14に原寸とhashを再確認。大小の建物・中庭状の隙間・木・沿道の小棟が見える。敷地境界そのものは不明。局所には直角街路もあり、非格子道路の地図資料とは扱わない。白い雲・煙状の遮蔽は原因不明として除外。",
-      "relatedWork": "2026-09-14: qa/neighborhood-life/band-parcels.md。建つ土地と残す土地を分ける解釈を全域案の敷地生成へ使用。凹形の予約地・道路面を差し引き、既存3生活拠点を保護。原画の区画境界・固有の屋根意匠を再現した成果ではない。現行コロニー未適用。 2026-09-14 公共空間回: 元画像とhashを再照合。木・中庭状の空地を残す観察を、広場・公園・Garden street・川沿いの既存契約の保存へ使用。qa/neighborhood-life/band-public-places.md。公園の区画境界や地図の復元ではない。未反映事項は保持。 2026-09-14 実行側の生活拠点確定: 同じ原本を再閲覧・hash照合し、生活空間を保持する判断を CityPlan.places と通常生成へ接続。qa/neighborhood-life/city-places.md。道路配置の切替と新歩道への接続は未完。 2026-09-14 到着地区西側の実適用: 原寸再閲覧。生活空間を残す判断を続け、全域案19道路を通常起動へ適用。qa/neighborhood-life/arrival-west.md。原画の街路地図の復元ではなく、中央・東側および全居住帯は引き続き移行中。 2026-09-14 中央北側・南側: 原寸とhashを再確認。既存生活空間を残す判断を維持し、全域案から19区間を通常起動へ適用。境界の短い孤立末端1区間は保留。qa/neighborhood-life/arrival-central.md。中心の生活拠点区域・東側・他帯は未移行。 2026-09-14 中心部: 原寸・hash再確認。公園とCityBlockの生活空間を保持し、全域案12区間と玄関前2区間を実適用。公園の芝面・既存樹木と園路幅を保持し、新歩道へ接続。qa/neighborhood-life/arrival-core.md。東側・他帯・河川・IC/JCTは未移行。 2026-09-14 南側連続適用: 原寸とhashを再確認。地区の連続と建つ土地・空ける土地の観察を検収に使い、全域案35区間を南の計画中心まで通常生成へ適用。qa/neighborhood-life/arrival-southern-corridor.md。道路の地図復元ではなく、元画像の密度・固有の造形・未反映事項は維持。"
+      "relatedWork": "2026-09-14: qa/neighborhood-life/band-parcels.md。建つ土地と残す土地を分ける解釈を全域案の敷地生成へ使用。凹形の予約地・道路面を差し引き、既存3生活拠点を保護。原画の区画境界・固有の屋根意匠を再現した成果ではない。現行コロニー未適用。 2026-09-14 公共空間回: 元画像とhashを再照合。木・中庭状の空地を残す観察を、広場・公園・Garden street・川沿いの既存契約の保存へ使用。qa/neighborhood-life/band-public-places.md。公園の区画境界や地図の復元ではない。未反映事項は保持。 2026-09-14 実行側の生活拠点確定: 同じ原本を再閲覧・hash照合し、生活空間を保持する判断を CityPlan.places と通常生成へ接続。qa/neighborhood-life/city-places.md。道路配置の切替と新歩道への接続は未完。 2026-09-14 到着地区西側の実適用: 原寸再閲覧。生活空間を残す判断を続け、全域案19道路を通常起動へ適用。qa/neighborhood-life/arrival-west.md。原画の街路地図の復元ではなく、中央・東側および全居住帯は引き続き移行中。 2026-09-14 中央北側・南側: 原寸とhashを再確認。既存生活空間を残す判断を維持し、全域案から19区間を通常起動へ適用。境界の短い孤立末端1区間は保留。qa/neighborhood-life/arrival-central.md。中心の生活拠点区域・東側・他帯は未移行。 2026-09-14 中心部: 原寸・hash再確認。公園とCityBlockの生活空間を保持し、全域案12区間と玄関前2区間を実適用。公園の芝面・既存樹木と園路幅を保持し、新歩道へ接続。qa/neighborhood-life/arrival-core.md。東側・他帯・河川・IC/JCTは未移行。 2026-09-14 南側連続適用: 原寸とhashを再確認。地区の連続と建つ土地・空ける土地の観察を検収に使い、全域案35区間を南の計画中心まで通常生成へ適用。qa/neighborhood-life/arrival-southern-corridor.md。道路の地図復元ではなく、元画像の密度・固有の造形・未反映事項は維持。 2026-09-18: 原寸とSHA256を再照合。qa/neighborhood-life/colony-rail.md に今回の観察と現状との差を記録。交通機能を先行させた疎な駅周辺を参考景観の再現と数えず、連続市街地の密度・配置を次の優先とする。駅・車両の形状の復元は未実装。"
     },
     {
       "id": "izma-ep05-0040",
@@ -1077,12 +1077,12 @@
       "sha256": "5f9a82e5f36ec27442b786dbedb9883b64ae397087f9dd36d9126badd0bcf5c9",
       "size": 1745504,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-18",
       "finding": "street",
       "duplicateOf": null,
       "implementation": "pending",
       "observation": "原寸で再確認。道に近接する建物前面、異なる幅・高さの輪郭、看板や設備、奥へ続く通りを観察。見えない内部用途・実寸は断定しない。看板文字・武器関連表示・張り出す配線や黄色部材は採用しない。",
-      "relatedWork": "2026-09-14: qa/neighborhood-life/arrival-infill.md。道路に近接する建物が通りを囲む関係を、新生活道路4本の接道敷地と64棟の独自配置の参考にした。画像の固有造形・設備・表示は未採用で、implementationはpendingを維持。"
+      "relatedWork": "2026-09-14: qa/neighborhood-life/arrival-infill.md。道路に近接する建物が通りを囲む関係を、新生活道路4本の接道敷地と64棟の独自配置の参考にした。画像の固有造形・設備・表示は未採用で、implementationはpendingを維持。 2026-09-18: 原寸とSHA256を再照合。qa/neighborhood-life/colony-rail.md に今回の観察と現状との差を記録。交通機能を先行させた疎な駅周辺を参考景観の再現と数えず、連続市街地の密度・配置を次の優先とする。駅・車両の形状の復元は未実装。"
     },
     {
       "id": "izma-ep05-0042",
@@ -1112,11 +1112,12 @@
       "sha256": "64eba104032afab8ae56be463f57a7be49022dd21a8ff38337cf278f4eb25ef2",
       "size": 1526461,
       "review": "viewed",
-      "reviewedOn": "2026-09-13",
+      "reviewedOn": "2026-09-18",
       "finding": "public-scale",
       "duplicateOf": null,
       "implementation": "pending",
-      "observation": "元解像度で再確認。支持部と付属機器のある吊り案内板。駅名・運休等の作中情報・文字意匠は複製しない。今回の新規実装には採用していない。"
+      "observation": "元解像度で再確認。支持部と付属機器のある吊り案内板。駅名・運休等の作中情報・文字意匠は複製しない。今回の新規実装には採用していない。",
+      "relatedWork": "2026-09-18: 原寸とSHA256を再照合。qa/neighborhood-life/colony-rail.md に今回の観察と現状との差を記録。交通機能を先行させた疎な駅周辺を参考景観の再現と数えず、連続市街地の密度・配置を次の優先とする。駅・車両の形状の復元は未実装。"
     },
     {
       "id": "izma-ep05-0045",
@@ -1438,11 +1439,11 @@
       "sha256": "6fe7dd289b720081db3ada7eaf73bbac90aa32cfddcc708856e18419b90785f7",
       "size": 1216272,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-18",
       "finding": "street",
       "duplicateOf": null,
       "implementation": "pending",
-      "relatedWork": "2026-09-14 生活道路接続回: 元解像度とhashを再確認。狭い生活路と広い車道・歩道の階層の比較に使用。qa/neighborhood-life/arrival-local-links.md。接続・幅はSpinwardの敷地から決めた独自設計で、原画の形状・配線・文字・車の挙動は未採用。pendingを維持。",
+      "relatedWork": "2026-09-14 生活道路接続回: 元解像度とhashを再確認。狭い生活路と広い車道・歩道の階層の比較に使用。qa/neighborhood-life/arrival-local-links.md。接続・幅はSpinwardの敷地から決めた独自設計で、原画の形状・配線・文字・車の挙動は未採用。pendingを維持。 2026-09-18: 原寸とSHA256を再照合。qa/neighborhood-life/colony-rail.md に今回の観察と現状との差を記録。交通機能を先行させた疎な駅周辺を参考景観の再現と数えず、連続市街地の密度・配置を次の優先とする。駅・車両の形状の復元は未実装。",
       "observation": "建物間の狭い路地、戸・シャッター、頭上の線、端の箱や二輪車、奥の段差と明るい道路を観察。路面に反射がある。道路地図・寸法は確定できず、固有の形・表示・天候の常時再現は採用しない。"
     },
     {

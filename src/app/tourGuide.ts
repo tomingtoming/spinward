@@ -13,6 +13,7 @@ export type TourEventId =
   | 'surface'
   | 'spin-change'
   | 'drive'
+  | 'tram'
   | 'rain'
   | 'enter-freefly'
   | 'enter-grounded'
@@ -34,6 +35,7 @@ const ONE_SHOT_EVENTS: ReadonlySet<TourEventId> = new Set(['start', 'throw', 'ju
 const CONTROLS_TOKEN = '{{CONTROLS}}'
 const DRIVE_CONTROLS_TOKEN = '{{DRIVE_CONTROLS}}'
 const FREEFLY_BRAKE_TOKEN = '{{FREEFLY_BRAKE}}'
+const TRAM_CONTROLS_TOKEN = '{{TRAM_CONTROLS}}'
 
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   'visit-landscape': {
@@ -137,6 +139,8 @@ export const TOUR_CARDS: Record<TourEventId, TourCard> = {
   'visit-ball-practice': { title: 'THROWING LAWN', body: ['Choose Ball. Aim above the hoop to begin.'], durationSeconds: 5 },
   'visit-garden': { title: 'GARDEN STREET', body: ['Follow the curved footway past the homes. Both ends meet the neighborhood streets.'], durationSeconds: 5 },
   'visit-public': { title: 'NEARBY SQUARE', body: ['A place to pause in this district. Follow the path to the open square and shaded seating.'], durationSeconds: 5 },
+  'visit-station': { title: 'TRAM STATION', body: ['Follow the crossing and ramp to the island platform.', TRAM_CONTROLS_TOKEN], durationSeconds: 6 },
+  tram: { title: 'ON BOARD', body: ['The tram calls at every district along this strip.', TRAM_CONTROLS_TOKEN], durationSeconds: 6 },
   'visit-river': { title: 'RIVERSIDE', body: ['Follow the lower promenade under the bridge, or take the ramp back to the street.'], durationSeconds: 5 },
   'visit-deck': { title: 'OBSERVATION DECK', body: ['Watch the city curve overhead, or rest on the bench.'], durationSeconds: 5 },
   'visit-car-share': { title: 'CAR SHARE', body: ['A neighbourhood sedan. Approach the driver’s seat to use it.'], durationSeconds: 5 },
@@ -250,6 +254,8 @@ export const resolveTourCard = (
         .replace(CONTROLS_TOKEN, getControlScheme(platform).summary)
         .replace(DRIVE_CONTROLS_TOKEN, formatModeControlsLine(platform, 'driving'))
         .replace(FREEFLY_BRAKE_TOKEN, freeflyBrakeText)
+        .replace(TRAM_CONTROLS_TOKEN, platform === 'vr' ? 'Aim at an open door and use right trigger to board. Right A leaves at a stop.' :
+          platform === 'sp' ? 'Use Board tram beside an open door. Leave tram becomes available at a stop.' : 'E boards beside an open door, and leaves at a stop.')
     )
   }
 }

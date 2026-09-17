@@ -126,6 +126,7 @@ test('createAllWatchLayouts returns one layout per screen', () => {
     'legend',
     'outing',
     'places',
+    'places-more',
     'tweaks'
   ])
   expect(layouts.home.screen).toBe('home')
@@ -134,8 +135,12 @@ test('createAllWatchLayouts returns one layout per screen', () => {
 })
 
 test('wrist places offer the same destinations as the ordinary travel menus', () => {
-  const layout = createWatchLayout('places')
-  expect(layout.placeButtons?.map(button => button.id)).toEqual(PLACE_DESTINATIONS.map(place => place.id))
+  const pages = [createWatchLayout('places'), createWatchLayout('places-more')]
+  expect(pages.flatMap(layout => layout.placeButtons!.map(button => button.id))).toEqual(PLACE_DESTINATIONS.map(place => place.id))
+  expect(navTargetForAction('nav-places-more')).toBe('places-more')
+  expect(pages[0].buttons.some(b => b.id === 'nav-places-more')).toBe(true)
+  expect(pages[1].buttons.some(b => b.id === 'nav-places')).toBe(true)
+  for (const layout of pages) {
   expect(layout.backButton?.id).toBe('nav-home')
   for (const button of layout.placeButtons!) {
     expect(button.width).toBeGreaterThanOrEqual(280)
@@ -143,6 +148,7 @@ test('wrist places offer the same destinations as the ordinary travel menus', ()
     expect(button.y + button.height).toBeLessThan(layout.placesSection!.top + layout.placesSection!.height)
   }
   expect(layout.placesSection!.top + layout.placesSection!.height + (layout.placesFooter ? 92 : 20)).toBeLessThanOrEqual(layout.height)
+  }
 })
 
 test('every wrist target is inside the canvas, disjoint and reachable through its UV centre', () => {

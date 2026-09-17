@@ -242,7 +242,7 @@ const drawSubHeader = (
   ctx.textAlign = 'right'
   ctx.textBaseline = 'middle'
   // Places uses this corner for its Directions action.
-  if (layout.screen !== 'places') {
+  if (layout.screen !== 'places' && layout.screen !== 'places-more') {
     ctx.fillText(snapshot.currentPresetName, layout.width - SECTION_PADDING.right - 18, 53)
   }
 }
@@ -483,13 +483,14 @@ export const renderWatch = (
     ctx.fillStyle=TEXT_DIM;ctx.font='500 21px \"Avenir Next\", sans-serif'
     ctx.fillText(snapshot.outing?.label??'',50,footer.top+77,620)
   }
-  if (layout.screen === 'places' && layout.placesSection) {
+  if ((layout.screen === 'places' || layout.screen === 'places-more') && layout.placesSection) {
     const directions=layout.buttons.find(b=>b.id==='nav-outing')
     if(directions) drawButton(ctx,directions,hoveredAction,{accent:true})
     drawSectionCard(ctx, layout.width, layout.placesSection, layout.placesFooter ? 'Arrive at the entrance, ready to explore' : 'Choose a place; dimmed places are unavailable')
     for (const button of layout.placeButtons ?? []) drawButton(ctx, button, hoveredAction, {
       accent: true, disabled: isWatchActionDisabled(snapshot, button.id)
     })
+    for (const button of layout.buttons.filter(b => b.id === 'nav-places' || b.id === 'nav-places-more')) drawButton(ctx, button, hoveredAction)
     ctx.fillStyle = TEXT_DIM
     ctx.font = '500 19px "Avenir Next", sans-serif'
     ctx.textAlign = 'left'

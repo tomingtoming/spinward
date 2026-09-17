@@ -99,6 +99,9 @@ def export(config=None):
     # Additional neighbourhoods reserve existing parcels/public spaces. Rebuilding
     # primary architecture invalidates dependent layers; an additive export only
     # replaces its own tiles, surfaces and visits.
+    manifest.pop('railways',None)
+    manifest['tiles']=[t for t in manifest['tiles']if not t.get('railway')]
+    manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('station-')}
     if layer=='architecture':
         manifest.pop('publicRealm',None);manifest.pop('neighbourhoods',None)
         manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith(('public-','neighbourhood-'))}

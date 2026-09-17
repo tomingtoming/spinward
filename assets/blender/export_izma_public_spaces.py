@@ -51,8 +51,9 @@ def pack(groups,surfaces=None):
 # Neighbourhood lots reserve this public-space contract. Re-export them after
 # the square layer, so moving a square cannot leave intersecting stale houses.
 manifest.pop('neighbourhoods',None)
-manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('neighbourhood-')}
-manifest['tiles']=[t for t in manifest['tiles']if not t.get('publicRealm')and not t.get('neighbourhood')]
+manifest.pop('railways',None)
+manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith(('neighbourhood-','station-'))}
+manifest['tiles']=[t for t in manifest['tiles']if not t.get('publicRealm')and not t.get('neighbourhood')and not t.get('railway')]
 manifest.setdefault('materialDetails',{})
 for name,definition in contract['materials'].items():
     manifest['palette']['public-'+name]=definition['color']

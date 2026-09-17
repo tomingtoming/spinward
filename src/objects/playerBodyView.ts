@@ -10,6 +10,7 @@ export type PlayerBodyFrame = {
   heading: number; grounded: boolean; enabled: boolean; visible?: boolean; deltaSeconds: number
   seat: RoomSeat | null; holding: boolean; indoors: boolean
   tracked?: TrackedBodyPose | null
+  movingSupport?: boolean
   // Flat-screen flight uses the existing jetpack attitude, which turns the
   // carrier with the view. This matrix is the eye in colony-local metres.
   airborneView?: THREE.Matrix4
@@ -59,6 +60,7 @@ export class PlayerBodyView {
     this.hand.visible = frame.enabled && frame.visible !== false && !frame.tracked && frame.holding
     if (!!frame.tracked !== this.tracking) { this.motion.reset(); this.tracking = !!frame.tracked }
     if (!frame.enabled) { this.motion.reset(); return false }
+    if (frame.movingSupport) this.motion.reset()
     const stepped = this.motion.update({ ...frame, grounded: frame.grounded && !frame.seat })
     if (!this.root || !this.group.visible) return stepped
     const root = this.root
@@ -78,7 +80,8 @@ export class PlayerBodyView {
       poseResident(root, this.time, false, false)
       poseAirborneBody(root, frame.airborneView!)
     } else {
-      const height = this.surfaces.sample(frame.azimuth, frame.axial, frame.groundHeight, frame.indoors)
+      const sampleFloor = (azimuth: number, axial: number) => frame.movingSupport ? frame.groundHeight : this.surfaces.sample(azimuth, axial, frame.groundHeight, frame.indoors)
+      const height = sampleFloor(frame.azimuth, frame.axial)
       // Eyes sit forward of the chest. Keeping the torso directly under the
       // camera makes its shoulders cover the legs when looking down.
       const back = .18
@@ -94,7 +97,7 @@ export class PlayerBodyView {
       root.updateMatrixWorld(true)
       for (let i = 0; i < 2; i++) {
         const foot = this.motion.feet[i], az = foot.tangent / frame.radius
-        const floor = this.surfaces.sample(az, foot.axial, frame.groundHeight, frame.indoors)
+        const floor = sampleFloor(az, foot.axial)
         point.set(Math.cos(az) * (frame.radius - floor - foot.lift), foot.axial, Math.sin(az) * (frame.radius - floor - foot.lift))
         root.worldToLocal(ankle.copy(point)); ankle.y += .055
         const horizontal = Math.hypot(ankle.x - (i === 0 ? -.112 : .112), ankle.z)
@@ -103,7 +106,7 @@ export class PlayerBodyView {
       root.updateMatrixWorld(true)
       for (const [i, side] of ['left', 'right'].entries()) {
         const foot = this.motion.feet[i], az = foot.tangent / frame.radius
-        const floor = this.surfaces.sample(az, foot.axial, frame.groundHeight, frame.indoors)
+        const floor = sampleFloor(az, foot.axial)
         footPosition.set(Math.cos(az) * (frame.radius - floor - foot.lift), foot.axial, Math.sin(az) * (frame.radius - floor - foot.lift))
         root.worldToLocal(ankle.copy(footPosition)); ankle.y += .055
         const hip = root.getObjectByName(side + '_hip')!, knee = root.getObjectByName(side + '_knee')!

@@ -217,6 +217,12 @@ for (const entry of ['desktop-menu', 'quest-entry']) {
       await page.waitForFunction(() => window.__spinwardWatch.screen === 'places')
       await capture(xr, info, 'wrist-places')
       await captureTexture(page, info, 'wrist-places')
+      await press(page, xr, 'nav-places-more')
+      await page.waitForFunction(() => window.__spinwardWatch.screen === 'places-more')
+      await capture(xr, info, 'wrist-places-more')
+      await captureTexture(page, info, 'wrist-places-more')
+      await press(page, xr, 'nav-places')
+      await page.waitForFunction(() => window.__spinwardWatch.screen === 'places')
       const initialPanel = trackingMatrix(await panelPose(page, 'nav-home')).elements
       for (const degrees of [0, 25, -25]) {
         await xr.setHeadPose({ euler: [-.22, 0, degrees*Math.PI/180] }); await xr.waitForFrames(2,{timeout:5000})
