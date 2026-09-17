@@ -48,7 +48,11 @@ def pack(groups,surfaces=None):
         ss.append({'indices':indices(vs),'bounds':[min(xs),min(ys),max(xs),max(ys)]})
     return {'vertices':pool,'meshes':drawing,'surfaces':ss}
 
-manifest['tiles']=[t for t in manifest['tiles']if not t.get('publicRealm')]
+# Neighbourhood lots reserve this public-space contract. Re-export them after
+# the square layer, so moving a square cannot leave intersecting stale houses.
+manifest.pop('neighbourhoods',None)
+manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('neighbourhood-')}
+manifest['tiles']=[t for t in manifest['tiles']if not t.get('publicRealm')and not t.get('neighbourhood')]
 manifest.setdefault('materialDetails',{})
 for name,definition in contract['materials'].items():
     manifest['palette']['public-'+name]=definition['color']

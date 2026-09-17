@@ -4,7 +4,7 @@ import raw from './generated/izmaColony.json'
 import plan from '../../assets/blender/izma-public-spaces.json'
 import { IZMA_MASTER_PLAN } from './izmaMasterPlan'
 import { AuthoredColony, colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
-import { buildCityCollisionIndex, collectCityBuildingsInWindow, getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
+import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
 import { citySurfaceVertices } from '../objects/citySurfaceMesh'
 import { AuthoredLandscape, LANDSCAPE_LIGHT_BUDGET } from './authoredLandscape'
 import { unpackLandscapeLibrary } from './landscapeData'
@@ -47,7 +47,7 @@ test('every district has a distinct named public place and a continuous road-to-
         const actual = getCityGroundHeight(physics, 3200, x / 3200, y, drawn + .1)
         expect(Math.abs(actual - drawn), `${p.id} walk ${i}`).toBeLessThan(.015)
         expect(Math.abs(b[2] - a[2]) / Math.hypot(b[0] - a[0], b[1] - a[1]), p.id).toBeLessThan(.085)
-        near.clear(); collectCityBuildingsInWindow(physics, x / 3200, y, 1, near)
+        near.clear(); collectCityCollidersNear(physics, x / 3200, y, 1, near)
         expect(near.size, p.id).toBeLessThanOrEqual(32)
         expect([...near].reduce((n, b) => n + (b.surfaceMesh?.length ?? 0) / 9, 0), p.id).toBeLessThanOrEqual(4096)
       }

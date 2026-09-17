@@ -5,7 +5,23 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest whole-colony public-space verification (2026-09-18): **16 passed in
+Latest whole-colony neighbourhood verification (2026-09-18): **545 additional
+frontage buildings around all 18 public places**, plus 303 supported street lamps
+sharing the existing six-light pool. **1,139 unit tests**, TypeScript/build and
+**82 day/night desktop views** pass. The WebXR **0.3.0** full run passed **18/19**
+in **9.0 minutes**; B-housing's return fixture omitted the connected road from
+its drawn-floor probe. The recorded body was on that road within 0.66 mm. Adding
+the actual road to the probe, without changing app geometry or tolerances, gave
+**3/3** new street-to-door-and-back cases in **36.7 s** on the same fixed build.
+All 19 unique cases are covered, including the previous public wrist, motorway,
+study and four-world checks. Stable JS heap is 151.77–152.80 MiB; local sampled
+collision cost remains within 32 descriptors / 4,096 triangles. Whole-colony
+blocks, new interiors and transport/environment facilities remain unfinished;
+physical Quest is unmeasured. Fine shop-awning edge noise remains in the images.
+[Models, costs, evidence and remaining work](../neighborhood-life/colony-neighbourhoods.md).
+Evidence: `evidence/colony-neighbourhoods-20260918/verified/`.
+
+Previous whole-colony public-space verification (2026-09-18): **16 passed in
 7.9 minutes**, plus **3/3** extended public routes in **1.3 minutes** on the
 same fixed build, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE Metal.
 The new cases walk from roads into public squares in all three strips, then

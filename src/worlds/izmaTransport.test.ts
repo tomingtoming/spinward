@@ -4,7 +4,7 @@ import transport from '../../assets/blender/izma-transport.json'
 import { IZMA_MASTER_PLAN } from './izmaMasterPlan'
 import { colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
 import { landscapeColliders } from './authoredLandscape'
-import { buildCityCollisionIndex, collectCityBuildingsInWindow, getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
+import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
 import { citySurfaceVertices } from '../objects/citySurfaceMesh'
 
@@ -54,7 +54,7 @@ test('sampled transport collision windows stay within their local geometry budge
     const [x, y] = route.points[i]
     if (route.band === 0 && Math.abs(x) < 320 && Math.abs(y) < 400) continue
     near.clear()
-    collectCityBuildingsInWindow(index, route.band * Math.PI * 2 / 3 + x / 3200, y, 1, near)
+    collectCityCollidersNear(index, route.band * Math.PI * 2 / 3 + x / 3200, y, 1, near)
     expect(near.size, route.id).toBeLessThanOrEqual(32)
     let triangles = 0
     for (const body of near) triangles += (body.surfaceMesh?.length ?? 0) / 9

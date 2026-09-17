@@ -1,0 +1,35 @@
+{
+  "version": 1, "origin": "ai", "created": "2026-09-18",
+  "premise": "Small connected frontage catchments around the eighteen saved public spaces. These are authored infill increments, not final population capacity or uniform coverage of the colony. Existing squares, entrance walks, river reserves, buildings and street topology are retained.",
+  "families": {
+    "house": {"width": [9.2, 10.4, 11.6], "depth": 12, "floors": [2, 2, 3]},
+    "farmhouse": {"width": [10, 12], "depth": 14, "floors": [2]},
+    "shop-house": {"width": [10, 12, 15], "depth": 15, "floors": [2, 3, 3]},
+    "apartment": {"width": [18, 22, 26], "depth": 16, "floors": [3, 4]},
+    "office": {"width": [18, 22, 26], "depth": 18, "floors": [4, 5, 6]},
+    "civic": {"width": [20, 24], "depth": 18, "floors": [2, 3]},
+    "workshop": {"width": [18, 22, 26], "depth": 18, "floors": [2, 3]},
+    "warehouse": {"width": [24, 30], "depth": 22, "floors": [1]},
+    "pavilion": {"width": [12, 16], "depth": 12, "floors": [1]}
+  },
+  "districts": {
+    "a-port": {"radius": 650, "target": 32, "minimum": 18, "setback": 7, "rearGarden": 4, "sideGap": 5, "families": ["workshop", "warehouse", "shop-house", "apartment"]},
+    "a-old-town": {"radius": 550, "target": 48, "minimum": 24, "setback": 5, "rearGarden": 3, "sideGap": 3, "families": ["shop-house", "house", "shop-house", "apartment", "workshop"]},
+    "a-river": {"radius": 600, "target": 44, "minimum": 24, "setback": 6, "rearGarden": 6, "sideGap": 4, "families": ["house", "apartment", "house", "shop-house"]},
+    "a-civic": {"radius": 650, "target": 40, "minimum": 24, "setback": 6, "rearGarden": 4, "sideGap": 4, "families": ["office", "apartment", "shop-house", "civic"]},
+    "a-upland": {"radius": 600, "target": 44, "minimum": 24, "setback": 7, "rearGarden": 7, "sideGap": 5, "families": ["house", "apartment", "house", "shop-house"]},
+    "a-water": {"radius": 400, "target": 10, "minimum": 6, "setback": 7, "rearGarden": 9, "sideGap": 8, "families": ["pavilion", "house", "shop-house", "civic"]},
+    "b-workshop": {"radius": 650, "target": 32, "minimum": 18, "setback": 7, "rearGarden": 4, "sideGap": 5, "families": ["workshop", "shop-house", "warehouse", "apartment"]},
+    "b-campus": {"radius": 650, "target": 36, "minimum": 18, "setback": 7, "rearGarden": 7, "sideGap": 6, "families": ["civic", "apartment", "shop-house", "office"]},
+    "b-station": {"radius": 650, "target": 48, "minimum": 24, "setback": 5, "rearGarden": 3, "sideGap": 4, "families": ["office", "shop-house", "apartment", "shop-house"]},
+    "b-housing": {"radius": 600, "target": 44, "minimum": 24, "setback": 6, "rearGarden": 6, "sideGap": 4, "families": ["apartment", "house", "shop-house", "apartment"]},
+    "b-commons": {"radius": 400, "target": 10, "minimum": 6, "setback": 7, "rearGarden": 9, "sideGap": 8, "families": ["pavilion", "house", "shop-house", "civic"]},
+    "b-north": {"radius": 650, "target": 44, "minimum": 24, "setback": 6, "rearGarden": 5, "sideGap": 5, "families": ["apartment", "office", "shop-house", "house"]},
+    "c-cargo": {"radius": 650, "target": 28, "minimum": 16, "setback": 8, "rearGarden": 4, "sideGap": 7, "families": ["warehouse", "workshop", "shop-house", "apartment"]},
+    "c-production": {"radius": 650, "target": 32, "minimum": 18, "setback": 7, "rearGarden": 4, "sideGap": 5, "families": ["workshop", "warehouse", "shop-house", "house"]},
+    "c-fields": {"radius": 450, "target": 14, "minimum": 8, "setback": 7, "rearGarden": 12, "sideGap": 9, "families": ["farmhouse", "house", "shop-house", "workshop"]},
+    "c-market": {"radius": 550, "target": 40, "minimum": 24, "setback": 5, "rearGarden": 4, "sideGap": 4, "families": ["shop-house", "workshop", "house", "apartment"]},
+    "c-orchards": {"radius": 450, "target": 14, "minimum": 8, "setback": 7, "rearGarden": 12, "sideGap": 9, "families": ["farmhouse", "house", "shop-house", "workshop"]},
+    "c-forest": {"radius": 400, "target": 10, "minimum": 6, "setback": 8, "rearGarden": 12, "sideGap": 9, "families": ["pavilion", "house", "workshop", "shop-house"]}
+  }
+}

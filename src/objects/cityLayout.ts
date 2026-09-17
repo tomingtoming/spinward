@@ -791,6 +791,27 @@ export const collectCityBuildingsInWindow = (
   return out
 }
 
+/** Refine the cell broad phase before expanding meshes into Rapier. A square
+ * of cells includes distant corners and changes size relative to the focus;
+ * dense streets need only the same guaranteed full-cell travel buffer. Keep
+ * the insertion margin and rotated bounds, including across the seam. */
+export const collectCityCollidersNear = (
+  index: CityCollisionIndex, azimuth: number, axial: number, cellRadius: number,
+  out: Set<CityBuilding>
+): Set<CityBuilding> => {
+  collectCityBuildingsInWindow(index, azimuth, axial, cellRadius, out)
+  const range = cellRadius * Math.min(TWO_PI * index.radius / index.azimuthCellCount, index.axialCellSize)
+  for (const building of out) {
+    const c = Math.abs(Math.cos(building.yaw ?? 0)), s = Math.abs(Math.sin(building.yaw ?? 0))
+    const dx = Math.max(0, Math.abs(wrapToPi(azimuth - building.azimuth)) * index.radius
+      - (building.width * c + building.depth * s) / 2 - COLLISION_INSERT_MARGIN)
+    const dy = Math.max(0, Math.abs(axial - building.axial)
+      - (building.depth * c + building.width * s) / 2 - COLLISION_INSERT_MARGIN)
+    if (dx * dx + dy * dy > range * range) out.delete(building)
+  }
+  return out
+}
+
 // Walking collision against building footprints, resolved in the unrolled
 // surface plane (tangent meters x axial meters). Pushes the position out of
 // any overlapped footprint along the axis of least penetration.

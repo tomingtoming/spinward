@@ -9,11 +9,13 @@ import { ColonyCollisionCache } from './colonyCollisionCache'
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
 export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable' | 'canopy']
-export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean; publicRealm?: boolean }
+export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean; publicRealm?: boolean; neighbourhood?: boolean }
+type ColonyArchitecture = { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][]; lights?: LandscapeLight[];
+  counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
   materialDetails?: Record<string, LandscapeMaterial>;
-  architecture?: { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][];
-    counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } };
+  architecture?: ColonyArchitecture;
+  neighbourhoods?: ColonyArchitecture;
   structures?: [number, number, number, number, number, number, number][];
   publicRealm?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { places: number; trees: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; collisionTriangles: number } };
   visits: Record<string, { band: number; position: [number, number]; lookAt?: [number, number]; heightHint?: number }> }
@@ -38,6 +40,7 @@ export function readColonyManifest(value: unknown): ColonyManifest {
   for (const visit of Object.values(p.visits)) if (!Number.isInteger(visit.band) || visit.band < 0 || visit.band > 2 || !finiteTuple(visit.position, 2) ||
     (visit.lookAt !== undefined && !finiteTuple(visit.lookAt, 2)) || (visit.heightHint !== undefined && !Number.isFinite(visit.heightHint))) throw Error('Invalid colony visit')
   if (p.publicRealm && (p.publicRealm.version !== 1 || !p.publicRealm.fixed)) throw Error('Invalid public realm')
+  if (p.neighbourhoods && (p.neighbourhoods.version !== 1 || !p.neighbourhoods.fixed)) throw Error('Invalid neighbourhoods')
   return p
 }
 
@@ -65,8 +68,9 @@ export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: nu
 
 export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces,
   architectureSurfaces = manifest.architecture ? decodeColonyMesh(manifest.architecture.fixed).surfaces : [],
-  publicSurfaces = manifest.publicRealm ? decodeColonyMesh(manifest.publicRealm.fixed).surfaces : []): CityBuilding[] {
-  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
+  publicSurfaces = manifest.publicRealm ? decodeColonyMesh(manifest.publicRealm.fixed).surfaces : [],
+  neighbourhoodSurfaces = manifest.neighbourhoods ? decodeColonyMesh(manifest.neighbourhoods.fixed).surfaces : []): CityBuilding[] {
+  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces, ...neighbourhoodSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
 }
 
 function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
@@ -74,6 +78,7 @@ function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
     manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw })))
   return landscapeColliders({ surfaces: [], solids: [
     ...buildings,
+    ...(manifest.neighbourhoods?.solids ?? []).map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw })),
     ...(manifest.structures ?? []).map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw }))
   ] }, manifest.radius)
 }
@@ -141,6 +146,7 @@ export class AuthoredColony {
     this.colliders = [...this.collisionCache.colliders(manifest.base, manifest.radius),
       ...(manifest.architecture ? this.collisionCache.colliders(manifest.architecture.fixed, manifest.radius) : []),
       ...(manifest.publicRealm ? this.collisionCache.colliders(manifest.publicRealm.fixed, manifest.radius) : []),
+      ...(manifest.neighbourhoods ? this.collisionCache.colliders(manifest.neighbourhoods.fixed, manifest.radius) : []),
       ...colonySolidColliders(manifest)]
     this.group.add(this.createMeshes(base.meshes, 'colony-base'))
     if (manifest.architecture) {
@@ -148,6 +154,7 @@ export class AuthoredColony {
       this.group.add(this.createMeshes(fixed.meshes, 'colony-parcel-ground'))
     }
     if (manifest.publicRealm) this.group.add(this.createMeshes(decodeColonyMesh(manifest.publicRealm.fixed, false).meshes, 'colony-public-ground'))
+    if (manifest.neighbourhoods) this.group.add(this.createMeshes(decodeColonyMesh(manifest.neighbourhoods.fixed, false).meshes, 'colony-neighbourhood-ground'))
     const boxes = manifest.tiles.flatMap(tile => (tile.proxyParts ?? tile.boxes).map(box => ({ tile, box })))
     const rotation = new THREE.Quaternion(), localYaw = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0)
     for (const name of this.materials.keys()) for (const shape of ['box', 'gable', 'canopy'] as const) {
@@ -176,6 +183,7 @@ export class AuthoredColony {
       loaded: 0, pending: 0, failed: [], near: 0, mid: 0, far: 0, baseTriangles: Object.values(base.meshes).reduce((n, a) => n + a.length / 9, 0),
       parcelGroundTriangles: manifest.architecture?.counts.fixedTriangles ?? 0, collisionCache: this.collisionCache.stats }
     this.group.userData.publicPlaces = manifest.publicRealm?.counts.places ?? 0
+    this.group.userData.neighbourhoodBuildings = manifest.neighbourhoods?.counts.buildings ?? 0
     this.setDaylight(this.daylight)
   }
 

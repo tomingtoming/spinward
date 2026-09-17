@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import type { RapierModule } from './rapierContext'
 import { BUILDING_COLLISION_GROUPS, scaleLengthForRapier } from './rapierBoundary'
 import {
-  collectCityBuildingsInWindow,
+  collectCityCollidersNear,
   type CityBuilding,
   type CityCollisionIndex
 } from '../objects/cityLayout'
@@ -119,7 +119,7 @@ export const createRotatingCityColliders = (
     // car (<=~10 m/step at the dt cap) and walker (<=~0.25 m/step) clear the
     // ~64 m buffer easily; revisit if a max speed or the dt cap is raised.
     update(focusAzimuth: number, focusAxial: number) {
-      collectCityBuildingsInWindow(index, focusAzimuth, focusAxial, cellRadius, near)
+      collectCityCollidersNear(index, focusAzimuth, focusAxial, cellRadius, near)
 
       for (const building of near) {
         if (!active.has(building)) {
