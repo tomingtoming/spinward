@@ -1429,7 +1429,8 @@ export class Cityscape {
       this.authoredBlock.rebuild([], radius)
       this.colonyBuildings.rebuild([], radius, new Map(), [])
       const data = this.landscapes[this.authoredWorldId]
-      this.authoredLandscape.rebuild(this.authoredWorldId, data, radius)
+      this.authoredLandscape.rebuild(this.authoredWorldId, data, radius,
+        this.authoredWorldId === 'izma' ? this.colony?.publicRealm?.lights : undefined)
       this.authoredColony.rebuild(this.authoredWorldId === 'izma' ? this.colony : null, data)
       this.collisionBuildings = [...landscapeColliders(data, radius), ...this.authoredColony.getColliders()]
       this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)

@@ -51,6 +51,7 @@ test('cold and evicted parcel approaches retain the whole-colony support heights
   const reference = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
   const cached = buildCityCollisionIndex([...cache.colliders(manifest.base, 3200),
     ...cache.colliders(manifest.architecture!.fixed, 3200),
+    ...cache.colliders(manifest.publicRealm!.fixed, 3200),
     ...reference.all.filter(b => !b.surfaceMesh)], 3200, 40000)
   expect(cached.all.length).toBe(reference.all.length)
   expect(cache.stats.entries).toBe(0)

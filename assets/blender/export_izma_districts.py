@@ -92,6 +92,11 @@ def pack(groups,surfaces=None):
         ss.append({'indices':indices(vs),'bounds':[min(xs),min(ys),max(xs),max(ys)]})
     return {'vertices':pool,'meshes':meshes,'surfaces':ss}
 
+# Public-space siting depends on these parcels. Invalidate the dependent
+# layer until its saved blend is rebuilt/exported against the new contract.
+manifest.pop('publicRealm',None)
+manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('public-')}
+manifest['palette']={k:v for k,v in manifest['palette'].items()if not k.startswith('public-')}
 manifest['materialDetails']={}
 for name,definition in contract['materials'].items():
     manifest['palette']['arch-'+name]=definition['color']

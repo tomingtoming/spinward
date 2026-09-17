@@ -2,20 +2,21 @@ import * as THREE from 'three'
 import { citySurfaceVertices } from '../objects/citySurfaceMesh'
 import { getCityGroundHeight, type CityBuilding, type CityCollisionIndex } from '../objects/cityLayout'
 import { landscapeColliders } from './authoredLandscape'
-import type { LandscapeData, LandscapeMaterial } from './landscapeData'
+import type { LandscapeData, LandscapeMaterial, LandscapeLight } from './landscapeData'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
 import { ColonyCollisionCache } from './colonyCollisionCache'
 
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
-export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable']
-export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean }
+export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable' | 'canopy']
+export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean; publicRealm?: boolean }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
   materialDetails?: Record<string, LandscapeMaterial>;
   architecture?: { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][];
     counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } };
   structures?: [number, number, number, number, number, number, number][];
-  visits: Record<string, { band: number; position: [number, number] }> }
+  publicRealm?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { places: number; trees: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; collisionTriangles: number } };
+  visits: Record<string, { band: number; position: [number, number]; lookAt?: [number, number]; heightHint?: number }> }
 
 export const COLONY_NEAR_DISTANCE = 850
 export const COLONY_MID_DISTANCE = 2600
@@ -32,8 +33,11 @@ export function readColonyManifest(value: unknown): ColonyManifest {
     if (ids.has(tile.id) || !/^\/landscapes\/izma\/[a-z0-9-]+\.json$/.test(tile.url) || !finiteTuple(tile.bounds, 4) || !Array.isArray(tile.boxes)) throw Error('Invalid colony tile')
     ids.add(tile.id)
     for (const box of tile.boxes) if (box.length !== 8 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony box')
-    for (const box of tile.proxyParts ?? []) if (box.length !== 9 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || !['box', 'gable'].includes(box[8]) || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony proxy')
+    for (const box of tile.proxyParts ?? []) if (box.length !== 9 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || !['box', 'gable', 'canopy'].includes(box[8]) || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony proxy')
   }
+  for (const visit of Object.values(p.visits)) if (!Number.isInteger(visit.band) || visit.band < 0 || visit.band > 2 || !finiteTuple(visit.position, 2) ||
+    (visit.lookAt !== undefined && !finiteTuple(visit.lookAt, 2)) || (visit.heightHint !== undefined && !Number.isFinite(visit.heightHint))) throw Error('Invalid colony visit')
+  if (p.publicRealm && (p.publicRealm.version !== 1 || !p.publicRealm.fixed)) throw Error('Invalid public realm')
   return p
 }
 
@@ -60,8 +64,9 @@ export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: nu
 }
 
 export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces,
-  architectureSurfaces = manifest.architecture ? decodeColonyMesh(manifest.architecture.fixed).surfaces : []): CityBuilding[] {
-  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
+  architectureSurfaces = manifest.architecture ? decodeColonyMesh(manifest.architecture.fixed).surfaces : [],
+  publicSurfaces = manifest.publicRealm ? decodeColonyMesh(manifest.publicRealm.fixed).surfaces : []): CityBuilding[] {
+  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
 }
 
 function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
@@ -135,18 +140,20 @@ export class AuthoredColony {
     const base = decodeColonyMesh(manifest.base, false)
     this.colliders = [...this.collisionCache.colliders(manifest.base, manifest.radius),
       ...(manifest.architecture ? this.collisionCache.colliders(manifest.architecture.fixed, manifest.radius) : []),
+      ...(manifest.publicRealm ? this.collisionCache.colliders(manifest.publicRealm.fixed, manifest.radius) : []),
       ...colonySolidColliders(manifest)]
     this.group.add(this.createMeshes(base.meshes, 'colony-base'))
     if (manifest.architecture) {
       const fixed = decodeColonyMesh(manifest.architecture.fixed, false)
       this.group.add(this.createMeshes(fixed.meshes, 'colony-parcel-ground'))
     }
+    if (manifest.publicRealm) this.group.add(this.createMeshes(decodeColonyMesh(manifest.publicRealm.fixed, false).meshes, 'colony-public-ground'))
     const boxes = manifest.tiles.flatMap(tile => (tile.proxyParts ?? tile.boxes).map(box => ({ tile, box })))
     const rotation = new THREE.Quaternion(), localYaw = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0)
-    for (const name of this.materials.keys()) for (const shape of ['box', 'gable'] as const) {
+    for (const name of this.materials.keys()) for (const shape of ['box', 'gable', 'canopy'] as const) {
       const entries = boxes.filter(b => b.box[7] === name && (b.box[8] ?? 'box') === shape)
       if (!entries.length) continue
-      const geometry = shape === 'box' ? new THREE.BoxGeometry(1, 1, 1) : new THREE.BufferGeometry()
+      const geometry = shape === 'box' ? new THREE.BoxGeometry(1, 1, 1) : shape === 'canopy' ? new THREE.IcosahedronGeometry(.5, 0) : new THREE.BufferGeometry()
         .setAttribute('position', new THREE.Float32BufferAttribute([-.5, -.5, -.5, .5, -.5, -.5, 0, .5, -.5, -.5, -.5, .5, .5, -.5, .5, 0, .5, .5], 3))
         .setIndex([0, 2, 1, 3, 4, 5, 0, 3, 5, 0, 5, 2, 2, 5, 4, 2, 4, 1, 0, 1, 4, 0, 4, 3])
       geometry.computeVertexNormals()
@@ -168,19 +175,34 @@ export class AuthoredColony {
     this.group.userData = { world: 'izma', scope: manifest.architecture ? 'whole-colony terrain and district architecture' : 'whole-colony terrain and initial massing', tiles: manifest.tiles.length,
       loaded: 0, pending: 0, failed: [], near: 0, mid: 0, far: 0, baseTriangles: Object.values(base.meshes).reduce((n, a) => n + a.length / 9, 0),
       parcelGroundTriangles: manifest.architecture?.counts.fixedTriangles ?? 0, collisionCache: this.collisionCache.stats }
+    this.group.userData.publicPlaces = manifest.publicRealm?.counts.places ?? 0
     this.setDaylight(this.daylight)
   }
 
   getColliders() { return this.colliders }
 
   visit(kind: string, index: CityCollisionIndex) {
+    // One wrist destination takes the visitor to the nearest district's public
+    // place. Named deep links remain stable for exploring all 18 districts.
+    if (kind === 'public' && this.manifest) {
+      const focus = this.lastFocus
+      const a = Number.isFinite(focus.azimuth) ? focus.azimuth : 0, y = Number.isFinite(focus.axial) ? focus.axial : 0
+      const distance = (p: ColonyManifest['visits'][string]) => {
+        const angle = p.band * Math.PI * 2 / 3 + p.position[0] / this.manifest!.radius - a
+        return Math.hypot(Math.atan2(Math.sin(angle), Math.cos(angle)) * this.manifest!.radius, p.position[1] - y)
+      }
+      kind = Object.entries(this.manifest.visits).filter(([id]) => id.startsWith('public-'))
+        .sort((a, b) => distance(a[1]) - distance(b[1]))[0]?.[0] ?? kind
+    }
     const point = this.manifest?.visits[kind]
     if (!point || !this.manifest) return null
     const azimuth = point.band * Math.PI * 2 / 3 + point.position[0] / this.manifest.radius, axial = point.position[1]
-    const groundHeight = getCityGroundHeight(index, this.manifest.radius, azimuth, axial, 400)
+    const groundHeight = getCityGroundHeight(index, this.manifest.radius, azimuth, axial, point.heightHint === undefined ? 400 : point.heightHint + .5)
     const up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
     const eye = up.clone().multiplyScalar(-(this.manifest.radius - groundHeight - 1.8)); eye.y = axial
-    const target = eye.clone().add(new THREE.Vector3(0, 40, 0))
+    const targetAngle = point.lookAt ? point.band * Math.PI * 2 / 3 + point.lookAt[0] / this.manifest.radius : 0
+    const target = point.lookAt ? new THREE.Vector3(Math.cos(targetAngle) * (this.manifest.radius - groundHeight - 1.8), point.lookAt[1],
+      Math.sin(targetAngle) * (this.manifest.radius - groundHeight - 1.8)) : eye.clone().add(new THREE.Vector3(0, 40, 0))
     return { azimuth, axial, groundHeight, orientation: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, target, up)) }
   }
 

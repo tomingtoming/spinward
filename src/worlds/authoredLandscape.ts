@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { CityBuilding } from '../objects/cityLayout'
 import { citySurfaceVertices } from '../objects/citySurfaceMesh'
-import type { LandscapeData } from './landscapeData'
+import type { LandscapeData, LandscapeLight } from './landscapeData'
 import type { AuthoredWorldId } from './worldDefinitions'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -35,6 +35,7 @@ export class AuthoredLandscape {
   private emissive: { material: THREE.MeshStandardMaterial; intensity: number }[] = []
   private lightPool: THREE.PointLight[] = []
   private lightSelection: { index: number; fade: number }[] = []
+  private lightSources: LandscapeLight[] = []
   private data: LandscapeData | null = null
   private radius = 1
   private readonly fill = new THREE.DirectionalLight('#fff3dd', 1.2)
@@ -44,9 +45,10 @@ export class AuthoredLandscape {
     parent.add(this.group)
   }
 
-  rebuild(id: AuthoredWorldId | null, data: LandscapeData | null, radius: number) {
+  rebuild(id: AuthoredWorldId | null, data: LandscapeData | null, radius: number, additionalLights: LandscapeLight[] = []) {
     this.clear(); this.data = data; this.radius = radius
     if (!data || !id) return
+    this.lightSources = [...(data.lights ?? []), ...additionalLights]
     // Each habitat retains its mirror/end-cap rig; local lights have a fixed
     // shadow-free pool so district growth cannot add unbounded GPU lights.
     this.fill.position.set(0, radius * .25, radius * .4)
@@ -92,7 +94,7 @@ export class AuthoredLandscape {
     this.group.userData = { world: id, district: data.name, lod: 0,
       triangles: data.lods.map(l => Object.values(l).reduce((n, a) => n + a.length / 9, 0)),
       surfaceTiles: data.surfaces.length, solids: data.solids.length, extent: data.extent }
-    if (data.lights?.length) for (let i = 0; i < LANDSCAPE_LIGHT_BUDGET; i++) {
+    if (this.lightSources.length) for (let i = 0; i < LANDSCAPE_LIGHT_BUDGET; i++) {
       const light = new THREE.PointLight('#ffffff', 0, 18, 2)
       light.name = 'landscape-local-light-' + i
       this.lightPool.push(light); this.group.add(light)
@@ -122,8 +124,9 @@ export class AuthoredLandscape {
     const lod = distance < 1200 ? 0 : distance < 3500 ? 1 : 2
     this.levels.forEach((level, i) => { level.visible = i === lod })
     this.group.userData.lod = lod
-    this.lightSelection = (this.data.lights ?? []).map((light, index) => {
-      const distance = Math.hypot(light.position[0] - azimuth * this.radius, light.position[1] - axial,
+    this.lightSelection = this.lightSources.map((light, index) => {
+      const angle = light.position[0] / this.radius - azimuth
+      const distance = Math.hypot(Math.atan2(Math.sin(angle), Math.cos(angle)) * this.radius, light.position[1] - axial,
         light.position[2] - altitude)
       return { index, distance, fade: 1 - THREE.MathUtils.smoothstep(distance, light.distance * .65, light.distance * 1.3) }
     }).filter(l => l.fade > 0).sort((a, b) => a.distance - b.distance).slice(0, LANDSCAPE_LIGHT_BUDGET)
@@ -141,7 +144,7 @@ export class AuthoredLandscape {
   private updateLights() {
     const night = THREE.MathUtils.smoothstep(1 - this.daylight, .3, .85)
     this.lightPool.forEach((light, i) => {
-      const selected = this.lightSelection[i], source = selected && this.data?.lights?.[selected.index]
+      const selected = this.lightSelection[i], source = selected && this.lightSources[selected.index]
       if (!source) { light.intensity = 0; return }
       const [x, y, h] = source.position, a = x / this.radius
       light.position.set(Math.cos(a) * (this.radius - h), y, Math.sin(a) * (this.radius - h))
@@ -155,7 +158,7 @@ export class AuthoredLandscape {
     for (const level of this.levels) level.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
     for (const material of this.materials) material.dispose()
     for (const texture of this.textures) texture.dispose()
-    this.textures = []; this.emissive = []; this.lightPool = []; this.lightSelection = []
+    this.textures = []; this.emissive = []; this.lightPool = []; this.lightSelection = []; this.lightSources = []
     this.group.clear(); this.group.userData = {}; this.levels = []; this.materials = []; this.data = null
   }
   dispose() { this.clear(); this.group.removeFromParent() }

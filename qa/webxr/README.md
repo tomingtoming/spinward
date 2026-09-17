@@ -5,7 +5,20 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest authored-colony collision-cache verification (2026-09-18): **13 passed
+Latest whole-colony public-space verification (2026-09-18): **16 passed in
+7.9 minutes**, plus **3/3** extended public routes in **1.3 minutes** on the
+same fixed build, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE Metal.
+The new cases walk from roads into public squares in all three strips, then
+under shelter roofs and back through the actual Nearby square wrist target;
+C-strip coverage runs at night. The existing architecture, motorway, study and
+four-world checks still pass. **1,134 unit tests**, TypeScript/build and **48
+final day/night desktop views** accompany the run. Public lights share the
+existing six-light pool; local collision budgets remain unchanged. The full
+colony is unfinished; physical Quest remains unmeasured.
+[Models, costs, evidence and remaining work](../neighborhood-life/colony-public-spaces.md).
+Evidence: `evidence/colony-public-20260918/verified/`.
+
+Previous authored-colony collision-cache verification (2026-09-18): **13 passed
 in 6.4 minutes**, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE Metal
 on a fixed build. All architecture, district, motorway, study, night/wrist and
 four-world cases pass; ten cases additionally enforce the live collision-cache
