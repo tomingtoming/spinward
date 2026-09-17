@@ -36,8 +36,8 @@ def raw_height(world, x, y):
     if world == 'izma':
         d = abs(x-curve_x(y))
         bank = .7 + 2.1*smooth(15, 28, d) + 5.2*smooth(43, 59, d)
-        # Close the reach into its own basin before the terrain boundary.
-        bank = max(bank, 8*smooth(310, 362, abs(y)))
+        # The river now joins the full-colony reach at both study boundaries.
+        # The old self-contained basin had artificial dams at +/-310 m.
         hill = 12*math.exp(-((x+215)/100)**2-((y-175)/145)**2)
         return .03 + edge*(bank + hill)
     if world == 'cooper':
@@ -255,7 +255,7 @@ def build(world):
     scene=new_scene(world);terrain(scene,world)
     if world=='izma':
         scene['label']='River terraces'
-        water=[(curve_x(y),y) for y in range(-310,311,10)]
+        water=[(curve_x(y),y) for y in range(-400,401,10)]
         ribbon(scene,world,'River',water,29,'water',fixed_height=1.5)
         for side in [-1,1]:
             ribbon(scene,world,'Lower_river_walk',[(curve_x(y)+side*35,y) for y in range(-290,291,10)],5,'walk')

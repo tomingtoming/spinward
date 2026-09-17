@@ -1,6 +1,6 @@
 import type { StreetSignalPlan } from './streetSignals'
 import type { EntranceWalk } from './streetEntranceWalk'
-import { sampleCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
+import { sampleProjectedCitySurface, type CitySurfaceMesh } from './citySurfaceMesh'
 import type { StreetSurfacePlan } from './streetSurfacePlan'
 import type { StreetMarkingPlan } from './streetMarkings'
 import { StreetNetwork } from './streetNetwork'
@@ -871,7 +871,7 @@ export const getCityGroundHeight = (
     const dx = wrapToPi(azimuth - building.azimuth) * radius, dy = axialPosition - building.axial
     if (building.surfaceMesh) {
       if (building.groundSurface === false) continue
-      groundHeight = Math.max(groundHeight, sampleCitySurface(building.surfaceMesh, dx, dy, altitude + stepTolerance))
+      groundHeight = Math.max(groundHeight, sampleProjectedCitySurface(building.surfaceMesh, radius, dx, dy, altitude + stepTolerance))
       continue
     }
     const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)

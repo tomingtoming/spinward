@@ -5,6 +5,7 @@ import {rebuildArrivalCore} from './arrivalCore'
 import {rebuildArrivalEast} from './arrivalEast'
 import {retireArrivalSeams,joinedArrivalTraffic} from './arrivalSeams'
 import { AuthoredLandscape, landscapeColliders } from '../worlds/authoredLandscape'
+import { AuthoredColony, type ColonyManifest } from '../worlds/authoredColony'
 import { resolveAuthoredWorld, type AuthoredWorldId } from '../worlds/worldDefinitions'
 import type { LandscapeLibrary } from '../worlds/landscapeData'
 import {connectArrivalLocalStreets} from './arrivalLocalLinks'
@@ -111,6 +112,7 @@ type CityscapeDimensions = {
 
 type CityscapeOptions = {
   landscapes?: LandscapeLibrary | null
+  colony?: ColonyManifest | null
   maxBuildings?: number
   maxTraffic?: number
   focusStepMeters?: number
@@ -618,7 +620,9 @@ export const FACADE_LIT_CHANCE = 0.6
 export class Cityscape {
   readonly group = new THREE.Group()
   readonly authoredLandscape = new AuthoredLandscape(this.group)
+  readonly authoredColony = new AuthoredColony(this.group)
   private readonly landscapes: LandscapeLibrary | null
+  private readonly colony: ColonyManifest | null
   private worldId: string | undefined
   private authoredWorldId: AuthoredWorldId | null = null
   private readonly civicDetails = new CivicDetails(this.group)
@@ -997,6 +1001,7 @@ export class Cityscape {
     options?: CityscapeOptions
   ) {
     this.landscapes = options?.landscapes ?? null
+    this.colony = options?.colony ?? null
     // The structural pattern is readable nearby but recedes into the large
     // window band across the bore, leaving the opposite city as the subject.
     this.windowStripMaterial.onBeforeCompile = (shader) => {
@@ -1425,7 +1430,8 @@ export class Cityscape {
       this.colonyBuildings.rebuild([], radius, new Map(), [])
       const data = this.landscapes[this.authoredWorldId]
       this.authoredLandscape.rebuild(this.authoredWorldId, data, radius)
-      this.collisionBuildings = landscapeColliders(data, radius)
+      this.authoredColony.rebuild(this.authoredWorldId === 'izma' ? this.colony : null, data)
+      this.collisionBuildings = [...landscapeColliders(data, radius), ...this.authoredColony.getColliders()]
       this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
       this.cityPlan = { buildings: [], roads: [], patches: [], trees: [], intersections: [],
         tower: null, expressway: null, streetNetwork: new StreetNetwork([], radius) }
@@ -1601,7 +1607,7 @@ export class Cityscape {
   sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
   getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
-    if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) : null
+    if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) ?? this.authoredColony.visit(kind, this.collisionIndex) : null
     if (kind === 'landscape') return this.authoredLandscape.visit()
     if (kind === 'deck') {
       const tower = this.cityPlan?.tower ?? null
@@ -1796,6 +1802,7 @@ export class Cityscape {
     this.disposed = true
     this.clear()
     this.authoredLandscape.dispose()
+    this.authoredColony.dispose()
     this.authoredBlock.dispose()
     this.colonyBuildings.dispose()
     this.oldTownBlock.dispose()
@@ -1850,6 +1857,7 @@ export class Cityscape {
 
   private clear() {
     this.authoredLandscape.clear()
+    this.authoredColony.clear()
     this.authoredWorldId = null
     this.observationDeck.setPlan(null, 0)
     this.oldTownBlock.clear()
@@ -2017,6 +2025,7 @@ export class Cityscape {
   // grid selects the nearby interior plans. ColonyBuildings owns exterior LODs.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.authoredLandscape.update(azimuth, axial, altitude)
+    this.authoredColony.update(azimuth, axial, altitude)
     this.authoredBlock.update(azimuth,axial,altitude)
     this.riverLayer.setFocus(azimuth, axial, altitude)
     this.riverBuildings.update(azimuth, axial, altitude)

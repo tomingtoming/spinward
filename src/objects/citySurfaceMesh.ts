@@ -2,6 +2,46 @@
  * height above the hull. Shared by rendering, grounding and streamed Rapier. */
 export type CitySurfaceMesh = readonly number[]
 
+type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number }
+const projectedCache = new WeakMap<CitySurfaceMesh, { radius: number; triangles: ProjectedTriangle[] }>()
+
+/** A radial ray against the same curved vertices used by drawing and Rapier.
+ * Large authored terrain faces have measurable chord height; interpolating
+ * their unrolled heights would put the walking surface below the visible one.
+ * The mesh is immutable after export; a new mesh/radius gets a new cache. */
+export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number, x: number, y: number, ceiling = Infinity) {
+  let cached = projectedCache.get(mesh)
+  if (!cached || cached.radius !== radius) {
+    const positions = citySurfaceVertices(mesh, radius)
+    const triangles: ProjectedTriangle[] = []
+    for (let i = 0; i < positions.length; i += 9) triangles.push({
+      ax: positions[i] + radius, ay: positions[i + 1], az: positions[i + 2],
+      bx: positions[i + 3] - positions[i], by: positions[i + 4] - positions[i + 1], bz: positions[i + 5] - positions[i + 2],
+      cx: positions[i + 6] - positions[i], cy: positions[i + 7] - positions[i + 1], cz: positions[i + 8] - positions[i + 2]
+    })
+    cached = { radius, triangles }; projectedCache.set(mesh, cached)
+  }
+  const dx = Math.cos(x / radius), dz = Math.sin(x / radius)
+  let height = 0
+  for (const t of cached.triangles) {
+    // Moller-Trumbore from (0, y, 0), towards the hull. No dependence on a
+    // renderer, scene matrix, reference-frame angle or source triangle normal.
+    const px = -dz * t.cy, py = dz * t.cx - dx * t.cz, pz = dx * t.cy
+    const det = t.bx * px + t.by * py + t.bz * pz
+    if (Math.abs(det) < 1e-10) continue
+    const tx = -t.ax, ty = y - t.ay, tz = -t.az
+    const u = (tx * px + ty * py + tz * pz) / det
+    if (u < -1e-7 || u > 1 + 1e-7) continue
+    const qx = ty * t.bz - tz * t.by, qy = tz * t.bx - tx * t.bz, qz = tx * t.by - ty * t.bx
+    const v = (dx * qx + dz * qz) / det
+    if (v < -1e-7 || u + v > 1 + 1e-7) continue
+    const radial = (t.cx * qx + t.cy * qy + t.cz * qz) / det
+    const h = radius - radial
+    if (radial > 0 && h > height && h <= ceiling) height = h
+  }
+  return height
+}
+
 export function sampleCitySurface(mesh: CitySurfaceMesh, x: number, y: number, ceiling = Infinity): number {
   let height = 0
   for (let i = 0; i < mesh.length; i += 9) {

@@ -5,7 +5,16 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest focused verification (2026-09-14, southern arrival corridor):
+Latest authored-colony verification (2026-09-17): three inhabited strips,
+four continuous walking cases (three district centres and the original-study
+boundary), the preserved 420 m route, night lighting and four-world wrist
+switching. The seven-case run had six successes and one fixture start-height
+failure; the corrected boundary case and expanded night Places test then passed
+on the unchanged build. [Scope, measurements, visual review and unfinished
+transport](../neighborhood-life/colony-runtime.md). This is whole-terrain and
+massing integration, not a completed city or a physical-headset measurement.
+
+Previous focused verification (2026-09-14, southern arrival corridor):
 **14 passed in 6.6 minutes**, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal on one fixed build, with the served asset rehashed
 after XR. The whole-band plan now supplies 35 road segments to the next centre,

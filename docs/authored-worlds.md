@@ -183,7 +183,7 @@ sampler after walking. Merely being in `grounded` mode is not sufficient.
 
 This is a spatial study. Finished building facades/interiors, complete building-to-road
 access, all-district walking routes, public transport, vegetation detail,
-finished lighting, and the full colony terrain remain subsequent work. The
+finished lighting, and the full colony terrain were subsequent work for this study. The
 ordinary city is the comparison environment. Physical Quest performance and
 comfort have not been measured by the emulated tests.
 
@@ -195,3 +195,8 @@ diagram, not the new full-colony plan. The 420 m district remains a completed
 part within the much larger unfinished objective. Cooper/Elysium remain
 comparison cases for topology and scale. Scheduled autonomous development
 remains stopped; the new development goal does not recreate a scheduler.
+
+The [subsequent runtime increment](../qa/neighborhood-life/colony-runtime.md)
+now adds the full three-strip terrain and 244 streamed building-massing tiles,
+while retaining the study and its four-world compatibility. It does not finish
+the colony's detailed buildings, transport or domestic/public interiors.

@@ -11,6 +11,7 @@ import {planBandTransport} from './bandExpressway'
 import {bandGraph,type BandPoint} from './bandStreetPlan'
 import {landContains} from './streetParcels'
 import {polygonArea,intersectStreetPolygons,containsStreetPolygon,positivePolygon,type StreetPolygon} from './streetPolygon'
+import {buildStreetSurfaceGeometry} from './streetSurfaceGeometry'
 
 const polygon=(p:BandPoint[])=>positivePolygon(p.map(([x,y])=>({x,y,u:0,v:0})))
 const box=(p:StreetPolygon)=>({x0:Math.min(...p.map(v=>v.x)),x1:Math.max(...p.map(v=>v.x)),y0:Math.min(...p.map(v=>v.y)),y1:Math.max(...p.map(v=>v.y))})
@@ -94,10 +95,15 @@ test('all three preserved doors join a near-side footway with continuous support
     for(const [start,goal]of [[a,b],[b,a]])expect(planNeighborhoodRoute(plan,3200,start,goal,false)).not.toBeNull()
     expect(w.width).toBe(2);expect(w.maximumGrade).toBeLessThanOrEqual(.06)
     const near=land.geometry.sidewalks.filter(s=>overlaps(box(s.polygon),{x0:w.landing.x-4,x1:w.landing.x+4,y0:w.landing.y-4,y1:w.landing.y+4}))
-    // Real owned sidewalk tops, not an invented bridge across a missing patch.
+    // Use the actual rendered sidewalk triangles. An unsplit polygon fan can
+    // add 9 cm of cylinder chord height that the renderer's subdivision avoids.
     const paving:CityBuilding[]=near.map(s=>{
-      const p=s.polygon.map(v=>({x:v.x-w.entrance.x,y:v.y-w.entrance.y})),mesh:number[]=[]
-      for(let i=1;i<p.length-1;i++)for(const v of [p[0],p[i],p[i+1]])mesh.push(v.x,v.y,s.lift)
+      const geometry=buildStreetSurfaceGeometry([s],3200,10)!,p=geometry.getAttribute('position'),indices=geometry.index!,mesh:number[]=[]
+      for(let i=0;i<indices.count;i++){
+        const v=indices.getX(i),x=p.getX(v),z=p.getZ(v)
+        mesh.push(Math.atan2(z,x)*3200-w.entrance.x,p.getY(v)-w.entrance.y,3200-Math.hypot(x,z))
+      }
+      geometry.dispose()
       return{...w.collider,surfaceMesh:mesh}
     })
     for(const side of [-.65,0,.65])for(const reverse of [false,true]){

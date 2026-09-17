@@ -8,7 +8,7 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export const LANDSCAPE_LIGHT_BUDGET = 6
 
-export function landscapeColliders(data: LandscapeData, radius: number): CityBuilding[] {
+export function landscapeColliders(data: Pick<LandscapeData, 'surfaces' | 'solids'>, radius: number): CityBuilding[] {
   const surfaces: CityBuilding[] = data.surfaces.map(({ vertices, bounds }) => {
     const x = (bounds[0] + bounds[2]) / 2, y = (bounds[1] + bounds[3]) / 2
     let height = 0

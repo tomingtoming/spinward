@@ -75,6 +75,7 @@ test('authored landscapes share stereo walking, wrist travel and a clean Playgro
     await xr.waitForFrames(3,{timeout:5000});await press(page,xr,'nav-home')
     const arrived=await state()
     expect(arrived.mode).toBe('grounded')
+    if(id!=='izma') expect(await page.evaluate(()=>window.__spinwardCity.authoredColony.group.children.length)).toBe(0)
     if(id==='playground') {
       expect(arrived.id).toBeNull();expect(arrived.visit).toBeNull();expect(arrived.radius).toBe(18)
       expect(await page.evaluate(()=>window.__spinwardCity.authoredLandscape.group.children.length)).toBe(0)

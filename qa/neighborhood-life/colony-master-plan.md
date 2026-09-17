@@ -7,8 +7,10 @@ created: 2026-09-17
 
 The active user goal is the entire Izma colony. This increment supplies the
 first full plan and full-extent massing model; it does not complete the goal.
-The executable app still contains the finished 420 m riverside route and the
-three small study districts. No full-colony geometry is loaded by the app yet.
+At the time of this plan-only increment the executable app still contained
+the finished 420 m riverside route and the three small study districts.
+The subsequent [runtime increment](colony-runtime.md) loads the whole terrain
+and building massing; it still does not complete the districts or transport.
 
 ## Source and scope
 

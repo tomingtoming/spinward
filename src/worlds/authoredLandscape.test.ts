@@ -89,11 +89,22 @@ for (const id of ids) test(`${id}: Blender export, visible floor and streamed gr
 
 test('the river bridge supports a continuous thirty metre crossing', () => {
   const data = library.izma, index = buildCityCollisionIndex(landscapeColliders(data, 3200), 3200, 40000)
+  const layer = new AuthoredLandscape(new THREE.Group())
+  layer.rebuild('izma', data, 3200); layer.group.updateMatrixWorld(true)
+  const drawing = layer.group.getObjectByName('landscape-lod-0')!
   let h = data.spawn[2]
   for (let x = data.spawn[0]; x < data.spawn[0] + 30; x += .25) {
     h = getCityGroundHeight(index, 3200, x / 3200, data.spawn[1], h)
-    expect(h).toBeCloseTo(8.2, 3)
+    const a = x / 3200, outward = new THREE.Vector3(Math.cos(a), 0, Math.sin(a))
+    const origin = outward.clone().multiplyScalar(3188); origin.y = data.spawn[1]
+    const hit = new THREE.Raycaster(origin, outward, 0, 6).intersectObject(drawing, true)[0]
+    expect(hit).toBeDefined()
+    expect(Math.abs(h - (3200 - Math.hypot(hit.point.x, hit.point.z)))).toBeLessThan(.002)
+    // The authored deck is nominally 8.2 m; cylindrical triangle chords
+    // add millimetres. Constant planar height was not the visible surface.
+    expect(Math.abs(h - 8.2)).toBeLessThan(.03)
   }
+  layer.dispose()
 })
 
 for (const route of Object.keys(library.izma.walks!)) test(`${route}: pavement and door clearance form a continuous walk`, () => {

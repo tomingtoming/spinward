@@ -115,8 +115,10 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 Cooper / Elysium は大きな配置を判断する粗モデルです。
 [設計と編集手順](docs/authored-worlds.md)。
 現在は[イズマ全域の設計](docs/izma-colony-design.md)へ制作範囲を広げています。
-3居住帯・40kmの都市計画とBlender配置模型を用意しましたが、全域モデルの
-アプリへの組み込みと探索経路は開発中です。
+3居住帯・40kmの地形と粗い建物配置をアプリへ接続しました。
+`&visit=a-civic` / `&visit=b-campus` / `&visit=c-market` で各帯を開けます。
+建物詳細は244区画へ分けて読み込みます。地区の建築・交通・帯間接続は開発中で、
+全域完成ではありません。[検証範囲と残りの工程](qa/neighborhood-life/colony-runtime.md)。
 
 ```bash
 bun install
