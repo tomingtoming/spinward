@@ -149,12 +149,18 @@ export const createRotatingCityColliders = (
       index: CityCollisionIndex
       units?: UnitsContext
       cellRadius?: number
+      frameAngle?: number
     }) {
       clearColliders()
       radius = next.radius
       index = next.index
       units = next.units ?? units
       cellRadius = next.cellRadius ?? cellRadius
+      if (next.frameAngle !== undefined) {
+        // Preset selection may reset the visual frame while retaining this
+        // kinematic body. Its collision terrain must return to the same phase.
+        body.setRotation(buildingRotation.setFromAxisAngle(Y_AXIS, next.frameAngle), true)
+      }
     },
 
     dispose() {

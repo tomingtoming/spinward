@@ -15,11 +15,13 @@ type HabitatLike = {
 }
 
 type CityscapeLike = {
+  getCityPlan?: () => { expressway: CityExpressway | null } | null
   setDimensions: (dimensions: {
     radius: number
     length: number
     topology?: HabitatTopology
     type?: HabitatType
+    worldId?: string
   }) => void
 }
 
@@ -43,6 +45,7 @@ type CameraLike = {
 }
 
 type RotatingCylinderLike<TUnits> = {
+  syncToFrame?: (frameAngle: number) => void
   rebuild: (config: {
     radius: number
     length: number
@@ -72,6 +75,7 @@ type SyncHabitatRuntimeDependencies<TPlayerRig, TPlayerTraversal, TUnits> = {
 }
 
 type SyncHabitatRuntimeConfig<TUnits> = {
+  worldId?: string
   radius: number
   span: number
   rpm: number
@@ -97,7 +101,8 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     radius: config.radius,
     length: config.span,
     topology: config.topology,
-    type: config.type
+    type: config.type,
+    worldId: config.worldId
   })
   dependencies.spaceport.setDimensions({
     radius: config.radius,
@@ -121,8 +126,11 @@ export const syncHabitatRuntime = <TPlayerRig, TPlayerTraversal, TUnits>(
     units: config.units,
     // The viaduct's deck ring + ramp treads co-rotate on the wall body, so
     // the car (and thrown balls) get real contact with them.
-    expressway: getCityExpressway(config.radius, config.span)
+    expressway: dependencies.cityscape.getCityPlan
+      ? dependencies.cityscape.getCityPlan()?.expressway ?? null
+      : getCityExpressway(config.radius, config.span)
   })
+  dependencies.cylinderWall.syncToFrame?.(config.frameAngle)
   dependencies.cylinderWall.setAngularVelocity(rpmToOmega(config.rpm))
   dependencies.starfield.setFrameAngle(config.frameAngle)
   dependencies.applyPlayerTraversalState(

@@ -825,12 +825,12 @@
       "sha256": "6fe65b007a07710e9ed9b41e29f75da0042d47bfe3024c616794c440fdbb3ae5",
       "size": 1862435,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-17",
       "finding": "covered-walk",
       "duplicateOf": null,
       "implementation": "partial",
       "observation": "高架下面と支持柱、隣接する公共通路を再確認。画面自体は降雨を示していない。雨宿りは既存構造を天候へつなぐSpinward側の機能改善で、資料の雨を再現したという意味ではない。 2026-09-14: 元の1920×1080とhashを再確認。高架の下面・支持柱、下の車道と分離された歩行空間を確認。ICやJCTの配置を示す資料としては扱わない。",
-      "applied": "2026-09-13: 既存高架下通路の主歩行帯を徒歩案内へ接続。これはSpinward側の機能改善で、原画の川沿いの地形や固有意匠を追加したものではない。qa/neighborhood-life/covered-directions.mdを参照。 2026-09-14: qa/neighborhood-life/band-interchanges.md。下の生活動線を空ける上下関係を、独立した全域道路案のICへ部分採用。中間ICを両側の地上接続と本線下の横断道へ組み替えた。ダイヤモンド型の配置・寸法はSpinward独自。支柱・車線合流面・現行コロニーへの適用は未実装。 同日JCT回: 元画像とhashを再閲覧・照合。qa/neighborhood-life/band-junction.md で、下の動線を確保する上下分離の考え方を全域案の分岐・合流へ接続。JCTの三層配置はSpinward独自で、原画からの復元ではない。支持柱・合流路面・現行世界への適用は残件。"
+      "applied": "2026-09-13: 既存高架下通路の主歩行帯を徒歩案内へ接続。これはSpinward側の機能改善で、原画の川沿いの地形や固有意匠を追加したものではない。qa/neighborhood-life/covered-directions.mdを参照。 2026-09-14: qa/neighborhood-life/band-interchanges.md。下の生活動線を空ける上下関係を、独立した全域道路案のICへ部分採用。中間ICを両側の地上接続と本線下の横断道へ組み替えた。ダイヤモンド型の配置・寸法はSpinward独自。支柱・車線合流面・現行コロニーへの適用は未実装。 同日JCT回: 元画像とhashを再閲覧・照合。qa/neighborhood-life/band-junction.md で、下の動線を確保する上下分離の考え方を全域案の分岐・合流へ接続。JCTの三層配置はSpinward独自で、原画からの復元ではない。支持柱・合流路面・現行世界への適用は残件。 2026-09-17: qa/neighborhood-life/river-neighborhood-finish.md。Blender製の独立した試作街区へ、橋上の街路・下段の護岸歩道・通行帯を守る柵という関係を反映。アーチ・ベンチ・支持のある街灯は独自モデルで、作品の地図や固有意匠の復元ではない。"
     },
     {
       "id": "izma-ep03-0021",
@@ -872,7 +872,7 @@
       "sha256": "74330871397a3b589db285d9d85f3c3e8323ff19547b5929454a827d67df056c",
       "size": 2135384,
       "review": "viewed",
-      "reviewedOn": "2026-09-14",
+      "reviewedOn": "2026-09-17",
       "finding": "waterside",
       "duplicateOf": null,
       "implementation": "partial",
@@ -884,7 +884,8 @@
         "qa/neighborhood-life/land-street-growth.md: 橋に渡河位置が制約されるという観察を、道路生成器の障害物・既存の渡河路の入力分離へ使用。河川条件は生成器の検査用場面であり、今回の実景で川や橋を増設したものではない。",
         "qa/neighborhood-life/band-street-plan.md: 川と渡河位置を道路より先に与える全居住帯の計画生成器。橋閉鎖・移動で接続を再選択する検査。新しい川筋・橋の数・施設位置は独自の仮配置で、原画からの地図復元や3D地形への適用ではない。",
         "qa/neighborhood-life/band-street-geometry.md: 橋と護岸の上下関係を再確認し、道路の形状整理でも指定済み渡河・立体横断の端点と保留地を維持する。新たな橋の高さ・形状は今回未設計。",
-        "qa/neighborhood-life/band-elevation.md: 2026-09-14、原寸とhashを再確認。全域案へ河床・水面・低い護岸歩道・上の街路・橋の連続縦断と閉じた土のメッシュを追加。現行コロニーへ未適用。石造アーチの複製、支持構造・柵・上下移動のアクセスは未実装。"
+        "qa/neighborhood-life/band-elevation.md: 2026-09-14、原寸とhashを再確認。全域案へ河床・水面・低い護岸歩道・上の街路・橋の連続縦断と閉じた土のメッシュを追加。現行コロニーへ未適用。石造アーチの複製、支持構造・柵・上下移動のアクセスは未実装。",
+        "2026-09-17: qa/neighborhood-life/river-neighborhood-finish.md。Blender製の独立した試作街区へ、橋上の街路・下段の護岸歩道・通行帯を守る柵という関係を反映。アーチ・ベンチ・支持のある街灯は独自モデルで、作品の地図や固有意匠の復元ではない。"
       ]
     },
     {

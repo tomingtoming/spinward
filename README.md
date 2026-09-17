@@ -107,6 +107,14 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 
 ## セットアップ
 
+地形を個別に設計する次期景観の試作は、ローカル開発環境で
+`/?landscape=authored&preset=izma` から開けます。`cooper` / `elysium` にも
+それぞれ異なる 640 × 800 m の Blender 製地区を用意し、同じ歩行・VR操作で
+比較できます。Playground は物理実験用のままです。イズマは橋・商店街・丘の上の
+住宅を約420mの道でつなぎ、4店舗への入店と昼夜の景観を試せます。
+Cooper / Elysium は大きな配置を判断する粗モデルです。
+[設計と編集手順](docs/authored-worlds.md)。
+
 ```bash
 bun install
 ```

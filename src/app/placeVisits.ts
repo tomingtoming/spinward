@@ -1,6 +1,7 @@
 /** Everyday destinations resolve against the current generated city. A small
  * habitat or a different quality tier must not inherit an absent landmark. */
 export const PLACE_DESTINATIONS = [
+  { id: 'visit-landscape', label: 'Landscape', kind: 'landscape' },
   { id: 'visit-cafe', label: 'Café', kind: 'cafe' },
   { id: 'visit-courtyard', label: 'Courtyard', kind: 'court' },
   { id: 'visit-apartment', label: 'Apartment', kind: 'nyaan' },

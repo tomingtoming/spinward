@@ -36,6 +36,11 @@ const DRIVE_CONTROLS_TOKEN = '{{DRIVE_CONTROLS}}'
 const FREEFLY_BRAKE_TOKEN = '{{FREEFLY_BRAKE}}'
 
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
+  'visit-landscape': {
+    title: 'LANDSCAPE STUDY',
+    body: ['Walk the terrain and compare the neighbourhoods.', 'Change habitat to visit another landscape.'],
+    durationSeconds: 5
+  },
   start: {
     title: 'SPINWARD',
     body: [

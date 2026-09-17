@@ -4,6 +4,9 @@ import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from './arriva
 import {rebuildArrivalCore} from './arrivalCore'
 import {rebuildArrivalEast} from './arrivalEast'
 import {retireArrivalSeams,joinedArrivalTraffic} from './arrivalSeams'
+import { AuthoredLandscape, landscapeColliders } from '../worlds/authoredLandscape'
+import { resolveAuthoredWorld, type AuthoredWorldId } from '../worlds/worldDefinitions'
+import type { LandscapeLibrary } from '../worlds/landscapeData'
 import {connectArrivalLocalStreets} from './arrivalLocalLinks'
 import {populateArrivalLocalStreets} from './arrivalInfill'
 import {rebuildArrivalSouthernCorridor} from './arrivalSouthernCorridor'
@@ -103,9 +106,11 @@ type CityscapeDimensions = {
   length: number
   topology?: HabitatTopology
   type?: HabitatType
+  worldId?: string
 }
 
 type CityscapeOptions = {
+  landscapes?: LandscapeLibrary | null
   maxBuildings?: number
   maxTraffic?: number
   focusStepMeters?: number
@@ -612,6 +617,10 @@ export const FACADE_LIT_CHANCE = 0.6
 
 export class Cityscape {
   readonly group = new THREE.Group()
+  readonly authoredLandscape = new AuthoredLandscape(this.group)
+  private readonly landscapes: LandscapeLibrary | null
+  private worldId: string | undefined
+  private authoredWorldId: AuthoredWorldId | null = null
   private readonly civicDetails = new CivicDetails(this.group)
   private readonly observationDeck = new ObservationDeck(this.group)
   readonly curvedNeighborhood=new CurvedNeighborhoodLayer(this.group)
@@ -987,6 +996,7 @@ export class Cityscape {
     dimensions: CityscapeDimensions,
     options?: CityscapeOptions
   ) {
+    this.landscapes = options?.landscapes ?? null
     // The structural pattern is readable nearby but recedes into the large
     // window band across the bore, leaving the opposite city as the subject.
     this.windowStripMaterial.onBeforeCompile = (shader) => {
@@ -1375,7 +1385,7 @@ export class Cityscape {
     }
   }
 
-  setDimensions({ radius, length, topology, type }: CityscapeDimensions) {
+  setDimensions({ radius, length, topology, type, worldId }: CityscapeDimensions) {
     const nextTopology = topology ?? this.topology
     const nextType = type ?? this.habitatType
 
@@ -1383,7 +1393,7 @@ export class Cityscape {
       radius === this.radius &&
       length === this.length &&
       nextTopology === this.topology &&
-      nextType === this.habitatType
+      nextType === this.habitatType && worldId === this.worldId
     ) {
       return
     }
@@ -1392,6 +1402,7 @@ export class Cityscape {
     this.length = length
     this.topology = nextTopology
     this.habitatType = nextType
+    this.worldId = worldId
     // Only the dark LINEAR infrastructure fades (roads/bridges); the building
     // skyline — the "city overhead" reveal — is untouched, so the far wall
     // still reads. The straight-overhead far side sits at exactly 2R, and a
@@ -1404,6 +1415,26 @@ export class Cityscape {
     this.clear()
 
     if (radius <= 0 || length <= 0) {
+      return
+    }
+
+    this.authoredWorldId = this.landscapes ? resolveAuthoredWorld({ radius, length,
+      topology: this.topology, type: this.habitatType, worldId }) : null
+    if (this.authoredWorldId && this.landscapes) {
+      this.authoredBlock.rebuild([], radius)
+      this.colonyBuildings.rebuild([], radius, new Map(), [])
+      const data = this.landscapes[this.authoredWorldId]
+      this.authoredLandscape.rebuild(this.authoredWorldId, data, radius)
+      this.collisionBuildings = landscapeColliders(data, radius)
+      this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
+      this.cityPlan = { buildings: [], roads: [], patches: [], trees: [], intersections: [],
+        tower: null, expressway: null, streetNetwork: new StreetNetwork([], radius) }
+      this.buildWindowStrips(radius, length)
+      this.buildMirrors(radius, length)
+      if (this.sunBeams.length === 0) this.buildEndSun(length)
+      if (this.habitatType === 'ring') {
+        this.buildCables(radius, length); this.buildSpineRings(radius, length); this.buildAxisSpine(radius, length)
+      }
       return
     }
 
@@ -1570,6 +1601,8 @@ export class Cityscape {
   sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
   getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
+    if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) : null
+    if (kind === 'landscape') return this.authoredLandscape.visit()
     if (kind === 'deck') {
       const tower = this.cityPlan?.tower ?? null
       if (!hasObservationDeck(tower, this.radius)) return null
@@ -1682,6 +1715,8 @@ export class Cityscape {
     return this.cityPlan
   }
 
+  isAuthoredLandscape() { return this.authoredWorldId !== null }
+
   // The Car Kit pack once loaded (null until then); parkedCars.ts shares it.
   getKenneyCarPack(): KenneyCarGeometryPack | null {
     return this.kenneyCarGeometries
@@ -1696,6 +1731,7 @@ export class Cityscape {
   }
 
   setDaylight(daylight: number) {
+    this.authoredLandscape.setDaylight(daylight)
     this.riverLayer.setDaylight(daylight)
     this.riverBuildings.setDaylight(daylight)
     this.curvedNeighborhood.buildings.setDaylight(daylight)
@@ -1759,6 +1795,7 @@ export class Cityscape {
   dispose() {
     this.disposed = true
     this.clear()
+    this.authoredLandscape.dispose()
     this.authoredBlock.dispose()
     this.colonyBuildings.dispose()
     this.oldTownBlock.dispose()
@@ -1812,6 +1849,8 @@ export class Cityscape {
   }
 
   private clear() {
+    this.authoredLandscape.clear()
+    this.authoredWorldId = null
     this.observationDeck.setPlan(null, 0)
     this.oldTownBlock.clear()
     this.oldTownCourt.clear()
@@ -1977,6 +2016,7 @@ export class Cityscape {
   // The fine grid refreshes street access, interiors and traffic; the coarse
   // grid selects the nearby interior plans. ColonyBuildings owns exterior LODs.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
+    this.authoredLandscape.update(azimuth, axial, altitude)
     this.authoredBlock.update(azimuth,axial,altitude)
     this.riverLayer.setFocus(azimuth, axial, altitude)
     this.riverBuildings.update(azimuth, axial, altitude)

@@ -32,6 +32,7 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
   }
   const cylinderWall = {
     rebuild: mock(() => {}),
+    syncToFrame: mock(() => {}),
     setAngularVelocity: mock(() => {})
   }
   const applyPlayerTraversalState = mock(() => {})
@@ -82,6 +83,8 @@ test('syncHabitatRuntime keeps habitat visuals, cameras, and wall colliders in s
     expressway: null
   })
   expect(cylinderWall.setAngularVelocity).toHaveBeenCalledWith(0.5235987755982988)
+  expect(cylinderWall.syncToFrame).toHaveBeenCalledWith(1.25)
+  expect(cylinderWall.syncToFrame.mock.invocationCallOrder[0]).toBeLessThan(
+    cylinderWall.setAngularVelocity.mock.invocationCallOrder[0])
   expect(applyPlayerTraversalState).toHaveBeenCalledWith(playerRig, playerTraversal, 18, 1.25)
 })
-

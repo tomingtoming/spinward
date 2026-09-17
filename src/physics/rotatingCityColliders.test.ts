@@ -78,3 +78,24 @@ test('the city colliders body spins and survives a rebuild', async () => {
   city.dispose()
   world.free()
 })
+
+test('switching a preset realigns the streamed ground with the reset visual frame', async () => {
+  const rapier = await initRapier()
+  const world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const units = createUnitsContext(SIM_SCALE)
+  applyWorldLengthUnit(world, units)
+  const index = buildCityCollisionIndex([building(0)], RADIUS, LENGTH)
+  const city = createRotatingCityColliders(rapier, world, { radius: RADIUS, index, units, omega: OMEGA })
+  try {
+    for (let i = 0; i < 120; i++) { world.timestep = 1 / 60; world.step() }
+    // The preset action resets frameAngle to zero. Reusing the old body's
+    // angle leaves its terrain hundreds of metres away from the drawing.
+    city.rebuild({ radius: RADIUS, index, units, frameAngle: 0 })
+    city.update(0, 0)
+    world.propagateModifiedBodyPositionsToColliders()
+    const position = city.body.collider(0).translation()
+    expect(Math.abs(position.z / SIM_SCALE)).toBeLessThan(.01)
+    expect(position.x / SIM_SCALE).toBeCloseTo(RADIUS - 15, 2)
+    expect(city.body.angvel().y).toBeCloseTo(OMEGA, 6)
+  } finally { city.dispose(); world.free() }
+})

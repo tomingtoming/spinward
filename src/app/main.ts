@@ -1,4 +1,5 @@
 import { NeighborhoodJourney, OUTING_DESTINATIONS, planNeighborhoodRoute, pavementExit, canParkAt, wrapAngle, type GuideAction, type OutingDestination } from './neighborhoodRoute'
+import { unpackLandscapeLibrary } from '../worlds/landscapeData'
 import { createOutingPanel } from '../ui/outingPanel'
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
@@ -109,7 +110,6 @@ import { centralPlazaArrival } from '../objects/civicArrival'
 import { CarShareStation, planCarShareBay } from '../objects/carShare'
 import {
   getArrivalSquare,
-  getCityExpressway,
   getCityGroundHeight,
   getExpresswayElevation,
   getSidewalkWidth,
@@ -217,6 +217,11 @@ export const bootstrapApp = async () => {
     settingsStore.setHabitatConfig({ length: shareState.length })
   }
   const habitatConfig = settingsStore.habitat
+  // The study data is a separate lazy chunk; ordinary city/Playground boots
+  // do not download several worlds of Blender meshes.
+  const landscapeStudy = new URLSearchParams(window.location.search).get('landscape') === 'authored'
+  const landscapes = landscapeStudy
+    ? unpackLandscapeLibrary((await import('../worlds/generated/worldLandscapes.json')).default) : null
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = centralPlazaArrival(habitatConfig.radius)
   const debugVisuals = {
@@ -316,9 +321,11 @@ export const bootstrapApp = async () => {
       radius: habitatConfig.radius,
       length: getHabitatSpan(habitatConfig),
       topology: habitatConfig.topology,
-      type: habitatConfig.type
+      type: habitatConfig.type,
+      worldId: lastAppliedPresetId
     },
     {
+      landscapes,
       maxBuildings: quality.maxBuildings,
       maxTraffic: quality.maxTraffic,
       focusStepMeters: quality.cityFocusStepMeters,
@@ -652,7 +659,7 @@ export const bootstrapApp = async () => {
     radius: habitatConfig.radius,
     length: getHabitatSpanMeters(),
     units: getUnits(),
-    expressway: getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
+    expressway: cityscape.getCityPlan()?.expressway ?? null
   })
   cylinderWall.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
   // Real co-rotating building colliders, streamed near the car (P1). Inflated a
@@ -1229,6 +1236,11 @@ export const bootstrapApp = async () => {
         carLayoutKey = ''
         syncHabitat()
         settingsDirty = false
+        if (cityscape.isAuthoredLandscape()) {
+          const visit = cityscape.getInteriorVisit('landscape')!
+          applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
+            groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+        }
         return true
       case 'rain-toggle':
         audio.playClick()
@@ -1247,6 +1259,12 @@ export const bootstrapApp = async () => {
         audio.playClick()
         if (runtimeAction.mode === 'inner-wall') {
           reportTour('surface')
+          if (cityscape.isAuthoredLandscape()) {
+            const visit = cityscape.getInteriorVisit('landscape')!
+            applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
+              groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+            return true
+          }
           return respawnPlayerInnerWall()
         }
         if (runtimeAction.mode === 'old-town') {
@@ -1301,6 +1319,7 @@ export const bootstrapApp = async () => {
         rpm: habitatConfig.rpm,
         frameAngle,
         focusAzimuth: 0,
+        worldId: lastAppliedPresetId,
         units: getUnits(),
         topology: habitatConfig.topology,
         type: habitatConfig.type
@@ -1312,7 +1331,8 @@ export const bootstrapApp = async () => {
     cityColliders.rebuild({
       radius: habitatConfig.radius,
       index: cityscape.getCollisionIndex(),
-      units: getUnits()
+      units: getUnits(),
+      frameAngle
     })
     cityColliders.setAngularVelocity(rpmToOmega(habitatConfig.rpm))
     // fog.density is owned by the frame loop (it folds the live rain level in
@@ -1453,7 +1473,7 @@ export const bootstrapApp = async () => {
       pose,
       orientation: shareQuaternionScratch
     })
-    return `${window.location.origin}${window.location.pathname}?${query}`
+    return `${window.location.origin}${window.location.pathname}?${query}${landscapeStudy ? '&landscape=authored' : ''}`
   }
 
   // Boot-time restore of a shared pose: seat the traversal state first, then
@@ -2047,7 +2067,7 @@ export const bootstrapApp = async () => {
   // walker's ground sampler and the car's grounding share this, so foot and
   // wheel agree with the physics colliders about where the deck is.
   const sampleExpresswayElevation = (azimuth: number, axialPosition: number) => {
-    const expressway = getCityExpressway(habitatConfig.radius, getHabitatSpanMeters())
+    const expressway = cityscape.getCityPlan()?.expressway ?? null
     return expressway === null
       ? 0
       : getExpresswayElevation(expressway, habitatConfig.radius, azimuth, axialPosition)
@@ -2371,6 +2391,7 @@ export const bootstrapApp = async () => {
     )
     parkedCars.setPack(cityscape.getKenneyCarPack())
     car.setPack(cityscape.getKenneyCarPack())
+    car.group.visible = Boolean(car.group.userData.ready) && !cityscape.isAuthoredLandscape()
     parkedCars.update(
       drive.driving ? drive.surface.azimuth : playerAzimuth,
       drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
@@ -3039,11 +3060,12 @@ export const bootstrapApp = async () => {
     }
   })
 
-  reportTour('start')
+  reportTour(cityscape.isAuthoredLandscape() ? 'visit-landscape' : 'start')
   // A shared link spawns where it points; otherwise the first-boot "look up"
   // reveal shows the far side of the colony overhead before the player
   // settles. Desktop/mobile only; XR is head-tracked.
-  const interiorVisit = cityscape.getInteriorVisit(new URLSearchParams(window.location.search).get('visit'))
+  const interiorVisit = cityscape.getInteriorVisit(new URLSearchParams(window.location.search).get('visit')
+    ?? (cityscape.isAuthoredLandscape() ? 'landscape' : null))
   if (shareState.pose !== null) {
     applySharedPose(shareState.pose, shareState.orientation)
   } else if (interiorVisit !== null) {
