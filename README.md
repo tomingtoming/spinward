@@ -114,6 +114,9 @@ VR の全バインドと挙動は [docs/vr-controls.md](docs/vr-controls.md) に
 住宅を約420mの道でつなぎ、4店舗への入店と昼夜の景観を試せます。
 Cooper / Elysium は大きな配置を判断する粗モデルです。
 [設計と編集手順](docs/authored-worlds.md)。
+現在は[イズマ全域の設計](docs/izma-colony-design.md)へ制作範囲を広げています。
+3居住帯・40kmの都市計画とBlender配置模型を用意しましたが、全域モデルの
+アプリへの組み込みと探索経路は開発中です。
 
 ```bash
 bun install

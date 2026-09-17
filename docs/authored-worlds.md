@@ -187,7 +187,11 @@ finished lighting, and the full colony terrain remain subsequent work. The
 ordinary city is the comparison environment. Physical Quest performance and
 comfort have not been measured by the emulated tests.
 
-Next: review the coarse land-use plans, select the Earth urban fabric to use
-as Izma's model, and extend the inhabited fabric outward from the connected
-river neighbourhood. Cooper/Elysium remain comparison cases for topology and
-scale through that work. Scheduled autonomous development remains stopped.
+On 2026-09-17 the user enlarged the goal to the whole Izma colony. The
+[whole-colony design](izma-colony-design.md) now owns that work: all three
+inhabited strips, their water systems, district identities and transport
+connections. The first strip's five rectangles above are the earlier study
+diagram, not the new full-colony plan. The 420 m district remains a completed
+part within the much larger unfinished objective. Cooper/Elysium remain
+comparison cases for topology and scale. Scheduled autonomous development
+remains stopped; the new development goal does not recreate a scheduler.

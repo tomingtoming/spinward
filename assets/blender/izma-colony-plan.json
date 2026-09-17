@@ -1,0 +1,2760 @@
+{
+  "version": 1,
+  "status": "authored master-plan blockout; full landscape and transport implementation pending",
+  "radius": 3200,
+  "span": 40000,
+  "landArcRadians": 1.0471975511965976,
+  "edgeReserve": 125,
+  "endReserve": 1500,
+  "coordinates": "x = strip-local tangent metres, y = axial metres, height = inward above hull",
+  "bands": [
+    {
+      "id": 0,
+      "name": "川町帯",
+      "nameEn": "River towns",
+      "azimuth": 0,
+      "premise": "移住時に持ち込んだ川町の街区、段丘住宅、その後の駅前更新が重なる。"
+    },
+    {
+      "id": 1,
+      "name": "学園・新市街帯",
+      "nameEn": "Campus and new towns",
+      "azimuth": 2.0943951023931953,
+      "premise": "第二期の大学・医療・集合住宅を先に造成し、駅前に用途混在の市街が育った。"
+    },
+    {
+      "id": 2,
+      "name": "生産・田園帯",
+      "nameEn": "Production and garden towns",
+      "azimuth": 4.1887902047863905,
+      "premise": "物流と環境設備、農園を先行し、仕事場の近くに集落と市場を置いた。"
+    }
+  ],
+  "districts": [
+    {
+      "id": "a-port",
+      "band": 0,
+      "name": "南端の玄関と工房",
+      "axial": [
+        -18500,
+        -13500
+      ],
+      "centre": [
+        -640,
+        -16300
+      ],
+      "use": "industry",
+      "fabric": "works",
+      "storeys": [
+        2,
+        8
+      ],
+      "era": "founding",
+      "mix": {
+        "housing": 0.13,
+        "employment": 0.58,
+        "public": 0.09,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "a-old-town",
+      "band": 0,
+      "name": "川町旧市街",
+      "axial": [
+        -13500,
+        -6000
+      ],
+      "centre": [
+        -290,
+        -9400
+      ],
+      "use": "mixed",
+      "fabric": "river-town",
+      "storeys": [
+        2,
+        6
+      ],
+      "era": "founding",
+      "mix": {
+        "housing": 0.4,
+        "employment": 0.28,
+        "public": 0.12,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "a-river",
+      "band": 0,
+      "name": "川沿い段丘の街",
+      "axial": [
+        -6000,
+        2500
+      ],
+      "centre": [
+        -125,
+        -80
+      ],
+      "use": "housing",
+      "fabric": "terrace-lanes",
+      "storeys": [
+        2,
+        5
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.56,
+        "employment": 0.1,
+        "public": 0.12,
+        "landscape": 0.22
+      }
+    },
+    {
+      "id": "a-civic",
+      "band": 0,
+      "name": "中央駅と市民地区",
+      "axial": [
+        2500,
+        8500
+      ],
+      "centre": [
+        570,
+        5800
+      ],
+      "use": "civic",
+      "fabric": "station-centre",
+      "storeys": [
+        4,
+        16
+      ],
+      "era": "renewal",
+      "mix": {
+        "housing": 0.23,
+        "employment": 0.29,
+        "public": 0.25,
+        "landscape": 0.23
+      }
+    },
+    {
+      "id": "a-upland",
+      "band": 0,
+      "name": "北丘住宅地",
+      "axial": [
+        8500,
+        14500
+      ],
+      "centre": [
+        -570,
+        11400
+      ],
+      "use": "housing",
+      "fabric": "terrace-lanes",
+      "storeys": [
+        2,
+        8
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.56,
+        "employment": 0.1,
+        "public": 0.12,
+        "landscape": 0.22
+      }
+    },
+    {
+      "id": "a-water",
+      "band": 0,
+      "name": "上流の貯水公園",
+      "axial": [
+        14500,
+        18500
+      ],
+      "centre": [
+        80,
+        16300
+      ],
+      "use": "park",
+      "fabric": "water-park",
+      "storeys": [
+        1,
+        3
+      ],
+      "era": "infrastructure",
+      "mix": {
+        "housing": 0.08,
+        "employment": 0.06,
+        "public": 0.14,
+        "landscape": 0.72
+      }
+    },
+    {
+      "id": "b-workshop",
+      "band": 1,
+      "name": "技術工房と職住地区",
+      "axial": [
+        -18500,
+        -13000
+      ],
+      "centre": [
+        710,
+        -15800
+      ],
+      "use": "industry",
+      "fabric": "works",
+      "storeys": [
+        2,
+        7
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.13,
+        "employment": 0.58,
+        "public": 0.09,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "b-campus",
+      "band": 1,
+      "name": "大学と医療の街",
+      "axial": [
+        -13000,
+        -6800
+      ],
+      "centre": [
+        -590,
+        -10200
+      ],
+      "use": "campus",
+      "fabric": "campus",
+      "storeys": [
+        3,
+        10
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.24,
+        "employment": 0.29,
+        "public": 0.2,
+        "landscape": 0.27
+      }
+    },
+    {
+      "id": "b-station",
+      "band": 1,
+      "name": "新都心駅前",
+      "axial": [
+        -6800,
+        -1800
+      ],
+      "centre": [
+        490,
+        -4200
+      ],
+      "use": "mixed",
+      "fabric": "station-centre",
+      "storeys": [
+        5,
+        22
+      ],
+      "era": "renewal",
+      "mix": {
+        "housing": 0.4,
+        "employment": 0.28,
+        "public": 0.12,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "b-housing",
+      "band": 1,
+      "name": "団地と近隣商店街",
+      "axial": [
+        -1800,
+        5200
+      ],
+      "centre": [
+        -320,
+        2200
+      ],
+      "use": "housing",
+      "fabric": "terrace-lanes",
+      "storeys": [
+        3,
+        10
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.56,
+        "employment": 0.1,
+        "public": 0.12,
+        "landscape": 0.22
+      }
+    },
+    {
+      "id": "b-commons",
+      "band": 1,
+      "name": "運動公園と水辺",
+      "axial": [
+        5200,
+        11200
+      ],
+      "centre": [
+        350,
+        7900
+      ],
+      "use": "park",
+      "fabric": "water-park",
+      "storeys": [
+        1,
+        4
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.08,
+        "employment": 0.06,
+        "public": 0.14,
+        "landscape": 0.72
+      }
+    },
+    {
+      "id": "b-north",
+      "band": 1,
+      "name": "北の新市街",
+      "axial": [
+        11200,
+        18500
+      ],
+      "centre": [
+        -460,
+        14600
+      ],
+      "use": "housing",
+      "fabric": "station-centre",
+      "storeys": [
+        2,
+        9
+      ],
+      "era": "renewal",
+      "mix": {
+        "housing": 0.56,
+        "employment": 0.1,
+        "public": 0.12,
+        "landscape": 0.22
+      }
+    },
+    {
+      "id": "c-cargo",
+      "band": 2,
+      "name": "貨物口と整備地区",
+      "axial": [
+        -18500,
+        -14200
+      ],
+      "centre": [
+        -650,
+        -16900
+      ],
+      "use": "industry",
+      "fabric": "works",
+      "storeys": [
+        1,
+        5
+      ],
+      "era": "infrastructure",
+      "mix": {
+        "housing": 0.13,
+        "employment": 0.58,
+        "public": 0.09,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "c-production",
+      "band": 2,
+      "name": "生産工房の街",
+      "axial": [
+        -14200,
+        -8500
+      ],
+      "centre": [
+        570,
+        -11600
+      ],
+      "use": "industry",
+      "fabric": "works",
+      "storeys": [
+        2,
+        6
+      ],
+      "era": "founding",
+      "mix": {
+        "housing": 0.13,
+        "employment": 0.58,
+        "public": 0.09,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "c-fields",
+      "band": 2,
+      "name": "農園と集落",
+      "axial": [
+        -8500,
+        -1000
+      ],
+      "centre": [
+        -480,
+        -4700
+      ],
+      "use": "farming",
+      "fabric": "field-villages",
+      "storeys": [
+        1,
+        3
+      ],
+      "era": "founding",
+      "mix": {
+        "housing": 0.1,
+        "employment": 0.12,
+        "public": 0.08,
+        "landscape": 0.7
+      }
+    },
+    {
+      "id": "c-market",
+      "band": 2,
+      "name": "食の市場と田園市街",
+      "axial": [
+        -1000,
+        4800
+      ],
+      "centre": [
+        290,
+        1600
+      ],
+      "use": "mixed",
+      "fabric": "river-town",
+      "storeys": [
+        2,
+        5
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.4,
+        "employment": 0.28,
+        "public": 0.12,
+        "landscape": 0.2
+      }
+    },
+    {
+      "id": "c-orchards",
+      "band": 2,
+      "name": "果樹園と調整池",
+      "axial": [
+        4800,
+        12800
+      ],
+      "centre": [
+        -420,
+        8400
+      ],
+      "use": "farming",
+      "fabric": "field-villages",
+      "storeys": [
+        1,
+        3
+      ],
+      "era": "growth",
+      "mix": {
+        "housing": 0.1,
+        "employment": 0.12,
+        "public": 0.08,
+        "landscape": 0.7
+      }
+    },
+    {
+      "id": "c-forest",
+      "band": 2,
+      "name": "水源林と環境設備",
+      "axial": [
+        12800,
+        18500
+      ],
+      "centre": [
+        500,
+        15800
+      ],
+      "use": "park",
+      "fabric": "water-park",
+      "storeys": [
+        1,
+        3
+      ],
+      "era": "infrastructure",
+      "mix": {
+        "housing": 0.08,
+        "employment": 0.06,
+        "public": 0.14,
+        "landscape": 0.72
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "a-port",
+      "band": 0,
+      "xy": [
+        -640,
+        -16300
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-port-station",
+      "band": 0,
+      "xy": [
+        -890,
+        -16300
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-port-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        -15920
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-port-neighbourhood",
+      "band": 0,
+      "xy": [
+        -300,
+        -15760
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-port-garden",
+      "band": 0,
+      "xy": [
+        -890,
+        -16660
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-old-town",
+      "band": 0,
+      "xy": [
+        -290,
+        -9400
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-old-town-station",
+      "band": 0,
+      "xy": [
+        -810,
+        -9400
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-old-town-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        -9020
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-old-town-neighbourhood",
+      "band": 0,
+      "xy": [
+        50,
+        -8860
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-old-town-garden",
+      "band": 0,
+      "xy": [
+        -540,
+        -9760
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-river",
+      "band": 0,
+      "xy": [
+        -125,
+        -80
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-river-station",
+      "band": 0,
+      "xy": [
+        -920,
+        -80
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-river-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        300
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-river-neighbourhood",
+      "band": 0,
+      "xy": [
+        215,
+        460
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-river-garden",
+      "band": 0,
+      "xy": [
+        -375,
+        -440
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-civic",
+      "band": 0,
+      "xy": [
+        570,
+        5800
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-civic-station",
+      "band": 0,
+      "xy": [
+        -580,
+        5800
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-civic-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        6180
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-civic-neighbourhood",
+      "band": 0,
+      "xy": [
+        230,
+        6340
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-civic-square",
+      "band": 0,
+      "xy": [
+        50,
+        5340
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-upland",
+      "band": 0,
+      "xy": [
+        -570,
+        11400
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-upland-station",
+      "band": 0,
+      "xy": [
+        -860,
+        11400
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-upland-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        11780
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-upland-neighbourhood",
+      "band": 0,
+      "xy": [
+        -230,
+        11940
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-upland-garden",
+      "band": 0,
+      "xy": [
+        -820,
+        11040
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-water",
+      "band": 0,
+      "xy": [
+        80,
+        16300
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "a-water-station",
+      "band": 0,
+      "xy": [
+        -680,
+        16300
+      ],
+      "role": "station"
+    },
+    {
+      "id": "a-water-ic",
+      "band": 0,
+      "xy": [
+        1320,
+        16680
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "a-water-neighbourhood",
+      "band": 0,
+      "xy": [
+        -260,
+        16840
+      ],
+      "role": "road"
+    },
+    {
+      "id": "a-water-garden",
+      "band": 0,
+      "xy": [
+        330,
+        15940
+      ],
+      "role": "road"
+    },
+    {
+      "id": "band-0-transfer-0",
+      "band": 0,
+      "xy": [
+        -820,
+        -19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-0-jct-0",
+      "band": 0,
+      "xy": [
+        1320,
+        -19000
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-0-transfer-1",
+      "band": 0,
+      "xy": [
+        -820,
+        6500
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-0-jct-1",
+      "band": 0,
+      "xy": [
+        1320,
+        6500
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-0-transfer-2",
+      "band": 0,
+      "xy": [
+        -820,
+        19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-0-jct-2",
+      "band": 0,
+      "xy": [
+        1320,
+        19000
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-workshop",
+      "band": 1,
+      "xy": [
+        710,
+        -15800
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-workshop-station",
+      "band": 1,
+      "xy": [
+        1010,
+        -15800
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-workshop-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        -15420
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-workshop-neighbourhood",
+      "band": 1,
+      "xy": [
+        370,
+        -15260
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-workshop-garden",
+      "band": 1,
+      "xy": [
+        960,
+        -16160
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-campus",
+      "band": 1,
+      "xy": [
+        -590,
+        -10200
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-campus-station",
+      "band": 1,
+      "xy": [
+        780,
+        -10200
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-campus-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        -9820
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-campus-neighbourhood",
+      "band": 1,
+      "xy": [
+        -250,
+        -9660
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-campus-square",
+      "band": 1,
+      "xy": [
+        -70,
+        -10660
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-station",
+      "band": 1,
+      "xy": [
+        490,
+        -4200
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-station-station",
+      "band": 1,
+      "xy": [
+        980,
+        -4200
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-station-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        -3820
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-station-neighbourhood",
+      "band": 1,
+      "xy": [
+        150,
+        -3660
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-station-square",
+      "band": 1,
+      "xy": [
+        -30,
+        -4660
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-housing",
+      "band": 1,
+      "xy": [
+        -320,
+        2200
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-housing-station",
+      "band": 1,
+      "xy": [
+        660,
+        2200
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-housing-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        2580
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-housing-neighbourhood",
+      "band": 1,
+      "xy": [
+        20,
+        2740
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-housing-garden",
+      "band": 1,
+      "xy": [
+        -570,
+        1840
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-commons",
+      "band": 1,
+      "xy": [
+        350,
+        7900
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-commons-station",
+      "band": 1,
+      "xy": [
+        810,
+        7900
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-commons-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        8280
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-commons-neighbourhood",
+      "band": 1,
+      "xy": [
+        10,
+        8440
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-commons-garden",
+      "band": 1,
+      "xy": [
+        600,
+        7540
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-north",
+      "band": 1,
+      "xy": [
+        -460,
+        14600
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "b-north-station",
+      "band": 1,
+      "xy": [
+        690,
+        14600
+      ],
+      "role": "station"
+    },
+    {
+      "id": "b-north-ic",
+      "band": 1,
+      "xy": [
+        -1320,
+        14980
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "b-north-neighbourhood",
+      "band": 1,
+      "xy": [
+        -120,
+        15140
+      ],
+      "role": "road"
+    },
+    {
+      "id": "b-north-square",
+      "band": 1,
+      "xy": [
+        60,
+        14140
+      ],
+      "role": "road"
+    },
+    {
+      "id": "band-1-transfer-0",
+      "band": 1,
+      "xy": [
+        820,
+        -19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-1-jct-0",
+      "band": 1,
+      "xy": [
+        -1320,
+        -19000
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-1-transfer-1",
+      "band": 1,
+      "xy": [
+        820,
+        6500
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-1-jct-1",
+      "band": 1,
+      "xy": [
+        -1320,
+        6500
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-1-transfer-2",
+      "band": 1,
+      "xy": [
+        820,
+        19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-1-jct-2",
+      "band": 1,
+      "xy": [
+        -1320,
+        19000
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-cargo",
+      "band": 2,
+      "xy": [
+        -650,
+        -16900
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-cargo-station",
+      "band": 2,
+      "xy": [
+        -990,
+        -16900
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-cargo-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        -16520
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-cargo-neighbourhood",
+      "band": 2,
+      "xy": [
+        -310,
+        -16360
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-cargo-garden",
+      "band": 2,
+      "xy": [
+        -900,
+        -17260
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-production",
+      "band": 2,
+      "xy": [
+        570,
+        -11600
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-production-station",
+      "band": 2,
+      "xy": [
+        -760,
+        -11600
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-production-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        -11220
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-production-neighbourhood",
+      "band": 2,
+      "xy": [
+        230,
+        -11060
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-production-garden",
+      "band": 2,
+      "xy": [
+        820,
+        -11960
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-fields",
+      "band": 2,
+      "xy": [
+        -480,
+        -4700
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-fields-station",
+      "band": 2,
+      "xy": [
+        -800,
+        -4700
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-fields-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        -4320
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-fields-neighbourhood",
+      "band": 2,
+      "xy": [
+        -140,
+        -4160
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-fields-garden",
+      "band": 2,
+      "xy": [
+        -730,
+        -5060
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-market",
+      "band": 2,
+      "xy": [
+        290,
+        1600
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-market-station",
+      "band": 2,
+      "xy": [
+        -770,
+        1600
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-market-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        1980
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-market-neighbourhood",
+      "band": 2,
+      "xy": [
+        -50,
+        2140
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-market-garden",
+      "band": 2,
+      "xy": [
+        540,
+        1240
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-orchards",
+      "band": 2,
+      "xy": [
+        -420,
+        8400
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-orchards-station",
+      "band": 2,
+      "xy": [
+        -860,
+        8400
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-orchards-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        8780
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-orchards-neighbourhood",
+      "band": 2,
+      "xy": [
+        -80,
+        8940
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-orchards-garden",
+      "band": 2,
+      "xy": [
+        -670,
+        8040
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-forest",
+      "band": 2,
+      "xy": [
+        500,
+        15800
+      ],
+      "role": "centre"
+    },
+    {
+      "id": "c-forest-station",
+      "band": 2,
+      "xy": [
+        -640,
+        15800
+      ],
+      "role": "station"
+    },
+    {
+      "id": "c-forest-ic",
+      "band": 2,
+      "xy": [
+        1320,
+        16180
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "c-forest-neighbourhood",
+      "band": 2,
+      "xy": [
+        160,
+        16340
+      ],
+      "role": "road"
+    },
+    {
+      "id": "c-forest-garden",
+      "band": 2,
+      "xy": [
+        750,
+        15440
+      ],
+      "role": "road"
+    },
+    {
+      "id": "band-2-transfer-0",
+      "band": 2,
+      "xy": [
+        -820,
+        -19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-2-jct-0",
+      "band": 2,
+      "xy": [
+        1320,
+        -19000
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-2-transfer-1",
+      "band": 2,
+      "xy": [
+        -820,
+        6500
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-2-jct-1",
+      "band": 2,
+      "xy": [
+        1320,
+        6500
+      ],
+      "role": "interchange"
+    },
+    {
+      "id": "band-2-transfer-2",
+      "band": 2,
+      "xy": [
+        -820,
+        19000
+      ],
+      "role": "transfer"
+    },
+    {
+      "id": "band-2-jct-2",
+      "band": 2,
+      "xy": [
+        1320,
+        19000
+      ],
+      "role": "interchange"
+    }
+  ],
+  "routes": [
+    {
+      "id": "a-port-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-port-station",
+        "a-port"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-port-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-port",
+        "a-port-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-port-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-port",
+        "a-port-neighbourhood"
+      ],
+      "width": 12
+    },
+    {
+      "id": "a-port-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "a-port",
+        "a-port-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "a-old-town-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-old-town-station",
+        "a-old-town"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-old-town-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-old-town",
+        "a-old-town-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-old-town-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-old-town",
+        "a-old-town-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "a-old-town-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "a-old-town",
+        "a-old-town-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "a-river-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-river-station",
+        "a-river"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-river-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-river",
+        "a-river-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-river-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-river",
+        "a-river-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "a-river-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "a-river",
+        "a-river-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "a-civic-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-civic-station",
+        "a-civic"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-civic-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-civic",
+        "a-civic-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-civic-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-civic",
+        "a-civic-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "a-civic-campus-loop",
+      "kind": "local",
+      "nodes": [
+        "a-civic",
+        "a-civic-square",
+        "a-civic-neighbourhood"
+      ],
+      "width": 9
+    },
+    {
+      "id": "a-upland-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-upland-station",
+        "a-upland"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-upland-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-upland",
+        "a-upland-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-upland-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-upland",
+        "a-upland-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "a-upland-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "a-upland",
+        "a-upland-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "a-water-station-road",
+      "kind": "local",
+      "nodes": [
+        "a-water-station",
+        "a-water"
+      ],
+      "width": 10
+    },
+    {
+      "id": "a-water-access",
+      "kind": "arterial",
+      "nodes": [
+        "a-water",
+        "a-water-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "a-water-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "a-water",
+        "a-water-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "a-water-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "a-water",
+        "a-water-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "band-0-transfer-access-0",
+      "kind": "arterial",
+      "nodes": [
+        "band-0-transfer-0",
+        "band-0-jct-0"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-0-transfer-access-1",
+      "kind": "arterial",
+      "nodes": [
+        "band-0-transfer-1",
+        "band-0-jct-1"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-0-transfer-access-2",
+      "kind": "arterial",
+      "nodes": [
+        "band-0-transfer-2",
+        "band-0-jct-2"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-0-rail",
+      "kind": "rail",
+      "nodes": [
+        "band-0-transfer-0",
+        "a-port-station",
+        "a-old-town-station",
+        "a-river-station",
+        "a-civic-station",
+        "band-0-transfer-1",
+        "a-upland-station",
+        "a-water-station",
+        "band-0-transfer-2"
+      ],
+      "width": 12
+    },
+    {
+      "id": "band-0-expressway",
+      "kind": "expressway",
+      "nodes": [
+        "band-0-jct-0",
+        "a-port-ic",
+        "a-old-town-ic",
+        "a-river-ic",
+        "a-civic-ic",
+        "band-0-jct-1",
+        "a-upland-ic",
+        "a-water-ic",
+        "band-0-jct-2"
+      ],
+      "width": 24
+    },
+    {
+      "id": "band-0-town-road",
+      "kind": "arterial",
+      "nodes": [
+        "a-port",
+        "a-old-town",
+        "a-river",
+        "a-civic",
+        "a-upland",
+        "a-water"
+      ],
+      "width": 18
+    },
+    {
+      "id": "b-workshop-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-workshop-station",
+        "b-workshop"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-workshop-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-workshop",
+        "b-workshop-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-workshop-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-workshop",
+        "b-workshop-neighbourhood"
+      ],
+      "width": 12
+    },
+    {
+      "id": "b-workshop-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "b-workshop",
+        "b-workshop-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "b-campus-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-campus-station",
+        "b-campus"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-campus-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-campus",
+        "b-campus-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-campus-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-campus",
+        "b-campus-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "b-campus-campus-loop",
+      "kind": "local",
+      "nodes": [
+        "b-campus",
+        "b-campus-square",
+        "b-campus-neighbourhood"
+      ],
+      "width": 9
+    },
+    {
+      "id": "b-station-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-station-station",
+        "b-station"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-station-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-station",
+        "b-station-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-station-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-station",
+        "b-station-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "b-station-campus-loop",
+      "kind": "local",
+      "nodes": [
+        "b-station",
+        "b-station-square",
+        "b-station-neighbourhood"
+      ],
+      "width": 9
+    },
+    {
+      "id": "b-housing-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-housing-station",
+        "b-housing"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-housing-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-housing",
+        "b-housing-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-housing-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-housing",
+        "b-housing-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "b-housing-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "b-housing",
+        "b-housing-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "b-commons-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-commons-station",
+        "b-commons"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-commons-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-commons",
+        "b-commons-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-commons-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-commons",
+        "b-commons-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "b-commons-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "b-commons",
+        "b-commons-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "b-north-station-road",
+      "kind": "local",
+      "nodes": [
+        "b-north-station",
+        "b-north"
+      ],
+      "width": 10
+    },
+    {
+      "id": "b-north-access",
+      "kind": "arterial",
+      "nodes": [
+        "b-north",
+        "b-north-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "b-north-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "b-north",
+        "b-north-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "b-north-campus-loop",
+      "kind": "local",
+      "nodes": [
+        "b-north",
+        "b-north-square",
+        "b-north-neighbourhood"
+      ],
+      "width": 9
+    },
+    {
+      "id": "band-1-transfer-access-0",
+      "kind": "arterial",
+      "nodes": [
+        "band-1-transfer-0",
+        "band-1-jct-0"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-1-transfer-access-1",
+      "kind": "arterial",
+      "nodes": [
+        "band-1-transfer-1",
+        "band-1-jct-1"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-1-transfer-access-2",
+      "kind": "arterial",
+      "nodes": [
+        "band-1-transfer-2",
+        "band-1-jct-2"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-1-rail",
+      "kind": "rail",
+      "nodes": [
+        "band-1-transfer-0",
+        "b-workshop-station",
+        "b-campus-station",
+        "b-station-station",
+        "b-housing-station",
+        "band-1-transfer-1",
+        "b-commons-station",
+        "b-north-station",
+        "band-1-transfer-2"
+      ],
+      "width": 12
+    },
+    {
+      "id": "band-1-expressway",
+      "kind": "expressway",
+      "nodes": [
+        "band-1-jct-0",
+        "b-workshop-ic",
+        "b-campus-ic",
+        "b-station-ic",
+        "b-housing-ic",
+        "band-1-jct-1",
+        "b-commons-ic",
+        "b-north-ic",
+        "band-1-jct-2"
+      ],
+      "width": 24
+    },
+    {
+      "id": "band-1-town-road",
+      "kind": "arterial",
+      "nodes": [
+        "b-workshop",
+        "b-campus",
+        "b-station",
+        "b-housing",
+        "b-commons",
+        "b-north"
+      ],
+      "width": 18
+    },
+    {
+      "id": "c-cargo-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-cargo-station",
+        "c-cargo"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-cargo-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-cargo",
+        "c-cargo-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-cargo-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-cargo",
+        "c-cargo-neighbourhood"
+      ],
+      "width": 12
+    },
+    {
+      "id": "c-cargo-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-cargo",
+        "c-cargo-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "c-production-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-production-station",
+        "c-production"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-production-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-production",
+        "c-production-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-production-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-production",
+        "c-production-neighbourhood"
+      ],
+      "width": 12
+    },
+    {
+      "id": "c-production-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-production",
+        "c-production-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "c-fields-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-fields-station",
+        "c-fields"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-fields-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-fields",
+        "c-fields-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-fields-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-fields",
+        "c-fields-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "c-fields-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-fields",
+        "c-fields-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "c-market-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-market-station",
+        "c-market"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-market-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-market",
+        "c-market-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-market-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-market",
+        "c-market-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "c-market-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-market",
+        "c-market-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "c-orchards-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-orchards-station",
+        "c-orchards"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-orchards-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-orchards",
+        "c-orchards-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-orchards-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-orchards",
+        "c-orchards-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "c-orchards-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-orchards",
+        "c-orchards-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "c-forest-station-road",
+      "kind": "local",
+      "nodes": [
+        "c-forest-station",
+        "c-forest"
+      ],
+      "width": 10
+    },
+    {
+      "id": "c-forest-access",
+      "kind": "arterial",
+      "nodes": [
+        "c-forest",
+        "c-forest-ic"
+      ],
+      "width": 16
+    },
+    {
+      "id": "c-forest-neighbourhood-road",
+      "kind": "local",
+      "nodes": [
+        "c-forest",
+        "c-forest-neighbourhood"
+      ],
+      "width": 7
+    },
+    {
+      "id": "c-forest-garden-lane",
+      "kind": "local",
+      "nodes": [
+        "c-forest",
+        "c-forest-garden"
+      ],
+      "width": 6
+    },
+    {
+      "id": "band-2-transfer-access-0",
+      "kind": "arterial",
+      "nodes": [
+        "band-2-transfer-0",
+        "band-2-jct-0"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-2-transfer-access-1",
+      "kind": "arterial",
+      "nodes": [
+        "band-2-transfer-1",
+        "band-2-jct-1"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-2-transfer-access-2",
+      "kind": "arterial",
+      "nodes": [
+        "band-2-transfer-2",
+        "band-2-jct-2"
+      ],
+      "width": 20
+    },
+    {
+      "id": "band-2-rail",
+      "kind": "rail",
+      "nodes": [
+        "band-2-transfer-0",
+        "c-cargo-station",
+        "c-production-station",
+        "c-fields-station",
+        "c-market-station",
+        "band-2-transfer-1",
+        "c-orchards-station",
+        "c-forest-station",
+        "band-2-transfer-2"
+      ],
+      "width": 12
+    },
+    {
+      "id": "band-2-expressway",
+      "kind": "expressway",
+      "nodes": [
+        "band-2-jct-0",
+        "c-cargo-ic",
+        "c-production-ic",
+        "c-fields-ic",
+        "c-market-ic",
+        "band-2-jct-1",
+        "c-orchards-ic",
+        "c-forest-ic",
+        "band-2-jct-2"
+      ],
+      "width": 24
+    },
+    {
+      "id": "band-2-town-road",
+      "kind": "arterial",
+      "nodes": [
+        "c-cargo",
+        "c-production",
+        "c-fields",
+        "c-market",
+        "c-orchards",
+        "c-forest"
+      ],
+      "width": 18
+    },
+    {
+      "id": "transfer-0-0",
+      "kind": "transfer",
+      "nodes": [
+        "band-0-transfer-0",
+        "band-1-transfer-0"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-0-0",
+      "kind": "expressway",
+      "nodes": [
+        "band-0-jct-0",
+        "band-1-jct-0"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-0-1",
+      "kind": "transfer",
+      "nodes": [
+        "band-1-transfer-0",
+        "band-2-transfer-0"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-0-1",
+      "kind": "expressway",
+      "nodes": [
+        "band-1-jct-0",
+        "band-2-jct-0"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-0-2",
+      "kind": "transfer",
+      "nodes": [
+        "band-2-transfer-0",
+        "band-0-transfer-0"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-0-2",
+      "kind": "expressway",
+      "nodes": [
+        "band-2-jct-0",
+        "band-0-jct-0"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-1-0",
+      "kind": "transfer",
+      "nodes": [
+        "band-0-transfer-1",
+        "band-1-transfer-1"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-1-0",
+      "kind": "expressway",
+      "nodes": [
+        "band-0-jct-1",
+        "band-1-jct-1"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-1-1",
+      "kind": "transfer",
+      "nodes": [
+        "band-1-transfer-1",
+        "band-2-transfer-1"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-1-1",
+      "kind": "expressway",
+      "nodes": [
+        "band-1-jct-1",
+        "band-2-jct-1"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-1-2",
+      "kind": "transfer",
+      "nodes": [
+        "band-2-transfer-1",
+        "band-0-transfer-1"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-1-2",
+      "kind": "expressway",
+      "nodes": [
+        "band-2-jct-1",
+        "band-0-jct-1"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-2-0",
+      "kind": "transfer",
+      "nodes": [
+        "band-0-transfer-2",
+        "band-1-transfer-2"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-2-0",
+      "kind": "expressway",
+      "nodes": [
+        "band-0-jct-2",
+        "band-1-jct-2"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-2-1",
+      "kind": "transfer",
+      "nodes": [
+        "band-1-transfer-2",
+        "band-2-transfer-2"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-2-1",
+      "kind": "expressway",
+      "nodes": [
+        "band-1-jct-2",
+        "band-2-jct-2"
+      ],
+      "width": 24
+    },
+    {
+      "id": "transfer-2-2",
+      "kind": "transfer",
+      "nodes": [
+        "band-2-transfer-2",
+        "band-0-transfer-2"
+      ],
+      "width": 28
+    },
+    {
+      "id": "expressway-transfer-2-2",
+      "kind": "expressway",
+      "nodes": [
+        "band-2-jct-2",
+        "band-0-jct-2"
+      ],
+      "width": 24
+    }
+  ],
+  "water": [
+    {
+      "band": 0,
+      "name": "川町水系",
+      "width": 38,
+      "bankWidth": 135,
+      "reach": [
+        [
+          -90,
+          -18200,
+          0.4
+        ],
+        [
+          -320,
+          -14100,
+          0.7
+        ],
+        [
+          170,
+          -10500,
+          0.9
+        ],
+        [
+          -260,
+          -5600,
+          1.1
+        ],
+        [
+          -85,
+          -400,
+          1.4
+        ],
+        [
+          12,
+          -80,
+          1.4
+        ],
+        [
+          -35,
+          400,
+          1.4
+        ],
+        [
+          250,
+          4400,
+          4.5
+        ],
+        [
+          -210,
+          9200,
+          15
+        ],
+        [
+          100,
+          14200,
+          31
+        ],
+        [
+          -150,
+          18200,
+          48
+        ]
+      ]
+    },
+    {
+      "band": 1,
+      "name": "学園水系",
+      "width": 26,
+      "bankWidth": 105,
+      "reach": [
+        [
+          -160,
+          -18200,
+          1
+        ],
+        [
+          160,
+          -13600,
+          3
+        ],
+        [
+          -190,
+          -8800,
+          6
+        ],
+        [
+          -130,
+          -2500,
+          10
+        ],
+        [
+          190,
+          2900,
+          18
+        ],
+        [
+          -170,
+          7100,
+          28
+        ],
+        [
+          50,
+          12800,
+          43
+        ],
+        [
+          -120,
+          18200,
+          61
+        ]
+      ]
+    },
+    {
+      "band": 2,
+      "name": "田園水系",
+      "width": 46,
+      "bankWidth": 175,
+      "reach": [
+        [
+          70,
+          -18200,
+          2
+        ],
+        [
+          -80,
+          -13900,
+          4
+        ],
+        [
+          60,
+          -7200,
+          8
+        ],
+        [
+          -150,
+          -1600,
+          14
+        ],
+        [
+          90,
+          3600,
+          24
+        ],
+        [
+          -90,
+          9200,
+          41
+        ],
+        [
+          180,
+          14800,
+          59
+        ],
+        [
+          50,
+          18200,
+          76
+        ]
+      ]
+    }
+  ],
+  "hills": [
+    {
+      "band": 0,
+      "centre": [
+        -1120,
+        1500
+      ],
+      "size": [
+        600,
+        2400
+      ],
+      "height": 48
+    },
+    {
+      "band": 0,
+      "centre": [
+        1120,
+        -10500
+      ],
+      "size": [
+        540,
+        3400
+      ],
+      "height": 28
+    },
+    {
+      "band": 0,
+      "centre": [
+        -980,
+        11700
+      ],
+      "size": [
+        620,
+        2800
+      ],
+      "height": 64
+    },
+    {
+      "band": 1,
+      "centre": [
+        1120,
+        -10200
+      ],
+      "size": [
+        470,
+        2300
+      ],
+      "height": 32
+    },
+    {
+      "band": 1,
+      "centre": [
+        -1050,
+        3300
+      ],
+      "size": [
+        500,
+        2900
+      ],
+      "height": 37
+    },
+    {
+      "band": 2,
+      "centre": [
+        1100,
+        14200
+      ],
+      "size": [
+        580,
+        2600
+      ],
+      "height": 46
+    }
+  ],
+  "protectedStudy": {
+    "band": 0,
+    "bounds": [
+      -320,
+      -400,
+      320,
+      400
+    ],
+    "routeMetres": 420.2
+  },
+  "delivery": {
+    "tileMetres": 512,
+    "renderLODs": 3,
+    "collisionSource": "exported near triangles",
+    "lightPool": 6
+  }
+}
