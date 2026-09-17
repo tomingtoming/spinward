@@ -101,3 +101,36 @@ test('invalid streamed geometry fails before allocating render objects', () => {
   expect(() => decodeColonyMesh({ ...small, meshes: { earth: [0, 1] } })).toThrow('Incomplete')
   expect(() => decodeColonyMesh({ ...small, vertices: [NaN, 0, 0] })).toThrow('Invalid')
 })
+
+test('architecture keeps a roof silhouette while loading and changes facade LOD without a gap', async () => {
+  const f = fixture(), tile = f.tiles[0]
+  tile.architecture = true; tile.proxyParts = [[0, 0, 12, 10, 10, 3, 0, 'housing', 'gable']]
+  const layer = new AuthoredColony(new THREE.Group(), async () => ({ ...small, mid: small }))
+  layer.rebuild(f); layer.update(0, 1200, 2)
+  const roof = layer.group.getObjectByName('colony-proxy-housing-gable') as THREE.InstancedMesh
+  const matrix = new THREE.Matrix4(); roof.getMatrixAt(0, matrix)
+  expect(matrix.determinant()).toBeGreaterThan(0)
+  await tick()
+  const near = layer.group.getObjectByName('colony-tile-tile-0-near')!
+  const mid = layer.group.getObjectByName('colony-tile-tile-0-mid')!
+  expect(near.visible).toBe(false); expect(mid.visible).toBe(true)
+  roof.getMatrixAt(0, matrix); expect(matrix.determinant()).toBe(0)
+  layer.update(0, 300, 2)
+  expect(near.visible).toBe(true); expect(mid.visible).toBe(false)
+  layer.update(0, 2800, 2)
+  expect(near.parent!.visible).toBe(false)
+  roof.getMatrixAt(0, matrix); expect(matrix.determinant()).toBeGreaterThan(0)
+  layer.dispose()
+})
+
+test('malformed middle detail keeps the roof fallback and creates no partial tile', async () => {
+  const f = fixture(); f.tiles[0].architecture = true
+  const layer = new AuthoredColony(new THREE.Group(), async () => ({ ...small, mid: { ...small, meshes: { earth: [0, 1, 999] } } }))
+  layer.rebuild(f); layer.update(0, 1200, 2); await tick()
+  expect(layer.group.userData.failed[0].message).toContain('out of bounds')
+  expect(layer.group.getObjectByName('colony-tile-tile-0-near')).toBeUndefined()
+  const proxy = layer.group.getObjectByName('colony-proxy-housing') as THREE.InstancedMesh
+  const matrix = new THREE.Matrix4(); proxy.getMatrixAt(0, matrix)
+  expect(matrix.determinant()).toBeGreaterThan(0)
+  layer.dispose()
+})

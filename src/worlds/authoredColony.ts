@@ -5,10 +5,14 @@ import { landscapeColliders } from './authoredLandscape'
 import type { LandscapeData, LandscapeMaterial } from './landscapeData'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
 
-export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[] }
+export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
-export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[] }
+export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable']
+export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
+  materialDetails?: Record<string, LandscapeMaterial>;
+  architecture?: { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][];
+    counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } };
   structures?: [number, number, number, number, number, number, number][];
   visits: Record<string, { band: number; position: [number, number] }> }
 
@@ -27,6 +31,7 @@ export function readColonyManifest(value: unknown): ColonyManifest {
     if (ids.has(tile.id) || !/^\/landscapes\/izma\/[a-z0-9-]+\.json$/.test(tile.url) || !finiteTuple(tile.bounds, 4) || !Array.isArray(tile.boxes)) throw Error('Invalid colony tile')
     ids.add(tile.id)
     for (const box of tile.boxes) if (box.length !== 8 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony box')
+    for (const box of tile.proxyParts ?? []) if (box.length !== 9 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || !['box', 'gable'].includes(box[8]) || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony proxy')
   }
   return p
 }
@@ -53,16 +58,18 @@ export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: nu
   return Math.hypot(Math.max(0, dx - (x1 - x0) / 2), Math.max(0, Math.abs(axial - (y0 + y1) / 2) - (y1 - y0) / 2))
 }
 
-export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces): CityBuilding[] {
-  return landscapeColliders({ surfaces, solids: [
-    ...manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) =>
-      ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw }))),
+export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces,
+  architectureSurfaces = manifest.architecture ? decodeColonyMesh(manifest.architecture.fixed).surfaces : []): CityBuilding[] {
+  const buildings = manifest.architecture ? manifest.architecture.solids.map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw })) :
+    manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw })))
+  return landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces], solids: [
+    ...buildings,
     ...(manifest.structures ?? []).map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw }))
   ] }, manifest.radius)
 }
 
-type TileState = { group: THREE.Group; used: number }
-type Proxy = { tile: ColonyTile; box: ColonyBox; mesh: THREE.InstancedMesh; instance: number; matrix: THREE.Matrix4; visible: boolean }
+type TileState = { group: THREE.Group; near: THREE.Group; mid?: THREE.Group; used: number }
+type Proxy = { tile: ColonyTile; box: ColonyBox | ColonyProxyPart; mesh: THREE.InstancedMesh; instance: number; matrix: THREE.Matrix4; visible: boolean }
 type FetchTile = (url: string, signal: AbortSignal) => Promise<ColonyPackedMesh>
 const fetchTile: FetchTile = async (url, signal) => {
   const response = await fetch(url, { signal })
@@ -88,6 +95,8 @@ export class AuthoredColony {
   private clock = 0
   private lastFocus = { azimuth: Infinity, axial: Infinity, altitude: Infinity }
   private floorSurfaces: ReturnType<typeof decodeColonyMesh>['surfaces'] = []
+  private architectureSurfaces: ReturnType<typeof decodeColonyMesh>['surfaces'] = []
+  private emissive: { material: THREE.MeshStandardMaterial; intensity: number }[] = []
   private daylight = 1
 
   constructor(parent: THREE.Group, private loadTile: FetchTile = fetchTile) {
@@ -103,43 +112,60 @@ export class AuthoredColony {
     const shared: Record<string, string> = { earth: 'earth', reserve: 'earth', verge: 'earth', water: 'water',
       arterial: 'road', local: 'road', expressway: 'road', walk: 'walk' }
     for (const [name, color] of Object.entries(manifest.palette)) {
-      const source = shared[name], surface = appearance?.materialDetails?.[source]?.surface
+      const source = shared[name], detail = manifest.materialDetails?.[name]
+      const surface = detail?.surface ?? appearance?.materialDetails?.[source]?.surface
       if (surface) {
         if (!this.textures.has(surface)) this.textures.set(surface, landscapeTexture(surface))
         this.surfaceKinds.set(name, surface)
       }
-      this.materials.set(name, new THREE.MeshStandardMaterial({ color: appearance?.palette[source] ?? color,
+      const material = new THREE.MeshStandardMaterial({ color: appearance?.palette[source] ?? color,
         roughness: name === 'water' ? .28 : .93, metalness: name === 'water' ? .12 : 0,
-        side: THREE.DoubleSide, map: surface ? this.textures.get(surface) : null }))
+        side: THREE.DoubleSide, map: surface ? this.textures.get(surface) : null })
+      if (detail?.emission) {
+        material.emissive.set(detail.emission.color)
+        this.emissive.push({ material, intensity: detail.emission.intensity })
+      }
+      this.materials.set(name, material)
     }
     const base = decodeColonyMesh(manifest.base)
     this.floorSurfaces = base.surfaces
     this.group.add(this.createMeshes(base.meshes, 'colony-base'))
-    const boxes = manifest.tiles.flatMap(tile => tile.boxes.map(box => ({ tile, box })))
+    if (manifest.architecture) {
+      const fixed = decodeColonyMesh(manifest.architecture.fixed)
+      this.architectureSurfaces = fixed.surfaces
+      this.group.add(this.createMeshes(fixed.meshes, 'colony-parcel-ground'))
+    }
+    const boxes = manifest.tiles.flatMap(tile => (tile.proxyParts ?? tile.boxes).map(box => ({ tile, box })))
     const rotation = new THREE.Quaternion(), localYaw = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0)
-    for (const name of this.materials.keys()) {
-      const entries = boxes.filter(b => b.box[7] === name)
+    for (const name of this.materials.keys()) for (const shape of ['box', 'gable'] as const) {
+      const entries = boxes.filter(b => b.box[7] === name && (b.box[8] ?? 'box') === shape)
       if (!entries.length) continue
-      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), this.materials.get(name), entries.length)
-      mesh.name = 'colony-proxy-' + name; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      const geometry = shape === 'box' ? new THREE.BoxGeometry(1, 1, 1) : new THREE.BufferGeometry()
+        .setAttribute('position', new THREE.Float32BufferAttribute([-.5, -.5, -.5, .5, -.5, -.5, 0, .5, -.5, -.5, -.5, .5, .5, -.5, .5, 0, .5, .5], 3))
+        .setIndex([0, 2, 1, 3, 4, 5, 0, 3, 5, 0, 5, 2, 2, 5, 4, 2, 4, 1, 0, 1, 4, 0, 4, 3])
+      geometry.computeVertexNormals()
+      const mesh = new THREE.InstancedMesh(geometry, this.materials.get(name), entries.length)
+      mesh.name = 'colony-proxy-' + name + (shape === 'gable' ? '-gable' : ''); mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
       entries.forEach(({ tile, box }, instance) => {
         const [x, y, z, width, depth, height, yaw] = box, a = x / manifest.radius
         const tangent = new THREE.Vector3(-Math.sin(a), 0, Math.cos(a)), up = new THREE.Vector3(-Math.cos(a), 0, -Math.sin(a))
         rotation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(tangent, up, new THREE.Vector3(0, -1, 0)))
         rotation.multiply(localYaw.setFromAxisAngle(axis, yaw))
-        const radial = manifest.radius - z - (height - 1.2) / 2
+        const skirt = tile.proxyParts ? 0 : 1.2
+        const radial = manifest.radius - z - (height - skirt) / 2
         const matrix = new THREE.Matrix4().compose(new THREE.Vector3(Math.cos(a) * radial, y, Math.sin(a) * radial),
-          rotation, new THREE.Vector3(width, height + 1.2, depth))
+          rotation, new THREE.Vector3(width, height + skirt, depth))
         mesh.setMatrixAt(instance, matrix); this.proxies.push({ tile, box, mesh, instance, matrix, visible: true })
       })
       mesh.computeBoundingSphere(); this.group.add(mesh)
     }
-    this.group.userData = { world: 'izma', scope: 'whole-colony terrain and initial massing', tiles: manifest.tiles.length,
-      loaded: 0, pending: 0, failed: [], near: 0, mid: 0, far: 0, baseTriangles: Object.values(base.meshes).reduce((n, a) => n + a.length / 9, 0) }
+    this.group.userData = { world: 'izma', scope: manifest.architecture ? 'whole-colony terrain and district architecture' : 'whole-colony terrain and initial massing', tiles: manifest.tiles.length,
+      loaded: 0, pending: 0, failed: [], near: 0, mid: 0, far: 0, baseTriangles: Object.values(base.meshes).reduce((n, a) => n + a.length / 9, 0),
+      parcelGroundTriangles: manifest.architecture?.counts.fixedTriangles ?? 0 }
     this.setDaylight(this.daylight)
   }
 
-  getColliders() { return this.manifest ? colonyColliders(this.manifest, this.floorSurfaces) : [] }
+  getColliders() { return this.manifest ? colonyColliders(this.manifest, this.floorSurfaces, this.architectureSurfaces) : [] }
 
   visit(kind: string, index: CityCollisionIndex) {
     const point = this.manifest?.visits[kind]
@@ -178,12 +204,13 @@ export class AuthoredColony {
     this.lastFocus = { azimuth, axial, altitude }; this.clock++
     const candidates = this.manifest.tiles.map(tile => ({ tile, distance: Math.hypot(colonyTileDistance(tile, this.manifest!.radius, azimuth, axial), Math.max(0, altitude - 150)) }))
       .sort((a, b) => a.distance - b.distance)
-    this.wanted = candidates.filter(t => t.distance < COLONY_NEAR_DISTANCE).slice(0, COLONY_TILE_CACHE).map(t => t.tile)
+    this.wanted = candidates.filter(t => t.distance < (t.tile.architecture ? COLONY_MID_DISTANCE : COLONY_NEAR_DISTANCE)).slice(0, COLONY_TILE_CACHE).map(t => t.tile)
     const wanted = new Set(this.wanted.map(t => t.id))
-    for (const [id, state] of this.loaded) { state.group.visible = wanted.has(id); if (state.group.visible) state.used = this.clock }
+    for (const [id, state] of this.loaded) {
+      state.group.visible = wanted.has(id)
+      if (state.group.visible) { state.used = this.clock; this.selectLOD(state, candidates.find(c => c.tile.id === id)!.distance) }
+    }
     this.refreshProxies()
-    this.group.userData.mid = candidates.filter(t => t.distance >= COLONY_NEAR_DISTANCE && t.distance < COLONY_MID_DISTANCE).length
-    this.group.userData.far = candidates.filter(t => t.distance >= COLONY_MID_DISTANCE).length
     this.pump(); this.stats()
   }
 
@@ -193,7 +220,7 @@ export class AuthoredColony {
     for (const p of this.proxies) {
       const distance = colonyTileDistance(p.tile, this.manifest.radius, azimuth, axial)
       const loaded = this.loaded.get(p.tile.id)
-      const visible = !loaded?.group.visible && (distance < COLONY_MID_DISTANCE || p.box[5] >= 14)
+      const visible = !loaded?.group.visible && (!!p.tile.proxyParts || distance < COLONY_MID_DISTANCE || p.box[5] >= 14)
       if (visible === p.visible) continue
       p.visible = visible; p.mesh.setMatrixAt(p.instance, visible ? p.matrix : hidden); p.mesh.instanceMatrix.needsUpdate = true
     }
@@ -211,9 +238,18 @@ export class AuthoredColony {
       void this.loadTile(tile.url, controller.signal).then(packed => {
         if (generation !== this.generation) return
         const decoded = decodeColonyMesh(packed)
-        const group = this.createMeshes(decoded.meshes, 'colony-tile-' + tile.id)
+        const decodedMid = packed.mid ? decodeColonyMesh(packed.mid) : undefined
+        for (const name of [...Object.keys(decoded.meshes), ...Object.keys(decodedMid?.meshes ?? {})]) {
+          if (!this.materials.has(name)) throw Error('Unknown colony material: ' + name)
+        }
+        const near = this.createMeshes(decoded.meshes, 'colony-tile-' + tile.id + '-near')
+        const mid = decodedMid ? this.createMeshes(decodedMid.meshes, 'colony-tile-' + tile.id + '-mid') : undefined
+        const group = new THREE.Group(); group.name = 'colony-tile-' + tile.id
+        group.add(near); if (mid) group.add(mid)
         group.visible = this.wanted.some(t => t.id === tile.id)
-        this.group.add(group); this.loaded.set(tile.id, { group, used: this.clock })
+        const state = { group, near, mid, used: this.clock }
+        this.selectLOD(state, Math.hypot(colonyTileDistance(tile, this.manifest!.radius, this.lastFocus.azimuth, this.lastFocus.axial), Math.max(0, this.lastFocus.altitude - 150)))
+        this.group.add(group); this.loaded.set(tile.id, state)
         this.failed.delete(tile.id)
         while (this.loaded.size > COLONY_TILE_CACHE) {
           const candidate = [...this.loaded].filter(([, s]) => !s.group.visible).sort((a, b) => a[1].used - b[1].used)[0]
@@ -233,11 +269,24 @@ export class AuthoredColony {
 
   private stats() {
     this.group.userData.loaded = this.loaded.size; this.group.userData.pending = this.pending.size
-    this.group.userData.near = [...this.loaded.values()].filter(s => s.group.visible).length
+    this.group.userData.near = [...this.loaded.values()].filter(s => s.group.visible && s.near.visible).length
+    this.group.userData.mid = [...this.loaded.values()].filter(s => s.group.visible && s.mid?.visible).length
+    this.group.userData.far = (this.manifest?.tiles.length ?? 0) - this.group.userData.near - this.group.userData.mid
     this.group.userData.failed = [...this.failed].map(([id, f]) => ({ id, attempts: f.attempts, message: f.message }))
   }
 
-  setDaylight(value: number) { this.daylight = value }
+  private selectLOD(state: TileState, distance: number) {
+    // A small hysteresis keeps a façade from alternating when standing still
+    // near the level boundary. Both levels come from the same saved building.
+    const threshold = COLONY_NEAR_DISTANCE + (state.near.visible ? 60 : -60)
+    state.near.visible = !state.mid || distance < threshold
+    if (state.mid) state.mid.visible = !state.near.visible
+  }
+  setDaylight(value: number) {
+    this.daylight = THREE.MathUtils.clamp(value, 0, 1)
+    const night = THREE.MathUtils.smoothstep(1 - this.daylight, .3, .85)
+    for (const { material, intensity } of this.emissive) material.emissiveIntensity = intensity * night
+  }
   private disposeGroup(group: THREE.Object3D) {
     group.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose() }); group.removeFromParent()
   }
@@ -249,7 +298,7 @@ export class AuthoredColony {
     for (const material of this.materials.values()) material.dispose()
     for (const texture of this.textures.values()) texture.dispose()
     this.textures.clear(); this.surfaceKinds.clear()
-    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.floorSurfaces = []
+    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.floorSurfaces = []; this.architectureSurfaces = []; this.emissive = []
     this.manifest = null; this.lastFocus = { azimuth: Infinity, axial: Infinity, altitude: Infinity }
   }
   dispose() { this.clear(); this.group.removeFromParent() }

@@ -1738,6 +1738,7 @@ export class Cityscape {
 
   setDaylight(daylight: number) {
     this.authoredLandscape.setDaylight(daylight)
+    this.authoredColony.setDaylight(daylight)
     this.riverLayer.setDaylight(daylight)
     this.riverBuildings.setDaylight(daylight)
     this.curvedNeighborhood.buildings.setDaylight(daylight)

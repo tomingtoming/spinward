@@ -5,7 +5,25 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest authored-colony transport verification (2026-09-17): **10 passed in
+Latest authored-colony architecture verification (2026-09-18): **13 passed in
+6.5 minutes**, plus **3/3** improved inspection-view cases in **35.8 s** on the
+same fixed app build, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE
+Metal. New cases walk down/back up the longest entrance stair, approach a
+relocated ground-level entrance, and stop at a balcony guard. The previous ten
+transport, study-route, night/wrist and four-world cases still pass. All thirteen
+page-error lists and twelve recorded resource-failure lists are empty.
+**1,127 unit tests**, TypeScript/build, 26 final day/night desktop views and
+independent image review accompany this run. A fixture initially stood inside
+a balcony divider; the follow-up starts within a bay and adds views back/down
+at each endpoint. This updates inspection, without changing app geometry or
+loosening movement assertions. The 1,715 buildings across 18 districts now have
+nine architecture families, three visual levels and physically supported access.
+Public spaces, density, new interiors, terrain streaming and the complete
+transport network remain unfinished; physical Quest is unmeasured.
+[Models, measurements, image-review limits and remaining work](../neighborhood-life/colony-architecture.md).
+Evidence: `evidence/colony-architecture-20260918/verified/`.
+
+Previous authored-colony transport verification (2026-09-17): **10 passed in
 5.4 minutes** on one fixed build, using playwright-webxr **0.3.0**, Chrome 152 /
 Apple M1 Pro / ANGLE Metal. Actual stereo walking covers three district centres,
 the original-study boundary, and motorway decks/parapets on all three strips;
