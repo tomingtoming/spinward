@@ -1,6 +1,6 @@
 /** Triangle soup in unrolled metres: tangent offset, axial offset, absolute
  * height above the hull. Shared by rendering, grounding and streamed Rapier. */
-export type CitySurfaceMesh = readonly number[]
+export type CitySurfaceMesh = readonly number[] | Float64Array
 
 type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number;
   toleranceU: number; toleranceV: number; toleranceW: number }

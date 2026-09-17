@@ -4,6 +4,7 @@ import { getCityGroundHeight, type CityBuilding, type CityCollisionIndex } from 
 import { landscapeColliders } from './authoredLandscape'
 import type { LandscapeData, LandscapeMaterial } from './landscapeData'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
+import { ColonyCollisionCache } from './colonyCollisionCache'
 
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
@@ -36,7 +37,7 @@ export function readColonyManifest(value: unknown): ColonyManifest {
   return p
 }
 
-export function decodeColonyMesh(packed: ColonyPackedMesh) {
+export function decodeColonyMesh(packed: ColonyPackedMesh, includeSurfaces = true) {
   if (!Array.isArray(packed.vertices) || packed.vertices.length % 3 || !packed.vertices.every(Number.isFinite)) throw Error('Invalid colony vertices')
   const expand = (indices: number[]) => {
     if (!Array.isArray(indices) || indices.length % 3) throw Error('Incomplete colony triangle')
@@ -48,7 +49,7 @@ export function decodeColonyMesh(packed: ColonyPackedMesh) {
     return values
   }
   return { meshes: Object.fromEntries(Object.entries(packed.meshes).map(([name, indices]) => [name, expand(indices)])),
-    surfaces: packed.surfaces.map(s => ({ bounds: s.bounds, vertices: expand(s.indices), groundSurface: s.groundSurface })) }
+    surfaces: includeSurfaces ? packed.surfaces.map(s => ({ bounds: s.bounds, vertices: expand(s.indices), groundSurface: s.groundSurface })) : [] }
 }
 
 export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: number, axial: number) {
@@ -60,9 +61,13 @@ export function colonyTileDistance(tile: ColonyTile, radius: number, azimuth: nu
 
 export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColonyMesh(manifest.base).surfaces,
   architectureSurfaces = manifest.architecture ? decodeColonyMesh(manifest.architecture.fixed).surfaces : []): CityBuilding[] {
+  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
+}
+
+function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
   const buildings = manifest.architecture ? manifest.architecture.solids.map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw })) :
     manifest.tiles.flatMap(t => t.boxes.map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z: z - 1.2, width, depth, height: height + 1.2, yaw })))
-  return landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces], solids: [
+  return landscapeColliders({ surfaces: [], solids: [
     ...buildings,
     ...(manifest.structures ?? []).map(([x, y, z, width, depth, height, yaw]) => ({ x, y, z, width, depth, height, yaw }))
   ] }, manifest.radius)
@@ -77,8 +82,8 @@ const fetchTile: FetchTile = async (url, signal) => {
   return response.json()
 }
 
-/** Always-present terrain and collision, then bounded, independently fetched
- * building tiles. Failed/late detail leaves the coarse body visible and solid.
+/** Always-present terrain and collision descriptors, bounded collision expansion
+ * and independently fetched building tiles. Failed/late detail leaves the coarse body visible and solid.
  * All coordinates remain in the existing co-rotating habitat root. */
 export class AuthoredColony {
   readonly group = new THREE.Group()
@@ -94,8 +99,8 @@ export class AuthoredColony {
   private generation = 0
   private clock = 0
   private lastFocus = { azimuth: Infinity, axial: Infinity, altitude: Infinity }
-  private floorSurfaces: ReturnType<typeof decodeColonyMesh>['surfaces'] = []
-  private architectureSurfaces: ReturnType<typeof decodeColonyMesh>['surfaces'] = []
+  private collisionCache = new ColonyCollisionCache()
+  private colliders: CityBuilding[] = []
   private emissive: { material: THREE.MeshStandardMaterial; intensity: number }[] = []
   private daylight = 1
 
@@ -127,12 +132,13 @@ export class AuthoredColony {
       }
       this.materials.set(name, material)
     }
-    const base = decodeColonyMesh(manifest.base)
-    this.floorSurfaces = base.surfaces
+    const base = decodeColonyMesh(manifest.base, false)
+    this.colliders = [...this.collisionCache.colliders(manifest.base, manifest.radius),
+      ...(manifest.architecture ? this.collisionCache.colliders(manifest.architecture.fixed, manifest.radius) : []),
+      ...colonySolidColliders(manifest)]
     this.group.add(this.createMeshes(base.meshes, 'colony-base'))
     if (manifest.architecture) {
-      const fixed = decodeColonyMesh(manifest.architecture.fixed)
-      this.architectureSurfaces = fixed.surfaces
+      const fixed = decodeColonyMesh(manifest.architecture.fixed, false)
       this.group.add(this.createMeshes(fixed.meshes, 'colony-parcel-ground'))
     }
     const boxes = manifest.tiles.flatMap(tile => (tile.proxyParts ?? tile.boxes).map(box => ({ tile, box })))
@@ -161,11 +167,11 @@ export class AuthoredColony {
     }
     this.group.userData = { world: 'izma', scope: manifest.architecture ? 'whole-colony terrain and district architecture' : 'whole-colony terrain and initial massing', tiles: manifest.tiles.length,
       loaded: 0, pending: 0, failed: [], near: 0, mid: 0, far: 0, baseTriangles: Object.values(base.meshes).reduce((n, a) => n + a.length / 9, 0),
-      parcelGroundTriangles: manifest.architecture?.counts.fixedTriangles ?? 0 }
+      parcelGroundTriangles: manifest.architecture?.counts.fixedTriangles ?? 0, collisionCache: this.collisionCache.stats }
     this.setDaylight(this.daylight)
   }
 
-  getColliders() { return this.manifest ? colonyColliders(this.manifest, this.floorSurfaces, this.architectureSurfaces) : [] }
+  getColliders() { return this.colliders }
 
   visit(kind: string, index: CityCollisionIndex) {
     const point = this.manifest?.visits[kind]
@@ -298,7 +304,8 @@ export class AuthoredColony {
     for (const material of this.materials.values()) material.dispose()
     for (const texture of this.textures.values()) texture.dispose()
     this.textures.clear(); this.surfaceKinds.clear()
-    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.floorSurfaces = []; this.architectureSurfaces = []; this.emissive = []
+    this.collisionCache.clear(); this.colliders = []
+    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.emissive = []
     this.manifest = null; this.lastFocus = { azimuth: Infinity, axial: Infinity, altitude: Infinity }
   }
   dispose() { this.clear(); this.group.removeFromParent() }

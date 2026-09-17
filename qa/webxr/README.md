@@ -5,7 +5,21 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest authored-colony architecture verification (2026-09-18): **13 passed in
+Latest authored-colony collision-cache verification (2026-09-18): **13 passed
+in 6.4 minutes**, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE Metal
+on a fixed build. All architecture, district, motorway, study, night/wrist and
+four-world cases pass; ten cases additionally enforce the live collision-cache
+limits. **1,131 unit tests**, TypeScript/build, eight day/night desktop views
+and independent comparison of eight desktop/three XR images accompany the run.
+The cache preserves cold/revisited support while reducing stable measured JS
+heap by about **88 MiB** (228–229 → 140–141 MiB); this is not total process or
+GPU memory. All thirteen page-error lists and twelve recorded resource-failure
+lists are empty. Existing night visibility and road-seam issues, terrain network
+streaming and whole-colony completion remain; physical Quest is unmeasured.
+[Scope, repeatable memory probe and verification](../neighborhood-life/colony-collision-cache.md).
+Evidence: `evidence/colony-cache-20260918/verified/`.
+
+Previous authored-colony architecture verification (2026-09-18): **13 passed in
 6.5 minutes**, plus **3/3** improved inspection-view cases in **35.8 s** on the
 same fixed app build, using playwright-webxr **0.3.0** / Apple M1 Pro / ANGLE
 Metal. New cases walk down/back up the longest entrance stair, approach a

@@ -50,6 +50,8 @@ for (const [name, query, distance] of [
     expect(Math.abs(state.h - drawnHeight), 'ground sampler follows the rendered triangles').toBeLessThan(.25)
     expect(state.mode).toBe('grounded')
     expect(state.tiles.loaded).toBeLessThanOrEqual(18); expect(state.tiles.pending).toBeLessThanOrEqual(3)
+    expect(state.tiles.collisionCache.entries).toBeLessThanOrEqual(128)
+    expect(state.tiles.collisionCache.bytes).toBeLessThanOrEqual(4 * 1024 * 1024)
     expect(state.tiles.failed).toEqual([])
     return { ...state, drawnHeight }
   }

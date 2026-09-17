@@ -60,6 +60,8 @@ for (const [kind, parcel] of [['stairs', steepest], ['relocated-entry', relocate
       expect(3200 - state.radial - drawnHeight).toBeGreaterThan(-.12)
       expect(state.mode).toBe('grounded')
       expect(state.tiles.loaded).toBeLessThanOrEqual(18); expect(state.tiles.pending).toBeLessThanOrEqual(3)
+      expect(state.tiles.collisionCache.entries).toBeLessThanOrEqual(128)
+      expect(state.tiles.collisionCache.bytes).toBeLessThanOrEqual(4 * 1024 * 1024)
       expect(state.tiles.failed).toEqual([])
       const result = { ...state, drawnHeight }; samples.push(result); return result
     }
