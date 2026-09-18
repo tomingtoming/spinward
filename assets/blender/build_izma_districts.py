@@ -5,7 +5,7 @@ contains one editable near and middle mesh per parcel; no GUI scene is changed.
 Rebuilding replaces only this derived scene. export_izma_districts.py consumes
 the saved meshes, not this recipe. Existing study interiors are untouched.
 """
-import bpy, json, math, hashlib
+import bpy, json, math, hashlib, sys
 from pathlib import Path
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
@@ -13,6 +13,8 @@ from mathutils.bvhtree import BVHTree
 def build(config=None):
     config=config or {}
     ROOT=Path(__file__).resolve().parents[2]
+    sys.path.insert(0,str(ROOT/'assets/blender'))
+    from izma_building_forms import building_form
     PLAN=json.loads((ROOT/'assets/blender/izma-architecture-plan.json').read_text())
     PLAN['materials'].update(config.get('materials',{}))
     MASTER=json.loads((ROOT/'assets/blender/izma-colony-plan.json').read_text())
@@ -247,7 +249,7 @@ def build(config=None):
                 if side==2:return (x+depth+extra,y+u,z+h)
                 return (x-depth-extra,y-u,z+h)
             for row in range(floors):
-                is_shop=row==0 and (kind in ['shop-house','workshop','civic','pavilion'] or ground_shop)
+                is_shop=row==0 and z==0 and (kind in ['shop-house','workshop','civic','pavilion'] or ground_shop)
                 wh=(2.7 if n%3==0 else 2.15) if office else (2.15 if balcony and side==0 and row>0 else 1.2)
                 if is_shop:wh=2.3
                 bottom=row*floor_h+(0.24 if wh>2 else 1.0)
@@ -255,7 +257,7 @@ def build(config=None):
                 for col in range(bays):
                     # Reserve the central ground-floor doorway; upper residential
                     # panes are waist-height unless they serve a balcony.
-                    if side==0 and row==0 and abs(-span/2+(col+.5)*pitch)<1.5:continue
+                    if side==0 and row==0 and z==0 and abs(-span/2+(col+.5)*pitch)<1.5:continue
                     u=-span/2+(col+.5)*pitch
                     key=seed(f'{n}:{side}:{row}:{col}')
                     pane='glass' if key%10>=4 else ('window-cool' if office else ['window-warm','window-neutral','window-cool'][(key//10)%3])
@@ -307,12 +309,8 @@ def build(config=None):
             parcel['proxyParts'].append([u,v,z,pw,pd,ph,mat,shape])
         part(0,0,bottom-floor,w+.5,d+.5,floor-bottom,'foundation')
         parcel['solids'].append([0,0,bottom-floor,w+.5,d+.5,floor-bottom])
-        if family=='office':
-            volumes=[(0,0,0,w,d,min(2,floors)*floor_h),(0,d*.06,2*floor_h,w*.78,d*.74,(floors-2)*floor_h)]
-        elif family=='civic':
-            volumes=[(w*.18,0,0,w*.64,d,height),(-w*.32,d*.24,0,w*.36,d*.52,max(1,floors-1)*floor_h)]
-        elif family=='apartment':volumes=[(0,d*.08,0,w,d*.76,height)]
-        else:volumes=[(0,0,0,w,d,height)]
+        form,volumes,roofs=building_form(family,w,d,floors,floor_h,n,config.get('variedMassing',False))
+        parcel['form']=form;parcel['volumes']=volumes
         for u,v,z,pw,pd,ph in volumes:
             part(u,v,z,pw,pd,ph,wall)
             parcel['solids'].append([u,v,bottom-floor,pw,pd,z+ph-(bottom-floor)])
@@ -322,11 +320,7 @@ def build(config=None):
                 z=row*floor_h
                 part(0,slab_y,z-.16,w*.92,1.6,1.14,wall)
                 parcel['balconyGuards'].append([0,slab_y,z,w*.92+.1,1.6,.98,.1])
-        pitched=family in ['house','farmhouse','shop-house','warehouse']
-        roof_h=min(3.1,w*.19) if pitched else .24
-        if pitched:part(0,0,height,w+.65,d+.65,roof_h,roof,'gable')
-        else:
-            for u,v,z,pw,pd,ph in volumes:part(u,v,z+ph,pw+.25,pd+.25,.24,roof)
+        for u,v,z,pw,pd,ph,shape in roofs:part(u,v,z,pw,pd,ph,roof,shape)
         # Door is on the first volume's street-facing facade; civic courts stay open.
         main=volumes[0];du=main[0];dv=main[1]-main[4]/2
         if family=='warehouse':du=-w/2+1.5
@@ -345,10 +339,10 @@ def build(config=None):
                 # The visible roof slab/gable supplies the walking surface. The
                 # hidden wall-volume top must not add a second subdivided roof.
                 b.box(u,v,z,pw,pd,ph,wall)
-                if family!='warehouse':facade(b,u,v,z,pw,pd,round(ph/floor_h),family,n+round(z)*17,lod,wall,family=='apartment',parcel['groundShop'] and z==0)
-            if pitched:b.gable(0,0,height,w+.65,d+.65,roof_h,roof)
-            else:
-                for u,v,z,pw,pd,ph in volumes:b.box(u,v,z+ph,pw+.25,pd+.25,.24,roof,True)
+                if family!='warehouse':facade(b,u,v,z,pw,pd,round(ph/floor_h),family,n+round(z)*17,lod,wall,family=='apartment' and (u,v,z,pw,pd,ph)==volumes[0],parcel['groundShop'] and z==0)
+            for u,v,z,pw,pd,ph,shape in roofs:
+                if shape=='gable':b.gable(u,v,z,pw,pd,ph,roof)
+                else:b.box(u,v,z,pw,pd,ph,roof,True)
             # Human-scale doorway, porch canopy and visible support posts.
             public=family in ['office','civic'];dw=2.8 if public else (1.9 if family=='apartment' else 1.1)
             door_material='wood' if family in ['house','farmhouse'] else 'metal'

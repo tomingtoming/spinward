@@ -88,8 +88,8 @@ for lod,detail in [(0,2),(1,1)]:
     canopies[lod]=[[tuple(v.co)for v in f.verts]for f in bm.faces];bm.free()
 meshes={};physics={};proxies={};fixtures=[]
 def mesh_key(x,y,band):return f'{band}-{math.floor((x-band*math.tau*R/3+R*math.pi/6)/512)}-{math.floor((y+20000)/512)}'
-def face(points,material,lod,zone,physical=False):
-    x=sum(p[0]for p in points)/len(points);y=sum(p[1]for p in points)/len(points)
+def face(points,material,lod,zone,physical=False,owner=None):
+    x,y=owner if owner is not None else (sum(p[0]for p in points)/len(points),sum(p[1]for p in points)/len(points))
     tile=mesh_key(x,y,zone['band']);key=(tile,lod)
     group=meshes.setdefault(key,{'faces':[],'districts':set(),'band':zone['band']})
     group['faces'].append((points,material,physical));group['districts'].add(zone['district'])
@@ -97,7 +97,7 @@ def box(x,y,z,w,d,h,mat,yaw,zone,lods=(0,1),physical=True):
     c,s=math.cos(yaw),math.sin(yaw)
     vs=[(x+c*u-s*v,y+s*u+c*v,z+zz)for zz in [0,h]for u,v in [(-w/2,-d/2),(w/2,-d/2),(w/2,d/2),(-w/2,d/2)]]
     for lod in lods:
-        for ids in [(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7)]:face([vs[i]for i in ids],mat,lod,zone,physical and lod==0)
+        for ids in [(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7)]:face([vs[i]for i in ids],mat,lod,zone,physical and lod==0,(x,y))
     proxies.setdefault(mesh_key(x,y,zone['band']),[]).append([x,y,z,w,d,h,yaw,'land-'+mat,'box'])
 
 for zone in layout['zones']:
@@ -180,7 +180,7 @@ for zone in layout['zones']:
                     for segment in range(4):
                         v0=v-3+segment*1.5;v1=v0+1.5
                         corners=[world(uu,vv)for uu,vv in [(u-.6,v0),(u+.6,v0),(u+.6,v1),(u-.6,v1)]]
-                        for lod in [0,1]:face([(px,py,ground(px,py)+.15)for px,py in corners],'crop',lod,zone)
+                        for lod in [0,1]:face([(px,py,ground(px,py)+.15)for px,py in corners],'crop',lod,zone,owner=(xx,yy))
                     proxies.setdefault(mesh_key(xx,yy,zone['band']),[]).append([xx,yy,ground(xx,yy)+.025,1.2,6,.125,angle,'land-crop','box'])
                 kind='growing-beds'
             else:
@@ -191,7 +191,7 @@ for zone in layout['zones']:
                     box(x,y,h,.3,.3,height_tree*.58,'bark',0,zone)
                     leaf=['leaf-olive','leaf-dark','leaf-silver'][(k//7)%3]
                     for lod in [0,1]:
-                        for tri in canopies[lod]:face([(x+u*crown,y+v*crown,h+height_tree*.55+(z+.5)*crown*.85)for u,v,z in tri],leaf,lod,zone)
+                        for tri in canopies[lod]:face([(x+u*crown,y+v*crown,h+height_tree*.55+(z+.5)*crown*.85)for u,v,z in tri],leaf,lod,zone,owner=(x,y))
                     proxies.setdefault(mesh_key(x,y,zone['band']),[]).append([x,y,h+height_tree*.55,crown,crown,crown*.85,0,'land-'+leaf,'canopy']);kind='tree'
             item={'zone':zone['id'],'kind':kind,'position':[x,y,h],'clearance':radius};zone_fixtures.append(item);fixtures.append(item)
     # Low garden boundaries make the outer parcel edge visible. Openings stay

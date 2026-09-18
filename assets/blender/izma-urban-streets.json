@@ -18,7 +18,8 @@
       "rejected": {
         "occupied": 24
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 135
     },
     {
       "id": "a-old-town",
@@ -33,12 +34,17 @@
       "reach": 482.0,
       "streets": [
         "urban-a-old-town-0-0",
-        "urban-a-old-town-1-1"
+        "urban-a-old-town-1-1",
+        "urban-a-old-town-0-0-cross",
+        "urban-a-old-town-0-0-outer",
+        "urban-a-old-town-1-1-cross",
+        "urban-a-old-town-1-1-outer"
       ],
       "rejected": {
         "occupied": 57
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 179.17580604948125
     },
     {
       "id": "a-river",
@@ -56,12 +62,22 @@
         "urban-a-river-0-1",
         "urban-a-river-0-2",
         "urban-a-river-1-0",
-        "urban-a-river-1-2"
+        "urban-a-river-1-2",
+        "urban-a-river-0-0-cross",
+        "urban-a-river-0-0-outer",
+        "urban-a-river-0-1-outer",
+        "urban-a-river-0-2-outer",
+        "urban-a-river-1-0-cross",
+        "urban-a-river-1-0-outer",
+        "urban-a-river-1-2-cross",
+        "urban-a-river-1-2-outer"
       ],
       "rejected": {
-        "occupied": 56
+        "occupied": 56,
+        "inner-reservation": 2
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 179.1875185016384
     },
     {
       "id": "a-civic",
@@ -76,14 +92,19 @@
       "reach": 1112.0,
       "streets": [
         "urban-a-civic-0-0",
-        "urban-a-civic-1-0"
+        "urban-a-civic-1-0",
+        "urban-a-civic-0-0-outer",
+        "urban-a-civic-1-0-cross",
+        "urban-a-civic-1-0-outer"
       ],
       "rejected": {
         "occupied": 87,
         "water": 35,
-        "transport": 4
+        "transport": 4,
+        "inner-reservation": 1
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 205.35480000000007
     },
     {
       "id": "a-upland",
@@ -97,12 +118,15 @@
       ],
       "reach": 252.0,
       "streets": [
-        "urban-a-upland-0-0"
+        "urban-a-upland-0-0",
+        "urban-a-upland-0-0-cross",
+        "urban-a-upland-0-0-outer"
       ],
       "rejected": {
         "occupied": 20
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 196.7529599999998
     },
     {
       "id": "a-water",
@@ -119,7 +143,8 @@
         "urban-a-water-0-0"
       ],
       "rejected": {},
-      "landUse": "small settlement in landscape"
+      "landUse": "small settlement in landscape",
+      "halfWidth": 100
     },
     {
       "id": "b-workshop",
@@ -133,12 +158,15 @@
       ],
       "reach": 262.0,
       "streets": [
-        "urban-b-workshop-1-0"
+        "urban-b-workshop-1-0",
+        "urban-b-workshop-1-0-outer"
       ],
       "rejected": {
-        "occupied": 12
+        "occupied": 12,
+        "inner-reservation": 1
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 180.0
     },
     {
       "id": "b-campus",
@@ -154,14 +182,20 @@
       "streets": [
         "urban-b-campus-0-0",
         "urban-b-campus-1-1",
-        "urban-b-campus-1-4"
+        "urban-b-campus-1-4",
+        "urban-b-campus-0-0-cross",
+        "urban-b-campus-0-0-outer",
+        "urban-b-campus-1-1-outer",
+        "urban-b-campus-1-4-outer"
       ],
       "rejected": {
         "occupied": 80,
         "water": 29,
-        "transport": 2
+        "transport": 2,
+        "inner-reservation": 2
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 229.2487999999994
     },
     {
       "id": "b-station",
@@ -176,12 +210,17 @@
       "reach": 452.0,
       "streets": [
         "urban-b-station-0-0",
-        "urban-b-station-1-1"
+        "urban-b-station-1-1",
+        "urban-b-station-0-0-cross",
+        "urban-b-station-0-0-outer",
+        "urban-b-station-1-1-cross",
+        "urban-b-station-1-1-outer"
       ],
       "rejected": {
         "occupied": 35
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 200.57600000000002
     },
     {
       "id": "b-housing",
@@ -195,13 +234,16 @@
       ],
       "reach": 942.0,
       "streets": [
-        "urban-b-housing-0-3"
+        "urban-b-housing-0-3",
+        "urban-b-housing-0-3-cross",
+        "urban-b-housing-0-3-outer"
       ],
       "rejected": {
         "occupied": 66,
         "water": 18
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 210.13360000000011
     },
     {
       "id": "b-commons",
@@ -218,7 +260,8 @@
         "urban-b-commons-0-0"
       ],
       "rejected": {},
-      "landUse": "small settlement in landscape"
+      "landUse": "small settlement in landscape",
+      "halfWidth": 120
     },
     {
       "id": "b-north",
@@ -234,13 +277,17 @@
       "streets": [
         "urban-b-north-0-0",
         "urban-b-north-1-1",
-        "urban-b-north-1-4"
+        "urban-b-north-1-4",
+        "urban-b-north-0-0-outer",
+        "urban-b-north-1-1-outer"
       ],
       "rejected": {
         "occupied": 75,
-        "water": 22
+        "water": 22,
+        "inner-reservation": 4
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 219.6911999999993
     },
     {
       "id": "c-cargo",
@@ -254,12 +301,15 @@
       ],
       "reach": 302.0,
       "streets": [
-        "urban-c-cargo-1-0"
+        "urban-c-cargo-1-0",
+        "urban-c-cargo-1-0-cross"
       ],
       "rejected": {
-        "occupied": 18
+        "occupied": 18,
+        "inner-reservation": 1
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 150
     },
     {
       "id": "c-production",
@@ -276,14 +326,22 @@
         "urban-c-production-0-1",
         "urban-c-production-0-4",
         "urban-c-production-1-1",
-        "urban-c-production-1-4"
+        "urban-c-production-1-4",
+        "urban-c-production-0-1-cross",
+        "urban-c-production-0-1-outer",
+        "urban-c-production-0-4-outer",
+        "urban-c-production-1-1-outer",
+        "urban-c-production-1-4-cross",
+        "urban-c-production-1-4-outer"
       ],
       "rejected": {
         "occupied": 70,
         "water": 30,
-        "transport": 1
+        "transport": 1,
+        "inner-reservation": 2
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 243.0
     },
     {
       "id": "c-fields",
@@ -302,7 +360,8 @@
       "rejected": {
         "occupied": 3
       },
-      "landUse": "small settlement in landscape"
+      "landUse": "small settlement in landscape",
+      "halfWidth": 110
     },
     {
       "id": "c-market",
@@ -318,13 +377,20 @@
       "streets": [
         "urban-c-market-0-0",
         "urban-c-market-0-1",
-        "urban-c-market-0-2"
+        "urban-c-market-0-2",
+        "urban-c-market-0-0-cross",
+        "urban-c-market-0-0-outer",
+        "urban-c-market-0-1-cross",
+        "urban-c-market-0-1-outer",
+        "urban-c-market-0-2-cross",
+        "urban-c-market-0-2-outer"
       ],
       "rejected": {
         "occupied": 64,
         "water": 54
       },
-      "landUse": "continuous urban frontage with back streets"
+      "landUse": "continuous urban frontage with back streets",
+      "halfWidth": 178.31037463366374
     },
     {
       "id": "c-orchards",
@@ -341,7 +407,8 @@
         "urban-c-orchards-0-0"
       ],
       "rejected": {},
-      "landUse": "small settlement in landscape"
+      "landUse": "small settlement in landscape",
+      "halfWidth": 125
     },
     {
       "id": "c-forest",
@@ -360,7 +427,8 @@
       "rejected": {
         "occupied": 9
       },
-      "landUse": "small settlement in landscape"
+      "landUse": "small settlement in landscape",
+      "halfWidth": 105
     }
   ],
   "streets": [
@@ -1368,6 +1436,1332 @@
         "c-forest-station-road"
       ],
       "character": "groves"
+    },
+    {
+      "id": "urban-a-old-town-0-0-cross",
+      "points": [
+        [
+          -701.7735639085545,
+          -9400.0
+        ],
+        [
+          -701.7735639085545,
+          -9338.116974295808
+        ]
+      ],
+      "connections": [
+        "a-old-town-station-road",
+        "urban-a-old-town-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-old-town-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-old-town-0-0-outer",
+      "points": [
+        [
+          -733.2755404507375,
+          -9348.373431774658
+        ],
+        [
+          -725.7403308059222,
+          -9282.699385958387
+        ],
+        [
+          -676.1335339775549,
+          -9278.261917667936
+        ],
+        [
+          -670.4821267439434,
+          -9342.756383305734
+        ]
+      ],
+      "connections": [
+        "urban-a-old-town-0-0",
+        "urban-a-old-town-0-0"
+      ],
+      "role": "back-lane",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-old-town-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-old-town-1-1-cross",
+      "points": [
+        [
+          -521.6683191759528,
+          -9400.0
+        ],
+        [
+          -521.6683191759528,
+          -9480.968765717573
+        ]
+      ],
+      "connections": [
+        "a-old-town-station-road",
+        "urban-a-old-town-1-1"
+      ],
+      "role": "cross-lane",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-old-town-1-1"
+      ]
+    },
+    {
+      "id": "urban-a-old-town-1-1-outer",
+      "points": [
+        [
+          -553.2418621363049,
+          -9467.526005029624
+        ],
+        [
+          -545.7046407308142,
+          -9533.402901867406
+        ],
+        [
+          -496.0845998113335,
+          -9539.175806049481
+        ],
+        [
+          -490.4316837572154,
+          -9474.83347867782
+        ]
+      ],
+      "connections": [
+        "urban-a-old-town-1-1",
+        "urban-a-old-town-1-1"
+      ],
+      "role": "back-lane",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-old-town-1-1"
+      ]
+    },
+    {
+      "id": "urban-a-river-0-0-cross",
+      "points": [
+        [
+          -801.9957573877617,
+          -80.0
+        ],
+        [
+          -801.9957573877617,
+          0.9426507623452842
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "urban-a-river-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-river-0-0-outer",
+      "points": [
+        [
+          -838.3786423640837,
+          -12.482351756049514
+        ],
+        [
+          -829.6831915767609,
+          53.39719157463461
+        ],
+        [
+          -772.4381405602193,
+          59.187518501638415
+        ],
+        [
+          -765.9165524697272,
+          -5.152824000348497
+        ]
+      ],
+      "connections": [
+        "urban-a-river-0-0",
+        "urban-a-river-0-0"
+      ],
+      "role": "back-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-river-0-1-outer",
+      "points": [
+        [
+          -673.3786423640837,
+          -12.482351756049514
+        ],
+        [
+          -664.6831915767609,
+          53.39719157463461
+        ],
+        [
+          -607.4381405602193,
+          59.187518501638415
+        ],
+        [
+          -600.9165524697272,
+          -5.152824000348497
+        ]
+      ],
+      "connections": [
+        "urban-a-river-0-1",
+        "urban-a-river-0-1"
+      ],
+      "role": "back-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-0-1"
+      ]
+    },
+    {
+      "id": "urban-a-river-0-2-outer",
+      "points": [
+        [
+          -508.37864236408376,
+          -12.482351756049514
+        ],
+        [
+          -499.683191576761,
+          53.39719157463461
+        ],
+        [
+          -442.4381405602193,
+          59.187518501638415
+        ],
+        [
+          -435.91655246972726,
+          -5.152824000348497
+        ]
+      ],
+      "connections": [
+        "urban-a-river-0-2",
+        "urban-a-river-0-2"
+      ],
+      "role": "back-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-0-2"
+      ]
+    },
+    {
+      "id": "urban-a-river-1-0-cross",
+      "points": [
+        [
+          -767.0315932098613,
+          -80.0
+        ],
+        [
+          -767.0315932098613,
+          -154.26465122940513
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "urban-a-river-1-0"
+      ],
+      "role": "cross-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-1-0"
+      ]
+    },
+    {
+      "id": "urban-a-river-1-0-outer",
+      "points": [
+        [
+          -803.3901098271556,
+          -141.95348839340963
+        ],
+        [
+          -794.6953494623243,
+          -207.76183226013066
+        ],
+        [
+          -737.4548437271854,
+          -213.08342938271085
+        ],
+        [
+          -730.933773453562,
+          -148.68968728275163
+        ]
+      ],
+      "connections": [
+        "urban-a-river-1-0",
+        "urban-a-river-1-0"
+      ],
+      "role": "back-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-1-0"
+      ]
+    },
+    {
+      "id": "urban-a-river-1-2-cross",
+      "points": [
+        [
+          -437.0931782316307,
+          -80.0
+        ],
+        [
+          -437.0931782316307,
+          -141.8698318788267
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "urban-a-river-1-2"
+      ],
+      "role": "cross-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-1-2"
+      ]
+    },
+    {
+      "id": "urban-a-river-1-2-outer",
+      "points": [
+        [
+          -473.40981703412183,
+          -131.62234620122453
+        ],
+        [
+          -464.7162595357559,
+          -197.2977376831365
+        ],
+        [
+          -407.4836726715137,
+          -201.74406493905678
+        ],
+        [
+          -400.96350454773926,
+          -137.25060855049074
+        ]
+      ],
+      "connections": [
+        "urban-a-river-1-2",
+        "urban-a-river-1-2"
+      ],
+      "role": "back-lane",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-a-river-1-2"
+      ]
+    },
+    {
+      "id": "urban-a-civic-0-0-outer",
+      "points": [
+        [
+          -461.128,
+          5887.36
+        ],
+        [
+          -454.66528,
+          5954.0736
+        ],
+        [
+          -412.11904000000004,
+          5965.3548
+        ],
+        [
+          -407.27200000000005,
+          5901.64
+        ]
+      ],
+      "connections": [
+        "urban-a-civic-0-0",
+        "urban-a-civic-0-0"
+      ],
+      "role": "back-lane",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-a-civic-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-civic-1-0-cross",
+      "points": [
+        [
+          -417.20000000000005,
+          5800.0
+        ],
+        [
+          -417.20000000000005,
+          5732.5
+        ]
+      ],
+      "connections": [
+        "a-civic-station-road",
+        "urban-a-civic-1-0"
+      ],
+      "role": "cross-lane",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-a-civic-1-0"
+      ]
+    },
+    {
+      "id": "urban-a-civic-1-0-outer",
+      "points": [
+        [
+          -444.128,
+          5737.6
+        ],
+        [
+          -437.66528,
+          5671.376
+        ],
+        [
+          -395.11904000000004,
+          5663.317999999999
+        ],
+        [
+          -390.27200000000005,
+          5727.4
+        ]
+      ],
+      "connections": [
+        "urban-a-civic-1-0",
+        "urban-a-civic-1-0"
+      ],
+      "role": "back-lane",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-a-civic-1-0"
+      ]
+    },
+    {
+      "id": "urban-a-upland-0-0-cross",
+      "points": [
+        [
+          -744.0999999999999,
+          11400.0
+        ],
+        [
+          -744.0999999999999,
+          11486.4
+        ]
+      ],
+      "connections": [
+        "a-upland-station-road",
+        "urban-a-upland-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "a-upland",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-a-upland-0-0"
+      ]
+    },
+    {
+      "id": "urban-a-upland-0-0-outer",
+      "points": [
+        [
+          -768.784,
+          11479.872
+        ],
+        [
+          -762.85984,
+          11546.43872
+        ],
+        [
+          -723.85912,
+          11556.75296
+        ],
+        [
+          -719.4159999999999,
+          11492.928
+        ]
+      ],
+      "connections": [
+        "urban-a-upland-0-0",
+        "urban-a-upland-0-0"
+      ],
+      "role": "back-lane",
+      "district": "a-upland",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-a-upland-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-workshop-1-0-outer",
+      "points": [
+        [
+          7626.064327658226,
+          -15725.0
+        ],
+        [
+          7613.518327658226,
+          -15660.0
+        ],
+        [
+          7530.923827658226,
+          -15660.0
+        ],
+        [
+          7521.514327658227,
+          -15725.0
+        ]
+      ],
+      "connections": [
+        "urban-b-workshop-1-0",
+        "urban-b-workshop-1-0"
+      ],
+      "role": "back-lane",
+      "district": "b-workshop",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-b-workshop-1-0"
+      ]
+    },
+    {
+      "id": "urban-b-campus-0-0-cross",
+      "points": [
+        [
+          7298.564327658226,
+          -10200.0
+        ],
+        [
+          7298.564327658226,
+          -10290.0
+        ]
+      ],
+      "connections": [
+        "b-campus-station-road",
+        "urban-b-campus-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-campus-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-campus-0-0-outer",
+      "points": [
+        [
+          7332.224327658226,
+          -10283.2
+        ],
+        [
+          7324.145927658225,
+          -10349.832
+        ],
+        [
+          7270.963127658226,
+          -10360.576
+        ],
+        [
+          7264.904327658226,
+          -10296.8
+        ]
+      ],
+      "connections": [
+        "urban-b-campus-0-0",
+        "urban-b-campus-0-0"
+      ],
+      "role": "back-lane",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-campus-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-campus-1-1-outer",
+      "points": [
+        [
+          7127.224327658226,
+          -10091.84
+        ],
+        [
+          7119.145927658225,
+          -10024.7184
+        ],
+        [
+          7065.963127658226,
+          -10010.7512
+        ],
+        [
+          7059.904327658226,
+          -10074.16
+        ]
+      ],
+      "connections": [
+        "urban-b-campus-1-1",
+        "urban-b-campus-1-1"
+      ],
+      "role": "back-lane",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-campus-1-1"
+      ]
+    },
+    {
+      "id": "urban-b-campus-1-4-outer",
+      "points": [
+        [
+          6407.224327658226,
+          -10091.84
+        ],
+        [
+          6399.145927658225,
+          -10024.7184
+        ],
+        [
+          6345.963127658226,
+          -10010.7512
+        ],
+        [
+          6339.904327658226,
+          -10074.16
+        ]
+      ],
+      "connections": [
+        "urban-b-campus-1-4",
+        "urban-b-campus-1-4"
+      ],
+      "role": "back-lane",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-campus-1-4"
+      ]
+    },
+    {
+      "id": "urban-b-station-0-0-cross",
+      "points": [
+        [
+          7521.564327658226,
+          -4200.0
+        ],
+        [
+          7521.564327658226,
+          -4290.0
+        ]
+      ],
+      "connections": [
+        "b-station-station-road",
+        "urban-b-station-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-station-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-station-0-0-outer",
+      "points": [
+        [
+          7547.744327658226,
+          -4283.2
+        ],
+        [
+          7541.461127658226,
+          -4349.831999999999
+        ],
+        [
+          7500.096727658226,
+          -4360.576
+        ],
+        [
+          7495.384327658226,
+          -4296.8
+        ]
+      ],
+      "connections": [
+        "urban-b-station-0-0",
+        "urban-b-station-0-0"
+      ],
+      "role": "back-lane",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-station-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-station-1-1-cross",
+      "points": [
+        [
+          7366.564327658226,
+          -4200.0
+        ],
+        [
+          7366.564327658226,
+          -4113.6
+        ]
+      ],
+      "connections": [
+        "b-station-station-road",
+        "urban-b-station-1-1"
+      ],
+      "role": "cross-lane",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-station-1-1"
+      ]
+    },
+    {
+      "id": "urban-b-station-1-1-outer",
+      "points": [
+        [
+          7392.744327658226,
+          -4120.128
+        ],
+        [
+          7386.461127658226,
+          -4053.56128
+        ],
+        [
+          7345.096727658226,
+          -4043.24704
+        ],
+        [
+          7340.384327658226,
+          -4107.072
+        ]
+      ],
+      "connections": [
+        "urban-b-station-1-1",
+        "urban-b-station-1-1"
+      ],
+      "role": "back-lane",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-station-1-1"
+      ]
+    },
+    {
+      "id": "urban-b-housing-0-3-cross",
+      "points": [
+        [
+          6597.364327658226,
+          2200.0
+        ],
+        [
+          6597.364327658226,
+          2101.0
+        ]
+      ],
+      "connections": [
+        "b-housing-station-road",
+        "urban-b-housing-0-3"
+      ],
+      "role": "cross-lane",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-housing-0-3"
+      ]
+    },
+    {
+      "id": "urban-b-housing-0-3-outer",
+      "points": [
+        [
+          6626.536327658226,
+          2108.48
+        ],
+        [
+          6619.535047658225,
+          2041.6848
+        ],
+        [
+          6573.443287658226,
+          2029.8663999999999
+        ],
+        [
+          6568.192327658226,
+          2093.52
+        ]
+      ],
+      "connections": [
+        "urban-b-housing-0-3",
+        "urban-b-housing-0-3"
+      ],
+      "role": "back-lane",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-housing-0-3"
+      ]
+    },
+    {
+      "id": "urban-b-north-0-0-outer",
+      "points": [
+        [
+          7281.880327658227,
+          14525.12
+        ],
+        [
+          7274.340487658226,
+          14458.6512
+        ],
+        [
+          7224.703207658225,
+          14448.9816
+        ],
+        [
+          7219.048327658225,
+          14512.88
+        ]
+      ],
+      "connections": [
+        "urban-b-north-0-0",
+        "urban-b-north-0-0"
+      ],
+      "role": "back-lane",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-north-0-0"
+      ]
+    },
+    {
+      "id": "urban-b-north-1-1-outer",
+      "points": [
+        [
+          7021.880327658227,
+          14699.84
+        ],
+        [
+          7014.340487658226,
+          14766.7984
+        ],
+        [
+          6964.703207658225,
+          14779.6912
+        ],
+        [
+          6959.048327658225,
+          14716.16
+        ]
+      ],
+      "connections": [
+        "urban-b-north-1-1",
+        "urban-b-north-1-1"
+      ],
+      "role": "back-lane",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "character": "courts",
+      "parents": [
+        "urban-b-north-1-1"
+      ]
+    },
+    {
+      "id": "urban-c-cargo-1-0-cross",
+      "points": [
+        [
+          12556.503655316452,
+          -16900.0
+        ],
+        [
+          12556.503655316452,
+          -16980.0
+        ]
+      ],
+      "connections": [
+        "c-cargo-station-road",
+        "urban-c-cargo-1-0"
+      ],
+      "role": "cross-lane",
+      "district": "c-cargo",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-cargo-1-0"
+      ]
+    },
+    {
+      "id": "urban-c-production-0-1-cross",
+      "points": [
+        [
+          13016.953655316453,
+          -11600.0
+        ],
+        [
+          13016.953655316453,
+          -11515.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "urban-c-production-0-1"
+      ],
+      "role": "cross-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-0-1"
+      ]
+    },
+    {
+      "id": "urban-c-production-0-1-outer",
+      "points": [
+        [
+          12962.128655316452,
+          -11515.0
+        ],
+        [
+          12975.286655316451,
+          -11450.0
+        ],
+        [
+          13061.910155316453,
+          -11450.0
+        ],
+        [
+          13071.778655316453,
+          -11515.0
+        ]
+      ],
+      "connections": [
+        "urban-c-production-0-1",
+        "urban-c-production-0-1"
+      ],
+      "role": "back-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-0-1"
+      ]
+    },
+    {
+      "id": "urban-c-production-0-4-outer",
+      "points": [
+        [
+          13652.128655316452,
+          -11515.0
+        ],
+        [
+          13665.286655316451,
+          -11450.0
+        ],
+        [
+          13751.910155316453,
+          -11450.0
+        ],
+        [
+          13761.778655316453,
+          -11515.0
+        ]
+      ],
+      "connections": [
+        "urban-c-production-0-4",
+        "urban-c-production-0-4"
+      ],
+      "role": "back-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-0-4"
+      ]
+    },
+    {
+      "id": "urban-c-production-1-1-outer",
+      "points": [
+        [
+          12980.128655316452,
+          -11715.0
+        ],
+        [
+          12993.286655316451,
+          -11780.0
+        ],
+        [
+          13079.910155316453,
+          -11780.0
+        ],
+        [
+          13089.778655316453,
+          -11715.0
+        ]
+      ],
+      "connections": [
+        "urban-c-production-1-1",
+        "urban-c-production-1-1"
+      ],
+      "role": "back-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-1-1"
+      ]
+    },
+    {
+      "id": "urban-c-production-1-4-cross",
+      "points": [
+        [
+          13688.953655316453,
+          -11600.0
+        ],
+        [
+          13688.953655316453,
+          -11738.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "urban-c-production-1-4"
+      ],
+      "role": "cross-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-1-4"
+      ]
+    },
+    {
+      "id": "urban-c-production-1-4-outer",
+      "points": [
+        [
+          13634.128655316452,
+          -11738.0
+        ],
+        [
+          13647.286655316451,
+          -11803.0
+        ],
+        [
+          13733.910155316453,
+          -11803.0
+        ],
+        [
+          13743.778655316453,
+          -11738.0
+        ]
+      ],
+      "connections": [
+        "urban-c-production-1-4",
+        "urban-c-production-1-4"
+      ],
+      "role": "back-lane",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "character": "works",
+      "parents": [
+        "urban-c-production-1-4"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-0-cross",
+      "points": [
+        [
+          12747.218663414933,
+          1600.0
+        ],
+        [
+          12747.218663414933,
+          1666.643258450668
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "urban-c-market-0-0"
+      ],
+      "role": "cross-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-0"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-0-outer",
+      "points": [
+        [
+          12713.293457907967,
+          1655.597842704214
+        ],
+        [
+          12721.408299063922,
+          1721.3237381986594
+        ],
+        [
+          12774.831003340623,
+          1726.1025502037594
+        ],
+        [
+          12780.91713420759,
+          1661.6469718245935
+        ]
+      ],
+      "connections": [
+        "urban-c-market-0-0",
+        "urban-c-market-0-0"
+      ],
+      "role": "back-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-0"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-1-cross",
+      "points": [
+        [
+          12920.290715998875,
+          1600.0
+        ],
+        [
+          12920.290715998875,
+          1680.0000609177844
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "urban-c-market-0-1"
+      ],
+      "role": "cross-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-1"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-1-outer",
+      "points": [
+        [
+          12886.316514734828,
+          1666.726419493691
+        ],
+        [
+          12894.432741795628,
+          1732.5946333583029
+        ],
+        [
+          12947.864569945898,
+          1738.3103746336637
+        ],
+        [
+          12953.951740241499,
+          1673.9615350321226
+        ]
+      ],
+      "connections": [
+        "urban-c-market-0-1",
+        "urban-c-market-0-1"
+      ],
+      "role": "back-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-1"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-2-cross",
+      "points": [
+        [
+          13075.290715998875,
+          1600.0
+        ],
+        [
+          13075.290715998875,
+          1680.0000609177844
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "urban-c-market-0-2"
+      ],
+      "role": "cross-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-2"
+      ]
+    },
+    {
+      "id": "urban-c-market-0-2-outer",
+      "points": [
+        [
+          13041.316514734828,
+          1666.726419493691
+        ],
+        [
+          13049.432741795628,
+          1732.5946333583029
+        ],
+        [
+          13102.864569945898,
+          1738.3103746336637
+        ],
+        [
+          13108.951740241499,
+          1673.9615350321226
+        ]
+      ],
+      "connections": [
+        "urban-c-market-0-2",
+        "urban-c-market-0-2"
+      ],
+      "role": "back-lane",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 3.4,
+      "character": "lanes",
+      "parents": [
+        "urban-c-market-0-2"
+      ]
     }
   ],
   "railStationDigest": "60f5ab4193bdb1ba17dc124a1a8123e2a0a984e20dd4e12ff4b8390e2faa45d9",

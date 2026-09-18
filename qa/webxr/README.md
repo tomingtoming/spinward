@@ -5,7 +5,25 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest whole-colony land-use verification (2026-09-18): **61 garden, working
+Latest whole-colony block-depth verification (2026-09-18): **5,080 buildings,
+60 accepted local streets and 79 land-use areas**. The corrected compact-frontage
+model passes **1,153 unit tests**, TypeScript/build and **15 WebXR 0.3.0 cases
+in 20.9 minutes**, including three new full back-lane returns of
+**412.7 / 408.9 / 422.1 m**, six street-to-door returns, five garden/grounds
+routes and the four-world/wrist regression. All use one unchanged production
+build, with **82 final day/night desktop views** and unchanged served hashes.
+The stable forced-GC JS heap is **209.63–211.02 MiB**, with separate backing
+storage of **208.69–219.40 MiB**; this is not total process/GPU memory. The city still has broad
+gaps and repeated facades; B-housing's retained-road frontage coverage is below
+the previous model. Passing movement checks does not establish reference-like
+density or physical-headset performance.
+[Model, reference comparison and verification](../neighborhood-life/colony-block-depth.md).
+Current evidence is in `evidence/colony-block-depth-20260918/filled/`; the
+adjacent `initial/`, `verified/` and root-level captures predate compact infill.
+Run `colony-urban.xr.mjs --grep 'second-depth:'` for the new extended returns;
+`colony-neighbourhoods.xr.mjs` now includes both principal and compact entrances.
+
+Previous whole-colony land-use verification (2026-09-18): **61 garden, working
 yard and productive-land areas across 18 districts**. WebXR **0.3.0** passed
 four road-to-grounds return walks and the cross-world stereo/wrist regression
 in **2.7 minutes**, then an additional **186.4 m sampled garden-interior walk**

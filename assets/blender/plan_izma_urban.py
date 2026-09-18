@@ -65,6 +65,7 @@ def author():
     for station in rail['stations']:
         for a,b in zip(station['approach'],station['approach'][1:]):reservations[station['band']].append(corridor(a,b,5))
     reservations[0].append(rectangle(0,0,0,700,860))
+    fixed_reservations=[list(shapes) for shapes in reservations]
     roads=[[] for _ in range(3)]
     for r in master['routes']:
         for aid,bid in zip(r['nodes'],r['nodes'][1:]):
@@ -117,6 +118,63 @@ def author():
                     if found:break
         districts.append({'id':id,'station':xy(0,0),'centre':xy(length,0),'reach':reach,'streets':accepted,'rejected':rejected,
             'landUse':'small settlement in landscape' if 'stationReach' in spec else 'continuous urban frontage with back streets'})
+    # Give the existing perimeter blocks a second inhabited depth. Short cross
+    # lanes divide a block; outer lanes attach to its back street rather than
+    # repeatedly returning every road to the station axis.
+    def along(points,t):
+        lengths=[math.dist(a,b) for a,b in zip(points,points[1:])];remaining=sum(lengths)*t
+        for a,b,length in zip(points,points[1:],lengths):
+            if remaining<=length:return [a[k]+(b[k]-a[k])*remaining/length for k in range(2)]
+            remaining-=length
+        return list(points[-1])
+    def child_clear(street):
+        band=street['band'];district=next(d for d in master['districts'] if d['id']==street['district'])
+        shapes=[corridor(a,b,street['width']+1) for a,b in zip(street['points'],street['points'][1:])]
+        if any(any(abs(x-band*SPACING)>3200*math.pi/6-master['edgeReserve'] or not district['axial'][0]<y<district['axial'][1] for x,y in shape) for shape in shapes):return False
+        if any(overlaps(shape,obstacle) for shape in shapes for obstacle in fixed_reservations[band]):return False
+        water=master['water'][band]
+        if any(overlaps(shape,corridor([a[0]+band*SPACING,a[1]],[b[0]+band*SPACING,b[1]],water['bankWidth']*2+8)) for shape in shapes for a,b in zip(water['reach'],water['reach'][1:])):return False
+        neighbours=[(r['id'],r['width'],[a,b]) for r,a,b in roads[band]]+[(r['id'],r['width'],r['points']) for r in streets if r['band']==band]
+        for index,shape in enumerate(shapes):
+            for rid,width,points in neighbours:
+                for a,b in zip(points,points[1:]):
+                    if not overlaps(shape,corridor(a,b,width+1)):continue
+                    # A shared endpoint permits just its local junction. Other
+                    # crossings, including a second segment of that same road,
+                    # remain reservations.
+                    joins=[]
+                    if index==0 and rid==street['connections'][0]:joins.append(street['points'][0])
+                    if index==len(shapes)-1 and rid==street['connections'][-1]:joins.append(street['points'][-1])
+                    if not any(math.dist(project(*p,a,b)[:2],p)<.05 for p in joins):return False
+        return True
+    for parent in list(streets):
+        spec=plan['districts'][parent['district']]
+        if spec['character']=='groves':continue
+        region=next(r for r in districts if r['id']==parent['district'])
+        axis=[region['centre'][i]-region['station'][i] for i in range(2)];norm=math.hypot(*axis);axis=[v/norm for v in axis]
+        back=parent['points'][1:-1];middle=along(back,.5)
+        station_mid=project(*middle,region['station'],region['centre'])[:2]
+        width=3.4 if spec['character']=='lanes' else 4.5
+        candidates=[{'id':parent['id']+'-cross','points':[list(station_mid),middle],
+                     'connections':[parent['connections'][0],parent['id']],'role':'cross-lane'}]
+        sign=1 if (middle[0]-station_mid[0])*(-axis[1])+(middle[1]-station_mid[1])*axis[0]>0 else -1
+        normal=[-axis[1]*sign,axis[0]*sign];a,b=along(back,.16),along(back,.84)
+        depth=spec.get('outerDepth',65)
+        candidates.append({'id':parent['id']+'-outer',
+            'points':[a,[a[k]+normal[k]*depth+(b[k]-a[k])*.12 for k in range(2)],
+                      [b[k]+normal[k]*depth-(b[k]-a[k])*.09 for k in range(2)],b],
+            'connections':[parent['id'],parent['id']],'role':'back-lane'})
+        for candidate in candidates:
+            child={**candidate,'district':parent['district'],'band':parent['band'],'kind':'local','width':width,
+                   'character':spec['character'],'parents':[parent['id']]}
+            if not child_clear(child):
+                region['rejected']['inner-reservation']=region['rejected'].get('inner-reservation',0)+1;continue
+            streets.append(child);region['streets'].append(child['id'])
+    for region in districts:
+        axis=[region['centre'][k]-region['station'][k] for k in range(2)];length=math.hypot(*axis)
+        region['halfWidth']=max([max(abs(v) for v in plan['districts'][region['id']]['depths'])]+[
+            abs((p[0]-region['station'][0])*axis[1]-(p[1]-region['station'][1])*axis[0])/length
+            for street in streets if street['district']==region['id'] for p in street['points']])+40
     dependencies={p:hashlib.sha256((ASSETS/p).read_bytes()).hexdigest() for p in [
         'izma-colony-plan.json','izma-urban-plan.json','izma-parcels.json','izma-public-spaces.json','izma-rail-plan.json','izma-transport.json']}
     # Rail service meshes depend on the final infill contract; only its station

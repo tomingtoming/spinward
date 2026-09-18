@@ -17,6 +17,9 @@ class UrbanFabric:
     def streets(self,env):
         all_triangles=[]
         for street in self.layout['streets']:
+            if any(parent not in env['profiles'] for parent in street.get('parents',[])):
+                self.rejected_streets.append({'id':street['id'],'district':street['district'],'reason':'parent-unavailable'})
+                continue
             points=street['points'];rows=[];width=street['width']
             for a,b in zip(points,points[1:]):
                 # Two-metre rows follow terrain triangle ridges without a
@@ -55,7 +58,8 @@ class UrbanFabric:
             for at_start in [True,False] if len(street['connections'])>1 else [True]:
                 i,j=(0,1) if at_start else (-1,-2)
                 p,q=rows[i],rows[j];length=math.dist(p[:2],q[:2])
-                dx,dy=(p[0]-q[0])/length*3,(p[1]-q[1])/length*3
+                apron=.65 if street.get('parents') and street['connections'][0 if at_start else -1] in street['parents'] else 3
+                dx,dy=(p[0]-q[0])/length*apron,(p[1]-q[1])/length*apron
                 edge=[(x+dx,y+dy) for x,y in edges[i]]
                 heights=[env['street_height'](*v)+.018 for v in edge]
                 assert min(heights)>-1000,('Apron must remain on the existing street',street['id'])
@@ -84,7 +88,9 @@ class UrbanFabric:
                 edge=([a[0]-shift,a[1]],[b[0]-shift,b[1]],route)
                 env['segments'][street['band']].append(edge);env['all_segments'][street['band']].append(edge)
             env['profiles'][street['id']]={'points':[[p[0]-shift,p[1],p[2]] for p in rows]}
-        self.bvh=BVHTree.FromPolygons(all_triangles,[tuple(range(i,i+3)) for i in range(0,len(all_triangles),3)],all_triangles=True)
+            # Child lanes join the already modelled parent surface, including
+            # its actual grade. Keep that native surface available while building.
+            self.bvh=BVHTree.FromPolygons(all_triangles,[tuple(range(i,i+3)) for i in range(0,len(all_triangles),3)],all_triangles=True)
 
     def plan(self,env):
         self.streets(env)
@@ -121,39 +127,61 @@ class UrbanFabric:
                 for k in range(1,n):
                     x=p[0]+(q[0]-p[0])*k/n;y=p[1]+(q[1]-p[1])*k/n
                     u=(x-a[0])*dx+(y-a[1])*dy;v=abs(-(x-a[0])*dy+(y-a[1])*dx)
-                    in_station=30<u<region['reach']+45 and v<max(abs(d) for d in spec['depths'])+40
+                    in_station=30<u<region['reach']+45 and v<region['halfWidth']
                     distance=math.hypot(x-anchor[0],y-anchor[1]);in_public=distance<previous['radius']
                     if not in_station and not in_public:continue
                     for side in [-1,1]:candidates.append((min(math.hypot(x-a[0],y-a[1]),distance),x,y,yaw+(math.pi if side<0 else 0),r,in_station,distance))
-            for _,rx,ry,yaw,route,in_station,distance in sorted(candidates,key=lambda p:p[0]):
-                if 'stationReach' in spec and len(accepted)>=previous['target']*2+12:break
-                family=spec['families'][len(accepted)%len(spec['families'])]
+            def add_plot(candidate,family,compact=False):
+                _,rx,ry,yaw,route,in_station,distance=candidate
                 n=seed(f'urban:{id}:{round(rx)}:{round(ry)}:{family}')
-                dims=self.config['families'][family];widths=[7.5,9,11] if family=='shop-house' else dims['width']
+                dims=self.config['families'][family];widths=[6.5,8,11] if family=='shop-house' else dims['width']
+                if spec['character']=='lanes' and family=='house':widths=[6.8,8.4,10.2]
+                if id in ['b-housing','b-north','b-campus'] and family=='apartment':widths=[22,34,46]
+                if compact:widths=[6.5,8] if family=='shop-house' else [6.8,8.4]
                 w=widths[n%len(widths)];d=12 if family=='shop-house' else dims['depth'];floors=dims['floors'][n%len(dims['floors'])]
-                c,s=math.cos(yaw),math.sin(yaw);setback=spec['setback']+((n//13)%3)*.25
+                if id in ['b-housing','b-north'] and family=='apartment':floors=[4,5,7][(n//3)%3]
+                c,s=math.cos(yaw),math.sin(yaw)
+                setback=(min(spec['setback'],2) if compact else spec['setback'])+((n//13)%3)*.25
                 offset=route['width']/2+(2.15 if route['width']>=10 else 0)+setback+d/2
-                x,y=rx-s*offset,ry+c*offset;rear=spec['rear'];lot_w=w+spec['sideGap'];lot_d=d+setback+rear
+                x,y=rx-s*offset,ry+c*offset
+                # Later small infill has a shallow private yard and a close
+                # street frontage, unlike the original apartment/workshop lots.
+                rear=min(spec['rear'],3) if compact else spec['rear']
+                lot_w=w+(min(spec['sideGap'],1.2) if compact else spec['sideGap']);lot_d=d+setback+rear
                 centre=(x-s*(rear-setback)/2,y+c*(rear-setback)/2);lot=rectangle(*centre,yaw,lot_w,lot_d)
-                if any(abs(q[0]-band*SPACING)>3200*math.pi/6-master['edgeReserve'] or not district['axial'][0]<q[1]<district['axial'][1] for q in lot):reject('boundary');continue
-                if reserved[band].intersects(lot,.15):reject('reserved');continue
-                if wet.intersects(lot):reject('water');continue
-                if road_index[band].intersects(lot,.2,route['id']):reject('route');continue
+                if any(abs(q[0]-band*SPACING)>3200*math.pi/6-master['edgeReserve'] or not district['axial'][0]<q[1]<district['axial'][1] for q in lot):reject('boundary');return False
+                if reserved[band].intersects(lot,.15):reject('reserved');return False
+                if wet.intersects(lot):reject('water');return False
+                if road_index[band].intersects(lot,.2,route['id']):reject('route');return False
                 # Sharing a route ID does not permit a lot across the next
                 # segment of a curved street. Its front may meet the pavement
                 # boundary, while the whole lot must remain outside its road.
-                if carriageways[band].intersects(lot):reject('carriageway');continue
+                if carriageways[band].intersects(lot):reject('carriageway');return False
                 placement=env['site'](band,x-band*SPACING,y,yaw,w,d,family)
-                if not placement or placement['route']['id']!=route['id']:reject('frontage');continue
-                if max(placement['samples'])-min(placement['samples'])>1.7:reject('foundation');continue
-                if placement['stairs'] and family in ['warehouse','workshop']:reject('loading-grade');continue
+                if not placement or placement['route']['id']!=route['id']:reject('frontage');return False
+                if max(placement['samples'])-min(placement['samples'])>1.7:reject('foundation');return False
+                if placement['stairs'] and family in ['warehouse','workshop']:reject('loading-grade');return False
                 pid=f'neighbourhood-{id}-{len(accepted):03d}'
                 lot_data={'polygon':[list(q) for q in lot],'width':lot_w,'depth':lot_d,'setback':setback,'rearGarden':rear,
                     'publicPlace':id,'distance':distance,'street':route['id'],'catchment':'station' if in_station else 'public',
-                    'frontageUse':'shop' if family=='shop-house' else 'yard' if family in ['warehouse','workshop'] else 'garden' if family in ['house','farmhouse','apartment'] else 'forecourt'}
+                    'frontageUse':'shop' if family=='shop-house' else 'yard' if family in ['warehouse','workshop'] else 'garden' if family in ['house','farmhouse','apartment'] else 'forecourt',
+                    'placement':'frontage-gap' if compact else 'principal'}
                 blocks.append({'id':pid,'band':band,'district':id,'family':family,'position':[x-band*SPACING,y,0],
                     'size':[w,d,floors*3.2],'yaw':yaw,'fixedSize':True,'lot':lot_data})
                 reserved[band].append(lot);accepted.append(blocks[-1])
+                return True
+            ordered=sorted(candidates,key=lambda p:p[0])
+            for candidate in ordered:
+                if 'stationReach' in spec and len(accepted)>=previous['target']*2+12:break
+                add_plot(candidate,spec['families'][len(accepted)%len(spec['families'])])
+            # A large apartment/workshop can fail on a narrow leftover frontage.
+            # Keep those principal buildings, then fit small homes and shops in
+            # the remaining urban plots instead of leaving the frontage vacant.
+            if spec['character']!='groves':
+                small=[family for family in dict.fromkeys(spec['families']) if family in ['house','shop-house']]
+                for candidate in ordered:
+                    for family in small:
+                        if add_plot(candidate,family,compact=True):break
             self.neighbourhoods.append({'id':id,'name':district['name'],'era':district['era'],'anchor':anchor,
                 'radius':previous['radius'],'parcels':[p['id'] for p in accepted],
                 'lotArea':sum(p['lot']['width']*p['lot']['depth'] for p in accepted),

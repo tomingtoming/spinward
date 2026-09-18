@@ -63,7 +63,7 @@ test('station corridors and public-place catchments have mixed uses and current 
         // The widest frontage is a 16 m arterial plus a 2.15 m sidewalk.
         expect(along, p.id).toBeGreaterThan(30 - 11)
         expect(along, p.id).toBeLessThan(region.reach + 45 + 11)
-        expect(across, p.id).toBeLessThan(Math.max(...district.depths.map(Math.abs)) + 40 + 11)
+        expect(across, p.id).toBeLessThan(region.halfWidth + 11)
       }
     }
     const coverage = n.footprintArea / n.lotArea
@@ -85,20 +85,25 @@ test('all back streets have drawn and physical walkable surfaces connected to th
   expect([...parcels.streets, ...parcels.rejectedStreets].map(s => s.id).sort()).toEqual(streets.streets.map(s => s.id).sort())
   expect(parcels.streets.length).toBeGreaterThanOrEqual(30)
   for (const rejected of parcels.rejectedStreets) {
-    expect(rejected.reason).toBe('junction-grade')
-    expect(rejected.maximumGrade).toBeGreaterThan(.075)
+    if (rejected.reason === 'junction-grade') expect(rejected.maximumGrade).toBeGreaterThan(.075)
+    else {
+      expect(rejected.reason).toBe('parent-unavailable')
+      const sketch = streets.streets.find(s => s.id === rejected.id)!
+      expect(sketch.parents?.some(id => parcels.rejectedStreets.some(s => s.id === id))).toBe(true)
+    }
     expect(parcels.parcels.some(p => p.lot.street === rejected.id)).toBe(false)
   }
   for (const street of parcels.streets) {
     const rows = street.profile
+    const junctions = [rows[0], ...(street.connections.length > 1 ? [rows.at(-1)!] : []),
+      ...parcels.streets.flatMap(s => s.connections.flatMap((parent, i) => parent === street.id ? [i === 0 ? s.profile[0] : s.profile.at(-1)!] : []))]
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1], b = rows[i], length = Math.hypot(b[0] - a[0], b[1] - a[1])
       expect(Math.abs(b[2] - a[2]) / length, street.id).toBeLessThanOrEqual(.075001)
       for (const side of [-.3, 0, .3]) {
         const x = (a[0] + b[0]) / 2 - (b[1] - a[1]) / length * street.width * side
         const y = (a[1] + b[1]) / 2 + (b[0] - a[0]) / length * street.width * side
-        const last = rows.at(-1)!
-        const junction = Math.min(Math.hypot(x - rows[0][0], y - rows[0][1]), Math.hypot(x - last[0], y - last[1])) < 12
+        const junction = junctions.some(p => Math.hypot(x - p[0], y - p[1]) < 12)
         // Existing cross streets have 14 cm raised footways. An apron joins
         // their actual corners, whose plane need not equal its centre sample.
         const crossfall = Math.abs(side) * street.width * .075 + (junction ? .15 : 0)
@@ -115,8 +120,20 @@ test('all back streets have drawn and physical walkable surfaces connected to th
         expect(Math.abs(physical - visible), JSON.stringify({ street: street.id, i, side, x, y, h, visible, physical })).toBeLessThan(.02)
       }
     }
-    for (const p of [rows[0], ...(street.connections.length > 1 ? [rows.at(-1)!] : [])]) {
-      const h = getCityGroundHeight(upstream, 3200, p[0] / 3200, p[1], p[2] + .1)
+    for (const [end, p] of [rows[0], ...(street.connections.length > 1 ? [rows.at(-1)!] : [])].entries()) {
+      const parent = parcels.streets.find(s => s.id === street.connections[end])
+      let h = getCityGroundHeight(upstream, 3200, p[0] / 3200, p[1], p[2] + .1)
+      if (parent) {
+        // A child meets the saved parent road, rather than the terrain under
+        // it. Find the closest parent cross-section and its actual grade.
+        const samples = parent.profile.slice(1).map((b, i) => {
+          const a = parent.profile[i], dx = b[0] - a[0], dy = b[1] - a[1]
+          const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)))
+          return { distance: Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t), height: a[2] + (b[2] - a[2]) * t }
+        }).sort((a, b) => a.distance - b.distance)
+        expect(samples[0].distance, street.id).toBeLessThan(parent.width / 2)
+        h = samples[0].height
+      }
       expect(Math.abs(p[2] - h), street.id + ' joins existing street').toBeLessThan(.03)
     }
   }
@@ -134,6 +151,29 @@ test('frontage lots stay outside every segment of their own bent street', () => 
     for (const p of parcels.parcels.filter(p => p.lot.street === street.id)) for (const road of corridors) {
       expect(polygonArea(intersectStreetPolygons(poly(p.lot.polygon), road)), p.id).toBeLessThan(.00001)
     }
+  }
+})
+
+test('back lanes serve inhabited second-depth plots and courtyard voids retain native floors', async () => {
+  const secondary = parcels.streets.filter(s => s.parents?.length)
+  const ids = new Set(secondary.map(s => s.id))
+  const members = parcels.parcels.filter(p => ids.has(p.route))
+  expect(new Set(members.map(p => p.district)).size).toBeGreaterThanOrEqual(10)
+  for (const street of secondary) for (const parent of street.parents!) {
+    expect(parcels.streets.some(s => s.id === parent), street.id).toBe(true)
+  }
+  for (const band of [0, 1, 2]) {
+    const courts = parcels.parcels.filter(p => p.band === band && p.form === 'courtyard-apartment')
+    expect(courts.length).toBeGreaterThan(0)
+    const p = courts[0], v = p.size[1] * .3
+    const x = p.position[0] - Math.sin(p.yaw) * v, y = p.position[1] + Math.cos(p.yaw) * v
+    const tile = manifest.tiles.find(t => t.neighbourhood && x >= t.bounds[0] && x <= t.bounds[2] && y >= t.bounds[1] && y <= t.bounds[3]
+      && t.boxes.some(b => Math.hypot(b[0] - p.position[0], b[1] - p.position[1]) < .001))!
+    const native = decodeColonyMesh(await Bun.file(new URL('../../public' + tile.url, import.meta.url)).json()).meshes
+    const drawn = drawnMeshIndex(native['arch-foundation'])
+    const visible = getCityGroundHeight(drawn, 3200, x / 3200, y, p.floor + .05, 0)
+    expect(Math.abs(visible - p.floor), p.id).toBeLessThan(.01)
+    expect(Math.abs(getCityGroundHeight(physics, 3200, x / 3200, y, p.floor + .05, 0) - visible), p.id).toBeLessThan(.02)
   }
 })
 

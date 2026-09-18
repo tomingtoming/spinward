@@ -3,9 +3,12 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, MeshBasicMa
 import fs from 'node:fs/promises'
 
 const { parcels } = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
-const examples = ['a-river', 'b-housing', 'c-market'].map(id => parcels.find(p => p.district === id && p.family === 'shop-house'))
+const examples = ['a-river', 'b-housing', 'c-market'].flatMap(id => [
+  parcels.find(p => p.district === id && p.family === 'shop-house'),
+  parcels.find(p => p.district === id && p.lot.placement === 'frontage-gap')
+])
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const parcel of examples) test(`new neighbourhood: ${parcel.district} street to door and back`, async ({ page, xr }, info) => {
+for (const parcel of examples) test(`${parcel.lot.placement === 'frontage-gap' ? 'small frontage infill' : 'new neighbourhood'}: ${parcel.district} street to door and back`, async ({ page, xr }, info) => {
   const errors = [], failures = [], samples = [], captures = []
   page.on('pageerror', e => errors.push(e.message))
   page.on('requestfailed', r => { if (!r.failure()?.errorText.includes('ERR_ABORTED')) failures.push(r.url() + ': ' + r.failure()?.errorText) })

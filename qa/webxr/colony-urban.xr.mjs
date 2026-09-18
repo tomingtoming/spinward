@@ -4,9 +4,18 @@ import fs from 'node:fs/promises'
 
 const plan = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const district of ['a-old-town', 'b-housing', 'c-market']) test(`back street: ${district} continuous loop`, async ({ page, xr }, info) => {
-  test.setTimeout(360000)
-  const street = plan.streets.find(s => s.district === district), path = street.profile, startPoint = path[0]
+for (const [district,deep] of ['a-old-town','b-housing','c-market'].flatMap(d=>[[d,false],[d,true]])) test(`${deep?'second-depth':'back street'}: ${district} continuous loop`, async ({ page, xr }, info) => {
+  test.setTimeout(deep?480000:360000)
+  const street = deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
+  let path = [...street.profile]
+  if(deep){
+    const parents=street.connections.map(id=>plan.streets.find(s=>s.id===id))
+    const near=(s,p)=>s.profile.reduce((best,q,i)=>Math.hypot(q[0]-p[0],q[1]-p[1])<Math.hypot(s.profile[best][0]-p[0],s.profile[best][1]-p[1])?i:best,0)
+    const start=near(parents[0],path[0]),end=near(parents[1],path.at(-1))
+    path=[...parents[0].profile.slice(Math.max(0,start-6),start+1),...path,...parents[1].profile.slice(end,end+7)]
+    path=[...path,...path.slice(0,-1).reverse()]
+  }
+  const startPoint = path[0]
   const errors = [], samples = [], captures = []
   page.on('pageerror', e => errors.push(e.message))
   await page.route('https://static.cloudflareinsights.com/**', r => r.fulfill({ status: 200, body: '' }))
@@ -75,7 +84,8 @@ for (const district of ['a-old-town', 'b-housing', 'c-market']) test(`back stree
       if (j === Math.floor(targets.length / 2)) await capture('inside-block')
     }
     await xr.settle(200); const end = await sample(); await capture('street-return')
-    expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(90)
+    if(deep)expect(Math.hypot(end.x-start.x,end.axial-start.axial)).toBeLessThan(.4)
+    else expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(90)
     await xr.endSession({ sessionId: diagnostic.session.id, timeout: 5000 })
     expect(errors).toEqual([])
     await fs.writeFile(info.outputPath('report.json'), JSON.stringify({ street: street.id, gpu: drawing.gpu, diagnostic, start, end, captures }, null, 2))

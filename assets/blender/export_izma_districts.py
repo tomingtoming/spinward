@@ -37,7 +37,7 @@ def export(config=None):
         tile['boxes'].append([x,y,p['floor'],w,d,h,p['yaw'],'arch-'+p['wall']])
         for u,v,z,pw,pd,ph,material,shape in p['proxyParts']:
             px,py,pz=local_to_world(p,[u,v,z]);tile['proxyParts'].append([px,py,pz,pw,pd,ph,p['yaw'],'arch-'+material,shape])
-        body_volume_count=3 if p['family'] in ['office','civic'] else 2
+        body_volume_count=1+len(p['volumes']) if 'volumes' in p else 3 if p['family'] in ['office','civic'] else 2
         for solid_index,(u,v,z,pw,pd,ph) in enumerate(p['solids']):
             # Keep one physical mesh per parcel. Grouping distant roofs into a
             # 128 m bucket pulled unnecessary triangles into a nearby street's
@@ -74,7 +74,13 @@ def export(config=None):
             for tri in mesh.loop_triangles:
                 material='arch-'+mesh.materials[tri.material_index].name.removeprefix('SWD_')
                 vs=[vertices[i] for i in tri.vertices];fixed.setdefault(material,[]).extend(vs)
-                if flags and flags.data[tri.polygon_index].value:floors.setdefault(obj['urban_street_id'],[]).extend(vs)
+                if flags and flags.data[tri.polygon_index].value:
+                    # At a lane junction several short road chunks overlap the
+                    # same walking neighbourhood. Share spatial compounds while
+                    # preserving every native triangle and the travel buffer.
+                    x=sum(v[0]for v in vs)/3;y=sum(v[1]for v in vs)/3
+                    key=f'urban-ground-{obj["band"]}-{math.floor(x/64)}-{math.floor(y/64)}'
+                    floors.setdefault(key,[]).extend(vs)
             continue
         if obj.type!='MESH' or 'parcel_id' not in obj:continue
         p=parcels[obj['parcel_id']];lod=int(obj['lod']);mesh=obj.data;mesh.calc_loop_triangles()

@@ -24,6 +24,7 @@ exec(compile(source.read_text(),str(source),'exec'),library)
 
 config={'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v1',
         'stem':'izma-neighbourhoods','contract':'izma-neighbourhood-parcels.json','blocks':[],'plan':fabric.plan,'extraStreetHeight':fabric.height,'minimumApproach':.85,
+        'variedMassing':True,
         # The lower shop awning covers the window head.
         'shopAwningBottom':2.50,
         'materials':{'lane':{'color':'#686c66','surface':'asphalt'},'garden':{'color':'#70805b','surface':'grass'},'court':{'color':'#9c9c90','surface':'paving'},

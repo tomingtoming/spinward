@@ -61,7 +61,7 @@ const add=(id:string,district:any,use:string,outline:StreetPolygon)=>{
  zones.push({id,district:district.id,band:district.band,use,outline:outline.map(p=>[p.x,p.y]),pieces:pieces.map(p=>p.map(v=>[v.x,v.y])),area:pieces.reduce((s,p)=>s+polygonArea(p),0)})
  reserve(outline,'assigned-land')
 }
-for(const s of infill.streets.filter((s:any)=>s.connections.length>1)){
+for(const s of infill.streets.filter((s:any)=>s.connections.length>1&&s.points.length>2)){
  const d=master.districts.find((d:any)=>d.id===s.district)
  add('court-'+s.id,d,s.character==='works'?'service-yard':s.character==='lanes'?'rear-gardens':'shared-garden',hull(s.points))
 }
@@ -99,7 +99,8 @@ for(const z of zones){
  // across the union of its free pieces; never cut across a reserved lot.
  z.walks=[]
  if(z.access && !['service-yard','allotments'].includes(z.use)){
-  const pieces=z.pieces.map(poly),centres:Point[]=[z.access.end,...[...pieces].sort((a,b)=>polygonArea(b)-polygonArea(a)).slice(0,18).map(p=>[p.reduce((s,v)=>s+v.x,0)/p.length,p.reduce((s,v)=>s+v.y,0)/p.length] as Point)]
+  const pieces=z.pieces.map(poly),candidates:Point[]=[z.access.end,...[...pieces].sort((a,b)=>polygonArea(b)-polygonArea(a)).slice(0,18).map(p=>[p.reduce((s,v)=>s+v.x,0)/p.length,p.reduce((s,v)=>s+v.y,0)/p.length] as Point)]
+  const centres=[...new Map(candidates.map(p=>[p.map(v=>v.toFixed(4)).join(':'),p])).values()]
   const reached=new Set([0]),available=new Set(centres.map((_,i)=>i).slice(1))
   while(available.size){
    const edges=[...reached].flatMap(a=>[...available].map(b=>({a,b,length:Math.hypot(centres[a][0]-centres[b][0],centres[a][1]-centres[b][1])}))).filter(e=>e.length>4&&e.length<160).sort((a,b)=>a.length-b.length)
