@@ -5,9 +5,12 @@ public spaces, river reservations and study remain upstream reservations.
 """
 import bpy, json, math, hashlib, sys
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'assets/blender'))
 from izma_urban_fabric import UrbanFabric
+from izma_ground_patches import GroundPatches
 PUBLIC=json.loads((ROOT/'assets/blender/izma-public-spaces.json').read_text())
 OLD=json.loads((ROOT/'assets/blender/izma-parcels.json').read_text())
 CONFIG=json.loads((ROOT/'assets/blender/izma-neighbourhood-plan.json').read_text())
@@ -32,6 +35,7 @@ config={'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v
 built=library['build'](config)
 neighbourhoods=fabric.neighbourhoods
 fabric.save_streets(built)
+ground_patches=GroundPatches(read_manifest(ROOT/'src/worlds/generated/izmaColony.json')['base'])
 # Save the lot grounds with the same parcel ID as their entrance and roof.
 # They therefore share one local compound; streets/other layers stay intact.
 lamps=[]
@@ -39,8 +43,22 @@ for p in built['parcels']:
     b=built['Builder']();c,s=math.cos(p['yaw']),math.sin(p['yaw']);x,y=p['position'];w,d,_=p['size']
     def world(u,v):return x+c*u-s*v,y+s*u+c*v
     def local(q):return c*(q[0]-x)+s*(q[1]-y),-s*(q[0]-x)+c*(q[1]-y)
-    start_u,start_v=local(p['access']['start']);lot=p['lot'];half=lot['width']/2
-    def patch(x0,x1,y0,y1,mat):
+    start_u,start_v=local(p['access']['start']);end_u,end_v=local(p['access']['end'])
+    lot=p['lot'];half=lot['width']/2
+    du,dv=end_u-start_u,end_v-start_v;entrance_length=math.hypot(du,dv)
+    def outside_entrance(polygon,side):
+        # Clip against the real 1.9 m approach, including its angle relative
+        # to the facade. A fixed x gap either leaves grass seams or covers a
+        # graded entrance where the road bends beside a parcel.
+        def distance(q):return side*(dv*(q[0]-start_u)-du*(q[1]-start_v))/entrance_length-p['access']['width']/2
+        clipped=[]
+        for a,bb in zip(polygon,polygon[1:]+polygon[:1]):
+            da,db=distance(a),distance(bb)
+            if da>=0:clipped.append(a)
+            if (da>=0)!=(db>=0):
+                t=da/(da-db);clipped.append(tuple(a[k]+(bb[k]-a[k])*t for k in range(2)))
+        return clipped
+    def patch(x0,x1,y0,y1,mat,entrance_side=0):
         if x1-x0<.05 or y1-y0<.05:return
         # Six-metre chords deviate by under 1.5 mm at this cylinder radius.
         # Extra tiny paving triangles have no visible or physical benefit.
@@ -49,19 +67,24 @@ for p in built['parcels']:
             for j in range(ny):
                 a=x0+(x1-x0)*i/nx;bb=x0+(x1-x0)*(i+1)/nx
                 cc=y0+(y1-y0)*j/ny;dd=y0+(y1-y0)*(j+1)/ny
-                points=[]
-                for u,v in [(a,cc),(bb,cc),(bb,dd),(a,dd)]:
-                    q=world(u,v);h=built['ground'](*q)+.035
-                    # Meet the same drawn street/sidewalk at the full frontage.
-                    if v<start_v+1:h=max(h,built['street_height'](*q)+.018)
-                    points.append((u,v,h-p['floor']))
-                b.face(points,mat,True)
+                polygon=[(a,cc),(bb,cc),(bb,dd),(a,dd)]
+                if entrance_side:polygon=outside_entrance(polygon,entrance_side)
+                if len(polygon)<3:continue
+                for piece in ground_patches.split([world(u,v) for u,v in polygon]):
+                    points=[]
+                    for qx,qy,terrain_height in piece:
+                        q=(qx,qy);u,v=local(q);h=terrain_height+.035
+                        # A bent street's verge may extend farther into the
+                        # frontage than the door centre's first metre.
+                        h=max(h,built['street_height'](*q)+.018)
+                        points.append((u,v,h-p['floor']))
+                    b.face(points,mat,True)
     # Tight old-town/shop streets use a paved frontage, including residences.
     # Gardens remain behind those houses and on the greener housing/farm sites.
     mat='garden'if lot['frontageUse']=='garden' and URBAN['districts'][p['district']]['character']!='lanes'else'court'
     # Leave the exact graded/stair entrance uncovered, and reserve its porch.
-    patch(-half,start_u-1.2,start_v,-d/2-.4,mat)
-    patch(start_u+1.2,half,start_v,-d/2-.4,mat)
+    patch(-half,half,start_v,-d/2-.25,mat,-1)
+    patch(-half,half,start_v,-d/2-.25,mat,1)
     patch(-half,half,d/2+.4,d/2+lot['rearGarden'],'garden')
     b.finish(p['id']+'_lot',p,-1)
     # A supported light near the street edge, clear of the door's walk. Keep

@@ -7,6 +7,8 @@ the saved meshes, not this recipe. Existing study interiors are untouched.
 """
 import bpy, json, math, hashlib, sys
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
@@ -19,7 +21,7 @@ def build(config=None):
     PLAN['materials'].update(config.get('materials',{}))
     MASTER=json.loads((ROOT/'assets/blender/izma-colony-plan.json').read_text())
     BLOCKS=config.get('blocks',json.loads((ROOT/'assets/blender/izma-colony-blocks.json').read_text()))
-    BASE=json.loads((ROOT/'src/worlds/generated/izmaColony.json').read_text())
+    BASE=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
     TRANSPORT=json.loads((ROOT/'assets/blender/izma-transport.json').read_text())
     R=3200;SPACING=math.tau*R/3;OWNER=config.get('owner','spinward-izma-districts-v1')
     scene_name=config.get('scene','SW_izma_districts')

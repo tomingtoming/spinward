@@ -1,7 +1,7 @@
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import raw from '../../src/worlds/generated/izmaColony.json'
+import raw, { readColonySource } from './colony-source'
 import { IZMA_MASTER_PLAN as plan } from '../../src/worlds/izmaMasterPlan'
 import { decodeColonyMesh, readColonyManifest } from '../../src/worlds/authoredColony'
 import { landscapeColliders } from '../../src/worlds/authoredLandscape'
@@ -9,7 +9,7 @@ import { buildCityCollisionIndex, getCityGroundHeight } from '../../src/objects/
 
 // This is a diagnosis of the current massing model, not a pass/fail test of
 // finished transport. Keep route IDs and measured defects for the next edit.
-const manifest = readColonyManifest(process.env.SPINWARD_AUDIT_SOURCE ? JSON.parse(await readFile(process.env.SPINWARD_AUDIT_SOURCE, 'utf8')) : raw), data = decodeColonyMesh(manifest.base)
+const manifest = readColonyManifest(process.env.SPINWARD_AUDIT_SOURCE ? await readColonySource(process.env.SPINWARD_AUDIT_SOURCE) : raw), data = decodeColonyMesh(manifest.base)
 function surfaceIndex(vertices: number[]) {
   const groups = new Map<string, number[]>()
   for (let i = 0; i < vertices.length; i += 9) {

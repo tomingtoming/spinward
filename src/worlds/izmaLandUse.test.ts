@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { createHash } from 'node:crypto'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import land from '../../assets/blender/izma-land-use.json'
 import primary from '../../assets/blender/izma-parcels.json'
 import neighbourhoods from '../../assets/blender/izma-neighbourhood-parcels.json'

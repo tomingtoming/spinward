@@ -139,6 +139,7 @@ def add_district_links(master, design, streets, districts, fixed_reservations):
                         'points': points, 'connections': parents, 'role': 'district-link',
                         'character': spec['character'], 'purpose': authored['purpose'],
                         'frontageFamilies': authored.get('families', spec['families']),
+                        'blockInterior': authored.get('blockInterior', False),
                         'aprons': aprons,
                         'parents': [p for p in parents if p.startswith('urban-')],
                         'authoring': {'ends': authored['ends'], 'via': authored['via'], 'slides': [left, right]}}

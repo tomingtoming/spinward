@@ -1,6 +1,7 @@
 import { NeighborhoodJourney, OUTING_DESTINATIONS, planNeighborhoodRoute, pavementExit, canParkAt, wrapAngle, type GuideAction, type OutingDestination } from './neighborhoodRoute'
 import { unpackLandscapeLibrary } from '../worlds/landscapeData'
 import { readColonyManifest } from '../worlds/authoredColony'
+import { readColonyDocument } from '../worlds/colonyManifestDocument'
 import { createOutingPanel } from '../ui/outingPanel'
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
@@ -227,7 +228,7 @@ export const bootstrapApp = async () => {
   const landscapes = landscapeStudy
     ? unpackLandscapeLibrary((await import('../worlds/generated/worldLandscapes.json')).default) : null
   const colony = landscapeStudy
-    ? readColonyManifest((await import('../worlds/generated/izmaColony.json')).default) : null
+    ? readColonyManifest(await readColonyDocument((await import('../worlds/generated/izmaColony.json')).default)) : null
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = centralPlazaArrival(habitatConfig.radius)
   const debugVisuals = {

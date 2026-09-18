@@ -18,3 +18,6 @@ assets/blender/__pycache__/
 # WebXR test captures, traces and reports.
 qa/webxr/artifacts/
 qa/webxr/evidence/
+
+# Atomic publication of the generated colony data index.
+src/worlds/generated/izmaColony.json.next

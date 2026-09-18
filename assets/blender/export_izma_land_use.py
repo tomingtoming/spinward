@@ -1,8 +1,11 @@
 """Export the saved land-use scene without regenerating other city layers."""
 import bpy,json,math,hashlib
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest, write_manifest
 ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
-source=ROOT/'src/worlds/generated/izmaColony.json';manifest=json.loads(source.read_text())
+source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
 contract=json.loads((ASSETS/'izma-land-use.json').read_text());scene=bpy.data.scenes['SW_izma_land_use']
 assert scene.get('owner')=='spinward-izma-land-use-v1'
 for name,digest in contract['dependencies'].items():assert hashlib.sha256((ASSETS/name).read_bytes()).hexdigest()==digest,('Rebuild land use',name)
@@ -61,7 +64,7 @@ for z in contract['zones']:
     manifest['visits']['land-'+z['id']]={'band':z['band'],'position':[a[0]-offset,a[1]],'lookAt':[b[0]-offset,b[1]],'heightHint':a[2]}
 manifest['landUse']={'version':1,'fixed':pack(fixed,physical),'counts':counts,
     'zones':[{k:z[k]for k in ['id','district','band','use','area','access','accessRejected','fixtures']}for z in contract['zones']]}
-source.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
+write_manifest(source, manifest)
 out=ROOT/'qa/webxr/evidence/colony-land-use-20260918';out.mkdir(parents=True,exist_ok=True)
 result={'counts':counts,'files':files,'manifestBytes':source.stat().st_size,'sourceHash':hashlib.sha256((ASSETS/'izma-land-use.blend').read_bytes()).hexdigest()}
 (out/'export.json').write_text(json.dumps(result,indent=2)+'\n')

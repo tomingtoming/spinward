@@ -6,6 +6,9 @@ native collision faces. Furniture and trees share the existing tile LOD cache.
 """
 import bpy, bmesh, json, math, hashlib
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
@@ -13,7 +16,7 @@ ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender';R=3200
 layout=json.loads((ASSETS/'izma-land-use-layout.json').read_text())
 for name,digest in layout['dependencies'].items():
     assert hashlib.sha256((ASSETS/name).read_bytes()).hexdigest()==digest,('Stale land reservations',name)
-base=json.loads((ROOT/'src/worlds/generated/izmaColony.json').read_text())['base']
+base=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')['base']
 owner='spinward-izma-land-use-v1';scene=bpy.data.scenes.get('SW_izma_land_use')
 if scene:
     assert scene.get('owner')==owner
@@ -63,7 +66,7 @@ for i in range(0,len(base['meshes']['earth']),3):
     vertices.extend((math.cos(x/R)*(R-h),y,math.sin(x/R)*(R-h))for x,y,h in points)
 earth=BVHTree.FromPolygons(vertices,[tuple(range(i,i+3))for i in range(0,len(vertices),3)],all_triangles=True)
 road_vertices=[]
-manifest=json.loads((ROOT/'src/worlds/generated/izmaColony.json').read_text())
+manifest=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
 for packed,names in [(base,['local','arterial','walk']),(manifest['neighbourhoods']['fixed'],['arch-lane'])]:
     for name in names:
         for index in packed['meshes'].get(name,[]):

@@ -5,7 +5,39 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest authored centre-link verification (2026-09-18): **27 new streets across
+Latest data-loading verification (2026-09-18): the unchanged colony geometry
+loads from 67 content-addressed JSON parts instead of one 105 MB JavaScript
+module. **Three final WebXR 0.3.0 cases pass in 59.8 seconds**, covering missing
+and corrupt data, safe startup failure, Reload into real VR, and the four-world /
+wrist regression. Served hashes match before/after. The matched local startup
+median changes from **6.20 to 3.85 seconds** and forced-GC JS heap from roughly
+**297 to 194 MiB**. Total compressed data size is effectively unchanged; the
+whole document is still assembled before starting. Regional terrain/collision
+residency and physical-headset measurement remain outstanding. **1,160 unit
+tests, four native persistence tests and production build pass.**
+[Format, comparison conditions and limits](../neighborhood-life/colony-data-loading.md).
+Evidence: `evidence/colony-data-parts-20260918/`; final XR screenshots/reports use
+`xr-final/`. Run `qa/webxr/colony-data.xr.mjs qa/webxr/world-landscapes.xr.mjs`.
+
+Latest authored interior-passage verification (2026-09-18): **121 streets,
+27 accepted interior passages across all thirteen urban districts and 7,394
+buildings**. The previous 87 road profiles remain unchanged. **1,155 unit
+tests**, production build, **72 desktop day/night views** and **four WebXR
+0.3.0 cases in 13.0 minutes** pass. Complete old-town, housing and market
+routes cover **457.85 / 321.98 / 306.77 m**, with all 414 / 289 / 288 samples
+grounded and maximum drawn/support discrepancy of 7.92 mm. The fourth case
+verifies stereo walking and wrist travel through Izma, Cooper, Elysium and
+Playground, then back to Izma. HTML and all three JS bundle hashes match
+before/after. These targeted cases do not rerun the entire older XR suite.
+Facade depth, repetitive awnings, overbright night walls and large undeveloped
+areas remain visible; passing walks does not establish reference-like scenery.
+The colony JS bundle is 105.30 MB before gzip, an unresolved initial-loading
+cost. Physical headset remains unmeasured.
+[Model, reference comparison and limits](../neighborhood-life/colony-block-depth.md#interior-passages).
+Evidence: `evidence/colony-block-interiors-20260918/`. Run these XR cases with
+`qa/webxr/colony-urban.xr.mjs qa/webxr/world-landscapes.xr.mjs --grep 'interior passage:|authored'`.
+
+Previous authored centre-link verification (2026-09-18): **27 new streets across
 12 districts**, retaining the existing 60 physical streets and their profiles.
 **1,154 unit tests**, production build, **72 desktop day/night views** and
 **four WebXR 0.3.0 cases in 17.4 minutes** pass. The three strip-specific walks

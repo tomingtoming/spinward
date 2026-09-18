@@ -458,3 +458,83 @@ candidate. Separately, paving ends 0.15 m before the foundation edge and leaves
 paving should abut the actual angled entrance edges and foundation; this does
 not imply that every corner gap has the same cause. Neither investigation
 changes the verified build.
+
+## Interior passages
+
+The next local increment authors routes through the interiors of all thirteen
+urban districts. Five rural/park districts keep their settlement policy. The
+saved native model contains 121 streets (34 more than the centre-link checkpoint),
+including 27 accepted interior passages. The previous 87 physical road profiles
+remain identical. There are 5,679 infill buildings plus 1,715 primary buildings;
+their new interiors remain closed. Three native route rejections remain explicit:
+two excessive junction grades and one unavailable parent. Planar rejections are
+also retained; these counts do not mean that every authored candidate was built.
+
+The reference frames ep05 `0039`/`0041` and ep06 `0063` were reopened. An independent
+image-only reviewer compared them with matched old-town, housing and market
+captures. Interior routes now place the ground camera between nearby walls,
+and roofs occupy part of the formerly empty block interiors. Large grass voids,
+repeated straight building rows, simple roofs and weak use-specific frontages
+remain. Window on/off and temperature variation already exists; recessed
+openings and balcony shadows remain missing. These are visual limitations,
+not cleared by the higher building count. The interim captures precede the
+last paving correction and are not final-build verification.
+
+The first neighbourhood test run found a compact plot fallback ignoring a
+workshop street's permitted uses. It also found front/rear lot surfaces spanning
+terrain ridges and sinking below physical ground. The builder now honours each
+street's uses, clips lot patches at saved terrain triangles, and evaluates radial
+height on the known face instead of making a second ray query at shared-edge
+cracks. Front paving abuts the actual angled entrance and foundation apron.
+A subsequent test isolated a drawn road verge above the paving; its native road
+height must be considered across the entire frontage, beyond the first metre.
+The original 2 cm drawing/support tolerance remains unchanged.
+
+Evidence: `qa/webxr/evidence/colony-block-interiors-20260918/`. `before/desktop/`
+and `interim/desktop/` contain twelve captures each. The initial failed unit and
+native build logs are retained. The final assembled model passes **1,155 unit
+tests across 199 files** and production build. All **72 final desktop views**
+(18 districts, ground/overview, day/night) complete without page errors or
+failed requests, with at most eighteen loaded detail tiles. Frame medians are
+16.7 ms and p95 values span 16.7–33.4 ms on Apple M1 Pro / ANGLE Metal. The full
+CPU test suite ran concurrently, so these are not isolated performance figures.
+The final screenshots are in `desktop/`; `interim/desktop/` is not the final model.
+Four targeted **WebXR 0.3.0 cases pass in 13.0 minutes** on one unchanged build.
+The three complete interior-passage walks, including approaches from their parent
+streets, cover **457.85 / 321.98 / 306.77 m** in old-town, housing and market.
+All 414 / 289 / 288 sampled positions remain grounded. Maximum drawing/support
+differences are 7.85 / 7.51 / 7.92 mm; loaded detail tiles stay at eighteen or
+fewer and collision cache entries at 122 or fewer. The fourth case uses the real
+VR entry, controller sticks and wrist targets to walk in Izma, Cooper and Elysium,
+visit Playground, then return to Izma. Page-error lists are empty, as is the
+world-switch resource-failure list. Served HTML and all three JS bundle hashes
+match before/after. This is targeted emulation coverage, not a rerun of the
+entire older XR suite or a physical-headset performance/comfort measurement.
+
+The root inspected all three interior midpoint stereo images and the returned
+Izma Places wrist image. Both eyes contain corresponding scenery and the menu
+has no obvious clipping in this sample. Repeated awnings, flat window openings
+and uneven nighttime wall lighting remain visible. The long walks advance the
+simulation; their starting time parameter is not a fixed lighting guarantee
+for every later screenshot.
+
+Independent final image reviews cover ten daytime port, river, civic, upland
+and workshop views, and six nighttime old-town, housing and market views.
+Workshop shutters and port working yards communicate uses; public entrances,
+waterfront character, varied roof shapes and recessed residential openings
+remain weak. Nighttime walls are locally overbright, while the housing road
+becomes dark in the middle distance. The source's dark walls and balcony shadows
+remain a specific unmet reference, despite the new interior streets.
+
+The 151 obsolete owned tiles were archived, restored individually and verified
+by hash/JSON before removal. `obsolete-tile-archive.json` and `restore-tiles.md`
+record their exact recovery paths. No unowned files were cleaned.
+
+Initial loading remains expensive: the complete manifest is 105,583,584 bytes
+and the colony JS bundle is 105,301,484 bytes before transfer compression.
+A lossless numeric-packing prototype restored the exact source bytes and
+reduced the plain JSON to 51,816,283 bytes, but **increased gzip transfer size
+from 24,693,268 to 30,234,482 bytes**. It was not adopted. The probe exists only
+under ignored evidence, not in the native exporters or runtime. Bounded detail
+tile loading does not establish bounded initial terrain/collision data loading.
+No publication or whole-colony completion is claimed.

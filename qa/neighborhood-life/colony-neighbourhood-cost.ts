@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import raw from '../../src/worlds/generated/izmaColony.json'
+import raw from './colony-source'
 import plan from '../../assets/blender/izma-neighbourhood-parcels.json'
 import transport from '../../assets/blender/izma-transport.json'
 import land from '../../assets/blender/izma-land-use.json'

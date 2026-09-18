@@ -138,6 +138,8 @@ class UrbanFabric:
                     for side in [-1,1]:candidates.append((min(math.hypot(x-a[0],y-a[1]),distance),x,y,yaw+(math.pi if side<0 else 0),r,in_station,distance))
             def add_plot(candidate,family,compact=False,allocation=None):
                 _,rx,ry,yaw,route,in_station,distance=candidate
+                if route.get('frontageFamilies') and family not in route['frontageFamilies']:
+                    reject('frontage-use');return False
                 n=seed(f'urban:{id}:{round(rx)}:{round(ry)}:{family}')
                 dims=self.config['families'][family];widths=[6.5,8,11] if family=='shop-house' else dims['width']
                 if spec['character']=='lanes' and family=='house':widths=[6.8,8.4,10.2]

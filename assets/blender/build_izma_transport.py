@@ -11,12 +11,15 @@ import json
 import hashlib
 import heapq
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 ROOT=Path(__file__).resolve().parents[2]
 PLAN=json.loads((ROOT/'assets/blender/izma-colony-plan.json').read_text())
-SOURCE=json.loads((ROOT/'src/worlds/generated/izmaColony.json').read_text())
+SOURCE=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
 R=PLAN['radius'];SPACING=math.tau*R/3
 OWNER='spinward-izma-transport-v1'
 SCENES=[bpy.data.scenes['SWC_izma_unrolled'],bpy.data.scenes['SWC_izma_cylinder']]

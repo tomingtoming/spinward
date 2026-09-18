@@ -1,6 +1,7 @@
 import './style.css'
 
 import { bootstrapApp } from './app/main'
+import { ColonyDataError } from './worlds/colonyManifestDocument'
 import {
   bootFailureIssueUrl,
   classifyBootFailure,
@@ -64,8 +65,9 @@ bootstrapApp().catch((error: unknown) => {
 
   const detail = document.createElement('p')
   detail.className = 'splash__error-detail'
-  detail.textContent =
-    'This browser could not start the simulation — WebGL or WebAssembly may be unavailable. Reloading sometimes helps; otherwise try another browser.'
+  detail.textContent = error instanceof ColonyDataError
+    ? 'The colony could not be loaded. Please check your connection and reload.'
+    : 'This browser could not start the simulation — WebGL or WebAssembly may be unavailable. Reloading sometimes helps; otherwise try another browser.'
 
   const reload = document.createElement('button')
   reload.className = 'splash__reload'

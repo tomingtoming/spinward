@@ -7,13 +7,16 @@ independent of detail requests. Run after export_izma_colony.py.
 """
 import bpy, json, math, hashlib
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest, write_manifest
 from mathutils import Vector
 
 def export(config=None):
     config=config or {}
     ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3;TILE=512
     layer=config.get('layer','architecture')
-    source=ROOT/'src/worlds/generated/izmaColony.json';manifest=json.loads(source.read_text())
+    source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
     # Land use reserves all upstream lots, stations and routes. Re-author it
     # last, rather than leave planted ground across a moved building or entry.
     manifest.pop('landUse',None)
@@ -179,7 +182,7 @@ def export(config=None):
                 'color':obj['color'],'intensity':obj['intensity'],'distance':obj['distance']})
     if 'visits' in config:manifest['visits'].update(config['visits'])
     if 'baseTransform' in config:manifest['base']=config['baseTransform'](manifest['base'])
-    source.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
+    write_manifest(source, manifest)
     out=ROOT/config.get('evidence','qa/webxr/evidence/colony-architecture-20260918');out.mkdir(parents=True,exist_ok=True)
     result={'counts':manifest[layer]['counts'],'tiles':emitted,'totalTileBytes':file_bytes,'largestTileBytes':largest,'manifestBytes':source.stat().st_size,
         'terrainHash':terrain_hash,'scope':'exported saved near/middle meshes and primitive silhouettes; interiors remain closed'}

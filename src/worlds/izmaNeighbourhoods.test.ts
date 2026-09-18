@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { Group } from 'three'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import plan from '../../assets/blender/izma-neighbourhood-plan.json'
 import parcels from '../../assets/blender/izma-neighbourhood-parcels.json'
 import publicSpaces from '../../assets/blender/izma-public-spaces.json'
@@ -113,6 +113,37 @@ test('every authored centre link is accounted for and keeps its district purpose
     expect(streets.streets.some(s => s.id === retired.id), retired.id).toBe(false)
     expect(parcels.streets.some(s => s.id === retired.id), retired.id).toBe(false)
   }
+  for (const district of Object.keys(districtLinks.districts)) {
+    const inside = parcels.streets.filter(s => s.district === district && s.blockInterior)
+    expect(inside.length, district + ' has an actual interior passage').toBeGreaterThan(0)
+    const routes = new Set(inside.map(s => s.id))
+    expect(parcels.parcels.some(p => p.district === district && routes.has(p.route)),
+      district + ' interior passages serve inhabited plots').toBe(true)
+  }
+})
+
+test('paved frontages abut both angled entrance edges and the foundation apron', () => {
+  const paving = drawingIndex('arch-court')
+  let probes = 0
+  for (const p of parcels.parcels) {
+    if (p.lot.frontageUse === 'garden' && urban.districts[p.district as keyof typeof urban.districts].character !== 'lanes') continue
+    const c = Math.cos(p.yaw), s = Math.sin(p.yaw), [x, y] = p.position
+    const local = (q: number[]) => [c * (q[0] - x) + s * (q[1] - y), -s * (q[0] - x) + c * (q[1] - y)]
+    const a = local(p.access.start), b = local(p.access.end), du = b[0] - a[0], dv = b[1] - a[1]
+    const edge = -p.size[1] / 2 - .25
+    if (edge - a[1] < .12) continue
+    const halfWidth = p.access.width / 2 * Math.hypot(du, dv) / Math.abs(dv)
+    for (const v of [(a[1] + edge) / 2, edge - .035]) for (const side of [-1, 1]) {
+      const u = a[0] + du * (v - a[1]) / dv + side * (halfWidth + .035)
+      if (Math.abs(u) > p.lot.width / 2 - .06) continue
+      const qx = x + c * u - s * v, qy = y + s * u + c * v
+      const h = getCityGroundHeight(paving, 3200, qx / 3200, qy, 400)
+      expect(h, p.id + ' missing paved entrance edge').toBeGreaterThan(0)
+      expect(Math.abs(getCityGroundHeight(physics, 3200, qx / 3200, qy, h + .03) - h), p.id).toBeLessThan(.02)
+      probes++
+    }
+  }
+  expect(probes).toBeGreaterThan(1000)
 })
 
 test('all back streets have drawn and physical walkable surfaces connected to their frontage road', () => {

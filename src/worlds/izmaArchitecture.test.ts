@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import parcels from '../../assets/blender/izma-parcels.json'
 import { colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
 import { landscapeColliders } from './authoredLandscape'

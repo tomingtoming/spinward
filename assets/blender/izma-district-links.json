@@ -111,6 +111,71 @@
             ]
           ],
           "purpose": "work yards"
+        },
+        {
+          "id": "works-inner",
+          "ends": [
+            [
+              "@work-court",
+              [
+                -150,
+                260
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                155
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -65,
+              225
+            ]
+          ],
+          "width": 6,
+          "purpose": "工房裏の作業路と職住の小棟",
+          "families": [
+            "workshop",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "craft-inner",
+          "ends": [
+            [
+              "garden",
+              [
+                -120,
+                -180
+              ]
+            ],
+            [
+              "@craft-row",
+              [
+                150,
+                -140
+              ]
+            ]
+          ],
+          "via": [
+            [
+              15,
+              -160
+            ]
+          ],
+          "width": 5,
+          "purpose": "工房から住戸への裏道",
+          "families": [
+            "house",
+            "shop-house",
+            "workshop"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -207,34 +272,136 @@
           "purpose": "small workshops and housing"
         },
         {
-          "id": "cross-passage",
+          "id": "inner-row",
           "ends": [
-            [
-              "station",
-              [
-                -190,
-                0
-              ]
-            ],
             [
               "@north-row",
               [
-                -220,
-                285
+                -315,
+                240
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                205
               ]
             ]
           ],
           "via": [
             [
-              -220,
-              130
+              -275,
+              145
+            ],
+            [
+              -120,
+              205
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "大街区の内側に連続する小間口の住居と店",
+          "families": [
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "cross-passage",
+          "ends": [
+            [
+              "station",
+              [
+                -280,
+                0
+              ]
+            ],
+            [
+              "@inner-row",
+              [
+                -265,
+                185
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -285,
+              85
             ]
           ],
           "purpose": "pedestrian scale shop passage",
           "families": [
             "shop-house",
             "house"
-          ]
+          ],
+          "width": 4.5,
+          "blockInterior": true
+        },
+        {
+          "id": "upper-passage",
+          "ends": [
+            [
+              "@inner-row",
+              [
+                -180,
+                190
+              ]
+            ],
+            [
+              "@north-row",
+              [
+                -170,
+                315
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -190,
+              260
+            ]
+          ],
+          "width": 4.4,
+          "purpose": "裏通りから奥の住戸へ抜ける生活路地",
+          "families": [
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "south-pocket",
+          "ends": [
+            [
+              "garden",
+              [
+                -150,
+                -210
+              ]
+            ],
+            [
+              "existing:urban-a-old-town-1-1-outer",
+              [
+                -245,
+                -140
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -235,
+              -210
+            ]
+          ],
+          "width": 4.4,
+          "purpose": "南側の小さな街区に面する住戸路地",
+          "families": [
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -284,15 +451,15 @@
             [
               "existing:urban-a-river-1-0",
               [
-                -590,
-                -45
+                -583.298969,
+                -47.57732
               ]
             ],
             [
               "garden",
               [
-                -248,
-                -355
+                -242.443601,
+                -349.118785
               ]
             ]
           ],
@@ -309,6 +476,42 @@
           "purpose": "lower terrace homes"
         },
         {
+          "id": "terrace-inner",
+          "ends": [
+            [
+              "existing:urban-a-river-0-0",
+              [
+                -650,
+                90
+              ]
+            ],
+            [
+              "@terrace-north",
+              [
+                -390,
+                185
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -575,
+              150
+            ],
+            [
+              -440,
+              175
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "段丘の内側にある小さな住宅街区",
+          "families": [
+            "house",
+            "apartment"
+          ],
+          "blockInterior": true
+        },
+        {
           "id": "terrace-cross",
           "ends": [
             [
@@ -319,20 +522,55 @@
               ]
             ],
             [
-              "existing:urban-a-river-0-1",
+              "@terrace-inner",
               [
-                -420,
-                90
+                -475,
+                170
               ]
             ]
           ],
           "via": [
             [
-              -465,
-              155
+              -500,
+              200
             ]
           ],
-          "purpose": "terrace pedestrian link"
+          "purpose": "terrace pedestrian link",
+          "width": 4.4,
+          "blockInterior": true
+        },
+        {
+          "id": "south-terrace-inner",
+          "ends": [
+            [
+              "station",
+              [
+                -425.0,
+                0.0
+              ]
+            ],
+            [
+              "@terrace-south",
+              [
+                -386.646619,
+                -414.74178
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -360,
+              -180
+            ]
+          ],
+          "width": 4.8,
+          "purpose": "南段丘の住戸と小さな共同庭を結ぶ",
+          "families": [
+            "house",
+            "apartment",
+            "shop-house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -353,15 +591,15 @@
             [
               "town",
               [
-                0,
-                420
+                -83.6936,
+                411.126457
               ]
             ],
             [
               "access",
               [
-                350,
-                180
+                343.93883,
+                174.262341
               ]
             ]
           ],
@@ -458,6 +696,71 @@
             ]
           ],
           "purpose": "pedestrian civic cross street"
+        },
+        {
+          "id": "civic-inner",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                -150
+              ]
+            ],
+            [
+              "@civic-south",
+              [
+                330,
+                -80
+              ]
+            ]
+          ],
+          "via": [
+            [
+              145,
+              -100
+            ]
+          ],
+          "width": 6,
+          "purpose": "業務街区の背後にある住居と小店舗",
+          "families": [
+            "apartment",
+            "shop-house",
+            "office"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "civic-service",
+          "ends": [
+            [
+              "@civic-cross",
+              [
+                110,
+                210
+              ]
+            ],
+            [
+              "access",
+              [
+                220,
+                100
+              ]
+            ]
+          ],
+          "via": [
+            [
+              180,
+              160
+            ]
+          ],
+          "width": 5,
+          "purpose": "市民地区の建物裏の通路",
+          "families": [
+            "shop-house",
+            "office"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -477,15 +780,15 @@
             [
               "station",
               [
-                -160,
-                0
+                -176.0,
+                0.0
               ]
             ],
             [
               "town",
               [
-                0,
-                430
+                57.106445,
+                430.494736
               ]
             ]
           ],
@@ -507,15 +810,15 @@
             [
               "neighbourhood",
               [
-                230,
-                360
+                219.087954,
+                347.963222
               ]
             ],
             [
               "access",
               [
-                300,
-                50
+                282.320098,
+                56.762771
               ]
             ]
           ],
@@ -556,6 +859,74 @@
             ]
           ],
           "purpose": "lower housing row"
+        },
+        {
+          "id": "hill-inner",
+          "ends": [
+            [
+              "@hill-west",
+              [
+                -189.199331,
+                216.846152
+              ]
+            ],
+            [
+              "town",
+              [
+                20.605882,
+                155.336647
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -65,
+              170
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "丘の裾の住宅まとまりを内部からつなぐ",
+          "families": [
+            "house",
+            "apartment"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "east-homes",
+          "ends": [
+            [
+              "@hill-east",
+              [
+                300,
+                130
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                110,
+                175
+              ]
+            ]
+          ],
+          "via": [
+            [
+              245,
+              115
+            ],
+            [
+              180,
+              135
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "高台東側の住戸へ入る生活路地",
+          "families": [
+            "house",
+            "apartment"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -659,6 +1030,71 @@
             ]
           ],
           "purpose": "workshop lane"
+        },
+        {
+          "id": "living-inner",
+          "ends": [
+            [
+              "garden",
+              [
+                -75,
+                110
+              ]
+            ],
+            [
+              "@living-north",
+              [
+                180,
+                135
+              ]
+            ]
+          ],
+          "via": [
+            [
+              70,
+              145
+            ]
+          ],
+          "width": 5,
+          "purpose": "仕事場の背後にある住戸と日常店舗",
+          "families": [
+            "apartment",
+            "shop-house",
+            "house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "works-inner",
+          "ends": [
+            [
+              "access",
+              [
+                340,
+                -60
+              ]
+            ],
+            [
+              "@works-south",
+              [
+                315,
+                -320
+              ]
+            ]
+          ],
+          "via": [
+            [
+              280,
+              -190
+            ]
+          ],
+          "width": 6.5,
+          "purpose": "街区内の工房へ荷を運ぶ作業路",
+          "families": [
+            "workshop",
+            "warehouse"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -709,15 +1145,15 @@
             [
               "access",
               [
-                290,
-                -120
+                314.574989,
+                -163.751364
               ]
             ],
             [
               "town",
               [
-                0,
-                -480
+                -83.688493,
+                -464.936071
               ]
             ]
           ],
@@ -784,6 +1220,71 @@
             ]
           ],
           "purpose": "school local street"
+        },
+        {
+          "id": "clinic-court",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                220
+              ]
+            ],
+            [
+              "@school-cross",
+              [
+                170,
+                180
+              ]
+            ]
+          ],
+          "via": [
+            [
+              75,
+              220
+            ]
+          ],
+          "width": 5.5,
+          "purpose": "医療・学園街区の生活施設と集合住宅",
+          "families": [
+            "apartment",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "living-court",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                -300
+              ]
+            ],
+            [
+              "@living-east",
+              [
+                330,
+                -345
+              ]
+            ]
+          ],
+          "via": [
+            [
+              155,
+              -320
+            ]
+          ],
+          "width": 6,
+          "purpose": "学園南側の住宅街区内の道",
+          "families": [
+            "apartment",
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -889,25 +1390,100 @@
             [
               "access",
               [
-                250,
-                -50
+                295,
+                -70
               ]
             ],
             [
               "neighbourhood",
               [
-                180,
-                -285
+                220,
+                -340
               ]
             ]
           ],
           "via": [
             [
-              210,
-              -145
+              285,
+              -200
             ]
           ],
-          "purpose": "service and housing lane"
+          "purpose": "service and housing lane",
+          "width": 5.5,
+          "blockInterior": true
+        },
+        {
+          "id": "east-row",
+          "ends": [
+            [
+              "@market-cross",
+              [
+                205,
+                100
+              ]
+            ],
+            [
+              "campus",
+              [
+                480,
+                200
+              ]
+            ]
+          ],
+          "via": [
+            [
+              325,
+              120
+            ],
+            [
+              425,
+              150
+            ]
+          ],
+          "width": 6,
+          "purpose": "新都心の業務街区を横切る裏通り",
+          "families": [
+            "office",
+            "shop-house",
+            "apartment"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "east-cross",
+          "ends": [
+            [
+              "@east-row",
+              [
+                375,
+                138
+              ]
+            ],
+            [
+              "campus",
+              [
+                455,
+                410
+              ]
+            ]
+          ],
+          "via": [
+            [
+              400,
+              245
+            ],
+            [
+              420,
+              345
+            ]
+          ],
+          "width": 5,
+          "purpose": "建て替え街区を分ける住居と店舗の通路",
+          "families": [
+            "shop-house",
+            "apartment"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -928,15 +1504,15 @@
             [
               "existing:urban-b-housing-0-3-outer",
               [
-                -215,
-                170
+                -221.324265,
+                162.455317
               ]
             ],
             [
               "town",
               [
-                0,
-                400
+                -47.817896,
+                377.820412
               ]
             ]
           ],
@@ -1010,21 +1586,21 @@
             [
               "existing:urban-b-housing-0-3-outer",
               [
-                -145,
-                150
+                -185,
+                160
               ]
             ],
             [
               "@housing-north",
               [
-                -135,
-                305
+                -140,
+                315
               ]
             ]
           ],
           "via": [
             [
-              -130,
+              -140,
               235
             ]
           ],
@@ -1032,7 +1608,78 @@
           "families": [
             "shop-house",
             "apartment"
-          ]
+          ],
+          "width": 4.5,
+          "blockInterior": true
+        },
+        {
+          "id": "east-court",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                285
+              ]
+            ],
+            [
+              "garden",
+              [
+                170,
+                250
+              ]
+            ]
+          ],
+          "via": [
+            [
+              75,
+              285
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "団地の住棟間を通る近隣商店への道",
+          "families": [
+            "apartment",
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "south-court",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                -235
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                -190,
+                -300
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -65,
+              -270
+            ],
+            [
+              -120,
+              -305
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "南側住区の内側へ続く住棟間通路",
+          "families": [
+            "apartment",
+            "house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -1136,6 +1783,75 @@
             ]
           ],
           "purpose": "public services street"
+        },
+        {
+          "id": "south-inner",
+          "ends": [
+            [
+              "@south-east",
+              [
+                -30,
+                -380
+              ]
+            ],
+            [
+              "access",
+              [
+                240,
+                -100
+              ]
+            ]
+          ],
+          "via": [
+            [
+              80,
+              -270
+            ],
+            [
+              185,
+              -195
+            ]
+          ],
+          "width": 6,
+          "purpose": "新市街の大街区の内側にある生活道路",
+          "families": [
+            "apartment",
+            "shop-house",
+            "office"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "garden-cross",
+          "ends": [
+            [
+              "@south-east",
+              [
+                -80,
+                -315
+              ]
+            ],
+            [
+              "@south-inner",
+              [
+                75,
+                -270
+              ]
+            ]
+          ],
+          "via": [
+            [
+              0,
+              -285
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "まとまった住棟の間を歩く通路",
+          "families": [
+            "apartment",
+            "house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -1235,6 +1951,38 @@
             ]
           ],
           "purpose": "cargo support street"
+        },
+        {
+          "id": "cargo-inner",
+          "ends": [
+            [
+              "garden",
+              [
+                -120,
+                -180
+              ]
+            ],
+            [
+              "@cargo-south",
+              [
+                170,
+                -125
+              ]
+            ]
+          ],
+          "via": [
+            [
+              40,
+              -175
+            ]
+          ],
+          "width": 6.5,
+          "purpose": "荷捌き用地へ入る内部作業路",
+          "families": [
+            "warehouse",
+            "workshop"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -1339,6 +2087,75 @@
             "shop-house",
             "apartment"
           ]
+        },
+        {
+          "id": "production-inner",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                250
+              ]
+            ],
+            [
+              "@production-east",
+              [
+                225,
+                350
+              ]
+            ]
+          ],
+          "via": [
+            [
+              85,
+              270
+            ],
+            [
+              180,
+              300
+            ]
+          ],
+          "width": 6,
+          "purpose": "工房の奥側へつながる搬入路",
+          "families": [
+            "workshop",
+            "warehouse",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "workers-inner",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                -190
+              ]
+            ],
+            [
+              "garden",
+              [
+                115,
+                -175
+              ]
+            ]
+          ],
+          "via": [
+            [
+              35,
+              -180
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "作業員の住宅と小店舗が面する内側の道",
+          "families": [
+            "house",
+            "shop-house"
+          ],
+          "blockInterior": true
         }
       ]
     },
@@ -1476,6 +2293,102 @@
             "shop-house",
             "apartment"
           ]
+        },
+        {
+          "id": "market-inner",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                310
+              ]
+            ],
+            [
+              "@market-north",
+              [
+                205,
+                310
+              ]
+            ]
+          ],
+          "via": [
+            [
+              90,
+              315
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "市場の店裏と上階住居が面する細街路",
+          "families": [
+            "shop-house",
+            "house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "service-inner",
+          "ends": [
+            [
+              "garden",
+              [
+                110,
+                -165
+              ]
+            ],
+            [
+              "@market-service",
+              [
+                380,
+                -65
+              ]
+            ]
+          ],
+          "via": [
+            [
+              260,
+              -105
+            ]
+          ],
+          "width": 5.5,
+          "purpose": "市場街区内の荷捌きと職住の裏道",
+          "families": [
+            "workshop",
+            "shop-house"
+          ],
+          "blockInterior": true
+        },
+        {
+          "id": "service-passage",
+          "ends": [
+            [
+              "@service-inner",
+              [
+                280,
+                -95
+              ]
+            ],
+            [
+              "access",
+              [
+                260,
+                60
+              ]
+            ]
+          ],
+          "via": [
+            [
+              265,
+              -20
+            ]
+          ],
+          "width": 4.5,
+          "purpose": "表通りから市場の裏側へ抜ける小路",
+          "families": [
+            "shop-house",
+            "house"
+          ],
+          "blockInterior": true
         }
       ]
     }

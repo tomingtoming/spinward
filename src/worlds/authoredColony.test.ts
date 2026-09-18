@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import studyRaw from './generated/worldLandscapes.json'
 import { unpackLandscapeLibrary } from './landscapeData'
 import { landscapeColliders } from './authoredLandscape'

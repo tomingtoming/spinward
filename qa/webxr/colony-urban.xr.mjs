@@ -5,10 +5,10 @@ import fs from 'node:fs/promises'
 const plan = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
 const transport = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-transport.json', import.meta.url), 'utf8'))
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
-  const deep=mode==='second-depth',centre=mode==='centre link'
+for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link','interior passage'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
+  const deep=mode==='second-depth',interior=mode==='interior passage',centre=mode==='centre link'||interior
   test.setTimeout(centre?600000:deep?480000:360000)
-  const linkNames={'a-old-town':'north-row','b-housing':'housing-south','c-market':'market-north'}
+  const linkNames=interior?{'a-old-town':'inner-row','b-housing':'east-court','c-market':'market-inner'}:{'a-old-town':'north-row','b-housing':'housing-south','c-market':'market-north'}
   const street = centre?plan.streets.find(s=>s.id===`urban-${district}-link-${linkNames[district]}`):deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
   expect(street,'authored street is actually built').toBeDefined()
   let path = [...street.profile]

@@ -8,6 +8,9 @@ import math
 import json
 import hashlib
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import write_manifest
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
@@ -188,7 +191,7 @@ for key,tile in sorted(tile_data.items()):
                               'bounds':[min(xs)-40,min(ys)-40,max(xs)+40,max(ys)+40],
                               'districts':sorted(tile['districts']),'boxes':boxes})
 target=ROOT/'src/worlds/generated/izmaColony.json'
-target.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
+write_manifest(target, manifest)
 result={'output':str(target),'baseBytes':target.stat().st_size,'tiles':len(tile_data),'boxes':len(blocks),
         'baseTriangles':sum(len(v)//3 for v in base.values()),'surfaceTiles':len(floors),
         'note':'terrain, graded transport and box massing; districts and full transport remain unfinished'}

@@ -5,6 +5,9 @@ are reservations. Heights are sampled from the actual drawn transport surface.
 """
 import bpy, json, math, hashlib, bisect
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
@@ -12,7 +15,7 @@ ROOT=Path(__file__).resolve().parents[2]
 PLAN=json.loads((ROOT/'assets/blender/izma-rail-plan.json').read_text())
 MASTER=json.loads((ROOT/'assets/blender/izma-colony-plan.json').read_text())
 TRANSPORT=json.loads((ROOT/'assets/blender/izma-transport.json').read_text())
-BASE=json.loads((ROOT/'src/worlds/generated/izmaColony.json').read_text())
+BASE=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
 R=3200;SPACING=math.tau*R/3;OWNER='spinward-izma-rail-v1'
 scene=bpy.data.scenes.get('SW_izma_rail')
 if scene:

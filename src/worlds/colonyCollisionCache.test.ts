@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { ColonyCollisionCache, COLONY_COLLISION_CACHE_BYTES, COLONY_COLLISION_CACHE_ENTRIES } from './colonyCollisionCache'
 import { colonyColliders, readColonyManifest, type ColonyPackedMesh } from './authoredColony'
 import { buildCityCollisionIndex, getCityGroundHeight } from '../objects/cityLayout'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import parcels from '../../assets/blender/izma-parcels.json'
 import landUse from '../../assets/blender/izma-land-use.json'
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import raw from '../worlds/generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import { readColonyManifest } from '../worlds/authoredColony'
 import { RailService } from '../gameplay/railService'
 import { RailRide } from './railRide'

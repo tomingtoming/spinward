@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import transport from '../../assets/blender/izma-transport.json'
 import { IZMA_MASTER_PLAN } from './izmaMasterPlan'
 import { colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'

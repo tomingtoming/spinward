@@ -1,12 +1,15 @@
 """Export saved track/station/vehicle meshes, preserving all existing districts."""
 import bpy,json,hashlib,math
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest, write_manifest
 ROOT=Path(__file__).resolve().parents[2]
 contract=json.loads((ROOT/'assets/blender/izma-rail.json').read_text())
 for name,digest in contract['dependencies'].items():
     assert hashlib.sha256((ROOT/'assets/blender'/name).read_bytes()).hexdigest()==digest,('Rebuild rail after changed reservation',name)
 scene=bpy.data.scenes['SW_izma_rail'];assert scene.get('owner')=='spinward-izma-rail-v1';scene.view_layers[0].update()
-path=ROOT/'src/worlds/generated/izmaColony.json';manifest=json.loads(path.read_text())
+path=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(path)
 manifest.pop('landUse',None)
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
 manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
@@ -73,7 +76,7 @@ for obj in scene.objects:
         else:lights.append(light)
 manifest['railways']={'version':1,'configuration':contract['configuration'],'lines':contract['lines'],'stations':contract['stations'],
     'fixed':pack(fixed,physics),'lights':lights,'vehicleLight':vehicle_light,'vehicle':{id:{**pack(lods[0]),'mid':pack(lods[1])}for id,lods in vehicles.items()}}
-path.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
+write_manifest(path, manifest)
 out=ROOT/'qa/webxr/evidence/colony-rail-20260918';out.mkdir(parents=True,exist_ok=True)
 result={'stations':len(stations),'lines':len(contract['lines']),'tiles':len(files),'totalTileBytes':sum(f['bytes']for f in files),'largestTileBytes':max(f['bytes']for f in files),
     'fixedTriangles':sum(len(v)//3 for v in fixed.values()),'collisionTriangles':sum(len(v)//3 for v in physics.values()),'vehicleParts':len(vehicles),'files':files}

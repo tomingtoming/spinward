@@ -6,10 +6,13 @@ resident; furniture/vegetation use the existing bounded near/mid tile cache.
 """
 import bpy, json, math, hashlib
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from colony_manifest_io import read_manifest, write_manifest
 
 ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3
 source=ROOT/'src/worlds/generated/izmaColony.json'
-manifest=json.loads(source.read_text())
+manifest=read_manifest(source)
 manifest.pop('landUse',None)
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
 manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
@@ -90,7 +93,7 @@ for obj in scene.objects:
     w=obj.matrix_world.translation
     manifest['publicRealm']['lights'].append({'position':[-w.y,w.x,w.z],
         'color':obj['color'],'intensity':obj['intensity'],'distance':obj['distance']})
-source.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
+write_manifest(source, manifest)
 out=ROOT/'qa/webxr/evidence/colony-public-20260918';out.mkdir(parents=True,exist_ok=True)
 result={'counts':counts,'files':files,'terrainHash':terrain_hash,'manifestBytes':source.stat().st_size,
         'sourceHash':hashlib.sha256((ROOT/'assets/blender/izma-public-spaces.blend').read_bytes()).hexdigest()}

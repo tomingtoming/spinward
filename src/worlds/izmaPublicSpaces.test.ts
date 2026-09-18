@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { BufferAttribute, BufferGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
-import raw from './generated/izmaColony.json'
+import raw from '../../qa/neighborhood-life/colony-source'
 import plan from '../../assets/blender/izma-public-spaces.json'
 import { IZMA_MASTER_PLAN } from './izmaMasterPlan'
 import { AuthoredColony, colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
