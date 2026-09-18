@@ -54,7 +54,8 @@ def build(config=None):
         return R-math.hypot(p.x,p.z)
     def street_height(x,y):
         a=x/R;p=streets.ray_cast(Vector((0,y,0)),Vector((math.cos(a),0,math.sin(a))))[0]
-        return R-math.hypot(p.x,p.z) if p is not None else -10000
+        h=R-math.hypot(p.x,p.z) if p is not None else -10000
+        return max(h,config['extraStreetHeight'](x,y)) if 'extraStreetHeight' in config else h
     def seed(text):return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4],'big')
     def choose(weights,n):
         k=n%sum(weights.values())
@@ -114,7 +115,7 @@ def build(config=None):
         edge=route['width']/2+(2.15 if route['width']>=10 else -.04)
         start=(rx+vx*edge,ry+vy*edge);end=(door[0]-vx*.02,door[1]-vy*.02)
         distance=math.dist(start,end)
-        if length<edge+2 or distance>40:return None
+        if length<edge+config.get('minimumApproach',2) or distance>40:return None
         path_width=1.9;steps=max(2,math.ceil(distance/.45));rows=[]
         for k in range(steps+1):
             t=k/steps;px=start[0]+(end[0]-start[0])*t;py=start[1]+(end[1]-start[1])*t

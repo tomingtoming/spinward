@@ -5,6 +5,9 @@ created: 2026-09-18
 
 # Eighteen public-place neighbourhoods
 
+This records the earlier 545-building increment. The current compact station
+street replanning and its remaining reference gaps are in [colony-urban.md](colony-urban.md).
+
 The 18 squares previously stood among sparse roadside buildings. This increment
 adds **545 authored frontage parcels** around them: shops with housing above,
 houses, apartments, offices, civic buildings, workshops, warehouses, farmhouses

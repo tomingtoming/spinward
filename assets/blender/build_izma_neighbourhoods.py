@@ -1,121 +1,36 @@
-"""Infill the eighteen public-place catchments with authored frontage parcels.
+"""Replot the eighteen neighbourhoods around saved station and back-street layouts.
 
-The existing street graph, terrain, buildings and squares are reservations.
-District use/history determines parcel dimensions, uses and catchment size;
-the recipe runs offline and saves editable Blender meshes and explicit lots.
-Run in an isolated Blender process against izma-colony.blend.
+Run in isolated Blender against izma-colony.blend. The original architecture,
+public spaces, river reservations and study remain upstream reservations.
 """
-import bpy, json, math, hashlib
+import bpy, json, math, hashlib, sys
 from pathlib import Path
-
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/'assets/blender'))
+from izma_urban_fabric import UrbanFabric
 PUBLIC=json.loads((ROOT/'assets/blender/izma-public-spaces.json').read_text())
 OLD=json.loads((ROOT/'assets/blender/izma-parcels.json').read_text())
 CONFIG=json.loads((ROOT/'assets/blender/izma-neighbourhood-plan.json').read_text())
-SPACING=math.tau*3200/3
+URBAN=json.loads((ROOT/'assets/blender/izma-urban-plan.json').read_text())
+STREETS=json.loads((ROOT/'assets/blender/izma-urban-streets.json').read_text())
+RAIL=json.loads((ROOT/'assets/blender/izma-rail.json').read_text())
+for name,digest in STREETS['dependencies'].items():
+    assert hashlib.sha256((ROOT/'assets/blender'/name).read_bytes()).hexdigest()==digest,('Reauthor urban streets after reservation changes',name)
+assert hashlib.sha256(json.dumps(RAIL['stations'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==STREETS['railStationDigest']
+fabric=UrbanFabric(STREETS,URBAN,CONFIG,OLD,PUBLIC,RAIL)
 source=ROOT/'assets/blender/build_izma_districts.py'
 library={'__file__':str(source),'_DISTRICTS_LIBRARY':True}
 exec(compile(source.read_text(),str(source),'exec'),library)
-neighbourhoods=[]
-
-def rectangle(x,y,yaw,w,d):
-    c,s=math.cos(yaw),math.sin(yaw)
-    return [(x+c*u-s*v,y+s*u+c*v)for u,v in [(-w/2,-d/2),(w/2,-d/2),(w/2,d/2),(-w/2,d/2)]]
-
-def overlaps(a,b,margin=0):
-    # Separating axes allow compact real frontage lots, without the large
-    # empty corners imposed by circumscribed-circle parcel reservations.
-    for polygon in [a,b]:
-        for p,q in zip(polygon,polygon[1:]+polygon[:1]):
-            dx,dy=q[0]-p[0],q[1]-p[1];length=math.hypot(dx,dy)
-            if length<1e-8:continue
-            nx,ny=-dy/length,dx/length
-            aa=[x*nx+y*ny for x,y in a];bb=[x*nx+y*ny for x,y in b]
-            if max(aa)+margin<min(bb)or max(bb)+margin<min(aa):return False
-    return True
-
-def corridor(a,b,width):
-    return rectangle((a[0]+b[0])/2,(a[1]+b[1])/2,math.atan2(b[1]-a[1],b[0]-a[0]),math.dist(a[:2],b[:2]),width)
-
-def plan(env):
-    master=env['MASTER'];ground=env['ground'];site=env['site'];project=env['project'];seed=env['seed']
-    reserved=[[]for _ in range(3)]
-    for p in OLD['parcels']:
-        reserved[p['band']].append(rectangle(*p['position'],p['yaw'],p['size'][0]+4,p['size'][1]+5))
-        reserved[p['band']].append(corridor(p['access']['start'],p['access']['end'],5))
-    for p in PUBLIC['places']:
-        reserved[p['band']].append(rectangle(*p['position'],p['yaw'],p['size'][0]+4,p['size'][1]+4))
-        reserved[p['band']].append(corridor(p['entry'],p['threshold'],7))
-    routes=[[]for _ in range(3)]
-    for band in range(3):
-        for a,b,r in env['all_segments'][band]:
-            aa=[a[0]+band*SPACING,a[1]];bb=[b[0]+band*SPACING,b[1]]
-            routes[band].append((aa,bb,r,corridor(aa,bb,r['width']+5)))
-    blocks=[]
-    for district in master['districts']:
-        p=next(q for q in PUBLIC['places']if q['id']==district['id'])
-        band=district['band'];spec=CONFIG['districts'][p['id']];anchor=p['entry']
-        radius=spec['radius'];candidates=[];rejected={}
-        def reject(reason):rejected[reason]=rejected.get(reason,0)+1
-        for a,b,r,_ in routes[band]:
-            if r['kind']not in ['arterial','local']or r['id']not in env['profiles']:continue
-            length=math.dist(a,b);yaw=math.atan2(b[1]-a[1],b[0]-a[0]);c,s=math.cos(yaw),math.sin(yaw)
-            # Sampling only proposes sites; the saved contract fixes every
-            # accepted lot. Existing branch/loop topology is not regridded.
-            count=math.ceil(length/5)
-            for k in range(1,count):
-                t=k/count;rx=a[0]+(b[0]-a[0])*t;ry=a[1]+(b[1]-a[1])*t
-                distance=math.hypot(rx-anchor[0],ry-anchor[1])
-                if distance>radius:continue
-                for side in [-1,1]:
-                    candidates.append((distance,rx,ry,yaw+(math.pi if side<0 else 0),r))
-        accepted=[]
-        for distance,rx,ry,yaw,route in sorted(candidates,key=lambda q:q[0]):
-            if len(accepted)>=spec['target']:break
-            # A fixed sequence guarantees residential and workplace uses in
-            # each catchment. The series reflects the district's land history.
-            family=spec['families'][len(accepted)%len(spec['families'])]
-            n=seed(f"{p['id']}:{round(rx)}:{round(ry)}:{family}")
-            dims=CONFIG['families'][family];w=dims['width'][n%len(dims['width'])];d=dims['depth']
-            floors=dims['floors'][n%len(dims['floors'])]
-            c,s=math.cos(yaw),math.sin(yaw)
-            setback=spec['setback']+((n//13)%3)*.7
-            offset=route['width']/2+(2.15 if route['width']>=10 else 0)+setback+d/2
-            x,y=rx-s*offset,ry+c*offset;lx=x-band*SPACING
-            lot_w=w+spec['sideGap'];rear=spec['rearGarden'];lot_d=d+setback+rear
-            centre=(x-s*(rear-setback)/2,y+c*(rear-setback)/2)
-            lot=rectangle(*centre,yaw,lot_w,lot_d)
-            if any(abs(q[0]-band*SPACING)>3200*math.pi/6-master['edgeReserve']or not district['axial'][0]<q[1]<district['axial'][1]for q in lot):reject('district-boundary');continue
-            if band==0 and overlaps(lot,rectangle(0,0,0,700,860)):reject('study');continue
-            water=master['water'][band]
-            if any(math.hypot(x-band*SPACING-project(lx,y,aa,bb)[0],y-project(lx,y,aa,bb)[1])<math.hypot(lot_w,lot_d)/2+water['bankWidth']for aa,bb in zip(water['reach'],water['reach'][1:])):reject('water');continue
-            if any(overlaps(lot,q,.5)for q in reserved[band]):reject('reserved');continue
-            if any(rr['id']!=route['id']and overlaps(lot,shape,1)for aa,bb,rr,shape in routes[band]):reject('route');continue
-            placement=site(band,lx,y,yaw,w,d,family)
-            if not placement or placement['route']['id']!=route['id']:reject('frontage');continue
-            if placement['stairs'] and family in ['warehouse','workshop']:reject('loading-grade');continue
-            if max(placement['samples'])-min(placement['samples'])>1.7:reject('foundation');continue
-            parcel_id=f"neighbourhood-{p['id']}-{len(accepted):03d}"
-            lot_data={'polygon':[list(q)for q in lot],'width':lot_w,'depth':lot_d,'setback':setback,
-                      'rearGarden':rear,'publicPlace':p['id'],'distance':distance,'street':route['id'],
-                      'frontageUse':'shop'if family=='shop-house'else'yard'if family in ['warehouse','workshop']else'garden'if family in ['house','farmhouse','apartment']else'forecourt'}
-            block={'id':parcel_id,'band':band,'district':p['id'],'family':family,'position':[lx,y,0],
-                   'size':[w,d,floors*3.2],'yaw':yaw,'fixedSize':True,'lot':lot_data}
-            blocks.append(block);accepted.append(block);reserved[band].append(lot)
-        assert len(accepted)>=spec['minimum'],('Insufficient connected frontage',p['id'],len(accepted),rejected)
-        neighbourhoods.append({'id':p['id'],'name':district['name'],'era':district['era'],'anchor':anchor,
-            'radius':radius,'target':spec['target'],'parcels':[b['id']for b in accepted],
-            'lotArea':sum(b['lot']['width']*b['lot']['depth']for b in accepted),
-            'footprintArea':sum(b['size'][0]*b['size'][1]for b in accepted),'rejected':rejected})
-    return blocks
 
 config={'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v1',
-        'stem':'izma-neighbourhoods','contract':'izma-neighbourhood-parcels.json','blocks':[],'plan':plan,
+        'stem':'izma-neighbourhoods','contract':'izma-neighbourhood-parcels.json','blocks':[],'plan':fabric.plan,'extraStreetHeight':fabric.height,'minimumApproach':.85,
         # The lower shop awning covers the window head.
         'shopAwningBottom':2.50,
-        'materials':{'garden':{'color':'#70805b','surface':'grass'},'court':{'color':'#9c9c90','surface':'paving'},
+        'materials':{'lane':{'color':'#686c66','surface':'asphalt'},'garden':{'color':'#70805b','surface':'grass'},'court':{'color':'#9c9c90','surface':'paving'},
                      'lantern':{'color':'#e4d3ad','emission':{'color':'#ffd8a2','intensity':.22}}}}
 built=library['build'](config)
+neighbourhoods=fabric.neighbourhoods
+fabric.save_streets(built)
 # Save the lot grounds with the same parcel ID as their entrance and roof.
 # They therefore share one local compound; streets/other layers stay intact.
 lamps=[]
@@ -140,7 +55,9 @@ for p in built['parcels']:
                     if v<start_v+1:h=max(h,built['street_height'](*q)+.018)
                     points.append((u,v,h-p['floor']))
                 b.face(points,mat,True)
-    mat='garden'if lot['frontageUse']=='garden'else'court'
+    # Tight old-town/shop streets use a paved frontage, including residences.
+    # Gardens remain behind those houses and on the greener housing/farm sites.
+    mat='garden'if lot['frontageUse']=='garden' and URBAN['districts'][p['district']]['character']!='lanes'else'court'
     # Leave the exact graded/stair entrance uncovered, and reserve its porch.
     patch(-half,start_u-1.2,start_v,-d/2-.4,mat)
     patch(start_u+1.2,half,start_v,-d/2-.4,mat)
@@ -171,11 +88,12 @@ bpy.data.libraries.write(str(ROOT/'assets/blender/izma-neighbourhoods.blend'),{b
 contract=ROOT/'assets/blender/izma-neighbourhood-parcels.json'
 data=json.loads(contract.read_text())
 data['parcels']=built['parcels']
-data.update({'origin':'ai','created':'2026-09-18','neighbourhoods':neighbourhoods,
+data.update({'origin':'ai','created':'2026-09-18','neighbourhoods':neighbourhoods,'streets':fabric.profiles,'rejectedStreets':fabric.rejected_streets,
     'dependencies':{name:hashlib.sha256((ROOT/'assets/blender'/name).read_bytes()).hexdigest()
-      for name in ['izma-parcels.json','izma-public-spaces.json','izma-neighbourhood-plan.json']}})
+      for name in ['izma-parcels.json','izma-public-spaces.json','izma-neighbourhood-plan.json','izma-urban-plan.json','izma-urban-streets.json']}})
 contract.write_text(json.dumps(data,separators=(',',':'))+'\n')
 result=built['summary'];result['neighbourhoods']=[{'id':n['id'],'parcels':len(n['parcels']),'lotArea':n['lotArea']}for n in neighbourhoods]
 result['blendBytes']=(ROOT/'assets/blender/izma-neighbourhoods.blend').stat().st_size
 result['contractBytes']=contract.stat().st_size
 result['streetLights']=len(lamps)
+result['streets']=len(fabric.profiles);result['rejectedStreets']=fabric.rejected_streets

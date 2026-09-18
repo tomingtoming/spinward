@@ -1,0 +1,1382 @@
+{
+  "origin": "ai",
+  "created": "2026-09-18",
+  "version": 1,
+  "districts": [
+    {
+      "id": "a-port",
+      "station": [
+        -890.0,
+        -16300.0
+      ],
+      "centre": [
+        -640.0,
+        -16300.0
+      ],
+      "reach": 212.0,
+      "streets": [],
+      "rejected": {
+        "occupied": 24
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "a-old-town",
+      "station": [
+        -810.0,
+        -9400.0
+      ],
+      "centre": [
+        -290.0,
+        -9400.0
+      ],
+      "reach": 482.0,
+      "streets": [
+        "urban-a-old-town-0-0",
+        "urban-a-old-town-1-1"
+      ],
+      "rejected": {
+        "occupied": 57
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "a-river",
+      "station": [
+        -920.0,
+        -80.0
+      ],
+      "centre": [
+        -125.0,
+        -80.0
+      ],
+      "reach": 757.0,
+      "streets": [
+        "urban-a-river-0-0",
+        "urban-a-river-0-1",
+        "urban-a-river-0-2",
+        "urban-a-river-1-0",
+        "urban-a-river-1-2"
+      ],
+      "rejected": {
+        "occupied": 56
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "a-civic",
+      "station": [
+        -580.0,
+        5800.0
+      ],
+      "centre": [
+        570.0,
+        5800.0
+      ],
+      "reach": 1112.0,
+      "streets": [
+        "urban-a-civic-0-0",
+        "urban-a-civic-1-0"
+      ],
+      "rejected": {
+        "occupied": 87,
+        "water": 35,
+        "transport": 4
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "a-upland",
+      "station": [
+        -860.0,
+        11400.0
+      ],
+      "centre": [
+        -570.0,
+        11400.0
+      ],
+      "reach": 252.0,
+      "streets": [
+        "urban-a-upland-0-0"
+      ],
+      "rejected": {
+        "occupied": 20
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "a-water",
+      "station": [
+        -680.0,
+        16300.0
+      ],
+      "centre": [
+        80.0,
+        16300.0
+      ],
+      "reach": 180,
+      "streets": [
+        "urban-a-water-0-0"
+      ],
+      "rejected": {},
+      "landUse": "small settlement in landscape"
+    },
+    {
+      "id": "b-workshop",
+      "station": [
+        7712.064327658226,
+        -15800.0
+      ],
+      "centre": [
+        7412.064327658226,
+        -15800.0
+      ],
+      "reach": 262.0,
+      "streets": [
+        "urban-b-workshop-1-0"
+      ],
+      "rejected": {
+        "occupied": 12
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "b-campus",
+      "station": [
+        7482.064327658226,
+        -10200.0
+      ],
+      "centre": [
+        6112.064327658226,
+        -10200.0
+      ],
+      "reach": 1332.0,
+      "streets": [
+        "urban-b-campus-0-0",
+        "urban-b-campus-1-1",
+        "urban-b-campus-1-4"
+      ],
+      "rejected": {
+        "occupied": 80,
+        "water": 29,
+        "transport": 2
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "b-station",
+      "station": [
+        7682.064327658226,
+        -4200.0
+      ],
+      "centre": [
+        7192.064327658226,
+        -4200.0
+      ],
+      "reach": 452.0,
+      "streets": [
+        "urban-b-station-0-0",
+        "urban-b-station-1-1"
+      ],
+      "rejected": {
+        "occupied": 35
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "b-housing",
+      "station": [
+        7362.064327658226,
+        2200.0
+      ],
+      "centre": [
+        6382.064327658226,
+        2200.0
+      ],
+      "reach": 942.0,
+      "streets": [
+        "urban-b-housing-0-3"
+      ],
+      "rejected": {
+        "occupied": 66,
+        "water": 18
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "b-commons",
+      "station": [
+        7512.064327658226,
+        7900.0
+      ],
+      "centre": [
+        7052.064327658226,
+        7900.0
+      ],
+      "reach": 180,
+      "streets": [
+        "urban-b-commons-0-0"
+      ],
+      "rejected": {},
+      "landUse": "small settlement in landscape"
+    },
+    {
+      "id": "b-north",
+      "station": [
+        7392.064327658226,
+        14600.0
+      ],
+      "centre": [
+        6242.064327658226,
+        14600.0
+      ],
+      "reach": 1112.0,
+      "streets": [
+        "urban-b-north-0-0",
+        "urban-b-north-1-1",
+        "urban-b-north-1-4"
+      ],
+      "rejected": {
+        "occupied": 75,
+        "water": 22
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "c-cargo",
+      "station": [
+        12414.128655316452,
+        -16900.0
+      ],
+      "centre": [
+        12754.128655316452,
+        -16900.0
+      ],
+      "reach": 302.0,
+      "streets": [
+        "urban-c-cargo-1-0"
+      ],
+      "rejected": {
+        "occupied": 18
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "c-production",
+      "station": [
+        12644.128655316452,
+        -11600.0
+      ],
+      "centre": [
+        13974.128655316452,
+        -11600.0
+      ],
+      "reach": 1292.0,
+      "streets": [
+        "urban-c-production-0-1",
+        "urban-c-production-0-4",
+        "urban-c-production-1-1",
+        "urban-c-production-1-4"
+      ],
+      "rejected": {
+        "occupied": 70,
+        "water": 30,
+        "transport": 1
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "c-fields",
+      "station": [
+        12604.128655316452,
+        -4700.0
+      ],
+      "centre": [
+        12924.128655316452,
+        -4700.0
+      ],
+      "reach": 200,
+      "streets": [
+        "urban-c-fields-0-0"
+      ],
+      "rejected": {
+        "occupied": 3
+      },
+      "landUse": "small settlement in landscape"
+    },
+    {
+      "id": "c-market",
+      "station": [
+        12634.128655316452,
+        1600.0
+      ],
+      "centre": [
+        13694.128655316452,
+        1600.0
+      ],
+      "reach": 1022.0,
+      "streets": [
+        "urban-c-market-0-0",
+        "urban-c-market-0-1",
+        "urban-c-market-0-2"
+      ],
+      "rejected": {
+        "occupied": 64,
+        "water": 54
+      },
+      "landUse": "continuous urban frontage with back streets"
+    },
+    {
+      "id": "c-orchards",
+      "station": [
+        12544.128655316452,
+        8400.0
+      ],
+      "centre": [
+        12984.128655316452,
+        8400.0
+      ],
+      "reach": 200,
+      "streets": [
+        "urban-c-orchards-0-0"
+      ],
+      "rejected": {},
+      "landUse": "small settlement in landscape"
+    },
+    {
+      "id": "c-forest",
+      "station": [
+        12764.128655316452,
+        15800.0
+      ],
+      "centre": [
+        13904.128655316452,
+        15800.0
+      ],
+      "reach": 180,
+      "streets": [
+        "urban-c-forest-0-0"
+      ],
+      "rejected": {
+        "occupied": 9
+      },
+      "landUse": "small settlement in landscape"
+    }
+  ],
+  "streets": [
+    {
+      "id": "urban-a-old-town-0-0",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -765.0,
+          -9400.0
+        ],
+        [
+          -748.1,
+          -9353.2
+        ],
+        [
+          -692.2,
+          -9335.0
+        ],
+        [
+          -655.8,
+          -9348.0
+        ],
+        [
+          -635.0,
+          -9400.0
+        ]
+      ],
+      "connections": [
+        "a-old-town-station-road",
+        "a-old-town-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-old-town-1-1",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -585.0,
+          -9400.0
+        ],
+        [
+          -568.1,
+          -9461.2
+        ],
+        [
+          -512.2,
+          -9485.0
+        ],
+        [
+          -475.8,
+          -9468.0
+        ],
+        [
+          -455.0,
+          -9400.0
+        ]
+      ],
+      "connections": [
+        "a-old-town-station-road",
+        "a-old-town-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-river-0-0",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -875.0,
+          -80.0
+        ],
+        [
+          -855.5,
+          -18.800000000000004
+        ],
+        [
+          -791.0,
+          5.0
+        ],
+        [
+          -749.0,
+          -12.0
+        ],
+        [
+          -725.0,
+          -80.0
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "a-river-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-river-0-1",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -710.0,
+          -80.0
+        ],
+        [
+          -690.5,
+          -18.800000000000004
+        ],
+        [
+          -626.0,
+          5.0
+        ],
+        [
+          -584.0,
+          -12.0
+        ],
+        [
+          -560.0,
+          -80.0
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "a-river-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-river-0-2",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -545.0,
+          -80.0
+        ],
+        [
+          -525.5,
+          -18.800000000000004
+        ],
+        [
+          -461.0,
+          5.0
+        ],
+        [
+          -419.0,
+          -12.0
+        ],
+        [
+          -395.0,
+          -80.0
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "a-river-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-river-1-0",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -840.0,
+          -80.0
+        ],
+        [
+          -820.5,
+          -136.16
+        ],
+        [
+          -756.0,
+          -158.0
+        ],
+        [
+          -714.0,
+          -142.4
+        ],
+        [
+          -690.0,
+          -80.0
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "a-river-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-river-1-2",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -510.0,
+          -80.0
+        ],
+        [
+          -490.5,
+          -126.8
+        ],
+        [
+          -426.0,
+          -145.0
+        ],
+        [
+          -384.0,
+          -132.0
+        ],
+        [
+          -360.0,
+          -80.0
+        ]
+      ],
+      "connections": [
+        "a-river-station-road",
+        "a-river-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-a-civic-0-0",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          -517.0,
+          5800.0
+        ],
+        [
+          -473.8,
+          5884.0
+        ],
+        [
+          -394.6,
+          5905.0
+        ],
+        [
+          -337.0,
+          5800.0
+        ]
+      ],
+      "connections": [
+        "a-civic-station-road",
+        "a-civic-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-a-civic-1-0",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          -500.0,
+          5800.0
+        ],
+        [
+          -456.8,
+          5740.0
+        ],
+        [
+          -377.6,
+          5725.0
+        ],
+        [
+          -320.0,
+          5800.0
+        ]
+      ],
+      "connections": [
+        "a-civic-station-road",
+        "a-civic-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-a-upland-0-0",
+      "district": "a-upland",
+      "band": 0,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          -820.0,
+          11400.0
+        ],
+        [
+          -780.4,
+          11476.8
+        ],
+        [
+          -707.8,
+          11496.0
+        ],
+        [
+          -655.0,
+          11400.0
+        ]
+      ],
+      "connections": [
+        "a-upland-station-road",
+        "a-upland-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-a-water-0-0",
+      "district": "a-water",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -635.0,
+          16300.0
+        ],
+        [
+          -581.0,
+          16339.0
+        ],
+        [
+          -532.4,
+          16360.0
+        ]
+      ],
+      "connections": [
+        "a-water-station-road"
+      ],
+      "character": "groves"
+    },
+    {
+      "id": "urban-b-workshop-1-0",
+      "district": "b-workshop",
+      "band": 1,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          7667.064327658226,
+          -15800.0
+        ],
+        [
+          7650.664327658226,
+          -15725.0
+        ],
+        [
+          7496.914327658226,
+          -15725.0
+        ],
+        [
+          7462.064327658226,
+          -15800.0
+        ]
+      ],
+      "connections": [
+        "b-workshop-station-road",
+        "b-workshop-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-b-campus-0-0",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7402.064327658226,
+          -10200.0
+        ],
+        [
+          7348.064327658226,
+          -10280.0
+        ],
+        [
+          7249.064327658226,
+          -10300.0
+        ],
+        [
+          7177.064327658226,
+          -10200.0
+        ]
+      ],
+      "connections": [
+        "b-campus-station-road",
+        "b-campus-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-campus-1-1",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7197.064327658226,
+          -10200.0
+        ],
+        [
+          7143.064327658226,
+          -10096.0
+        ],
+        [
+          7044.064327658226,
+          -10070.0
+        ],
+        [
+          6972.064327658226,
+          -10200.0
+        ]
+      ],
+      "connections": [
+        "b-campus-station-road",
+        "b-campus-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-campus-1-4",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6477.064327658226,
+          -10200.0
+        ],
+        [
+          6423.064327658226,
+          -10096.0
+        ],
+        [
+          6324.064327658226,
+          -10070.0
+        ],
+        [
+          6252.064327658226,
+          -10200.0
+        ]
+      ],
+      "connections": [
+        "b-campus-station-road",
+        "b-campus-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-station-0-0",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7602.064327658226,
+          -4200.0
+        ],
+        [
+          7560.064327658226,
+          -4280.0
+        ],
+        [
+          7483.064327658226,
+          -4300.0
+        ],
+        [
+          7427.064327658226,
+          -4200.0
+        ]
+      ],
+      "connections": [
+        "b-station-station-road",
+        "b-station-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-station-1-1",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7447.064327658226,
+          -4200.0
+        ],
+        [
+          7405.064327658226,
+          -4123.2
+        ],
+        [
+          7328.064327658226,
+          -4104.0
+        ],
+        [
+          7272.064327658226,
+          -4200.0
+        ]
+      ],
+      "connections": [
+        "b-station-station-road",
+        "b-station-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-housing-0-3",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6687.064327658226,
+          2200.0
+        ],
+        [
+          6640.264327658226,
+          2112.0
+        ],
+        [
+          6554.464327658226,
+          2090.0
+        ],
+        [
+          6492.064327658226,
+          2200.0
+        ]
+      ],
+      "connections": [
+        "b-housing-station-road",
+        "b-housing-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-commons-0-0",
+      "district": "b-commons",
+      "band": 1,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          7467.064327658226,
+          7900.0
+        ],
+        [
+          7413.064327658226,
+          7848.0
+        ],
+        [
+          7364.464327658226,
+          7820.0
+        ]
+      ],
+      "connections": [
+        "b-commons-station-road"
+      ],
+      "character": "groves"
+    },
+    {
+      "id": "urban-b-north-0-0",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7347.064327658226,
+          14600.0
+        ],
+        [
+          7296.664327658226,
+          14528.0
+        ],
+        [
+          7204.264327658226,
+          14510.0
+        ],
+        [
+          7137.064327658226,
+          14600.0
+        ]
+      ],
+      "connections": [
+        "b-north-station-road",
+        "b-north-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-north-1-1",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7087.064327658226,
+          14600.0
+        ],
+        [
+          7036.664327658226,
+          14696.0
+        ],
+        [
+          6944.264327658226,
+          14720.0
+        ],
+        [
+          6877.064327658226,
+          14600.0
+        ]
+      ],
+      "connections": [
+        "b-north-station-road",
+        "b-north-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-b-north-1-4",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6429.064327658226,
+          14600.0
+        ],
+        [
+          6393.304327658226,
+          14676.8
+        ],
+        [
+          6327.744327658226,
+          14696.0
+        ],
+        [
+          6280.064327658226,
+          14600.0
+        ]
+      ],
+      "connections": [
+        "b-north-station-road",
+        "b-north-station-road"
+      ],
+      "character": "courts"
+    },
+    {
+      "id": "urban-c-cargo-1-0",
+      "district": "c-cargo",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          12454.128655316452,
+          -16900.0
+        ],
+        [
+          12472.128655316452,
+          -16980.0
+        ],
+        [
+          12640.878655316452,
+          -16980.0
+        ],
+        [
+          12679.128655316452,
+          -16900.0
+        ]
+      ],
+      "connections": [
+        "c-cargo-station-road",
+        "c-cargo-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-c-production-0-1",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          12919.128655316452,
+          -11600.0
+        ],
+        [
+          12936.328655316453,
+          -11515.0
+        ],
+        [
+          13097.578655316453,
+          -11515.0
+        ],
+        [
+          13134.128655316452,
+          -11600.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "c-production-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-c-production-0-4",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          13609.128655316452,
+          -11600.0
+        ],
+        [
+          13626.328655316453,
+          -11515.0
+        ],
+        [
+          13787.578655316453,
+          -11515.0
+        ],
+        [
+          13824.128655316452,
+          -11600.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "c-production-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-c-production-1-1",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          12937.128655316452,
+          -11600.0
+        ],
+        [
+          12954.328655316453,
+          -11715.0
+        ],
+        [
+          13115.578655316453,
+          -11715.0
+        ],
+        [
+          13152.128655316452,
+          -11600.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "c-production-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-c-production-1-4",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          13591.128655316452,
+          -11600.0
+        ],
+        [
+          13608.328655316453,
+          -11738.0
+        ],
+        [
+          13769.578655316453,
+          -11738.0
+        ],
+        [
+          13806.128655316452,
+          -11600.0
+        ]
+      ],
+      "connections": [
+        "c-production-station-road",
+        "c-production-station-road"
+      ],
+      "character": "works"
+    },
+    {
+      "id": "urban-c-fields-0-0",
+      "district": "c-fields",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          12667.128655316452,
+          -4700.0
+        ],
+        [
+          12721.928655316451,
+          -4654.5
+        ],
+        [
+          12771.248655316453,
+          -4630.0
+        ]
+      ],
+      "connections": [
+        "c-fields-station-road"
+      ],
+      "character": "groves"
+    },
+    {
+      "id": "urban-c-market-0-0",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          12679.128655316452,
+          1600.0
+        ],
+        [
+          12697.328655316453,
+          1650.4
+        ],
+        [
+          12757.528655316451,
+          1670.0
+        ],
+        [
+          12796.728655316452,
+          1656.0
+        ],
+        [
+          12819.128655316452,
+          1600.0
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "c-market-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-c-market-0-1",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          12852.128655316452,
+          1600.0
+        ],
+        [
+          12870.328655316453,
+          1660.48
+        ],
+        [
+          12930.528655316451,
+          1684.0
+        ],
+        [
+          12969.728655316452,
+          1667.2
+        ],
+        [
+          12992.128655316452,
+          1600.0
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "c-market-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-c-market-0-2",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          13007.128655316452,
+          1600.0
+        ],
+        [
+          13025.328655316453,
+          1660.48
+        ],
+        [
+          13085.528655316451,
+          1684.0
+        ],
+        [
+          13124.728655316452,
+          1667.2
+        ],
+        [
+          13147.128655316452,
+          1600.0
+        ]
+      ],
+      "connections": [
+        "c-market-station-road",
+        "c-market-station-road"
+      ],
+      "character": "lanes"
+    },
+    {
+      "id": "urban-c-orchards-0-0",
+      "district": "c-orchards",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          12589.128655316452,
+          8400.0
+        ],
+        [
+          12651.128655316452,
+          8344.75
+        ],
+        [
+          12706.928655316451,
+          8315.0
+        ]
+      ],
+      "connections": [
+        "c-orchards-station-road"
+      ],
+      "character": "groves"
+    },
+    {
+      "id": "urban-c-forest-0-0",
+      "district": "c-forest",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          12844.128655316452,
+          15800.0
+        ],
+        [
+          12884.128655316452,
+          15842.25
+        ],
+        [
+          12920.128655316452,
+          15865.0
+        ]
+      ],
+      "connections": [
+        "c-forest-station-road"
+      ],
+      "character": "groves"
+    }
+  ],
+  "railStationDigest": "60f5ab4193bdb1ba17dc124a1a8123e2a0a984e20dd4e12ff4b8390e2faa45d9",
+  "dependencies": {
+    "izma-colony-plan.json": "2a617ba2c1283a4c3f4302e8d900cf27cb1b7fd93faa7c38f36e9315408dc2d0",
+    "izma-urban-plan.json": "3e75e662dee852bd8bbfbbcb68fbd44617002b6cc6f8ec19ee075bd0bc22e29e",
+    "izma-parcels.json": "98f950ef18ff41cef9279dbc8726ee5d0294367f04e7dcd7897c58c546ff12b1",
+    "izma-public-spaces.json": "1ce291fcd1b4d1768e92ff2efaa89a69fce6b913d661b1653d786786ace9d841",
+    "izma-rail-plan.json": "f3d4b81db03cf06940554bf7d049061f14beba1ab9f36b9b07ab90dc302c0516",
+    "izma-transport.json": "8679e88b77d89566fe0eb2b8806090574d21b6b106b5fed50cfe8f1c43f0736d"
+  }
+}

@@ -21,5 +21,5 @@ for n in contract['neighbourhoods']:
         'lookAt':[b[0]-offset,b[1]],'heightHint':a[2]+.3}
 result=library['export']({'layer':'neighbourhoods','contract':'izma-neighbourhood-parcels.json',
     'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v1',
-    'evidence':'qa/webxr/evidence/colony-neighbourhoods-20260918','visits':visits,
+    'evidence':'qa/webxr/evidence/colony-urban-20260918','visits':visits,
     'baseTransform':partition['refine_colony_base'],'lightSources':True})

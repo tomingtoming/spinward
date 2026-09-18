@@ -61,6 +61,16 @@ def export(config=None):
                 for j in range(1,len(vs)-1):floors.setdefault(p['id'],[]).extend([vs[0],vs[j],vs[j+1]])
 
     for obj in scene.objects:
+        if obj.type=='MESH' and 'urban_street_id' in obj:
+            mesh=obj.data;mesh.calc_loop_triangles();vertices=[]
+            for v in mesh.vertices:
+                w=obj.matrix_world@v.co;vertices.append((-w.y,w.x,w.z))
+            flags=mesh.attributes.get('ground_surface')
+            for tri in mesh.loop_triangles:
+                material='arch-'+mesh.materials[tri.material_index].name.removeprefix('SWD_')
+                vs=[vertices[i] for i in tri.vertices];fixed.setdefault(material,[]).extend(vs)
+                if flags and flags.data[tri.polygon_index].value:floors.setdefault(obj['urban_street_id'],[]).extend(vs)
+            continue
         if obj.type!='MESH' or 'parcel_id' not in obj:continue
         p=parcels[obj['parcel_id']];lod=int(obj['lod']);mesh=obj.data;mesh.calc_loop_triangles()
         vertices=[]
@@ -145,6 +155,7 @@ def export(config=None):
     manifest[layer]={'version':1,'fixed':pack(fixed,floors),'solids':solid_boxes,
         'parcels':[{k:p[k]for k in ['id','band','district','family','position','floor','size','yaw','floors','groundShop','doors','access']}for p in parcels.values()],
         'counts':{'buildings':len(parcels),'nearTriangles':counts[0],'midTriangles':counts[1],'fixedTriangles':sum(len(v)//3 for v in fixed.values()),'surfaceGroups':len(floors)}}
+    if 'streets' in contract:manifest[layer]['streets']=contract['streets']
     if config.get('lightSources'):
         manifest[layer]['lights']=[]
         for obj in scene.objects:

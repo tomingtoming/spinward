@@ -1,5 +1,17 @@
 import { expect, test } from 'bun:test'
-import { buildCityCollisionIndex, collectCityBuildingsInWindow, collectCityCollidersNear, type CityBuilding } from './cityLayout'
+import { buildCityCollisionIndex, collectCityBuildingsInWindow, collectCityCollidersNear, CITY_COLLIDER_TRAVEL_BUFFER, type CityBuilding } from './cityLayout'
+import { GameLoop } from '../app/gameLoop'
+import { VEHICLE_TUNING } from '../gameplay/vehicle'
+import type { WebGLRenderer } from 'three'
+
+test('the streamed lead-in covers three maximum-speed steps at the actual frame cap', () => {
+  let frame!: (time: number) => void
+  const deltas: number[] = []
+  const renderer = { xr: { addEventListener() {} }, setAnimationLoop(callback: typeof frame) { frame = callback } }
+  new GameLoop(renderer as unknown as WebGLRenderer, s => deltas.push(s.deltaSeconds)).start()
+  frame(0); frame(1000)
+  expect(CITY_COLLIDER_TRAVEL_BUFFER).toBeGreaterThan(3 * VEHICLE_TUNING.maxSpeed * Math.max(...deltas))
+})
 
 test('distance refinement preserves the travel buffer at grid edges, rotated bounds and the cylinder seam without expanding meshes', () => {
   for (const radius of [18, 3200]) {
@@ -10,7 +22,7 @@ test('distance refinement preserves the travel buffer at grid edges, rotated bou
       get surfaceMesh(): readonly number[] { throw Error('broad phase expanded geometry') }
     }))
     const index = buildCityCollisionIndex(bodies, radius, 40000), near = new Set<CityBuilding>()
-    const range = Math.min(2 * Math.PI * radius / index.azimuthCellCount, index.axialCellSize)
+    const range = Math.min(CITY_COLLIDER_TRAVEL_BUFFER, 2 * Math.PI * radius / index.azimuthCellCount, index.axialCellSize)
     let discarded = 0
     for (const x of [-128.001, -64.001, -.001, 0, 32, 63.999, 64.001, 128]) for (const y of [-64.001, -.001, 0, 63.999]) {
       const a = x / radius

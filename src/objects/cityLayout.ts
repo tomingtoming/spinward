@@ -645,6 +645,11 @@ export const isInsidePlaza = (
 
 const COLLISION_CELL_SIZE = 64
 const COLLISION_INSERT_MARGIN = 8
+// Streaming runs before every physics step. Even the car's capped step travels
+// less than 10 m; 32 m of extra bounds coverage leaves three steps of lead-in.
+// This is independent of grid size, so dense streets need not load a whole
+// 64 m cell of meshes beyond the player's surroundings.
+export const CITY_COLLIDER_TRAVEL_BUFFER = 32
 
 const positiveModulo = (value: number, modulus: number) =>
   ((value % modulus) + modulus) % modulus
@@ -793,14 +798,15 @@ export const collectCityBuildingsInWindow = (
 
 /** Refine the cell broad phase before expanding meshes into Rapier. A square
  * of cells includes distant corners and changes size relative to the focus;
- * dense streets need only the same guaranteed full-cell travel buffer. Keep
+ * dense streets need only the guaranteed travel buffer. Keep
  * the insertion margin and rotated bounds, including across the seam. */
 export const collectCityCollidersNear = (
   index: CityCollisionIndex, azimuth: number, axial: number, cellRadius: number,
   out: Set<CityBuilding>
 ): Set<CityBuilding> => {
   collectCityBuildingsInWindow(index, azimuth, axial, cellRadius, out)
-  const range = cellRadius * Math.min(TWO_PI * index.radius / index.azimuthCellCount, index.axialCellSize)
+  const range = cellRadius * Math.min(CITY_COLLIDER_TRAVEL_BUFFER,
+    TWO_PI * index.radius / index.azimuthCellCount, index.axialCellSize)
   for (const building of out) {
     const c = Math.abs(Math.cos(building.yaw ?? 0)), s = Math.abs(Math.sin(building.yaw ?? 0))
     const dx = Math.max(0, Math.abs(wrapToPi(azimuth - building.azimuth)) * index.radius

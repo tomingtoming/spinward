@@ -48,7 +48,7 @@ for (const parcel of examples) test(`new neighbourhood: ${parcel.district} stree
     const h = 3200 - Math.hypot(hit.point.x, hit.point.z)
     expect(Math.abs(s.h - h)).toBeLessThan(.18)
     expect(3200 - s.radial - h).toBeGreaterThan(-.12)
-    expect(s.mode).toBe('grounded'); expect(s.colony.neighbourhoodBuildings).toBe(545)
+    expect(s.mode).toBe('grounded'); expect(s.colony.neighbourhoodBuildings).toBe(parcels.length)
     expect(s.colony.loaded).toBeLessThanOrEqual(18); expect(s.colony.pending).toBeLessThanOrEqual(3)
     expect(s.colony.failed).toEqual([])
     expect(s.colony.collisionCache.entries).toBeLessThanOrEqual(128)
@@ -73,6 +73,7 @@ for (const parcel of examples) test(`new neighbourhood: ${parcel.district} stree
       const s = await sample(), remaining = Math.hypot(s.x - target[0], s.y - target[1])
       if (remaining < .65) { arrived = true; break }
       await aim(target); await xr.setAxes('left', 0, -Math.min(.65, Math.max(.2, remaining / 6))); await xr.settle(200)
+      await xr.setAxes('left', 0, 0)
     }
     await xr.setAxes('left', 0, 0); await xr.settle(200)
     expect(arrived, 'reach the target with continuous stick locomotion').toBe(true)

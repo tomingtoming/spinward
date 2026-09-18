@@ -5,16 +5,24 @@ import raw from './generated/izmaColony.json'
 import plan from '../../assets/blender/izma-neighbourhood-plan.json'
 import parcels from '../../assets/blender/izma-neighbourhood-parcels.json'
 import publicSpaces from '../../assets/blender/izma-public-spaces.json'
+import urban from '../../assets/blender/izma-urban-plan.json'
+import streets from '../../assets/blender/izma-urban-streets.json'
 import { colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
 import { AuthoredLandscape, landscapeColliders, LANDSCAPE_LIGHT_BUDGET } from './authoredLandscape'
 import { unpackLandscapeLibrary } from './landscapeData'
 import worldRaw from './generated/worldLandscapes.json'
 import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight, type CityBuilding } from '../objects/cityLayout'
+import { positivePolygon, polygonArea, intersectStreetPolygons } from '../objects/streetPolygon'
 
 const manifest = readColonyManifest(raw)
 const physics = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
-function drawingIndex() {
-  const positions = Object.values(decodeColonyMesh(manifest.neighbourhoods!.fixed, false).meshes).flat()
+function drawingIndex(material?: string) {
+  const meshes = decodeColonyMesh(manifest.neighbourhoods!.fixed, false).meshes
+  if (material && !meshes[material]) throw Error('Missing drawn material: ' + material)
+  const positions = (material ? [meshes[material]] : Object.values(meshes)).flat()
+  return drawnMeshIndex(positions)
+}
+function drawnMeshIndex(positions: number[]) {
   const groups = new Map<string, number[]>()
   for (let i = 0; i < positions.length; i += 9) {
     const key = `${Math.floor(positions[i] / 64)}:${Math.floor(positions[i + 1] / 64)}`
@@ -28,7 +36,7 @@ function drawingIndex() {
   return buildCityCollisionIndex(landscapeColliders({ surfaces, solids: [] }, 3200), 3200, 40000)
 }
 
-test('every public-place catchment has its authored mixed-use infill and current reservation sources', async () => {
+test('station corridors and public-place catchments have mixed uses and current reservation sources', async () => {
   for (const [name, digest] of Object.entries(parcels.dependencies)) {
     const bytes = await Bun.file(new URL('../../assets/blender/' + name, import.meta.url)).arrayBuffer()
     expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
@@ -41,9 +49,91 @@ test('every public-place catchment has its authored mixed-use infill and current
     expect(n.parcels.length, n.id).toBeGreaterThanOrEqual(spec.minimum)
     const members = parcels.parcels.filter(p => p.district === n.id)
     expect(new Set(members.map(p => p.family)).size, n.id).toBeGreaterThanOrEqual(3)
-    expect(members.every(p => p.lot.distance <= spec.radius), n.id).toBe(true)
-    expect(n.footprintArea / n.lotArea, n.id).toBeLessThan(.6)
+    const district = urban.districts[n.id as keyof typeof urban.districts]
+    const region = streets.districts.find(s => s.id === n.id)!
+    const [dx, dy] = region.centre.map((v, i) => v - region.station[i])
+    const length = Math.hypot(dx, dy)
+    for (const p of members) {
+      if (p.lot.catchment === 'public') expect(p.lot.distance, p.id).toBeLessThan(spec.radius)
+      else {
+        // The entrance meets the frontage road. Allow its sidewalk offset;
+        // buildings may not silently leak into the long inter-district gaps.
+        const [x, y] = p.access.start.map((v, i) => v - region.station[i])
+        const along = (x * dx + y * dy) / length, across = Math.abs(x * dy - y * dx) / length
+        // The widest frontage is a 16 m arterial plus a 2.15 m sidewalk.
+        expect(along, p.id).toBeGreaterThan(30 - 11)
+        expect(along, p.id).toBeLessThan(region.reach + 45 + 11)
+        expect(across, p.id).toBeLessThan(Math.max(...district.depths.map(Math.abs)) + 40 + 11)
+      }
+    }
+    const coverage = n.footprintArea / n.lotArea
+    expect(coverage, n.id).toBeLessThan(.8)
+    if (district.character === 'lanes') expect(coverage, n.id).toBeGreaterThan(.55)
+    if (district.character === 'groves') expect(coverage, n.id).toBeLessThan(.4)
     expect(manifest.visits['neighbourhood-' + n.id], n.id).toBeDefined()
+  }
+})
+
+test('all back streets have drawn and physical walkable surfaces connected to their frontage road', () => {
+  const drawn = drawingIndex('arch-lane')
+  const base = decodeColonyMesh(manifest.base, false).meshes
+  const visibleRoad = drawnMeshIndex([
+    ...decodeColonyMesh(manifest.neighbourhoods!.fixed, false).meshes['arch-lane'],
+    ...['local', 'arterial', 'walk'].flatMap(name => base[name] ?? [])
+  ])
+  const upstream = buildCityCollisionIndex(colonyColliders(manifest, undefined, undefined, undefined, []), 3200, 40000)
+  expect([...parcels.streets, ...parcels.rejectedStreets].map(s => s.id).sort()).toEqual(streets.streets.map(s => s.id).sort())
+  expect(parcels.streets.length).toBeGreaterThanOrEqual(30)
+  for (const rejected of parcels.rejectedStreets) {
+    expect(rejected.reason).toBe('junction-grade')
+    expect(rejected.maximumGrade).toBeGreaterThan(.075)
+    expect(parcels.parcels.some(p => p.lot.street === rejected.id)).toBe(false)
+  }
+  for (const street of parcels.streets) {
+    const rows = street.profile
+    for (let i = 1; i < rows.length; i++) {
+      const a = rows[i - 1], b = rows[i], length = Math.hypot(b[0] - a[0], b[1] - a[1])
+      expect(Math.abs(b[2] - a[2]) / length, street.id).toBeLessThanOrEqual(.075001)
+      for (const side of [-.3, 0, .3]) {
+        const x = (a[0] + b[0]) / 2 - (b[1] - a[1]) / length * street.width * side
+        const y = (a[1] + b[1]) / 2 + (b[0] - a[0]) / length * street.width * side
+        const last = rows.at(-1)!
+        const junction = Math.min(Math.hypot(x - rows[0][0], y - rows[0][1]), Math.hypot(x - last[0], y - last[1])) < 12
+        // Existing cross streets have 14 cm raised footways. An apron joins
+        // their actual corners, whose plane need not equal its centre sample.
+        const crossfall = Math.abs(side) * street.width * .075 + (junction ? .15 : 0)
+        const h = getCityGroundHeight(drawn, 3200, x / 3200, y, Math.max(a[2], b[2]) + crossfall + .03)
+        // At bent sections the cross-section rotates, so an off-centre probe
+        // need not interpolate exactly half way between the row heights.
+        // The junction apron also inherits the existing road's crossfall.
+        expect(h, `${street.id} row ${i} side ${side} at ${x},${y}`).toBeGreaterThan(Math.min(a[2], b[2]) - crossfall - .03)
+        expect(h, street.id).toBeLessThan(Math.max(a[2], b[2]) + crossfall + .03)
+        // At the junction, the existing road and the apron are both visible.
+        // Compare physics with their top surface, not only the added apron.
+        const visible = getCityGroundHeight(visibleRoad, 3200, x / 3200, y, h + (junction ? .18 : .05), 0)
+        const physical = getCityGroundHeight(physics, 3200, x / 3200, y, visible + .03)
+        expect(Math.abs(physical - visible), JSON.stringify({ street: street.id, i, side, x, y, h, visible, physical })).toBeLessThan(.02)
+      }
+    }
+    for (const p of [rows[0], ...(street.connections.length > 1 ? [rows.at(-1)!] : [])]) {
+      const h = getCityGroundHeight(upstream, 3200, p[0] / 3200, p[1], p[2] + .1)
+      expect(Math.abs(p[2] - h), street.id + ' joins existing street').toBeLessThan(.03)
+    }
+  }
+})
+
+test('frontage lots stay outside every segment of their own bent street', () => {
+  const poly = (points: number[][]) => positivePolygon(points.map(([x, y]) => ({ x, y, u: 0, v: 0 })))
+  for (const street of parcels.streets) {
+    const corridors = street.points.slice(1).map((b, i) => {
+      const a = street.points[i], length = Math.hypot(b[0] - a[0], b[1] - a[1])
+      const nx = -(b[1] - a[1]) / length * (street.width / 2 - .03)
+      const ny = (b[0] - a[0]) / length * (street.width / 2 - .03)
+      return poly([[a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]])
+    })
+    for (const p of parcels.parcels.filter(p => p.lot.street === street.id)) for (const road of corridors) {
+      expect(polygonArea(intersectStreetPolygons(poly(p.lot.polygon), road)), p.id).toBeLessThan(.00001)
+    }
   }
 })
 

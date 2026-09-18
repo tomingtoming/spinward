@@ -1,0 +1,25 @@
+{
+  "origin": "ai", "created": "2026-09-18", "version": 1,
+  "premise": "Authored station-to-centre neighbourhoods. Build small street blocks on the developed banks, retain the river reserves and keep farming/park stations as small settlements. Geometry and dimensions are Spinward design choices, not a recovered map of the animation.",
+  "references": ["izma-ep05-0039", "izma-ep05-0041", "izma-ep06-0073"],
+  "districts": {
+    "a-port": {"character":"works", "blockLength":210, "depths":[70,-95], "setback":3.2, "sideGap":2.5, "rear":4, "families":["workshop","shop-house","apartment","warehouse"]},
+    "a-old-town": {"character":"lanes", "blockLength":145, "depths":[65,-85], "setback":1.5, "sideGap":1.2, "rear":2.5, "families":["shop-house","house","shop-house","apartment"]},
+    "a-river": {"character":"lanes", "blockLength":165, "depths":[85,-65], "setback":2, "sideGap":1.5, "rear":5, "families":["house","apartment","house","shop-house"]},
+    "a-civic": {"character":"courts", "blockLength":195, "depths":[105,-75], "setback":2, "sideGap":1.6, "rear":4, "families":["shop-house","office","apartment","shop-house"]},
+    "a-upland": {"character":"courts", "blockLength":180, "depths":[80,-105], "setback":2.5, "sideGap":2, "rear":6, "families":["house","apartment","house","shop-house"]},
+    "a-water": {"character":"groves", "blockLength":260, "depths":[60], "setback":5, "sideGap":6, "rear":10, "families":["pavilion","house","shop-house"], "stationReach":180},
+    "b-workshop": {"character":"works", "blockLength":220, "depths":[95,-75], "setback":3.2, "sideGap":2.5, "rear":5, "families":["workshop","apartment","shop-house","warehouse"]},
+    "b-campus": {"character":"courts", "blockLength":240, "depths":[100,-130], "setback":3, "sideGap":3, "rear":8, "families":["apartment","shop-house","civic","office"]},
+    "b-station": {"character":"courts", "blockLength":190, "depths":[100,-80], "setback":1.8, "sideGap":1.5, "rear":3, "families":["shop-house","office","apartment","shop-house"]},
+    "b-housing": {"character":"courts", "blockLength":210, "depths":[110,-90], "setback":2.8, "sideGap":2.4, "rear":7, "families":["apartment","house","shop-house","apartment"]},
+    "b-commons": {"character":"groves", "blockLength":260, "depths":[80], "setback":5, "sideGap":6, "rear":10, "families":["pavilion","house","shop-house"], "stationReach":180},
+    "b-north": {"character":"courts", "blockLength":225, "depths":[90,-120], "setback":2.5, "sideGap":2, "rear":6, "families":["apartment","shop-house","house","office"]},
+    "c-cargo": {"character":"works", "blockLength":240, "depths":[110,-80], "setback":4, "sideGap":4, "rear":6, "families":["warehouse","workshop","shop-house","apartment"]},
+    "c-production": {"character":"works", "blockLength":230, "depths":[85,-115], "setback":3.5, "sideGap":3, "rear":5, "families":["workshop","warehouse","house","shop-house"]},
+    "c-fields": {"character":"groves", "blockLength":250, "depths":[70], "setback":5, "sideGap":7, "rear":12, "families":["farmhouse","shop-house","workshop"], "stationReach":200},
+    "c-market": {"character":"lanes", "blockLength":155, "depths":[70,-100], "setback":1.5, "sideGap":1.2, "rear":3, "families":["shop-house","workshop","shop-house","house","apartment"]},
+    "c-orchards": {"character":"groves", "blockLength":270, "depths":[-85], "setback":5, "sideGap":7, "rear":12, "families":["farmhouse","house","shop-house"], "stationReach":200},
+    "c-forest": {"character":"groves", "blockLength":270, "depths":[65], "setback":6, "sideGap":8, "rear":12, "families":["pavilion","house","workshop"], "stationReach":180}
+  }
+}
