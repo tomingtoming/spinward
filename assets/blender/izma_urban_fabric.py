@@ -60,10 +60,13 @@ class UrbanFabric:
                 i,j=(0,1) if at_start else (-1,-2)
                 p,q=rows[i],rows[j];length=math.dist(p[:2],q[:2])
                 apron=.65 if street.get('parents') and street['connections'][0 if at_start else -1] in street['parents'] else 3
+                if 'aprons' in street:apron=street['aprons'][0 if at_start else -1]
                 dx,dy=(p[0]-q[0])/length*apron,(p[1]-q[1])/length*apron
                 edge=[(x+dx,y+dy) for x,y in edges[i]]
                 heights=[env['street_height'](*v)+.018 for v in edge]
-                assert min(heights)>-1000,('Apron must remain on the existing street',street['id'])
+                assert min(heights)>-1000,('Apron must remain on the existing street',street['id'],
+                    {'atStart':at_start,'parent':street['connections'][0 if at_start else -1],
+                     'width':width,'apron':apron,'edge':edge,'heights':heights})
                 row=[p[0]+dx,p[1]+dy,env['street_height'](p[0]+dx,p[1]+dy)+.018]
                 if at_start:rows.insert(0,row);edges.insert(0,edge);apron_heights[0]=heights
                 else:rows.append(row);edges.append(edge);apron_heights[len(rows)-1]=heights
@@ -73,7 +76,8 @@ class UrbanFabric:
                 # Do not publish an abrupt ramp or let parcels front a road
                 # that the saved ground cannot support at the specified grade.
                 self.rejected_streets.append({'id':street['id'],'district':street['district'],
-                    'reason':'junction-grade','maximumGrade':maximum_grade})
+                    'reason':'junction-grade','maximumGrade':maximum_grade,
+                    'steepestRows':max(zip(rows,rows[1:]),key=lambda pair:abs(pair[0][2]-pair[1][2])/math.dist(pair[0][:2],pair[1][:2]))})
                 continue
             faces=[]
             for i in range(len(rows)-1):
@@ -84,7 +88,7 @@ class UrbanFabric:
                 for tri in [(top[0],top[1],top[2]),(top[0],top[2],top[3])]:
                     all_triangles.extend((math.cos(x/3200)*(3200-h),y,math.sin(x/3200)*(3200-h)) for x,y,h in tri)
             self.meshes.append((street,faces));self.profiles.append({**street,'profile':rows})
-            route={k:street[k] for k in ['id','kind','width','band']};shift=street['band']*SPACING
+            route={k:street[k] for k in ['id','kind','width','band','district','role','purpose','frontageFamilies'] if k in street};shift=street['band']*SPACING
             for a,b in zip(points,points[1:]):
                 edge=([a[0]-shift,a[1]],[b[0]-shift,b[1]],route)
                 env['segments'][street['band']].append(edge);env['all_segments'][street['band']].append(edge)
@@ -142,6 +146,9 @@ class UrbanFabric:
                 w=widths[n%len(widths)];d=12 if family=='shop-house' else dims['depth'];floors=dims['floors'][n%len(dims['floors'])]
                 if allocation:w,d=allocation['width'],allocation['depth']
                 if id in ['b-housing','b-north'] and family=='apartment':floors=[4,5,7][(n//3)%3]
+                if route.get('role')=='district-link':
+                    storeys={'shop-house':[3,4],'apartment':[4,5,6],'office':[5,7]}.get(family,[floors])
+                    floors=storeys[(n//3)%len(storeys)]
                 c,s=math.cos(yaw),math.sin(yaw)
                 setback=(min(spec['setback'],2) if compact else spec['setback'])+((n//13)%3)*.25
                 if allocation:setback=allocation['setback']
@@ -173,6 +180,8 @@ class UrbanFabric:
                 if allocation:
                     lot_data.update({'placement':'block-frontage','frontageSegment':allocation['segment'],
                         'frontageRange':allocation['range'],'sharedBlockDepth':allocation['sharedDepth']})
+                if route.get('role')=='district-link':
+                    lot_data.update({'catchment':'district-link','purpose':route['purpose']})
                 blocks.append({'id':pid,'band':band,'district':id,'family':family,'position':[x-band*SPACING,y,0],
                     'size':[w,d,floors*3.2],'yaw':yaw,'fixedSize':True,'lot':lot_data})
                 reserved[band].append(lot);accepted.append(blocks[-1])
@@ -189,8 +198,10 @@ class UrbanFabric:
                 runs=[]
                 for segment,(p,q,route,_) in enumerate(routes[band]):
                     if route['kind'] not in ['arterial','local'] or route['id'] not in env['profiles']:continue
+                    if route.get('role')=='district-link' and route['district']!=id:continue
                     length2=math.dist(p,q)
-                    for lo,hi in catchment_intervals(p,q,a,(dx,dy),region['reach'],region['halfWidth'],anchor,previous['radius']):
+                    intervals=[(0,1)] if route.get('role')=='district-link' else catchment_intervals(p,q,a,(dx,dy),region['reach'],region['halfWidth'],anchor,previous['radius'])
+                    for lo,hi in intervals:
                         runs.append((length2*(hi-lo),segment,p,q,route,max(2,lo*length2),min(length2-2,hi*length2)))
                 for _,segment,p,q,route,lo,hi in sorted(runs,reverse=True):
                     length2=math.dist(p,q);tx,ty=(q[0]-p[0])/length2,(q[1]-p[1])/length2
@@ -198,8 +209,9 @@ class UrbanFabric:
                         cursor=lo;address=0;yaw=math.atan2(ty,tx)+(math.pi if side<0 else 0)
                         while cursor+6.8<hi:
                             token=seed(f'block:{id}:{route["id"]}:{segment}:{side}:{address}')
-                            desired=spec['families'][token%len(spec['families'])]
-                            families=list(dict.fromkeys([desired,*[f for f in spec['families'] if f in ['house','shop-house']]]))
+                            uses=route.get('frontageFamilies',spec['families'])
+                            desired=uses[token%len(uses)]
+                            families=list(dict.fromkeys([desired,*[f for f in uses if f in ['house','shop-house']]]))
                             fitted=False
                             for family in families:
                                 widths,depths=dimensions(family,spec['character'],token,self.config)

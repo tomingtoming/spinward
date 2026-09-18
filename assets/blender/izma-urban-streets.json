@@ -14,12 +14,22 @@
         -16300.0
       ],
       "reach": 212.0,
-      "streets": [],
+      "streets": [
+        "urban-a-port-link-work-court",
+        "urban-a-port-link-craft-row",
+        "urban-a-port-link-yard-edge"
+      ],
       "rejected": {
         "occupied": 24
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 135
+      "centreLinks": [
+        "urban-a-port-link-work-court",
+        "urban-a-port-link-craft-row",
+        "urban-a-port-link-yard-edge"
+      ],
+      "centrePremise": "\u5de5\u623f\u306e\u642c\u5165\u52d5\u7dda\u3068\u8077\u4f4f\u306e\u7d30\u8857\u8def\u3092\u99c5\u8ef8\u306e\u4e21\u5074\u3078\u5206\u3051\u308b\u3002",
+      "halfWidth": 478.87079034201093
     },
     {
       "id": "a-old-town",
@@ -38,13 +48,22 @@
         "urban-a-old-town-0-0-cross",
         "urban-a-old-town-0-0-outer",
         "urban-a-old-town-1-1-cross",
-        "urban-a-old-town-1-1-outer"
+        "urban-a-old-town-1-1-outer",
+        "urban-a-old-town-link-north-row",
+        "urban-a-old-town-link-south-row",
+        "urban-a-old-town-link-garden-end"
       ],
       "rejected": {
         "occupied": 57
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 179.17580604948125
+      "centreLinks": [
+        "urban-a-old-town-link-north-row",
+        "urban-a-old-town-link-south-row",
+        "urban-a-old-town-link-garden-end"
+      ],
+      "centrePremise": "\u5ddd\u753a\u306e\u65e2\u5b58\u5e79\u7dda\u306e\u897f\u5074\u306b\u5546\u5e97\u306e\u88cf\u901a\u308a\u3068\u659c\u3081\u306b\u63a5\u7d9a\u3059\u308b\u4f4f\u6238\u8def\u5730\u3092\u7f6e\u304f\u3002",
+      "halfWidth": 474.90157377944706
     },
     {
       "id": "a-river",
@@ -60,24 +79,23 @@
       "streets": [
         "urban-a-river-0-0",
         "urban-a-river-0-1",
-        "urban-a-river-0-2",
         "urban-a-river-1-0",
-        "urban-a-river-1-2",
-        "urban-a-river-0-0-cross",
-        "urban-a-river-0-0-outer",
-        "urban-a-river-0-1-outer",
-        "urban-a-river-0-2-outer",
-        "urban-a-river-1-0-cross",
-        "urban-a-river-1-0-outer",
-        "urban-a-river-1-2-cross",
-        "urban-a-river-1-2-outer"
+        "urban-a-river-link-terrace-north",
+        "urban-a-river-link-terrace-south",
+        "urban-a-river-link-terrace-cross"
       ],
       "rejected": {
         "occupied": 56,
         "inner-reservation": 2
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 179.1875185016384
+      "centreLinks": [
+        "urban-a-river-link-terrace-north",
+        "urban-a-river-link-terrace-south",
+        "urban-a-river-link-terrace-cross"
+      ],
+      "centrePremise": "\u4fdd\u8b77\u3057\u305f\u65e2\u5b58\u8857\u533a\u306e\u897f\u5074\u6bb5\u4e18\u3067\u3001\u99c5\u304b\u3089\u306e\u9053\u3068\u6bb5\u4e18\u7aef\u3092\u3064\u306a\u3050\u3002\u6cb3\u5cb8\u4e88\u7d04\u3078\u65b0\u9053\u3092\u62bc\u3057\u8fbc\u307e\u306a\u3044\u3002",
+      "halfWidth": 505.0
     },
     {
       "id": "a-civic",
@@ -95,7 +113,11 @@
         "urban-a-civic-1-0",
         "urban-a-civic-0-0-outer",
         "urban-a-civic-1-0-cross",
-        "urban-a-civic-1-0-outer"
+        "urban-a-civic-1-0-outer",
+        "urban-a-civic-link-civic-east",
+        "urban-a-civic-link-civic-south",
+        "urban-a-civic-link-campus-north",
+        "urban-a-civic-link-civic-cross"
       ],
       "rejected": {
         "occupied": 87,
@@ -104,7 +126,14 @@
         "inner-reservation": 1
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 205.35480000000007
+      "centreLinks": [
+        "urban-a-civic-link-civic-east",
+        "urban-a-civic-link-civic-south",
+        "urban-a-civic-link-campus-north",
+        "urban-a-civic-link-civic-cross"
+      ],
+      "centrePremise": "\u5ddd\u3092\u6e21\u3063\u305f\u5e02\u6c11\u5730\u533a\u5074\u306b\u5e02\u5e81\u30fb\u696d\u52d9\u3068\u4f4f\u5b85\u306e\u56de\u904a\u8857\u8def\u3092\u7f6e\u304d\u3001\u99c5\u5074\u3060\u3051\u306e\u5897\u7bc9\u3092\u7d42\u3048\u308b\u3002",
+      "halfWidth": 451.12645686771793
     },
     {
       "id": "a-upland",
@@ -118,15 +147,19 @@
       ],
       "reach": 252.0,
       "streets": [
-        "urban-a-upland-0-0",
-        "urban-a-upland-0-0-cross",
-        "urban-a-upland-0-0-outer"
+        "urban-a-upland-link-hill-west",
+        "urban-a-upland-link-hill-east"
       ],
       "rejected": {
         "occupied": 20
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 196.7529599999998
+      "centreLinks": [
+        "urban-a-upland-link-hill-west",
+        "urban-a-upland-link-hill-east"
+      ],
+      "centrePremise": "\u4e18\u306e\u88fe\u306b\u307e\u3068\u307e\u3063\u305f\u4f4f\u533a\u3068\u8fd1\u96a3\u5546\u5e97\u3092\u7f6e\u304d\u3001\u5ddd\u306e\u5074\u306f\u4fdd\u5168\u3059\u308b\u3002",
+      "halfWidth": 462.5642075104879
     },
     {
       "id": "a-water",
@@ -159,14 +192,23 @@
       "reach": 262.0,
       "streets": [
         "urban-b-workshop-1-0",
-        "urban-b-workshop-1-0-outer"
+        "urban-b-workshop-1-0-outer",
+        "urban-b-workshop-link-living-north",
+        "urban-b-workshop-link-works-south",
+        "urban-b-workshop-link-work-cross"
       ],
       "rejected": {
         "occupied": 12,
         "inner-reservation": 1
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 180.0
+      "centreLinks": [
+        "urban-b-workshop-link-living-north",
+        "urban-b-workshop-link-works-south",
+        "urban-b-workshop-link-work-cross"
+      ],
+      "centrePremise": "\u8077\u4f4f\u5730\u533a\u306e\u4f5c\u696d\u5834\u3092\u5357\u5074\u3001\u65e5\u5e38\u306e\u5e97\u3068\u4f4f\u6238\u3092\u5317\u5074\u3078\u3064\u306a\u3050\u3002",
+      "halfWidth": 380.9137670196669
     },
     {
       "id": "b-campus",
@@ -183,10 +225,10 @@
         "urban-b-campus-0-0",
         "urban-b-campus-1-1",
         "urban-b-campus-1-4",
-        "urban-b-campus-0-0-cross",
-        "urban-b-campus-0-0-outer",
-        "urban-b-campus-1-1-outer",
-        "urban-b-campus-1-4-outer"
+        "urban-b-campus-1-4-outer",
+        "urban-b-campus-link-clinic-east",
+        "urban-b-campus-link-living-east",
+        "urban-b-campus-link-school-cross"
       ],
       "rejected": {
         "occupied": 80,
@@ -195,7 +237,13 @@
         "inner-reservation": 2
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 229.2487999999994
+      "centreLinks": [
+        "urban-b-campus-link-clinic-east",
+        "urban-b-campus-link-living-east",
+        "urban-b-campus-link-school-cross"
+      ],
+      "centrePremise": "\u5927\u304d\u306a\u516c\u5171\u7528\u5730\u306e\u7e01\u3068\u4f4f\u5b85\u8857\u3092\u5206\u3051\u3001\u5927\u5b66\u5074\u306e\u65e2\u5b58\u9053\u3068\u5e02\u8857\u5074\u306e\u9053\u3092\u63a5\u7d9a\u3059\u308b\u3002",
+      "halfWidth": 510.0
     },
     {
       "id": "b-station",
@@ -214,13 +262,22 @@
         "urban-b-station-0-0-cross",
         "urban-b-station-0-0-outer",
         "urban-b-station-1-1-cross",
-        "urban-b-station-1-1-outer"
+        "urban-b-station-1-1-outer",
+        "urban-b-station-link-station-north",
+        "urban-b-station-link-station-south",
+        "urban-b-station-link-market-cross"
       ],
       "rejected": {
         "occupied": 35
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 200.57600000000002
+      "centreLinks": [
+        "urban-b-station-link-station-north",
+        "urban-b-station-link-station-south",
+        "urban-b-station-link-market-cross"
+      ],
+      "centrePremise": "\u65b0\u90fd\u5fc3\u306e\u65e2\u5b58\u306e\u5927\u304d\u306a\u56de\u904a\u8def\u3092\u5c0f\u3055\u306a\u696d\u52d9\u30fb\u4f4f\u5c45\u8857\u533a\u3078\u5206\u3051\u308b\u3002",
+      "halfWidth": 364.7973740931994
     },
     {
       "id": "b-housing",
@@ -236,14 +293,23 @@
       "streets": [
         "urban-b-housing-0-3",
         "urban-b-housing-0-3-cross",
-        "urban-b-housing-0-3-outer"
+        "urban-b-housing-0-3-outer",
+        "urban-b-housing-link-housing-north",
+        "urban-b-housing-link-housing-east",
+        "urban-b-housing-link-housing-south"
       ],
       "rejected": {
         "occupied": 66,
         "water": 18
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 210.13360000000011
+      "centreLinks": [
+        "urban-b-housing-link-housing-north",
+        "urban-b-housing-link-housing-east",
+        "urban-b-housing-link-housing-south"
+      ],
+      "centrePremise": "\u5ddd\u306e\u897f\u5074\u306e\u56e3\u5730\u4e2d\u5fc3\u3068\u5546\u5e97\u8857\u3092\u3001\u5927\u5c0f\u306e\u4f4f\u68df\u306e\u9593\u3092\u901a\u308b\u9053\u3067\u3064\u306a\u3050\u3002",
+      "halfWidth": 508.5265749615196
     },
     {
       "id": "b-commons",
@@ -279,7 +345,8 @@
         "urban-b-north-1-1",
         "urban-b-north-1-4",
         "urban-b-north-0-0-outer",
-        "urban-b-north-1-1-outer"
+        "urban-b-north-1-1-outer",
+        "urban-b-north-link-south-east"
       ],
       "rejected": {
         "occupied": 75,
@@ -287,7 +354,11 @@
         "inner-reservation": 4
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 219.6911999999993
+      "centreLinks": [
+        "urban-b-north-link-south-east"
+      ],
+      "centrePremise": "\u65b0\u5e02\u8857\u306e\u4e2d\u5fc3\u6771\u5074\u3078\u516c\u5171\u65bd\u8a2d\u3068\u4f4f\u533a\u3092\u5e83\u3052\u3001\u6cb3\u5cb8\u5074\u306b\u306f\u7121\u7406\u306a\u6a4b\u3092\u5897\u8a2d\u3057\u306a\u3044\u3002",
+      "halfWidth": 475.0
     },
     {
       "id": "c-cargo",
@@ -302,14 +373,19 @@
       "reach": 302.0,
       "streets": [
         "urban-c-cargo-1-0",
-        "urban-c-cargo-1-0-cross"
+        "urban-c-cargo-1-0-cross",
+        "urban-c-cargo-link-cargo-south"
       ],
       "rejected": {
         "occupied": 18,
         "inner-reservation": 1
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 150
+      "centreLinks": [
+        "urban-c-cargo-link-cargo-south"
+      ],
+      "centrePremise": "\u8ca8\u7269\u30fb\u6574\u5099\u62e0\u70b9\u306b\u306f\u5927\u304d\u306a\u4f5c\u696d\u7528\u5730\u3068\u4f5c\u696d\u54e1\u306e\u751f\u6d3b\u8def\u3092\u5225\u3005\u306b\u78ba\u4fdd\u3059\u308b\u3002",
+      "halfWidth": 380.0
     },
     {
       "id": "c-production",
@@ -332,7 +408,9 @@
         "urban-c-production-0-4-outer",
         "urban-c-production-1-1-outer",
         "urban-c-production-1-4-cross",
-        "urban-c-production-1-4-outer"
+        "urban-c-production-1-4-outer",
+        "urban-c-production-link-production-east",
+        "urban-c-production-link-workers-row"
       ],
       "rejected": {
         "occupied": 70,
@@ -341,7 +419,12 @@
         "inner-reservation": 2
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 243.0
+      "centreLinks": [
+        "urban-c-production-link-production-east",
+        "urban-c-production-link-workers-row"
+      ],
+      "centrePremise": "\u5ddd\u306e\u6771\u5074\u306e\u751f\u7523\u4e2d\u5fc3\u306b\u4f5c\u696d\u8def\u3068\u8077\u4f4f\u306e\u88cf\u901a\u308a\u3092\u5897\u3084\u3057\u3001\u99c5\u5074\u96c6\u843d\u3068\u5f79\u5272\u3092\u5206\u3051\u308b\u3002",
+      "halfWidth": 473.7710131522199
     },
     {
       "id": "c-fields",
@@ -383,14 +466,25 @@
         "urban-c-market-0-1-cross",
         "urban-c-market-0-1-outer",
         "urban-c-market-0-2-cross",
-        "urban-c-market-0-2-outer"
+        "urban-c-market-0-2-outer",
+        "urban-c-market-link-market-north",
+        "urban-c-market-link-market-service",
+        "urban-c-market-link-market-homes",
+        "urban-c-market-link-market-cross"
       ],
       "rejected": {
         "occupied": 64,
         "water": 54
       },
       "landUse": "continuous urban frontage with back streets",
-      "halfWidth": 178.31037463366374
+      "centreLinks": [
+        "urban-c-market-link-market-north",
+        "urban-c-market-link-market-service",
+        "urban-c-market-link-market-homes",
+        "urban-c-market-link-market-cross"
+      ],
+      "centrePremise": "\u5e02\u5834\u306f\u5ddd\u306e\u6771\u5cb8\u306e\u4e2d\u5fc3\u306b\u8a2d\u3051\u308b\u3002\u5546\u5e97\u306e\u8868\u901a\u308a\u304b\u3089\u8377\u634c\u304d\u306e\u88cf\u9053\u3068\u4f4f\u6238\u8def\u5730\u304c\u3064\u306a\u304c\u308b\u3002",
+      "halfWidth": 475.2549305687776
     },
     {
       "id": "c-orchards",
@@ -569,40 +663,6 @@
       "character": "lanes"
     },
     {
-      "id": "urban-a-river-0-2",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 4.5,
-      "points": [
-        [
-          -545.0,
-          -80.0
-        ],
-        [
-          -525.5,
-          -18.800000000000004
-        ],
-        [
-          -461.0,
-          5.0
-        ],
-        [
-          -419.0,
-          -12.0
-        ],
-        [
-          -395.0,
-          -80.0
-        ]
-      ],
-      "connections": [
-        "a-river-station-road",
-        "a-river-station-road"
-      ],
-      "character": "lanes"
-    },
-    {
       "id": "urban-a-river-1-0",
       "district": "a-river",
       "band": 0,
@@ -627,40 +687,6 @@
         ],
         [
           -690.0,
-          -80.0
-        ]
-      ],
-      "connections": [
-        "a-river-station-road",
-        "a-river-station-road"
-      ],
-      "character": "lanes"
-    },
-    {
-      "id": "urban-a-river-1-2",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 4.5,
-      "points": [
-        [
-          -510.0,
-          -80.0
-        ],
-        [
-          -490.5,
-          -126.8
-        ],
-        [
-          -426.0,
-          -145.0
-        ],
-        [
-          -384.0,
-          -132.0
-        ],
-        [
-          -360.0,
           -80.0
         ]
       ],
@@ -727,36 +753,6 @@
       "connections": [
         "a-civic-station-road",
         "a-civic-station-road"
-      ],
-      "character": "courts"
-    },
-    {
-      "id": "urban-a-upland-0-0",
-      "district": "a-upland",
-      "band": 0,
-      "kind": "local",
-      "width": 5.5,
-      "points": [
-        [
-          -820.0,
-          11400.0
-        ],
-        [
-          -780.4,
-          11476.8
-        ],
-        [
-          -707.8,
-          11496.0
-        ],
-        [
-          -655.0,
-          11400.0
-        ]
-      ],
-      "connections": [
-        "a-upland-station-road",
-        "a-upland-station-road"
       ],
       "character": "courts"
     },
@@ -1558,254 +1554,6 @@
       ]
     },
     {
-      "id": "urban-a-river-0-0-cross",
-      "points": [
-        [
-          -801.9957573877617,
-          -80.0
-        ],
-        [
-          -801.9957573877617,
-          0.9426507623452842
-        ]
-      ],
-      "connections": [
-        "a-river-station-road",
-        "urban-a-river-0-0"
-      ],
-      "role": "cross-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-0-0"
-      ]
-    },
-    {
-      "id": "urban-a-river-0-0-outer",
-      "points": [
-        [
-          -838.3786423640837,
-          -12.482351756049514
-        ],
-        [
-          -829.6831915767609,
-          53.39719157463461
-        ],
-        [
-          -772.4381405602193,
-          59.187518501638415
-        ],
-        [
-          -765.9165524697272,
-          -5.152824000348497
-        ]
-      ],
-      "connections": [
-        "urban-a-river-0-0",
-        "urban-a-river-0-0"
-      ],
-      "role": "back-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-0-0"
-      ]
-    },
-    {
-      "id": "urban-a-river-0-1-outer",
-      "points": [
-        [
-          -673.3786423640837,
-          -12.482351756049514
-        ],
-        [
-          -664.6831915767609,
-          53.39719157463461
-        ],
-        [
-          -607.4381405602193,
-          59.187518501638415
-        ],
-        [
-          -600.9165524697272,
-          -5.152824000348497
-        ]
-      ],
-      "connections": [
-        "urban-a-river-0-1",
-        "urban-a-river-0-1"
-      ],
-      "role": "back-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-0-1"
-      ]
-    },
-    {
-      "id": "urban-a-river-0-2-outer",
-      "points": [
-        [
-          -508.37864236408376,
-          -12.482351756049514
-        ],
-        [
-          -499.683191576761,
-          53.39719157463461
-        ],
-        [
-          -442.4381405602193,
-          59.187518501638415
-        ],
-        [
-          -435.91655246972726,
-          -5.152824000348497
-        ]
-      ],
-      "connections": [
-        "urban-a-river-0-2",
-        "urban-a-river-0-2"
-      ],
-      "role": "back-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-0-2"
-      ]
-    },
-    {
-      "id": "urban-a-river-1-0-cross",
-      "points": [
-        [
-          -767.0315932098613,
-          -80.0
-        ],
-        [
-          -767.0315932098613,
-          -154.26465122940513
-        ]
-      ],
-      "connections": [
-        "a-river-station-road",
-        "urban-a-river-1-0"
-      ],
-      "role": "cross-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-1-0"
-      ]
-    },
-    {
-      "id": "urban-a-river-1-0-outer",
-      "points": [
-        [
-          -803.3901098271556,
-          -141.95348839340963
-        ],
-        [
-          -794.6953494623243,
-          -207.76183226013066
-        ],
-        [
-          -737.4548437271854,
-          -213.08342938271085
-        ],
-        [
-          -730.933773453562,
-          -148.68968728275163
-        ]
-      ],
-      "connections": [
-        "urban-a-river-1-0",
-        "urban-a-river-1-0"
-      ],
-      "role": "back-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-1-0"
-      ]
-    },
-    {
-      "id": "urban-a-river-1-2-cross",
-      "points": [
-        [
-          -437.0931782316307,
-          -80.0
-        ],
-        [
-          -437.0931782316307,
-          -141.8698318788267
-        ]
-      ],
-      "connections": [
-        "a-river-station-road",
-        "urban-a-river-1-2"
-      ],
-      "role": "cross-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-1-2"
-      ]
-    },
-    {
-      "id": "urban-a-river-1-2-outer",
-      "points": [
-        [
-          -473.40981703412183,
-          -131.62234620122453
-        ],
-        [
-          -464.7162595357559,
-          -197.2977376831365
-        ],
-        [
-          -407.4836726715137,
-          -201.74406493905678
-        ],
-        [
-          -400.96350454773926,
-          -137.25060855049074
-        ]
-      ],
-      "connections": [
-        "urban-a-river-1-2",
-        "urban-a-river-1-2"
-      ],
-      "role": "back-lane",
-      "district": "a-river",
-      "band": 0,
-      "kind": "local",
-      "width": 3.4,
-      "character": "lanes",
-      "parents": [
-        "urban-a-river-1-2"
-      ]
-    },
-    {
       "id": "urban-a-civic-0-0-outer",
       "points": [
         [
@@ -1900,66 +1648,6 @@
       ]
     },
     {
-      "id": "urban-a-upland-0-0-cross",
-      "points": [
-        [
-          -744.0999999999999,
-          11400.0
-        ],
-        [
-          -744.0999999999999,
-          11486.4
-        ]
-      ],
-      "connections": [
-        "a-upland-station-road",
-        "urban-a-upland-0-0"
-      ],
-      "role": "cross-lane",
-      "district": "a-upland",
-      "band": 0,
-      "kind": "local",
-      "width": 4.5,
-      "character": "courts",
-      "parents": [
-        "urban-a-upland-0-0"
-      ]
-    },
-    {
-      "id": "urban-a-upland-0-0-outer",
-      "points": [
-        [
-          -768.784,
-          11479.872
-        ],
-        [
-          -762.85984,
-          11546.43872
-        ],
-        [
-          -723.85912,
-          11556.75296
-        ],
-        [
-          -719.4159999999999,
-          11492.928
-        ]
-      ],
-      "connections": [
-        "urban-a-upland-0-0",
-        "urban-a-upland-0-0"
-      ],
-      "role": "back-lane",
-      "district": "a-upland",
-      "band": 0,
-      "kind": "local",
-      "width": 4.5,
-      "character": "courts",
-      "parents": [
-        "urban-a-upland-0-0"
-      ]
-    },
-    {
       "id": "urban-b-workshop-1-0-outer",
       "points": [
         [
@@ -1991,100 +1679,6 @@
       "character": "works",
       "parents": [
         "urban-b-workshop-1-0"
-      ]
-    },
-    {
-      "id": "urban-b-campus-0-0-cross",
-      "points": [
-        [
-          7298.564327658226,
-          -10200.0
-        ],
-        [
-          7298.564327658226,
-          -10290.0
-        ]
-      ],
-      "connections": [
-        "b-campus-station-road",
-        "urban-b-campus-0-0"
-      ],
-      "role": "cross-lane",
-      "district": "b-campus",
-      "band": 1,
-      "kind": "local",
-      "width": 4.5,
-      "character": "courts",
-      "parents": [
-        "urban-b-campus-0-0"
-      ]
-    },
-    {
-      "id": "urban-b-campus-0-0-outer",
-      "points": [
-        [
-          7332.224327658226,
-          -10283.2
-        ],
-        [
-          7324.145927658225,
-          -10349.832
-        ],
-        [
-          7270.963127658226,
-          -10360.576
-        ],
-        [
-          7264.904327658226,
-          -10296.8
-        ]
-      ],
-      "connections": [
-        "urban-b-campus-0-0",
-        "urban-b-campus-0-0"
-      ],
-      "role": "back-lane",
-      "district": "b-campus",
-      "band": 1,
-      "kind": "local",
-      "width": 4.5,
-      "character": "courts",
-      "parents": [
-        "urban-b-campus-0-0"
-      ]
-    },
-    {
-      "id": "urban-b-campus-1-1-outer",
-      "points": [
-        [
-          7127.224327658226,
-          -10091.84
-        ],
-        [
-          7119.145927658225,
-          -10024.7184
-        ],
-        [
-          7065.963127658226,
-          -10010.7512
-        ],
-        [
-          7059.904327658226,
-          -10074.16
-        ]
-      ],
-      "connections": [
-        "urban-b-campus-1-1",
-        "urban-b-campus-1-1"
-      ],
-      "role": "back-lane",
-      "district": "b-campus",
-      "band": 1,
-      "kind": "local",
-      "width": 4.5,
-      "character": "courts",
-      "parents": [
-        "urban-b-campus-1-1"
       ]
     },
     {
@@ -2762,12 +2356,2612 @@
       "parents": [
         "urban-c-market-0-2"
       ]
+    },
+    {
+      "id": "urban-a-port-link-work-court",
+      "district": "a-port",
+      "band": 0,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          -774.0,
+          -16300.0
+        ],
+        [
+          -810.0,
+          -16100
+        ],
+        [
+          -750.0,
+          -15950
+        ],
+        [
+          -617.7384381710575,
+          -15861.12920965799
+        ]
+      ],
+      "connections": [
+        "a-port-station-road",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "workshop service street",
+      "frontageFamilies": [
+        "workshop",
+        "warehouse",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "station",
+            [
+              -150,
+              0
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              440
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -170,
+            200
+          ],
+          [
+            -110,
+            350
+          ]
+        ],
+        "slides": [
+          16,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-port-link-craft-row",
+      "district": "a-port",
+      "band": 0,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          -828.3133784487246,
+          -16571.171264966164
+        ],
+        [
+          -720.0,
+          -16640
+        ],
+        [
+          -500.0,
+          -16530
+        ],
+        [
+          -469.6186653286503,
+          -16266.96688409433
+        ]
+      ],
+      "connections": [
+        "a-port-garden-lane",
+        "a-port-access"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "shops and upper homes",
+      "frontageFamilies": [
+        "shop-house",
+        "apartment",
+        "workshop"
+      ],
+      "aprons": [
+        2.7894371806234055,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              -190,
+              -270
+            ]
+          ],
+          [
+            "access",
+            [
+              170,
+              35
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -80,
+            -340
+          ],
+          [
+            140,
+            -230
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-port-link-yard-edge",
+      "district": "a-port",
+      "band": 0,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          -459.0466633216257,
+          -16264.917210235826
+        ],
+        [
+          -460.0,
+          -16130
+        ],
+        [
+          -501.9803184270143,
+          -16080.792270442906
+        ]
+      ],
+      "connections": [
+        "a-port-access",
+        "a-port-neighbourhood-road"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "work yards",
+      "frontageFamilies": [
+        "workshop",
+        "warehouse",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "access",
+            [
+              180,
+              40
+            ]
+          ],
+          [
+            "neighbourhood",
+            [
+              160,
+              255
+            ]
+          ]
+        ],
+        "via": [
+          [
+            180,
+            170
+          ]
+        ],
+        "slides": [
+          0,
+          -42
+        ]
+      }
+    },
+    {
+      "id": "urban-a-old-town-link-north-row",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -696.9569082666897,
+          -9280.124627397572
+        ],
+        [
+          -635.0,
+          -9180
+        ],
+        [
+          -460.0,
+          -9085
+        ],
+        [
+          -283.8055895626204,
+          -9050.109664991649
+        ]
+      ],
+      "connections": [
+        "urban-a-old-town-0-0-outer",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "mixed shops and homes",
+      "frontageFamilies": [
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        0.33781709384470426,
+        3
+      ],
+      "parents": [
+        "urban-a-old-town-0-0-outer"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "existing:urban-a-old-town-0-0-outer",
+            [
+              -415,
+              120
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              350
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -345,
+            220
+          ],
+          [
+            -170,
+            315
+          ]
+        ],
+        "slides": [
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-old-town-link-south-row",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -662.0,
+          -9400.0
+        ],
+        [
+          -650.0,
+          -9570
+        ],
+        [
+          -474.3440916189485,
+          -9665.455491931285
+        ]
+      ],
+      "connections": [
+        "a-old-town-station-road",
+        "a-old-town-garden-lane"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "residential back lane",
+      "frontageFamilies": [
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        2.690800232797235
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "station",
+            [
+              -400,
+              0
+            ]
+          ],
+          [
+            "garden",
+            [
+              -185,
+              -265
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -360,
+            -170
+          ]
+        ],
+        "slides": [
+          28,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-old-town-link-garden-end",
+      "district": "a-old-town",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -515.4685059864654,
+          -9724.67464862051
+        ],
+        [
+          -390.0,
+          -9780
+        ],
+        [
+          -312.0602247569284,
+          -9834.901573779447
+        ]
+      ],
+      "connections": [
+        "a-old-town-garden-lane",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "small workshops and housing",
+      "frontageFamilies": [
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        2.5378262215898313,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              -225,
+              -325
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -420
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -100,
+            -380
+          ]
+        ],
+        "slides": [
+          0,
+          -16
+        ]
+      }
+    },
+    {
+      "id": "urban-a-river-link-terrace-north",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -808.1938502419241,
+          -1.3443974536091865
+        ],
+        [
+          -700.0,
+          160
+        ],
+        [
+          -495.0,
+          185
+        ],
+        [
+          -570.8,
+          -49.400000000000006
+        ]
+      ],
+      "connections": [
+        "urban-a-river-0-0",
+        "urban-a-river-0-1"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "upper terrace homes",
+      "frontageFamilies": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        0.5925028402966449,
+        0.6288767285547157
+      ],
+      "parents": [
+        "urban-a-river-0-0",
+        "urban-a-river-0-1"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "existing:urban-a-river-0-0",
+            [
+              -680,
+              70
+            ]
+          ],
+          [
+            "existing:urban-a-river-0-1",
+            [
+              -320,
+              75
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -575,
+            240
+          ],
+          [
+            -370,
+            265
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-river-link-terrace-south",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -708.2989690721649,
+          -127.57731958762886
+        ],
+        [
+          -650.0,
+          -305
+        ],
+        [
+          -475.0,
+          -545
+        ],
+        [
+          -372.0067673086934,
+          -435.6897449245185
+        ]
+      ],
+      "connections": [
+        "urban-a-river-1-0",
+        "a-river-garden-lane"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "lower terrace homes",
+      "frontageFamilies": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        0.65,
+        3
+      ],
+      "parents": [
+        "urban-a-river-1-0"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "existing:urban-a-river-1-0",
+            [
+              -590,
+              -45
+            ]
+          ],
+          [
+            "garden",
+            [
+              -248,
+              -355
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -525,
+            -225
+          ],
+          [
+            -350,
+            -465
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-river-link-terrace-cross",
+      "district": "a-river",
+      "band": 0,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          -624.8974208675264,
+          169.1588511137163
+        ],
+        [
+          -590.0,
+          75
+        ],
+        [
+          -591.4155745057852,
+          -8.998457938134536
+        ]
+      ],
+      "connections": [
+        "urban-a-river-link-terrace-north",
+        "urban-a-river-0-1"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "terrace pedestrian link",
+      "frontageFamilies": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        0.65,
+        0.65
+      ],
+      "parents": [
+        "urban-a-river-link-terrace-north",
+        "urban-a-river-0-1"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "@terrace-north",
+            [
+              -500,
+              250
+            ]
+          ],
+          [
+            "existing:urban-a-river-0-1",
+            [
+              -420,
+              90
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -465,
+            155
+          ]
+        ],
+        "slides": [
+          0,
+          -8
+        ]
+      }
+    },
+    {
+      "id": "urban-a-civic-link-civic-east",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          486.3063998519288,
+          6211.126456867718
+        ],
+        [
+          720.0,
+          6160
+        ],
+        [
+          830.0,
+          6045
+        ],
+        [
+          921.0751167067478,
+          5977.878059131419
+        ]
+      ],
+      "connections": [
+        "band-0-town-road",
+        "a-civic-access"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "civic and office frontage",
+      "frontageFamilies": [
+        "office",
+        "shop-house",
+        "apartment",
+        "civic"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              420
+            ]
+          ],
+          [
+            "access",
+            [
+              350,
+              180
+            ]
+          ]
+        ],
+        "via": [
+          [
+            150,
+            360
+          ],
+          [
+            260,
+            245
+          ]
+        ],
+        "slides": [
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-civic-link-civic-south",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          890.3347584108168,
+          5962.302944261481
+        ],
+        [
+          910.0,
+          5730
+        ],
+        [
+          770.0,
+          5560
+        ],
+        [
+          532.6980019211337,
+          5484.408994670886
+        ]
+      ],
+      "connections": [
+        "a-civic-access",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "housing behind civic frontage",
+      "frontageFamilies": [
+        "office",
+        "shop-house",
+        "apartment",
+        "civic"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "access",
+            [
+              310,
+              165
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -320
+            ]
+          ]
+        ],
+        "via": [
+          [
+            340,
+            -70
+          ],
+          [
+            200,
+            -240
+          ]
+        ],
+        "slides": [
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-civic-link-campus-north",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          330.0,
+          5800.0
+        ],
+        [
+          340.0,
+          5910
+        ],
+        [
+          412.6873956106838,
+          6049.849430500679
+        ]
+      ],
+      "connections": [
+        "a-civic-station-road",
+        "a-civic-neighbourhood-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "station side retail",
+      "frontageFamilies": [
+        "office",
+        "shop-house",
+        "apartment",
+        "civic"
+      ],
+      "aprons": [
+        3,
+        2.2068260825739356
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "station",
+            [
+              -240,
+              0
+            ]
+          ],
+          [
+            "neighbourhood",
+            [
+              -150,
+              245
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -230,
+            110
+          ]
+        ],
+        "slides": [
+          0,
+          8
+        ]
+      }
+    },
+    {
+      "id": "urban-a-civic-link-civic-cross",
+      "district": "a-civic",
+      "band": 0,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          773.751233958539,
+          6103.805528134255
+        ],
+        [
+          675.0,
+          6000
+        ],
+        [
+          536.052217626422,
+          5966.761036221085
+        ]
+      ],
+      "connections": [
+        "urban-a-civic-link-civic-east",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "pedestrian civic cross street",
+      "frontageFamilies": [
+        "office",
+        "shop-house",
+        "apartment",
+        "civic"
+      ],
+      "aprons": [
+        0.65,
+        3
+      ],
+      "parents": [
+        "urban-a-civic-link-civic-east"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "@civic-east",
+            [
+              205,
+              305
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              190
+            ]
+          ]
+        ],
+        "via": [
+          [
+            105,
+            200
+          ]
+        ],
+        "slides": [
+          0,
+          -16
+        ]
+      }
+    },
+    {
+      "id": "urban-a-upland-link-hill-west",
+      "district": "a-upland",
+      "band": 0,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          -730.0,
+          11400.0
+        ],
+        [
+          -760.0,
+          11630
+        ],
+        [
+          -680.0,
+          11780
+        ],
+        [
+          -513.9455643098332,
+          11822.564207510488
+        ]
+      ],
+      "connections": [
+        "a-upland-station-road",
+        "band-0-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "slope housing",
+      "frontageFamilies": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "station",
+            [
+              -160,
+              0
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              430
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -190,
+            230
+          ],
+          [
+            -110,
+            380
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-a-upland-link-hill-east",
+      "district": "a-upland",
+      "band": 0,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          -350.91204571379944,
+          11747.963221513377
+        ],
+        [
+          -255.0,
+          11695
+        ],
+        [
+          -270.0,
+          11550
+        ],
+        [
+          -271.99381138167627,
+          11459.91658818781
+        ]
+      ],
+      "connections": [
+        "a-upland-neighbourhood-road",
+        "a-upland-access"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "terrace housing edge",
+      "frontageFamilies": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "neighbourhood",
+            [
+              230,
+              360
+            ]
+          ],
+          [
+            "access",
+            [
+              300,
+              50
+            ]
+          ]
+        ],
+        "via": [
+          [
+            315,
+            295
+          ],
+          [
+            300,
+            150
+          ]
+        ],
+        "slides": [
+          -16,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-workshop-link-living-north",
+      "district": "b-workshop",
+      "band": 1,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          7575.846212093416,
+          -16035.845913586674
+        ],
+        [
+          7432.064327658226,
+          -16100
+        ],
+        [
+          7282.064327658226,
+          -16060
+        ],
+        [
+          7172.955238027954,
+          -15755.240663024875
+        ]
+      ],
+      "connections": [
+        "b-workshop-garden-lane",
+        "b-workshop-access"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "shops and housing",
+      "frontageFamilies": [
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        2.356015706678761,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              -165,
+              235
+            ]
+          ],
+          [
+            "access",
+            [
+              240,
+              -40
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -20,
+            300
+          ],
+          [
+            130,
+            260
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-workshop-link-works-south",
+      "district": "b-workshop",
+      "band": 1,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          7203.65568325744,
+          -15468.998035363458
+        ],
+        [
+          7082.064327658226,
+          -15480
+        ],
+        [
+          7002.064327658226,
+          -15600
+        ],
+        [
+          7004.189148890026,
+          -15723.648981314327
+        ]
+      ],
+      "connections": [
+        "b-workshop-neighbourhood-road",
+        "b-workshop-access"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "shared loading court",
+      "frontageFamilies": [
+        "workshop",
+        "warehouse",
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "neighbourhood",
+            [
+              210,
+              -330
+            ]
+          ],
+          [
+            "access",
+            [
+              410,
+              -65
+            ]
+          ]
+        ],
+        "via": [
+          [
+            330,
+            -320
+          ],
+          [
+            410,
+            -200
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-workshop-link-work-cross",
+      "district": "b-workshop",
+      "band": 1,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          7332.923631742946,
+          -15459.086232980333
+        ],
+        [
+          7302.064327658226,
+          -15500
+        ],
+        [
+          7232.46216655803,
+          -15514.749508840865
+        ]
+      ],
+      "connections": [
+        "band-1-town-road",
+        "b-workshop-neighbourhood-road"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "workshop lane",
+      "frontageFamilies": [
+        "workshop",
+        "warehouse",
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              40,
+              -350
+            ]
+          ],
+          [
+            "neighbourhood",
+            [
+              180,
+              -285
+            ]
+          ]
+        ],
+        "via": [
+          [
+            110,
+            -300
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-campus-link-clinic-east",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          6195.374121745473,
+          -10558.872959145065
+        ],
+        [
+          5892.064327658226,
+          -10480
+        ],
+        [
+          5832.064327658226,
+          -10300
+        ],
+        [
+          5830.467643450224,
+          -10053.41542465885
+        ]
+      ],
+      "connections": [
+        "band-1-town-road",
+        "b-campus-access"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "clinic and research frontage",
+      "frontageFamilies": [
+        "civic",
+        "apartment",
+        "shop-house",
+        "office"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              370
+            ]
+          ],
+          [
+            "access",
+            [
+              280,
+              -115
+            ]
+          ]
+        ],
+        "via": [
+          [
+            220,
+            280
+          ],
+          [
+            280,
+            100
+          ]
+        ],
+        "slides": [
+          -8,
+          16
+        ]
+      }
+    },
+    {
+      "id": "urban-b-campus-link-living-east",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          5809.907587846269,
+          -10042.712929960899
+        ],
+        [
+          5772.064327658226,
+          -9870
+        ],
+        [
+          5942.064327658226,
+          -9730
+        ],
+        [
+          6195.752820490461,
+          -9735.063928709802
+        ]
+      ],
+      "connections": [
+        "b-campus-access",
+        "band-1-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "staff housing",
+      "frontageFamilies": [
+        "civic",
+        "apartment",
+        "shop-house",
+        "office"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "access",
+            [
+              290,
+              -120
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -480
+            ]
+          ]
+        ],
+        "via": [
+          [
+            340,
+            -330
+          ],
+          [
+            170,
+            -470
+          ]
+        ],
+        "slides": [
+          28,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-campus-link-school-cross",
+      "district": "b-campus",
+      "band": 1,
+      "kind": "local",
+      "width": 6,
+      "points": [
+        [
+          5922.599883462785,
+          -10487.94049414953
+        ],
+        [
+          5952.064327658226,
+          -10300
+        ],
+        [
+          5949.638519301516,
+          -10115.449579211576
+        ]
+      ],
+      "connections": [
+        "urban-b-campus-link-clinic-east",
+        "b-campus-access"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "school local street",
+      "frontageFamilies": [
+        "civic",
+        "apartment",
+        "shop-house",
+        "office"
+      ],
+      "aprons": [
+        0.65,
+        3
+      ],
+      "parents": [
+        "urban-b-campus-link-clinic-east"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "@clinic-east",
+            [
+              190,
+              290
+            ]
+          ],
+          [
+            "access",
+            [
+              170,
+              -70
+            ]
+          ]
+        ],
+        "via": [
+          [
+            160,
+            100
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-station-link-station-north",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7137.689223089925,
+          -4502.083914268342
+        ],
+        [
+          7082.064327658226,
+          -4485
+        ],
+        [
+          6992.064327658226,
+          -4440
+        ],
+        [
+          6963.782169981878,
+          -4401.941908713693
+        ]
+      ],
+      "connections": [
+        "band-1-town-road",
+        "b-station-campus-loop"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "offices behind station",
+      "frontageFamilies": [
+        "office",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              320
+            ]
+          ],
+          [
+            "campus",
+            [
+              230,
+              200
+            ]
+          ]
+        ],
+        "via": [
+          [
+            110,
+            285
+          ],
+          [
+            200,
+            240
+          ]
+        ],
+        "slides": [
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-station-link-station-south",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7150.957159999555,
+          -3875.2026259068007
+        ],
+        [
+          7052.064327658226,
+          -3910
+        ],
+        [
+          7010.431036341069,
+          -3911.523596143338
+        ]
+      ],
+      "connections": [
+        "band-1-town-road",
+        "b-station-neighbourhood-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "mixed housing",
+      "frontageFamilies": [
+        "office",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        2.358948531908715
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              -330
+            ]
+          ],
+          [
+            "neighbourhood",
+            [
+              200,
+              -310
+            ]
+          ]
+        ],
+        "via": [
+          [
+            140,
+            -290
+          ]
+        ],
+        "slides": [
+          0,
+          -28
+        ]
+      }
+    },
+    {
+      "id": "urban-b-station-link-market-cross",
+      "district": "b-station",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          7001.109970811753,
+          -4368.921161825726
+        ],
+        [
+          6982.064327658226,
+          -4260
+        ],
+        [
+          6962.725342129795,
+          -4151.8514837012135
+        ]
+      ],
+      "connections": [
+        "b-station-campus-loop",
+        "b-station-access"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "station retail lane",
+      "frontageFamilies": [
+        "shop-house",
+        "office"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "campus",
+            [
+              190,
+              170
+            ]
+          ],
+          [
+            "access",
+            [
+              230,
+              -45
+            ]
+          ]
+        ],
+        "via": [
+          [
+            210,
+            60
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-housing-link-housing-north",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6595.6392813904895,
+          2035.5576804441703
+        ],
+        [
+          6602.064327658226,
+          1950
+        ],
+        [
+          6482.064327658226,
+          1855
+        ],
+        [
+          6429.882223565354,
+          1822.179587894294
+        ]
+      ],
+      "connections": [
+        "urban-b-housing-0-3-outer",
+        "band-1-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "apartment street",
+      "frontageFamilies": [
+        "apartment",
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        0.65,
+        3
+      ],
+      "parents": [
+        "urban-b-housing-0-3-outer"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "existing:urban-b-housing-0-3-outer",
+            [
+              -215,
+              170
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              400
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -220,
+            250
+          ],
+          [
+            -100,
+            345
+          ]
+        ],
+        "slides": [
+          0,
+          16
+        ]
+      }
+    },
+    {
+      "id": "urban-b-housing-link-housing-east",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6436.873884536453,
+          1766.936834542401
+        ],
+        [
+          6257.064327658226,
+          1765
+        ],
+        [
+          6166.876925263639,
+          1890.1301405517959
+        ]
+      ],
+      "connections": [
+        "band-1-town-road",
+        "b-housing-garden-lane"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "housing boundary",
+      "frontageFamilies": [
+        "apartment",
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        2.12594403657496
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              440
+            ]
+          ],
+          [
+            "garden",
+            [
+              215,
+              310
+            ]
+          ]
+        ],
+        "via": [
+          [
+            125,
+            435
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-housing-link-housing-south",
+      "district": "b-housing",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          6606.003423925416,
+          2555.6679764243613
+        ],
+        [
+          6512.064327658226,
+          2620
+        ],
+        [
+          6437.136749627387,
+          2668.5265749615196
+        ]
+      ],
+      "connections": [
+        "b-housing-neighbourhood-road",
+        "band-1-town-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "housing rear street",
+      "frontageFamilies": [
+        "apartment",
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "neighbourhood",
+            [
+              -225,
+              -355
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -475
+            ]
+          ]
+        ],
+        "via": [
+          [
+            -130,
+            -420
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-b-north-link-south-east",
+      "district": "b-north",
+      "band": 1,
+      "kind": "local",
+      "width": 5.5,
+      "points": [
+        [
+          5854.772472454606,
+          14771.128959276019
+        ],
+        [
+          5922.064327658226,
+          14945
+        ],
+        [
+          6112.064327658226,
+          15035
+        ],
+        [
+          6302.064327658226,
+          14960
+        ],
+        [
+          6368.339072806425,
+          14800.55400700008
+        ]
+      ],
+      "connections": [
+        "b-north-access",
+        "b-north-neighbourhood-road"
+      ],
+      "role": "district-link",
+      "character": "courts",
+      "purpose": "new town housing",
+      "frontageFamilies": [
+        "apartment",
+        "office",
+        "house",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        2.2447063956128535
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "access",
+            [
+              390,
+              -165
+            ]
+          ],
+          [
+            "neighbourhood",
+            [
+              -140,
+              -225
+            ]
+          ]
+        ],
+        "via": [
+          [
+            320,
+            -345
+          ],
+          [
+            130,
+            -435
+          ],
+          [
+            -60,
+            -360
+          ]
+        ],
+        "slides": [
+          0,
+          -28
+        ]
+      }
+    },
+    {
+      "id": "urban-c-cargo-link-cargo-south",
+      "district": "c-cargo",
+      "band": 2,
+      "kind": "local",
+      "width": 7,
+      "points": [
+        [
+          12565.815276867726,
+          -17171.171264966164
+        ],
+        [
+          12779.128655316452,
+          -17240
+        ],
+        [
+          12924.128655316452,
+          -17145
+        ],
+        [
+          12923.724336237037,
+          -16867.286112309735
+        ]
+      ],
+      "connections": [
+        "c-cargo-garden-lane",
+        "c-cargo-access"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "loading court",
+      "frontageFamilies": [
+        "warehouse",
+        "workshop",
+        "apartment",
+        "shop-house"
+      ],
+      "aprons": [
+        1.98867949810267,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              -190,
+              -270
+            ]
+          ],
+          [
+            "access",
+            [
+              210,
+              45
+            ]
+          ]
+        ],
+        "via": [
+          [
+            25,
+            -340
+          ],
+          [
+            170,
+            -245
+          ]
+        ],
+        "slides": [
+          0,
+          -42
+        ]
+      }
+    },
+    {
+      "id": "urban-c-production-link-production-east",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          13908.120022880245,
+          -11166.22898684778
+        ],
+        [
+          14199.128655316452,
+          -11250
+        ],
+        [
+          14289.128655316452,
+          -11350
+        ],
+        [
+          14337.139689408968,
+          -11416.074409393124
+        ]
+      ],
+      "connections": [
+        "band-2-town-road",
+        "c-production-access"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "production court",
+      "frontageFamilies": [
+        "workshop",
+        "warehouse",
+        "house",
+        "shop-house"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              460
+            ]
+          ],
+          [
+            "access",
+            [
+              365,
+              180
+            ]
+          ]
+        ],
+        "via": [
+          [
+            225,
+            350
+          ],
+          [
+            315,
+            250
+          ]
+        ],
+        "slides": [
+          -16,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-c-production-link-workers-row",
+      "district": "c-production",
+      "band": 2,
+      "kind": "local",
+      "width": 6.5,
+      "points": [
+        [
+          14123.660149329986,
+          -11815.32535137949
+        ],
+        [
+          13994.128655316452,
+          -11885
+        ],
+        [
+          13889.965549807026,
+          -11965.626605901605
+        ]
+      ],
+      "connections": [
+        "c-production-garden-lane",
+        "band-2-town-road"
+      ],
+      "role": "district-link",
+      "character": "works",
+      "purpose": "worker homes",
+      "frontageFamilies": [
+        "house",
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        2.568490393690046,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              150,
+              -215
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -385
+            ]
+          ]
+        ],
+        "via": [
+          [
+            20,
+            -285
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-c-market-link-market-north",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          13648.682919918829,
+          2035.2549305687776
+        ],
+        [
+          13824.128655316452,
+          2020
+        ],
+        [
+          13954.128655316452,
+          1830
+        ],
+        [
+          13941.16705176208,
+          1691.1403792712026
+        ]
+      ],
+      "connections": [
+        "band-2-town-road",
+        "c-market-access"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "market shopping street",
+      "frontageFamilies": [
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              440
+            ]
+          ],
+          [
+            "access",
+            [
+              250,
+              60
+            ]
+          ]
+        ],
+        "via": [
+          [
+            130,
+            420
+          ],
+          [
+            260,
+            230
+          ]
+        ],
+        "slides": [
+          0,
+          8
+        ]
+      }
+    },
+    {
+      "id": "urban-c-market-link-market-service",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          13866.564886446073,
+          1351.6918271733473
+        ],
+        [
+          14024.128655316452,
+          1370
+        ],
+        [
+          14074.128655316452,
+          1500
+        ],
+        [
+          14093.691219385008,
+          1747.4114314039334
+        ]
+      ],
+      "connections": [
+        "c-market-garden-lane",
+        "c-market-access"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "market loading back street",
+      "frontageFamilies": [
+        "workshop",
+        "shop-house"
+      ],
+      "aprons": [
+        2.107812265967022,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              170,
+              -250
+            ]
+          ],
+          [
+            "access",
+            [
+              400,
+              100
+            ]
+          ]
+        ],
+        "via": [
+          [
+            330,
+            -230
+          ],
+          [
+            380,
+            -100
+          ]
+        ],
+        "slides": [
+          0,
+          16
+        ]
+      }
+    },
+    {
+      "id": "urban-c-market-link-market-homes",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          13827.661108622191,
+          1407.713267239736
+        ],
+        [
+          13764.128655316452,
+          1340
+        ],
+        [
+          13655.593197342969,
+          1284.70988930787
+        ]
+      ],
+      "connections": [
+        "c-market-garden-lane",
+        "band-2-town-road"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "homes above market",
+      "frontageFamilies": [
+        "shop-house",
+        "shop-house",
+        "apartment",
+        "workshop"
+      ],
+      "aprons": [
+        2.5055834283355907,
+        3
+      ],
+      "parents": [],
+      "authoring": {
+        "ends": [
+          [
+            "garden",
+            [
+              130,
+              -185
+            ]
+          ],
+          [
+            "town",
+            [
+              0,
+              -320
+            ]
+          ]
+        ],
+        "via": [
+          [
+            70,
+            -260
+          ]
+        ],
+        "slides": [
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "urban-c-market-link-market-cross",
+      "district": "c-market",
+      "band": 2,
+      "kind": "local",
+      "width": 4.5,
+      "points": [
+        [
+          13677.60293335368,
+          1758.2745202068281
+        ],
+        [
+          13824.128655316452,
+          1770
+        ],
+        [
+          13933.770164750415,
+          1859.754716981132
+        ]
+      ],
+      "connections": [
+        "band-2-town-road",
+        "urban-c-market-link-market-north"
+      ],
+      "role": "district-link",
+      "character": "lanes",
+      "purpose": "small shop passage",
+      "frontageFamilies": [
+        "shop-house",
+        "apartment"
+      ],
+      "aprons": [
+        3,
+        0.65
+      ],
+      "parents": [
+        "urban-c-market-link-market-north"
+      ],
+      "authoring": {
+        "ends": [
+          [
+            "town",
+            [
+              0,
+              160
+            ]
+          ],
+          [
+            "@market-north",
+            [
+              240,
+              260
+            ]
+          ]
+        ],
+        "via": [
+          [
+            130,
+            170
+          ]
+        ],
+        "slides": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "rejectedCentreLinks": [
+    {
+      "id": "urban-a-old-town-link-cross-passage",
+      "district": "a-old-town",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at -490.0,-9358.6": 81
+      }
+    },
+    {
+      "id": "urban-a-upland-link-lower-homes",
+      "district": "a-upland",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at -523.6,11016.3": 49,
+        "reservation at -713.1,11143.6": 18,
+        "reservation at -510.4,11023.0": 7,
+        "reservation at -499.5,10955.6": 7
+      }
+    },
+    {
+      "id": "urban-b-campus-link-campus-walk",
+      "district": "b-campus",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at 6244.4,-10364.7": 63,
+        "reservation at 6188.7,-10381.2": 18
+      }
+    },
+    {
+      "id": "urban-b-station-link-service-cross",
+      "district": "b-station",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at 6939.7,-4115.9": 45,
+        "reservation at 7017.5,-3974.8": 24,
+        "reservation at 6996.5,-3904.2": 4,
+        "reservation at 6981.3,-3913.8": 8
+      }
+    },
+    {
+      "id": "urban-b-housing-link-shops-cross",
+      "district": "b-housing",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "junction-width:urban-b-housing-0-3-outer": 72,
+        "road:urban-b-housing-0-3-outer": 9
+      }
+    },
+    {
+      "id": "urban-b-north-link-north-east",
+      "district": "b-north",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at 5860.3,14733.0": 54,
+        "reservation at 5820.8,14751.7": 27
+      }
+    },
+    {
+      "id": "urban-b-north-link-centre-cross",
+      "district": "b-north",
+      "reason": "parent-unavailable"
+    },
+    {
+      "id": "urban-c-cargo-link-cargo-west",
+      "district": "c-cargo",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "road:urban-c-cargo-1-0-cross": 9,
+        "reservation at 12802.3,-16512.4": 72
+      }
+    },
+    {
+      "id": "urban-c-cargo-link-cargo-east",
+      "district": "c-cargo",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at 13126.2,-16778.9": 81
+      }
+    },
+    {
+      "id": "urban-c-production-link-production-south",
+      "district": "c-production",
+      "reason": "reserved-corridor",
+      "blockedBy": {
+        "reservation at 14211.1,-11880.1": 63,
+        "reservation at 14169.1,-11820.3": 18
+      }
     }
   ],
   "railStationDigest": "60f5ab4193bdb1ba17dc124a1a8123e2a0a984e20dd4e12ff4b8390e2faa45d9",
   "dependencies": {
     "izma-colony-plan.json": "2a617ba2c1283a4c3f4302e8d900cf27cb1b7fd93faa7c38f36e9315408dc2d0",
     "izma-urban-plan.json": "3e75e662dee852bd8bbfbbcb68fbd44617002b6cc6f8ec19ee075bd0bc22e29e",
+    "izma-district-links.json": "083694637917e1344149f87a7b297f6601c04cead46ebaff48c79fa995fddd9f",
     "izma-parcels.json": "98f950ef18ff41cef9279dbc8726ee5d0294367f04e7dcd7897c58c546ff12b1",
     "izma-public-spaces.json": "1ce291fcd1b4d1768e92ff2efaa89a69fce6b913d661b1653d786786ace9d841",
     "izma-rail-plan.json": "f3d4b81db03cf06940554bf7d049061f14beba1ab9f36b9b07ab90dc302c0516",

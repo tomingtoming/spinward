@@ -7,6 +7,7 @@ import parcels from '../../assets/blender/izma-neighbourhood-parcels.json'
 import publicSpaces from '../../assets/blender/izma-public-spaces.json'
 import urban from '../../assets/blender/izma-urban-plan.json'
 import streets from '../../assets/blender/izma-urban-streets.json'
+import districtLinks from '../../assets/blender/izma-district-links.json'
 import { colonyColliders, decodeColonyMesh, readColonyManifest } from './authoredColony'
 import { AuthoredLandscape, landscapeColliders, LANDSCAPE_LIGHT_BUDGET } from './authoredLandscape'
 import { unpackLandscapeLibrary } from './landscapeData'
@@ -36,7 +37,7 @@ function drawnMeshIndex(positions: number[]) {
   return buildCityCollisionIndex(landscapeColliders({ surfaces, solids: [] }, 3200), 3200, 40000)
 }
 
-test('station corridors and public-place catchments have mixed uses and current reservation sources', async () => {
+test('station, centre-link and public-place catchments have mixed uses and current reservation sources', async () => {
   for (const [name, digest] of Object.entries(parcels.dependencies)) {
     const bytes = await Bun.file(new URL('../../assets/blender/' + name, import.meta.url)).arrayBuffer()
     expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
@@ -55,15 +56,32 @@ test('station corridors and public-place catchments have mixed uses and current 
     const length = Math.hypot(dx, dy)
     for (const p of members) {
       if (p.lot.catchment === 'public') expect(p.lot.distance, p.id).toBeLessThan(spec.radius)
+      else if (p.lot.catchment === 'district-link') {
+        const link = parcels.streets.find(s => s.id === p.lot.street)!
+        expect(link?.role, p.id).toBe('district-link')
+        expect(link.district, p.id).toBe(n.id)
+        expect(link.purpose, p.id).toBe(p.lot.purpose)
+        expect(link.frontageFamilies, p.id).toContain(p.family)
+        const distance = Math.min(...link.points.slice(1).map((b, i) => {
+          const a = link.points[i], dx = b[0] - a[0], dy = b[1] - a[1]
+          const t = Math.max(0, Math.min(1, ((p.access.start[0] - a[0]) * dx + (p.access.start[1] - a[1]) * dy) / (dx * dx + dy * dy)))
+          return Math.hypot(p.access.start[0] - a[0] - dx * t, p.access.start[1] - a[1] - dy * t)
+        }))
+        expect(distance, p.id + ' entrance meets its centre link').toBeLessThan(link.width / 2 + .2)
+      }
       else {
         // The entrance meets the frontage road. Allow its sidewalk offset;
         // buildings may not silently leak into the long inter-district gaps.
         const [x, y] = p.access.start.map((v, i) => v - region.station[i])
         const along = (x * dx + y * dy) / length, across = Math.abs(x * dy - y * dx) / length
-        // The widest frontage is a 16 m arterial plus a 2.15 m sidewalk.
-        expect(along, p.id).toBeGreaterThan(30 - 11)
-        expect(along, p.id).toBeLessThan(region.reach + 45 + 11)
-        expect(across, p.id).toBeLessThan(region.halfWidth + 11)
+        // Use the actual road/sidewalk offset and the tangential door offset.
+        // The 18 m town road already has an 11.15 m frontage offset; a fixed
+        // 11 m allowance incorrectly rejects valid plots at its catchment edge.
+        const offset = Math.hypot(p.access.start[0] - p.frontage[0], p.access.start[1] - p.frontage[1])
+          + Math.abs((p.frontage[0] - p.position[0]) * Math.cos(p.yaw) + (p.frontage[1] - p.position[1]) * Math.sin(p.yaw))
+        expect(along, p.id).toBeGreaterThan(30 - offset)
+        expect(along, p.id).toBeLessThan(region.reach + 45 + offset)
+        expect(across, p.id).toBeLessThan(region.halfWidth + offset)
       }
     }
     const coverage = n.footprintArea / n.lotArea
@@ -71,6 +89,29 @@ test('station corridors and public-place catchments have mixed uses and current 
     if (district.character === 'lanes') expect(coverage, n.id).toBeGreaterThan(.55)
     if (district.character === 'groves') expect(coverage, n.id).toBeLessThan(.4)
     expect(manifest.visits['neighbourhood-' + n.id], n.id).toBeDefined()
+  }
+})
+
+test('every authored centre link is accounted for and keeps its district purpose and named connections', async () => {
+  for (const [name, digest] of Object.entries(streets.dependencies)) {
+    const bytes = await Bun.file(new URL('../../assets/blender/' + name, import.meta.url)).arrayBuffer()
+    expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
+  }
+  const accepted = streets.streets.filter(s => s.role === 'district-link')
+  const authored = Object.entries(districtLinks.districts).flatMap(([district, spec]) =>
+    spec.links.map(link => ({ ...link, district, id: `urban-${district}-link-${link.id}` })))
+  expect([...accepted, ...streets.rejectedCentreLinks].map(s => s.id).sort()).toEqual(authored.map(s => s.id).sort())
+  for (const link of accepted) {
+    const source = authored.find(s => s.id === link.id)!
+    expect(link.purpose, link.id).toBe(source.purpose)
+    expect(link.district, link.id).toBe(source.district)
+    expect(link.connections[0], link.id).not.toBe(link.connections[1])
+    expect(link.authoring!.ends, link.id).toEqual(source.ends)
+    for (const apron of link.aprons!) expect(apron, link.id).toBeGreaterThanOrEqual(.3)
+  }
+  for (const retired of districtLinks.retiredStreetSketches) {
+    expect(streets.streets.some(s => s.id === retired.id), retired.id).toBe(false)
+    expect(parcels.streets.some(s => s.id === retired.id), retired.id).toBe(false)
   }
 })
 
@@ -177,14 +218,25 @@ test('back lanes serve inhabited second-depth plots and courtyard voids retain n
   }
 })
 
-test('new frontages and lot grounds agree with drawn support and preserve the local collision budget', () => {
+test('new frontages and lot grounds agree with drawn support and preserve the local collision budget', async () => {
   const drawn = drawingIndex(), near = new Set<CityBuilding>()
+  // The exposed foundation cap is visible in the building tile, above the
+  // end of its approach. Include that rendered surface when comparing physics;
+  // checking only the fixed approach mistakes its covered part for the floor.
+  const foundations = new Map<string, ReturnType<typeof drawnMeshIndex>>()
+  for (const tile of manifest.tiles.filter(t => t.neighbourhood)) {
+    const mesh = decodeColonyMesh(await Bun.file(new URL('../../public' + tile.url, import.meta.url)).json(), false)
+    foundations.set(tile.id, drawnMeshIndex(mesh.meshes['arch-foundation'] ?? []))
+  }
   for (const p of parcels.parcels) {
     expect(p.access.maximumStep, p.id).toBeLessThan(.15)
     expect(Math.abs(p.access.end[2] - p.floor), p.id).toBeLessThan(.003)
     for (const t of [.05, .25, .5, .75, .95]) {
       const q = p.access.start.map((v, i) => v + (p.access.end[i] - v) * t)
-      const h = getCityGroundHeight(drawn, 3200, q[0] / 3200, q[1], 400)
+      const tiles = manifest.tiles.filter(tile => tile.neighbourhood && q[0] >= tile.bounds[0] && q[0] <= tile.bounds[2]
+        && q[1] >= tile.bounds[1] && q[1] <= tile.bounds[3])
+      const h = Math.max(getCityGroundHeight(drawn, 3200, q[0] / 3200, q[1], 400), ...tiles.map(tile =>
+        getCityGroundHeight(foundations.get(tile.id)!, 3200, q[0] / 3200, q[1], p.floor + .05, 0)))
       expect(h, p.id).toBeGreaterThan(0)
       expect(Math.abs(getCityGroundHeight(physics, 3200, q[0] / 3200, q[1], h + .03) - h), p.id).toBeLessThan(.02)
       collectCityCollidersNear(physics, q[0] / 3200, q[1], 1, near)

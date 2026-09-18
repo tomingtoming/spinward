@@ -352,3 +352,109 @@ grade check, it drops that access without trying the other candidates. The
 next access correction should evaluate alternative reserved routes against
 native ground, preserving the grade and obstruction limits. Merely choosing
 an easier garden for the VR case would not restore the five lost approaches.
+
+## Authored centre links
+
+The next 2026-09-18 increment connects the centre sides of the districts to
+different existing streets. `izma-district-links.json` records individually
+drawn endpoints, intermediate points, purposes and frontage uses for thirteen
+urban districts. These coordinates are Spinward design decisions, not a survey
+of the anime. The five rural/park districts retain their small-settlement policy.
+The planner may slide an attachment along its named parent, but does not invent
+the route or a repeated station loop. It reserves primary buildings, public
+places, rail approaches, water and the study.
+
+Of 45 authored candidates, 35 pass the planar reservations and 27 pass native
+surface and 7.5% grade checks. They add 11,305 m across twelve districts; both
+high-ground housing candidates still fail grade checks. Ten planar rejections,
+seven native grade failures and one unavailable parent remain explicit. The
+previous sixty built street objects and profiles retain identical JSON values.
+Sixteen previously unbuilt sketches are explicitly retired
+from the plan so that phantom road reservations cannot obstruct new links.
+None of the sixty existing physical streets is removed.
+
+The complete junction edge must fit on the existing carriageway, including
+when a wider lane meets a narrower one obliquely. Saved apron lengths are
+calculated from the actual parent width and joining angle. Native height
+probes still verify both corners and reject excessive grades; limits are not
+relaxed. The first rejected apron diagnostic is retained in the evidence.
+
+There are now 4,860 infill buildings plus 1,715 retained primary buildings,
+with 955 frontages on the new centre links. Shops/upper homes, housing,
+workshop access and loading streets have separately specified uses. All new
+interiors remain closed. Near, middle, silhouette and collision outputs come
+from the saved Blender scene. The 127 neighbourhood tiles total 217,933,182
+bytes, with a largest tile of 4,014,405 bytes. There are 570 tiles across all
+layers, still using the same eighteen loaded-tile limit and six-light pool.
+The colony JS bundle has grown to 96,249,923 bytes (22.16 MB gzip); this remains
+a substantial loading cost, not a performance success.
+
+Land reservations were replotted around the new streets and parcels: 100
+areas / 1,402,420.89 m², 4,837 fixtures, 51 accepted approaches and 132 garden
+path sections. Thirty-two candidate approaches fail native grades and seventeen
+areas have no selected approach. Increased access count does not establish
+that every previously lost approach was recovered. The shortest-candidate
+limitation described above remains.
+
+The eight targeted neighbourhood tests pass with 447,442 assertions. Two
+test assumptions were corrected using concrete probes: the 18 m town road
+has an 11.15 m road/sidewalk offset, larger than the former fixed 11 m bound;
+and a visible foundation cap can cover the end of an approach. The support
+comparison now includes the actual cap from the building tile, retaining its
+2 cm physical/drawing tolerance. The separate cost audit samples 128,068
+positions, with at most 31 bodies and 3,574 triangles. It does not measure frame
+time. Production build passes. Seventy-two desktop day/night captures cover all
+eighteen districts without page errors or failed requests, at most eighteen
+loaded tiles, using Apple M1 Pro / ANGLE Metal. Stationary frame medians are
+16.7–16.8 ms and p95 values 16.7–33.4 ms; the full CPU unit suite ran concurrently,
+so these are not isolated performance measurements. The full unit suite passes
+1,154 tests across 199 files. Four WebXR 0.3.0 cases pass in 17.4 minutes on one
+unchanged build: three complete centre-link walks and the four-world/wrist
+regression. The recorded walks cover 563.77 / 311.46 / 653.17 m, with all
+514 / 278 / 571 samples grounded and maximum drawn/support discrepancies of
+6.80 / 5.48 / 8.14 mm. Page-error lists are empty; the world-switch resource
+failure list is empty. Served HTML and all three JS bundle hashes match
+before/after. These four cases do not rerun the entire older XR suite.
+Physical-headset performance and comfort remain unmeasured.
+
+The CLI build wrapper timed out after its final contract and result file had
+been written. A separate CLI export successfully reopened the saved blend and
+validated its dependencies. The timeout is retained as a tool failure, rather
+than reported as a clean CLI exit. No GUI Blender scene was modified.
+
+The root reopened source frames ep05 `0039`, `0041` and ep06 `0063`, and compared
+the old-town before/after captures at the same requested camera coordinates.
+An independent image-only reviewer also compared old-town and housing. The
+old-town ground view now has continuous walls on both sides. Overviews still
+show shallow strips of buildings with large empty interiors; repetitive
+windows/porches and weak shop/house cues remain. Thin grass seams at paving
+and parcel edges make separate pieces visible. More signs alone will not fix
+the missing depth of the blocks. These are unfinished design issues.
+
+Evidence: `qa/webxr/evidence/colony-district-fabric-20260918/`. `before/desktop/`
+contains twelve baseline day/night views; new views use the same capture script.
+The 102 obsolete owned tiles were archived, individually restored and compared
+by hash/JSON before removal. To restore an archived tile when investigating the
+old model, copy the matching `archive` to `path` from `obsolete-tile-archive.json`
+and verify its `sha256`; the old model also remains at local commit `ce80477`.
+
+After the walks, the root inspected the market stereo view and the returned
+Izma wrist view. Both eyes retain corresponding scenery and the menu has no
+obvious clipping in this sample. Broad bright wall patches, repeated balconies
+and undeveloped ground remain visible. The source frames were reopened again
+when the user asked whether references were being used: ep05 `0039` shows
+closely packed, differently shaped roof footprints, `0041` has layered wall-edge
+equipment and narrow enclosure, and ep06 `0063` makes individual rooms' lights
+more prominent than the dark walls. These observations are not a claim that
+the current model reproduces those qualities.
+
+A read-only native study of the seven rejected links finds feasible attachment
+positions for six, including both high-ground housing links. The intermediate
+author-drawn route remains fixed, and the same 7.5% limit is retained. The six
+endpoint refinements are only a proposal in the evidence directory; they have
+not been adopted or checked together. The river cross-link still has no passing
+candidate. Separately, paving ends 0.15 m before the foundation edge and leaves
+0.25 m beside each entrance, explaining some of the thin grass seams. Future
+paving should abut the actual angled entrance edges and foundation; this does
+not imply that every corner gap has the same cause. Neither investigation
+changes the verified build.

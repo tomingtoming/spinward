@@ -170,17 +170,25 @@ def author():
             if not child_clear(child):
                 region['rejected']['inner-reservation']=region['rejected'].get('inner-reservation',0)+1;continue
             streets.append(child);region['streets'].append(child['id'])
+    # Centre-side links are individually drawn across different existing
+    # branches; they do not all return to the station road.
+    from plan_izma_district_links import add_district_links
+    centre_design=json.loads((ASSETS/'izma-district-links.json').read_text())
+    retired={s['id'] for s in centre_design.get('retiredStreetSketches',[])}
+    streets=[s for s in streets if s['id'] not in retired]
+    for region in districts:region['streets']=[s for s in region['streets'] if s not in retired]
+    rejected_links=add_district_links(master,centre_design,streets,districts,fixed_reservations)
     for region in districts:
         axis=[region['centre'][k]-region['station'][k] for k in range(2)];length=math.hypot(*axis)
         region['halfWidth']=max([max(abs(v) for v in plan['districts'][region['id']]['depths'])]+[
             abs((p[0]-region['station'][0])*axis[1]-(p[1]-region['station'][1])*axis[0])/length
             for street in streets if street['district']==region['id'] for p in street['points']])+40
     dependencies={p:hashlib.sha256((ASSETS/p).read_bytes()).hexdigest() for p in [
-        'izma-colony-plan.json','izma-urban-plan.json','izma-parcels.json','izma-public-spaces.json','izma-rail-plan.json','izma-transport.json']}
+        'izma-colony-plan.json','izma-urban-plan.json','izma-district-links.json','izma-parcels.json','izma-public-spaces.json','izma-rail-plan.json','izma-transport.json']}
     # Rail service meshes depend on the final infill contract; only its station
     # reservations are upstream here, avoiding a cyclic file-hash dependency.
     reservation_digest=hashlib.sha256(json.dumps(rail['stations'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    result={'origin':'ai','created':'2026-09-18','version':1,'districts':districts,'streets':streets,
+    result={'origin':'ai','created':'2026-09-18','version':1,'districts':districts,'streets':streets,'rejectedCentreLinks':rejected_links,
         'railStationDigest':reservation_digest,'dependencies':dependencies}
     (ASSETS/'izma-urban-streets.json').write_text(json.dumps(result,indent=2)+'\n')
     return result

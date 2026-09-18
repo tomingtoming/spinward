@@ -1,0 +1,1549 @@
+{
+  "origin": "ai",
+  "created": "2026-09-18",
+  "version": 1,
+  "coordinates": "Metres relative to each district centre. u continues from the station towards the centre; v is 90 degrees counterclockwise from u. Endpoints project onto the named existing route. Near points and intermediate waypoints are authored, not measurements recovered from reference images.",
+  "references": [
+    "izma-0006",
+    "izma-ep05-0039",
+    "izma-ep05-0041",
+    "izma-ep06-0073"
+  ],
+  "districts": {
+    "a-port": {
+      "premise": "工房の搬入動線と職住の細街路を駅軸の両側へ分ける。",
+      "character": "works",
+      "width": 6.5,
+      "families": [
+        "workshop",
+        "warehouse",
+        "apartment",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "work-court",
+          "ends": [
+            [
+              "station",
+              [
+                -150,
+                0
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                440
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -170,
+              200
+            ],
+            [
+              -110,
+              350
+            ]
+          ],
+          "purpose": "workshop service street"
+        },
+        {
+          "id": "craft-row",
+          "ends": [
+            [
+              "garden",
+              [
+                -190,
+                -270
+              ]
+            ],
+            [
+              "access",
+              [
+                170,
+                35
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -80,
+              -340
+            ],
+            [
+              140,
+              -230
+            ]
+          ],
+          "purpose": "shops and upper homes",
+          "families": [
+            "shop-house",
+            "apartment",
+            "workshop"
+          ]
+        },
+        {
+          "id": "yard-edge",
+          "ends": [
+            [
+              "access",
+              [
+                180,
+                40
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                160,
+                255
+              ]
+            ]
+          ],
+          "via": [
+            [
+              180,
+              170
+            ]
+          ],
+          "purpose": "work yards"
+        }
+      ]
+    },
+    "a-old-town": {
+      "premise": "川町の既存幹線の西側に商店の裏通りと斜めに接続する住戸路地を置く。",
+      "character": "lanes",
+      "width": 4.5,
+      "families": [
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "links": [
+        {
+          "id": "north-row",
+          "ends": [
+            [
+              "existing:urban-a-old-town-0-0-outer",
+              [
+                -415,
+                120
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                350
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -345,
+              220
+            ],
+            [
+              -170,
+              315
+            ]
+          ],
+          "purpose": "mixed shops and homes"
+        },
+        {
+          "id": "south-row",
+          "ends": [
+            [
+              "station",
+              [
+                -400,
+                0
+              ]
+            ],
+            [
+              "garden",
+              [
+                -185,
+                -265
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -360,
+              -170
+            ]
+          ],
+          "purpose": "residential back lane"
+        },
+        {
+          "id": "garden-end",
+          "ends": [
+            [
+              "garden",
+              [
+                -225,
+                -325
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -420
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -100,
+              -380
+            ]
+          ],
+          "purpose": "small workshops and housing"
+        },
+        {
+          "id": "cross-passage",
+          "ends": [
+            [
+              "station",
+              [
+                -190,
+                0
+              ]
+            ],
+            [
+              "@north-row",
+              [
+                -220,
+                285
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -220,
+              130
+            ]
+          ],
+          "purpose": "pedestrian scale shop passage",
+          "families": [
+            "shop-house",
+            "house"
+          ]
+        }
+      ]
+    },
+    "a-river": {
+      "premise": "保護した既存街区の西側段丘で、駅からの道と段丘端をつなぐ。河岸予約へ新道を押し込まない。",
+      "character": "lanes",
+      "width": 4.5,
+      "families": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "terrace-north",
+          "ends": [
+            [
+              "existing:urban-a-river-0-0",
+              [
+                -680,
+                70
+              ]
+            ],
+            [
+              "existing:urban-a-river-0-1",
+              [
+                -320,
+                75
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -575,
+              240
+            ],
+            [
+              -370,
+              265
+            ]
+          ],
+          "purpose": "upper terrace homes"
+        },
+        {
+          "id": "terrace-south",
+          "ends": [
+            [
+              "existing:urban-a-river-1-0",
+              [
+                -590,
+                -45
+              ]
+            ],
+            [
+              "garden",
+              [
+                -248,
+                -355
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -525,
+              -225
+            ],
+            [
+              -350,
+              -465
+            ]
+          ],
+          "purpose": "lower terrace homes"
+        },
+        {
+          "id": "terrace-cross",
+          "ends": [
+            [
+              "@terrace-north",
+              [
+                -500,
+                250
+              ]
+            ],
+            [
+              "existing:urban-a-river-0-1",
+              [
+                -420,
+                90
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -465,
+              155
+            ]
+          ],
+          "purpose": "terrace pedestrian link"
+        }
+      ]
+    },
+    "a-civic": {
+      "premise": "川を渡った市民地区側に市庁・業務と住宅の回遊街路を置き、駅側だけの増築を終える。",
+      "character": "courts",
+      "width": 6,
+      "families": [
+        "office",
+        "shop-house",
+        "apartment",
+        "civic"
+      ],
+      "links": [
+        {
+          "id": "civic-east",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                420
+              ]
+            ],
+            [
+              "access",
+              [
+                350,
+                180
+              ]
+            ]
+          ],
+          "via": [
+            [
+              150,
+              360
+            ],
+            [
+              260,
+              245
+            ]
+          ],
+          "purpose": "civic and office frontage"
+        },
+        {
+          "id": "civic-south",
+          "ends": [
+            [
+              "access",
+              [
+                310,
+                165
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -320
+              ]
+            ]
+          ],
+          "via": [
+            [
+              340,
+              -70
+            ],
+            [
+              200,
+              -240
+            ]
+          ],
+          "purpose": "housing behind civic frontage"
+        },
+        {
+          "id": "campus-north",
+          "ends": [
+            [
+              "station",
+              [
+                -240,
+                0
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                -150,
+                245
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -230,
+              110
+            ]
+          ],
+          "purpose": "station side retail"
+        },
+        {
+          "id": "civic-cross",
+          "ends": [
+            [
+              "@civic-east",
+              [
+                205,
+                305
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                190
+              ]
+            ]
+          ],
+          "via": [
+            [
+              105,
+              200
+            ]
+          ],
+          "purpose": "pedestrian civic cross street"
+        }
+      ]
+    },
+    "a-upland": {
+      "premise": "丘の裾にまとまった住区と近隣商店を置き、川の側は保全する。",
+      "character": "courts",
+      "width": 5.5,
+      "families": [
+        "house",
+        "apartment",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "hill-west",
+          "ends": [
+            [
+              "station",
+              [
+                -160,
+                0
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                430
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -190,
+              230
+            ],
+            [
+              -110,
+              380
+            ]
+          ],
+          "purpose": "slope housing"
+        },
+        {
+          "id": "hill-east",
+          "ends": [
+            [
+              "neighbourhood",
+              [
+                230,
+                360
+              ]
+            ],
+            [
+              "access",
+              [
+                300,
+                50
+              ]
+            ]
+          ],
+          "via": [
+            [
+              315,
+              295
+            ],
+            [
+              300,
+              150
+            ]
+          ],
+          "purpose": "terrace housing edge"
+        },
+        {
+          "id": "lower-homes",
+          "ends": [
+            [
+              "garden",
+              [
+                -185,
+                -265
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -440
+              ]
+            ]
+          ],
+          "via": [
+            [
+              0,
+              -330
+            ]
+          ],
+          "purpose": "lower housing row"
+        }
+      ]
+    },
+    "b-workshop": {
+      "premise": "職住地区の作業場を南側、日常の店と住戸を北側へつなぐ。",
+      "character": "works",
+      "width": 6.5,
+      "families": [
+        "workshop",
+        "warehouse",
+        "shop-house",
+        "apartment"
+      ],
+      "links": [
+        {
+          "id": "living-north",
+          "ends": [
+            [
+              "garden",
+              [
+                -165,
+                235
+              ]
+            ],
+            [
+              "access",
+              [
+                240,
+                -40
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -20,
+              300
+            ],
+            [
+              130,
+              260
+            ]
+          ],
+          "purpose": "shops and housing",
+          "families": [
+            "shop-house",
+            "apartment"
+          ]
+        },
+        {
+          "id": "works-south",
+          "ends": [
+            [
+              "neighbourhood",
+              [
+                210,
+                -330
+              ]
+            ],
+            [
+              "access",
+              [
+                410,
+                -65
+              ]
+            ]
+          ],
+          "via": [
+            [
+              330,
+              -320
+            ],
+            [
+              410,
+              -200
+            ]
+          ],
+          "purpose": "shared loading court"
+        },
+        {
+          "id": "work-cross",
+          "ends": [
+            [
+              "town",
+              [
+                40,
+                -350
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                180,
+                -285
+              ]
+            ]
+          ],
+          "via": [
+            [
+              110,
+              -300
+            ]
+          ],
+          "purpose": "workshop lane"
+        }
+      ]
+    },
+    "b-campus": {
+      "premise": "大きな公共用地の縁と住宅街を分け、大学側の既存道と市街側の道を接続する。",
+      "character": "courts",
+      "width": 6,
+      "families": [
+        "civic",
+        "apartment",
+        "shop-house",
+        "office"
+      ],
+      "links": [
+        {
+          "id": "clinic-east",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                370
+              ]
+            ],
+            [
+              "access",
+              [
+                280,
+                -115
+              ]
+            ]
+          ],
+          "via": [
+            [
+              220,
+              280
+            ],
+            [
+              280,
+              100
+            ]
+          ],
+          "purpose": "clinic and research frontage"
+        },
+        {
+          "id": "living-east",
+          "ends": [
+            [
+              "access",
+              [
+                290,
+                -120
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -480
+              ]
+            ]
+          ],
+          "via": [
+            [
+              340,
+              -330
+            ],
+            [
+              170,
+              -470
+            ]
+          ],
+          "purpose": "staff housing"
+        },
+        {
+          "id": "campus-walk",
+          "ends": [
+            [
+              "campus",
+              [
+                -170,
+                145
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                240
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -80,
+              180
+            ]
+          ],
+          "purpose": "campus approach"
+        },
+        {
+          "id": "school-cross",
+          "ends": [
+            [
+              "@clinic-east",
+              [
+                190,
+                290
+              ]
+            ],
+            [
+              "access",
+              [
+                170,
+                -70
+              ]
+            ]
+          ],
+          "via": [
+            [
+              160,
+              100
+            ]
+          ],
+          "purpose": "school local street"
+        }
+      ]
+    },
+    "b-station": {
+      "premise": "新都心の既存の大きな回遊路を小さな業務・住居街区へ分ける。",
+      "character": "courts",
+      "width": 5.5,
+      "families": [
+        "office",
+        "apartment",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "station-north",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                320
+              ]
+            ],
+            [
+              "campus",
+              [
+                230,
+                200
+              ]
+            ]
+          ],
+          "via": [
+            [
+              110,
+              285
+            ],
+            [
+              200,
+              240
+            ]
+          ],
+          "purpose": "offices behind station"
+        },
+        {
+          "id": "station-south",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                -330
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                200,
+                -310
+              ]
+            ]
+          ],
+          "via": [
+            [
+              140,
+              -290
+            ]
+          ],
+          "purpose": "mixed housing"
+        },
+        {
+          "id": "market-cross",
+          "ends": [
+            [
+              "campus",
+              [
+                190,
+                170
+              ]
+            ],
+            [
+              "access",
+              [
+                230,
+                -45
+              ]
+            ]
+          ],
+          "via": [
+            [
+              210,
+              60
+            ]
+          ],
+          "purpose": "station retail lane",
+          "families": [
+            "shop-house",
+            "office"
+          ]
+        },
+        {
+          "id": "service-cross",
+          "ends": [
+            [
+              "access",
+              [
+                250,
+                -50
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                180,
+                -285
+              ]
+            ]
+          ],
+          "via": [
+            [
+              210,
+              -145
+            ]
+          ],
+          "purpose": "service and housing lane"
+        }
+      ]
+    },
+    "b-housing": {
+      "premise": "川の西側の団地中心と商店街を、大小の住棟の間を通る道でつなぐ。",
+      "character": "courts",
+      "width": 5.5,
+      "families": [
+        "apartment",
+        "shop-house",
+        "house",
+        "apartment"
+      ],
+      "links": [
+        {
+          "id": "housing-north",
+          "ends": [
+            [
+              "existing:urban-b-housing-0-3-outer",
+              [
+                -215,
+                170
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                400
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -220,
+              250
+            ],
+            [
+              -100,
+              345
+            ]
+          ],
+          "purpose": "apartment street"
+        },
+        {
+          "id": "housing-east",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                440
+              ]
+            ],
+            [
+              "garden",
+              [
+                215,
+                310
+              ]
+            ]
+          ],
+          "via": [
+            [
+              125,
+              435
+            ]
+          ],
+          "purpose": "housing boundary"
+        },
+        {
+          "id": "housing-south",
+          "ends": [
+            [
+              "neighbourhood",
+              [
+                -225,
+                -355
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -475
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -130,
+              -420
+            ]
+          ],
+          "purpose": "housing rear street"
+        },
+        {
+          "id": "shops-cross",
+          "ends": [
+            [
+              "existing:urban-b-housing-0-3-outer",
+              [
+                -145,
+                150
+              ]
+            ],
+            [
+              "@housing-north",
+              [
+                -135,
+                305
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -130,
+              235
+            ]
+          ],
+          "purpose": "neighbourhood shops",
+          "families": [
+            "shop-house",
+            "apartment"
+          ]
+        }
+      ]
+    },
+    "b-north": {
+      "premise": "新市街の中心東側へ公共施設と住区を広げ、河岸側には無理な橋を増設しない。",
+      "character": "courts",
+      "width": 5.5,
+      "families": [
+        "apartment",
+        "office",
+        "house",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "north-east",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                400
+              ]
+            ],
+            [
+              "access",
+              [
+                405,
+                -170
+              ]
+            ]
+          ],
+          "via": [
+            [
+              180,
+              355
+            ],
+            [
+              350,
+              210
+            ]
+          ],
+          "purpose": "new town mixed frontage"
+        },
+        {
+          "id": "south-east",
+          "ends": [
+            [
+              "access",
+              [
+                390,
+                -165
+              ]
+            ],
+            [
+              "neighbourhood",
+              [
+                -140,
+                -225
+              ]
+            ]
+          ],
+          "via": [
+            [
+              320,
+              -345
+            ],
+            [
+              130,
+              -435
+            ],
+            [
+              -60,
+              -360
+            ]
+          ],
+          "purpose": "new town housing"
+        },
+        {
+          "id": "centre-cross",
+          "ends": [
+            [
+              "@north-east",
+              [
+                190,
+                300
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                160
+              ]
+            ]
+          ],
+          "via": [
+            [
+              100,
+              170
+            ]
+          ],
+          "purpose": "public services street"
+        }
+      ]
+    },
+    "c-cargo": {
+      "premise": "貨物・整備拠点には大きな作業用地と作業員の生活路を別々に確保する。",
+      "character": "works",
+      "width": 7,
+      "families": [
+        "warehouse",
+        "workshop",
+        "apartment",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "cargo-west",
+          "ends": [
+            [
+              "station",
+              [
+                -200,
+                0
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                440
+              ]
+            ]
+          ],
+          "via": [
+            [
+              -185,
+              280
+            ]
+          ],
+          "purpose": "service and worker frontage"
+        },
+        {
+          "id": "cargo-south",
+          "ends": [
+            [
+              "garden",
+              [
+                -190,
+                -270
+              ]
+            ],
+            [
+              "access",
+              [
+                210,
+                45
+              ]
+            ]
+          ],
+          "via": [
+            [
+              25,
+              -340
+            ],
+            [
+              170,
+              -245
+            ]
+          ],
+          "purpose": "loading court"
+        },
+        {
+          "id": "cargo-east",
+          "ends": [
+            [
+              "neighbourhood",
+              [
+                225,
+                355
+              ]
+            ],
+            [
+              "access",
+              [
+                350,
+                75
+              ]
+            ]
+          ],
+          "via": [
+            [
+              340,
+              295
+            ],
+            [
+              355,
+              150
+            ]
+          ],
+          "purpose": "cargo support street"
+        }
+      ]
+    },
+    "c-production": {
+      "premise": "川の東側の生産中心に作業路と職住の裏通りを増やし、駅側集落と役割を分ける。",
+      "character": "works",
+      "width": 6.5,
+      "families": [
+        "workshop",
+        "warehouse",
+        "house",
+        "shop-house"
+      ],
+      "links": [
+        {
+          "id": "production-east",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                460
+              ]
+            ],
+            [
+              "access",
+              [
+                365,
+                180
+              ]
+            ]
+          ],
+          "via": [
+            [
+              225,
+              350
+            ],
+            [
+              315,
+              250
+            ]
+          ],
+          "purpose": "production court"
+        },
+        {
+          "id": "production-south",
+          "ends": [
+            [
+              "garden",
+              [
+                185,
+                -270
+              ]
+            ],
+            [
+              "access",
+              [
+                360,
+                180
+              ]
+            ]
+          ],
+          "via": [
+            [
+              310,
+              -255
+            ],
+            [
+              375,
+              -150
+            ]
+          ],
+          "purpose": "workshop service street"
+        },
+        {
+          "id": "workers-row",
+          "ends": [
+            [
+              "garden",
+              [
+                150,
+                -215
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -385
+              ]
+            ]
+          ],
+          "via": [
+            [
+              20,
+              -285
+            ]
+          ],
+          "purpose": "worker homes",
+          "families": [
+            "house",
+            "shop-house",
+            "apartment"
+          ]
+        }
+      ]
+    },
+    "c-market": {
+      "premise": "市場は川の東岸の中心に設ける。商店の表通りから荷捌きの裏道と住戸路地がつながる。",
+      "character": "lanes",
+      "width": 4.5,
+      "families": [
+        "shop-house",
+        "shop-house",
+        "apartment",
+        "workshop"
+      ],
+      "links": [
+        {
+          "id": "market-north",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                440
+              ]
+            ],
+            [
+              "access",
+              [
+                250,
+                60
+              ]
+            ]
+          ],
+          "via": [
+            [
+              130,
+              420
+            ],
+            [
+              260,
+              230
+            ]
+          ],
+          "purpose": "market shopping street",
+          "families": [
+            "shop-house",
+            "apartment"
+          ]
+        },
+        {
+          "id": "market-service",
+          "ends": [
+            [
+              "garden",
+              [
+                170,
+                -250
+              ]
+            ],
+            [
+              "access",
+              [
+                400,
+                100
+              ]
+            ]
+          ],
+          "via": [
+            [
+              330,
+              -230
+            ],
+            [
+              380,
+              -100
+            ]
+          ],
+          "purpose": "market loading back street",
+          "families": [
+            "workshop",
+            "shop-house"
+          ]
+        },
+        {
+          "id": "market-homes",
+          "ends": [
+            [
+              "garden",
+              [
+                130,
+                -185
+              ]
+            ],
+            [
+              "town",
+              [
+                0,
+                -320
+              ]
+            ]
+          ],
+          "via": [
+            [
+              70,
+              -260
+            ]
+          ],
+          "purpose": "homes above market"
+        },
+        {
+          "id": "market-cross",
+          "ends": [
+            [
+              "town",
+              [
+                0,
+                160
+              ]
+            ],
+            [
+              "@market-north",
+              [
+                240,
+                260
+              ]
+            ]
+          ],
+          "via": [
+            [
+              130,
+              170
+            ]
+          ],
+          "purpose": "small shop passage",
+          "families": [
+            "shop-house",
+            "apartment"
+          ]
+        }
+      ]
+    }
+  },
+  "retiredStreetSketches": [
+    {
+      "id": "urban-a-river-0-2",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-1-2",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-upland-0-0",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-0-0-cross",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-0-0-outer",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-0-1-outer",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-0-2-outer",
+      "reason": "Not built in verified ce80477 native model: parent-unavailable"
+    },
+    {
+      "id": "urban-a-river-1-0-cross",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-1-0-outer",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-a-river-1-2-cross",
+      "reason": "Not built in verified ce80477 native model: parent-unavailable"
+    },
+    {
+      "id": "urban-a-river-1-2-outer",
+      "reason": "Not built in verified ce80477 native model: parent-unavailable"
+    },
+    {
+      "id": "urban-a-upland-0-0-cross",
+      "reason": "Not built in verified ce80477 native model: parent-unavailable"
+    },
+    {
+      "id": "urban-a-upland-0-0-outer",
+      "reason": "Not built in verified ce80477 native model: parent-unavailable"
+    },
+    {
+      "id": "urban-b-campus-0-0-cross",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-b-campus-0-0-outer",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    },
+    {
+      "id": "urban-b-campus-1-1-outer",
+      "reason": "Not built in verified ce80477 native model: junction-grade"
+    }
+  ]
+}

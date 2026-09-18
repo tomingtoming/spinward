@@ -5,7 +5,24 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest frontage-parcel verification (2026-09-18): **5,600 buildings** on the
+Latest authored centre-link verification (2026-09-18): **27 new streets across
+12 districts**, retaining the existing 60 physical streets and their profiles.
+**1,154 unit tests**, production build, **72 desktop day/night views** and
+**four WebXR 0.3.0 cases in 17.4 minutes** pass. The three strip-specific walks
+cross complete links between different parent streets, covering
+**563.77 / 311.46 / 653.17 m** with all sampled positions grounded; maximum
+drawn/support discrepancy is 8.14 mm. The fourth case verifies stereo walking
+and wrist travel through Izma, Cooper, Elysium and Playground, then back to Izma.
+HTML and all three JS bundle hashes match before/after. These four targeted
+cases do not rerun all older XR scenarios. There are now 6,575 buildings, but
+shallow blocks, repeated facades, paving seams and overbright night walls
+remain visible. The colony JS bundle is 96.25 MB before gzip; this is an
+unfinished loading cost. Physical Quest remains unmeasured.
+[Model, reference comparison and limits](../neighborhood-life/colony-block-depth.md#authored-centre-links).
+Evidence: `evidence/colony-district-fabric-20260918/`. Run these XR cases with
+`qa/webxr/colony-urban.xr.mjs qa/webxr/world-landscapes.xr.mjs --grep 'centre link:|authored'`.
+
+Previous frontage-parcel verification (2026-09-18): **5,600 buildings** on the
 retained 60 local streets, **1,153 unit tests**, production build, **82 desktop
 day/night captures** and twelve matched before/after views. All **15 current
 WebXR 0.3.0 cases** are covered on one unchanged build: thirteen passed in the

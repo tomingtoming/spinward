@@ -3,17 +3,23 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, MeshBasicMa
 import fs from 'node:fs/promises'
 
 const plan = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
+const transport = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-transport.json', import.meta.url), 'utf8'))
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const [district,deep] of ['a-old-town','b-housing','c-market'].flatMap(d=>[[d,false],[d,true]])) test(`${deep?'second-depth':'back street'}: ${district} continuous loop`, async ({ page, xr }, info) => {
-  test.setTimeout(deep?480000:360000)
-  const street = deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
+for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
+  const deep=mode==='second-depth',centre=mode==='centre link'
+  test.setTimeout(centre?600000:deep?480000:360000)
+  const linkNames={'a-old-town':'north-row','b-housing':'housing-south','c-market':'market-north'}
+  const street = centre?plan.streets.find(s=>s.id===`urban-${district}-link-${linkNames[district]}`):deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
+  expect(street,'authored street is actually built').toBeDefined()
   let path = [...street.profile]
-  if(deep){
-    const parents=street.connections.map(id=>plan.streets.find(s=>s.id===id))
+  if(deep||centre){
+    const parents=street.connections.map(id=>plan.streets.find(s=>s.id===id)??{
+      profile:transport.profiles.find(s=>s.id===id).points.map(p=>[p[0]+street.band*Math.PI*6400/3,p[1],p[2]])
+    })
     const near=(s,p)=>s.profile.reduce((best,q,i)=>Math.hypot(q[0]-p[0],q[1]-p[1])<Math.hypot(s.profile[best][0]-p[0],s.profile[best][1]-p[1])?i:best,0)
     const start=near(parents[0],path[0]),end=near(parents[1],path.at(-1))
     path=[...parents[0].profile.slice(Math.max(0,start-6),start+1),...path,...parents[1].profile.slice(end,end+7)]
-    path=[...path,...path.slice(0,-1).reverse()]
+    if(deep)path=[...path,...path.slice(0,-1).reverse()]
   }
   const startPoint = path[0]
   const errors = [], samples = [], captures = []
@@ -26,11 +32,12 @@ for (const [district,deep] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     const colony = window.__spinwardCity.authoredColony.group
     const gl = document.querySelector('canvas').getContext('webgl2'), ext = gl.getExtension('WEBGL_debug_renderer_info')
     const positions = [], minY = Math.min(...points.map(p => p[1])) - 20, maxY = Math.max(...points.map(p => p[1])) + 20
+    const extentX = Math.max(...points.map(p => Math.abs(p[0] - points[0][0]))) + 20
     for (const name of ['colony-base', 'colony-neighbourhood-ground']) for (const mesh of colony.getObjectByName(name).children) {
       const v = mesh.geometry.attributes.position.array
       for (let i = 0; i < v.length; i += 9) {
         const dx = Math.atan2(Math.sin(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200), Math.cos(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200)) * 3200
-        if (Math.abs(dx) < 500 && v[i + 1] > minY && v[i + 1] < maxY) for (let j = 0; j < 9; j++) positions.push(v[i + j])
+        if (Math.abs(dx) < extentX && v[i + 1] > minY && v[i + 1] < maxY) for (let j = 0; j < 9; j++) positions.push(v[i + j])
       }
     }
     return { positions, gpu: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unknown' }
