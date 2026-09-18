@@ -274,10 +274,11 @@ export class AuthoredColony {
   prepareRegions(foci: readonly ColonyFocus[]) { return this.regions?.request(foci) ?? true }
   regionsReady(focus: ColonyFocus) { return this.regions?.readyAt(focus) ?? true }
   getRegionalStatus() { return this.regions?.stats ?? null }
+  retryRegions() { this.regions?.retry() }
   getRailData() { return this.manifest?.railways ?? null }
   getRailAppearance() { return { palette: this.manifest?.palette ?? {}, details: this.manifest?.materialDetails ?? {} } }
 
-  visit(kind: string, index: CityCollisionIndex) {
+  visit(kind: string, index: CityCollisionIndex | null) {
     // One wrist destination takes the visitor to the nearest district's public
     // place. Named deep links remain stable for exploring all 18 districts.
     if ((kind === 'public' || kind === 'station') && this.manifest) {
@@ -293,7 +294,10 @@ export class AuthoredColony {
     const point = this.manifest?.visits[kind]
     if (!point || !this.manifest) return null
     const azimuth = point.band * Math.PI * 2 / 3 + point.position[0] / this.manifest.radius, axial = point.position[1]
-    const groundHeight = getCityGroundHeight(index, this.manifest.radius, azimuth, axial, point.heightHint === undefined ? 400 : point.heightHint + .5)
+    // Menu availability and arrival planning must not query unloaded floors.
+    // Resolve the real height with an index only after regional readiness.
+    const groundHeight = index ? getCityGroundHeight(index, this.manifest.radius, azimuth, axial,
+      point.heightHint === undefined ? 400 : point.heightHint + .5) : point.heightHint ?? 0
     const up = new THREE.Vector3(-Math.cos(azimuth), 0, -Math.sin(azimuth))
     const eye = up.clone().multiplyScalar(-(this.manifest.radius - groundHeight - 1.8)); eye.y = axial
     const targetAngle = point.lookAt ? point.band * Math.PI * 2 / 3 + point.lookAt[0] / this.manifest.radius : 0

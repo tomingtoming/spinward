@@ -12,6 +12,7 @@ for (const id of ['a-civic', 'b-housing', 'c-market']) test(`station approach: $
   await page.route('https://static.cloudflareinsights.com/**', r => r.fulfill({ status: 200, body: '' }))
   await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&landscape=authored&preset=izma&t=${station.band === 2 ? .9 : .42}&visit=station-${id}`)
   await page.waitForSelector('#splash', { state: 'detached' })
+  await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
   await page.waitForFunction(() => window.__spinwardCity.authoredColony.group.userData.pending === 0)
   const drawing = await page.evaluate(centre => {
     const gl = document.querySelector('canvas').getContext('webgl2'), d = gl.getExtension('WEBGL_debug_renderer_info'), positions = []
@@ -94,6 +95,7 @@ test('tram: real VR boarding, continuous inter-district ride, alighting and wris
   await page.route('https://static.cloudflareinsights.com/**', r => r.fulfill({ status: 200, body: '' }))
   await page.goto(`/?debug&metrics=off&lock=0&dpr=1&tier=quest&landscape=authored&preset=izma&t=.42&m=g&a=${start[0] / 3200}&ax=${start[1]}&gh=${start[2]}`)
   await page.waitForSelector('#splash', { state: 'detached' })
+  await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
   await page.waitForFunction(() => window.__spinwardCity.authoredColony.group.userData.pending === 0)
   const gpu = await page.evaluate(() => {
     const gl = document.querySelector('canvas').getContext('webgl2'), d = gl.getExtension('WEBGL_debug_renderer_info')
@@ -197,6 +199,7 @@ test('tram: real VR boarding, continuous inter-district ride, alighting and wris
       if (id === 'visit-station') await capture('station-in-places')
       await xr.pressButton('right', 'trigger'); await xr.waitForFrames(3, { timeout: 5000 })
     }
+    await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
     const returned = await sample()
     expect(Math.hypot(returned.azimuth * 3200 - destination.entry[0], returned.axial - destination.entry[1])).toBeLessThan(.3)
     await capture('station-entrance')

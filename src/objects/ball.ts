@@ -357,6 +357,10 @@ export class Ball {
     return this.rotatingVelocity
   }
 
+  get needsHabitatCollision() {
+    return this.confineToHabitat && !this.grabbed && !this.isExpired()
+  }
+
   get isGrabbed() {
     return this.grabbed
   }

@@ -27,7 +27,10 @@ test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
 test('authored landscapes share stereo walking, wrist travel and a clean Playground return',async({page,xr},info)=>{
   const errors=[],failures=[],frames=[],worlds=[]
   page.on('pageerror',e=>errors.push(e.message))
-  page.on('requestfailed',r=>failures.push({url:r.url(),error:r.failure()?.errorText}))
+  page.on('requestfailed',r=>{
+    if(r.failure()?.errorText.includes('ERR_ABORTED')&&/\/landscapes\/izma\/data-[a-f0-9]+\.json$/.test(r.url()))return
+    failures.push({url:r.url(),error:r.failure()?.errorText})
+  })
   await page.goto('about:blank')
   const gpu=await page.evaluate(()=>{
     const gl=document.createElement('canvas').getContext('webgl2'),d=gl?.getExtension('WEBGL_debug_renderer_info')
@@ -37,7 +40,7 @@ test('authored landscapes share stereo walking, wrist travel and a clean Playgro
   expect(gpu).not.toMatch(/SwiftShader|Software|llvmpipe/i)
   await page.route('https://static.cloudflareinsights.com/**',r=>r.fulfill({status:200,body:''}))
   await page.goto('/?debug&metrics=off&lock=0&dpr=1&tier=quest&landscape=authored&preset=izma&t=.42')
-  await page.waitForSelector('#splash',{state:'detached'})
+  await page.waitForSelector('#splash',{state:'detached'});await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
   await page.getByRole('button',{name:'Menu',exact:true}).click();await xr.enterVR()
   const diagnostics=await xr.diagnostics()
   expect(diagnostics.runtime.playwrightWebxrVersion).toBe('0.3.0')
@@ -71,7 +74,7 @@ test('authored landscapes share stereo walking, wrist travel and a clean Playgro
   for (const id of ['izma','cooper','elysium','playground','izma']) {
     await xr.setHeadPose({position:[0,1.6,0],euler:[-.22,0,0]})
     await xr.setControllerPose('left',left);await xr.waitForFrames(3,{timeout:5000})
-    await press(page,xr,'nav-habitat');await press(page,xr,`preset-apply-${id}`)
+    await press(page,xr,'nav-habitat');await press(page,xr,`preset-apply-${id}`);await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
     await xr.waitForFrames(3,{timeout:5000});await press(page,xr,'nav-home')
     const arrived=await state()
     expect(arrived.mode).toBe('grounded')
@@ -85,7 +88,7 @@ test('authored landscapes share stereo walking, wrist travel and a clean Playgro
     expect(arrived.id).toBe(id);expect(arrived.expressway).toBeNull()
     await press(page,xr,'nav-places')
     frames.push(await xr.screenshot(info.outputPath(`${id}-${worlds.length}-places.png`),{canvas:'canvas',metadata:true,timeout:5000}))
-    await press(page,xr,'visit-landscape')
+    await press(page,xr,'visit-landscape');await page.waitForFunction(()=>!window.__spinward?.regional || (window.__spinward.regional.state==='ready'&&!window.__spinward.regional.pendingArrival))
     await xr.waitForFrames(3,{timeout:5000})
     const before=await state(),tracking=await page.evaluate(()=>{
       const c=window.__spinwardCity,a=c.authoredLandscape,data=a.data,r=window.__spinward.radius

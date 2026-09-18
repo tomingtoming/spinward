@@ -153,6 +153,11 @@ export class ColonyRegionStore {
     return entry.packed
   }
 
+  retry() {
+    if (this.disposed) return
+    this.failed.clear(); this.pump()
+  }
+
   private pump() {
     if (this.disposed) return
     for (const region of this.wanted) {

@@ -173,6 +173,8 @@ import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
 import { createHud } from '../ui/hud'
 import { createTourNotice } from '../ui/tourNotice'
 import { TourCardPanel } from '../ui/tourCardPanel'
+import { ColonyMotionGate } from './colonyMotionGate'
+import { getExteriorVantage } from '../gameplay/respawn'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
 import type { WatchActionId } from '../ui/watch/watchLayout'
@@ -228,7 +230,7 @@ export const bootstrapApp = async () => {
   const landscapes = landscapeStudy
     ? unpackLandscapeLibrary((await import('../worlds/generated/worldLandscapes.json')).default) : null
   const colony = landscapeStudy
-    ? readColonyManifest(await readColonyDocument((await import('../worlds/generated/izmaColony.json')).default)) : null
+    ? readColonyManifest(await readColonyDocument((await import('../worlds/generated/izmaColonyRuntime.json')).default)) : null
   const reattachTuning = settingsStore.reattach
   const initialSurfaceState: SurfaceRigState = centralPlazaArrival(habitatConfig.radius)
   const debugVisuals = {
@@ -733,6 +735,7 @@ export const bootstrapApp = async () => {
     ? rail.service?.nearestBoarding(playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,
       playerTraversal.groundHeight, habitatConfig.radius) ?? null : null
   const toggleRailRide = () => {
+    if (colonyMotion.state !== 'ready') return true
     if (railRide.riding) {
       if (railRide.leave(playerTraversal, seatFrame())) { audio.playClick(); vibrate(12) }
       return true
@@ -745,6 +748,7 @@ export const bootstrapApp = async () => {
     return true
   }
   const toggleRoomSeat = () => {
+    if (colonyMotion.state !== 'ready') return false
     if (drive.driving || railRide.riding || renderer.xr.isPresenting) return false
     audio.unlock()
     roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
@@ -872,6 +876,7 @@ export const bootstrapApp = async () => {
       units: getUnits()
     })
   let playerTraversal = buildPlayerTraversal()
+  const colonyMotion = new ColonyMotionGate()
   let vrLocomotion: VRLocomotion | null = null
 
   const throwDebugArrow = new THREE.ArrowHelper(
@@ -998,7 +1003,11 @@ export const bootstrapApp = async () => {
     return didRespawn
   }
 
-  const respawnPlayerOverlook = () => {
+  const respawnPlayerOverlook = (prepared = false) => {
+    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
+      colonyMotion.queue(cityscape.authoredColony, { azimuth: 0, axial: 0, distance: 256 }, () => respawnPlayerOverlook(true))
+      return true
+    }
     const didRespawn = respawnPlayerOverlookRuntime(
       {
         respawnOverlook,
@@ -1023,7 +1032,13 @@ export const bootstrapApp = async () => {
     return didRespawn
   }
 
-  const respawnPlayerAxisEnd = () => {
+  const respawnPlayerAxisEnd = (prepared = false) => {
+    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
+      const span = getHabitatSpanMeters()
+      const axial = habitatConfig.type === 'cylinder' ? -Math.max(0, span / 2 - Math.min(50, Math.max(5, span * .1))) : 0
+      colonyMotion.queue(cityscape.authoredColony, { azimuth: 0, axial, distance: 256 }, () => respawnPlayerAxisEnd(true))
+      return true
+    }
     return respawnPlayerAxisEndRuntime(
       {
         respawnAxisEnd,
@@ -1042,7 +1057,16 @@ export const bootstrapApp = async () => {
   }
 
   const exteriorFacing = new THREE.Vector3()
-  const respawnPlayerExterior = () => {
+  const respawnPlayerExterior = (prepared = false) => {
+    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
+      const position = getExteriorVantage({ type: habitatConfig.type, radius: habitatConfig.radius,
+        length: getHabitatSpanMeters(), aspect: renderer.xr.isPresenting ? 1 : camera.aspect,
+        verticalFovDegrees: camera.fov,
+        mirrorReach: getWindowArcs(habitatConfig.topology).length ? getHabitatSpanMeters() * 1.02 : 0 })
+      colonyMotion.queue(cityscape.authoredColony, { azimuth: Math.atan2(position.z, position.x),
+        axial: position.y, distance: 256 }, () => respawnPlayerExterior(true))
+      return true
+    }
     const didRespawn = respawnPlayerExteriorRuntime(
       {
         respawnExterior,
@@ -1142,6 +1166,7 @@ export const bootstrapApp = async () => {
   }
 
   const tryToggleDrive = (viaPointer = false) => {
+    if (colonyMotion.state !== 'ready') return
     if (railRide.riding) return
     if (roomSeating.seat) roomSeating.leave(playerTraversal, seatFrame())
     if (drive.driving) {
@@ -1195,6 +1220,8 @@ export const bootstrapApp = async () => {
   }
 
   const prepareTravel = () => {
+    colonyMotion.cancel()
+    cityscape.authoredColony.retryRegions()
     railRide.cancel(playerTraversal)
     journey.cancel()
     // Travel leaves the old attachment before placing the new body. Otherwise
@@ -1269,9 +1296,7 @@ export const bootstrapApp = async () => {
         syncHabitat()
         settingsDirty = false
         if (cityscape.isAuthoredLandscape()) {
-          const visit = cityscape.getInteriorVisit('landscape')!
-          applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
-            groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+          queuePlaceVisit('landscape')
         }
         return true
       case 'rain-toggle':
@@ -1292,14 +1317,16 @@ export const bootstrapApp = async () => {
         if (runtimeAction.mode === 'inner-wall') {
           reportTour('surface')
           if (cityscape.isAuthoredLandscape()) {
-            const visit = cityscape.getInteriorVisit('landscape')!
-            applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
-              groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+            queuePlaceVisit('landscape')
             return true
           }
           return respawnPlayerInnerWall()
         }
         if (runtimeAction.mode === 'old-town') {
+          if (cityscape.authoredColony.getRegionalStatus()) {
+            reportTour('old-town')
+            return queuePlaceVisit('a-old-town')
+          }
           const moved = respawnPlayerOldTown()
           if (moved) reportTour('old-town')
           return moved
@@ -1316,10 +1343,10 @@ export const bootstrapApp = async () => {
         reportTour('axis')
         return respawnPlayerAxisEnd()
       case 'visit': {
-        const visit = resolvePlaceVisit(runtimeAction.action, kind => cityscape.getInteriorVisit(kind))
-        if (!visit) return false
+        const kind = resolvePlaceVisit(runtimeAction.action, kind => cityscape.locateInteriorVisit(kind) ? kind : null)
+        if (!kind) return false
         prepareTravel()
-        applySharedPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial, groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+        queuePlaceVisit(kind)
         reportTour(runtimeAction.action)
         audio.playClick()
         return true
@@ -1512,7 +1539,7 @@ export const bootstrapApp = async () => {
   // recover the look. Grounded hands yaw/pitch to the look controls (they own
   // the camera euler); free-fly sets the camera directly and the controls'
   // grounded→free-fly seeding adopts it into the rig attitude on frame one.
-  const applySharedPose = (pose: SharePose, orientation: ShareOrientation | null) => {
+  const applyReadyPose = (pose: SharePose, orientation: ShareOrientation | null) => {
     const omega = rpmToOmega(habitatConfig.rpm)
     const habitatSpan = getHabitatSpan(habitatConfig)
 
@@ -1579,6 +1606,26 @@ export const bootstrapApp = async () => {
     } else {
       camera.quaternion.copy(cameraLocal)
     }
+  }
+
+  const applySharedPose = (pose: SharePose, orientation: ShareOrientation | null) => {
+    const span = getHabitatSpanMeters(), grounded = pose.mode === 'grounded'
+    const axial = grounded ? THREE.MathUtils.clamp(pose.axialPosition, -span / 2 + 1.5, span / 2 - 1.5)
+      : THREE.MathUtils.clamp(pose.position.y, -span, span)
+    const azimuth = grounded ? pose.azimuth : Math.atan2(pose.position.z, pose.position.x)
+    colonyMotion.queue(cityscape.authoredColony, { azimuth, axial, distance: 256 }, () => applyReadyPose(pose, orientation))
+  }
+
+  const queuePlaceVisit = (kind: string | null) => {
+    const target = cityscape.locateInteriorVisit(kind)
+    if (!target) return false
+    colonyMotion.queue(cityscape.authoredColony, { azimuth: target.azimuth, axial: target.axial, distance: 256 }, () => {
+      const visit = cityscape.getInteriorVisit(kind)
+      if (!visit) throw Error('Arrival destination changed')
+      applyReadyPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
+        groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
+    })
+    return true
   }
 
   // Named so the keyboard (L / P — usable while the pointer is locked and the
@@ -2161,8 +2208,11 @@ export const bootstrapApp = async () => {
   // Paces the continuous throttle/brake hand-rumble so we don't fire a haptic
   // pulse on every single frame.
   let feedbackHapticAccumulator = 0
+  const regionalCurrent = new THREE.Vector3(), regionalFuture = new THREE.Vector3()
+  const regionalInertialFuture = new THREE.Vector3(), regionalVelocity = new THREE.Vector3()
 
   const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+    const wallDelta = deltaSeconds
     // Sample the previous frame's accumulated renderer counters, then clear
     // them for the passes this tick will issue.
     perfMeter.frame(deltaSeconds, renderer.info.render)
@@ -2277,6 +2327,35 @@ export const bootstrapApp = async () => {
 
     grabSystem.update()
 
+    // Input and headset tracking remain live during loading. Establish ground
+    // readiness before advancing either the body, rail service or rotating
+    // reference frame; pausing only Rapier would move the floor beneath us.
+    if (playerTraversal.mode === 'grounded') getSurfacePosition(playerTraversal.surface, habitatConfig.radius, regionalCurrent)
+    else inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, regionalCurrent)
+    const requiredDistance = 256 + (drive.driving ? drive.lastSpeed : railRide.riding ? rail.service?.data.configuration.maxSpeed ?? 0 : 6) * wallDelta
+    const foci = [{ azimuth: drive.driving ? drive.surface.azimuth : Math.atan2(regionalCurrent.z, regionalCurrent.x),
+      axial: drive.driving ? drive.surface.axialPosition : regionalCurrent.y, distance: requiredDistance }]
+    if (playerTraversal.mode === 'free-fly' && !drive.driving) {
+      regionalInertialFuture.copy(playerTraversal.inertialPosition).addScaledVector(playerTraversal.inertialVelocity, wallDelta)
+      inertialPositionToRotating(regionalInertialFuture, frameAngle + omega * wallDelta, regionalFuture)
+      foci.push({ azimuth: Math.atan2(regionalFuture.z, regionalFuture.x), axial: regionalFuture.y,
+        distance: 256 + habitatConfig.jetpackAcceleration * wallDelta * wallDelta })
+    }
+    // Projectiles keep their full trajectories. Demand their collision data too;
+    // do not reinterpret missing terrain as empty space or discard a long throw.
+    removeDisposedBalls()
+    for (const ball of balls) {
+      if (!ball.needsHabitatCollision) continue
+      ball.copyInertialPosition(regionalInertialFuture)
+      inertialPositionToRotating(regionalInertialFuture, frameAngle, regionalFuture)
+      foci.push({ azimuth: Math.atan2(regionalFuture.z, regionalFuture.x), axial: regionalFuture.y, distance: 256 })
+      regionalInertialFuture.addScaledVector(ball.copyInertialVelocity(regionalVelocity), wallDelta)
+      inertialPositionToRotating(regionalInertialFuture, frameAngle + omega * wallDelta, regionalFuture)
+      foci.push({ azimuth: Math.atan2(regionalFuture.z, regionalFuture.x), axial: regionalFuture.y, distance: 256 })
+    }
+    const regionalReady = colonyMotion.step(cityscape.authoredColony, foci)
+    if (!regionalReady) deltaSeconds = 0
+
     // Update order: input -> grab state -> simulation -> render.
     frameAngle = THREE.MathUtils.euclideanModulo(frameAngle + omega * deltaSeconds, Math.PI * 2)
     if (!renderer.xr.isPresenting) desktopLookControls.advanceReferenceFrame(omega * deltaSeconds)
@@ -2302,116 +2381,120 @@ export const bootstrapApp = async () => {
         : 0
     audio.setJetpackThrottle(jetpackAcousticThrottle)
 
-    roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getSeats())
-    let jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
-    if (railRide.riding) {
-      if (xrWatchInput.jumpPressed) railRide.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
-      jumpRequested = false; locomotionIntent.detachRequested = false
-      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
-      locomotionIntent.freeFlyThrust.set(0, 0, 0)
-    }
-    if (roomSeating.seat && (renderer.xr.isPresenting || jumpRequested || locomotionIntent.detachRequested ||
-        Math.hypot(locomotionIntent.groundedAxis, locomotionIntent.groundedTangent) > .1)) {
-      roomSeating.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
-      jumpRequested = false
-      locomotionIntent.detachRequested = false
-      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
-    }
-    // Finish standing before walking: restore floor contacts at rest first.
-    if (roomSeating.stepDeparture(deltaSeconds)) {
-      jumpRequested = false; locomotionIntent.detachRequested = false
-      locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
-    }
-    // While driving, the VR jump button (right A) is the dismount, not a jump.
-    if (drive.driving && xrWatchInput.jumpPressed) {
-      exitDrive()
-    }
-    desktopJumpQueued = false
-
     const vehicleSteer = THREE.MathUtils.clamp(
       Number(driveKeys.right) - Number(driveKeys.left) + (touchMove?.right ?? 0) + xrWatchInput.driveSteer, -1, 1)
-    if (drive.driving) {
-      drive.preStep(
-        {
-          throttle: THREE.MathUtils.clamp(
-            (driveKeys.forward ? 1 : 0) +
-              (driveKeys.back ? -1 : 0) +
-              (touchMove?.forward ?? 0) +
-              xrWatchInput.driveThrottle,
-            -1,
-            1
-          ),
-          steer: vehicleSteer,
-          brake: Math.max(
-            driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0,
-            xrWatchInput.driveBrake
-          )
-        },
-        {
-          deltaSeconds,
-          frameAngle,
-          omega,
+    if (regionalReady) {
+      roomSeating.update(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart }, cityscape.getSeats())
+      let jumpRequested = (desktopJumpQueued || xrWatchInput.jumpPressed) && !drive.driving
+      if (railRide.riding) {
+        if (xrWatchInput.jumpPressed) railRide.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
+        jumpRequested = false; locomotionIntent.detachRequested = false
+        locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+        locomotionIntent.freeFlyThrust.set(0, 0, 0)
+      }
+      if (roomSeating.seat && (renderer.xr.isPresenting || jumpRequested || locomotionIntent.detachRequested ||
+          Math.hypot(locomotionIntent.groundedAxis, locomotionIntent.groundedTangent) > .1)) {
+        roomSeating.leave(playerTraversal, { ...seatFrame(), frameAngle: frameAngleStart })
+        jumpRequested = false
+        locomotionIntent.detachRequested = false
+        locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+      }
+      // Finish standing before walking: restore floor contacts at rest first.
+      if (roomSeating.stepDeparture(deltaSeconds)) {
+        jumpRequested = false; locomotionIntent.detachRequested = false
+        locomotionIntent.groundedAxis = 0; locomotionIntent.groundedTangent = 0
+      }
+      // While driving, the VR jump button (right A) is the dismount, not a jump.
+      if (drive.driving && xrWatchInput.jumpPressed) {
+        exitDrive()
+      }
+      desktopJumpQueued = false
+
+      if (drive.driving) {
+        drive.preStep(
+          {
+            throttle: THREE.MathUtils.clamp(
+              (driveKeys.forward ? 1 : 0) +
+                (driveKeys.back ? -1 : 0) +
+                (touchMove?.forward ?? 0) +
+                xrWatchInput.driveThrottle,
+              -1,
+              1
+            ),
+            steer: vehicleSteer,
+            brake: Math.max(
+              driveKeys.brake || mobileControls?.isBrakeHeld() ? 1 : 0,
+              xrWatchInput.driveBrake
+            )
+          },
+          {
+            deltaSeconds,
+            frameAngle,
+            omega,
+            radius: habitatConfig.radius,
+            units: getUnits(),
+            surfaceElevation: (a, ax) => Math.max(sampleExpresswayElevation(a, ax), cityscape.sampleRiverRoad(a, ax))
+          }
+        )
+      }
+
+      if (playerTraversal.mode === 'grounded' && jumpRequested) {
+        computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
+        detachPlayerToFreeFly(playerTraversal, {
+          launchVelocity: jumpLaunchVelocity,
           radius: habitatConfig.radius,
-          units: getUnits(),
-          surfaceElevation: (a, ax) => Math.max(sampleExpresswayElevation(a, ax), cityscape.sampleRiverRoad(a, ax))
-        }
-      )
-    }
+          omega,
+          frameAngle
+        })
+        reportTour('jump')
+        audio.playJump()
+        vibrate(12)
+        justJumped = true
+      }
 
-    if (playerTraversal.mode === 'grounded' && jumpRequested) {
-      computeJumpLaunchVelocity(playerTraversal.surface.azimuth, JUMP_SPEED, jumpLaunchVelocity)
-      detachPlayerToFreeFly(playerTraversal, {
-        launchVelocity: jumpLaunchVelocity,
-        radius: habitatConfig.radius,
-        omega,
-        frameAngle
-      })
-      reportTour('jump')
-      audio.playJump()
-      vibrate(12)
-      justJumped = true
-    }
-
-    if (railRide.riding) {
-      railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
-    } else if (roomSeating.seat) {
-      // Stay attached at the end-of-step angle; dismounts use the start angle
-      // before normal walking advances the body through this frame.
-      roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
-    } else if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
-      detachPlayerToFreeFly(playerTraversal, {
-        launchVelocity: locomotionIntent.detachLaunchVelocity,
-        radius: habitatConfig.radius,
-        omega,
-        frameAngle
-      })
-    } else if (playerTraversal.mode === 'grounded' && !drive.driving) {
-      // Human walking pace makes nearby furniture and foot contact readable;
-      // PC Shift keeps the previous fast traversal speed available.
-      const walkSpeed = renderer.xr.isPresenting || desktopLookControls.fastWalkHeld ? 6 : 1.8
-      stepGroundedPlayer(playerTraversal, {
-        axisDistanceDelta: locomotionIntent.groundedAxis * walkSpeed * deltaSeconds,
-        tangentDistanceDelta: locomotionIntent.groundedTangent * walkSpeed * deltaSeconds,
-        radius: habitatConfig.radius,
-        length: habitatSpan,
-        deltaSeconds,
-        omega,
-        frameAngleEnd: frameAngle,
-        sampleGroundHeight
-      })
+      if (railRide.riding) {
+        railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
+      } else if (roomSeating.seat) {
+        // Stay attached at the end-of-step angle; dismounts use the start angle
+        // before normal walking advances the body through this frame.
+        roomSeating.update(playerTraversal, seatFrame(), cityscape.getSeats())
+      } else if (playerTraversal.mode === 'grounded' && locomotionIntent.detachRequested) {
+        detachPlayerToFreeFly(playerTraversal, {
+          launchVelocity: locomotionIntent.detachLaunchVelocity,
+          radius: habitatConfig.radius,
+          omega,
+          frameAngle
+        })
+      } else if (playerTraversal.mode === 'grounded' && !drive.driving) {
+        // Human walking pace makes nearby furniture and foot contact readable;
+        // PC Shift keeps the previous fast traversal speed available.
+        const walkSpeed = renderer.xr.isPresenting || desktopLookControls.fastWalkHeld ? 6 : 1.8
+        stepGroundedPlayer(playerTraversal, {
+          axisDistanceDelta: locomotionIntent.groundedAxis * walkSpeed * deltaSeconds,
+          tangentDistanceDelta: locomotionIntent.groundedTangent * walkSpeed * deltaSeconds,
+          radius: habitatConfig.radius,
+          length: habitatSpan,
+          deltaSeconds,
+          omega,
+          frameAngleEnd: frameAngle,
+          sampleGroundHeight
+        })
+      } else {
+        stepFreeFlyPlayer(playerTraversal, {
+          thrustAcceleration: locomotionIntent.freeFlyThrust.multiplyScalar(
+            habitatConfig.jetpackAcceleration
+          ),
+          deltaSeconds,
+          frameAngleStart,
+          frameAngleEnd: frameAngle,
+          omega,
+          linearDamping: 0,
+          brakeAmount: locomotionIntent.freeFlyBrake,
+          brakeDamping: 6
+        })
+      }
     } else {
-      stepFreeFlyPlayer(playerTraversal, {
-        thrustAcceleration: locomotionIntent.freeFlyThrust.multiplyScalar(
-          habitatConfig.jetpackAcceleration
-        ),
-        deltaSeconds,
-        frameAngleStart,
-        frameAngleEnd: frameAngle,
-        omega,
-        linearDamping: 0,
-        brakeAmount: locomotionIntent.freeFlyBrake,
-        brakeDamping: 6
-      })
+      desktopJumpQueued = false
     }
 
     if (playerTraversal.mode === 'grounded') {
@@ -2447,20 +2530,22 @@ export const bootstrapApp = async () => {
     )
     // Stream the building colliders to whatever we're controlling — the car
     // while driving, otherwise the walker — before stepping.
-    cityColliders.update(
-      drive.driving ? drive.surface.azimuth : playerAzimuth,
-      drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
-    )
-    physicsWorld.timestep = deltaSeconds
-    railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null)
-    physicsWorld.step()
-    if (railRide.riding) railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
-    if (!roomSeating.seat && !railRide.riding) {
-      syncPlayerTraversalFromPhysics(playerTraversal)
-      syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
+    if (regionalReady) {
+      cityColliders.update(
+        drive.driving ? drive.surface.azimuth : playerAzimuth,
+        drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+      )
+      physicsWorld.timestep = deltaSeconds
+      railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null)
+      physicsWorld.step()
+      if (railRide.riding) railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
+      if (!roomSeating.seat && !railRide.riding) {
+        syncPlayerTraversalFromPhysics(playerTraversal)
+        syncGroundedSurfaceFromPhysics(playerTraversal, frameAngle)
+      }
     }
 
-    if (drive.driving) {
+    if (regionalReady && drive.driving) {
       drive.postStep({ frameAngle, units: getUnits() })
       resetPlayerToGrounded(playerTraversal, {
         axialPosition: drive.surface.axialPosition,
@@ -2518,7 +2603,7 @@ export const bootstrapApp = async () => {
     // onto the wall — jumps, overlook drops, and clutch flights all land the
     // same natural way.
     let landed = false
-    if (!drive.driving && !roomSeating.seat && !railRide.riding) {
+    if (regionalReady && !drive.driving && !roomSeating.seat && !railRide.riding) {
       landed = updatePlayerGroundContact(playerTraversal, {
         radius: habitatConfig.radius,
         length: habitatSpan,
@@ -2612,6 +2697,7 @@ export const bootstrapApp = async () => {
       ? { azimuth: practicePark.azimuth, axial: practicePark.axial + 4 }
       : habitatConfig.radius < 800 ? { azimuth: 0, axial: 0 } : null)
     for (const ball of balls) {
+      if (!regionalReady && !ball.isGrabbed) continue
       ball.step({
         deltaSeconds,
         habitatRadius: habitatConfig.radius,
@@ -2664,7 +2750,7 @@ export const bootstrapApp = async () => {
       placesPlan = currentPlacePlan
       availablePlaces.clear()
       for (const place of PLACE_DESTINATIONS) {
-        if (resolvePlaceVisit(place.id, kind => cityscape.getInteriorVisit(kind))) availablePlaces.add(place.id)
+        if (resolvePlaceVisit(place.id, kind => cityscape.locateInteriorVisit(kind))) availablePlaces.add(place.id)
       }
     }
     const outingSurface=drive.driving?drive.surface:playerTraversal.surface
@@ -2801,7 +2887,7 @@ export const bootstrapApp = async () => {
     watchUiHot = renderer.xr.isPresenting && watchHit !== null
     // Give wrist interaction priority over transient teaching cards. Keep a
     // brief grace period while the pointer crosses gaps between buttons.
-    watchUiFocusRemaining = watchUiHot ? 1.5 : Math.max(0, watchUiFocusRemaining - deltaSeconds)
+    watchUiFocusRemaining = watchUiHot ? 1.5 : Math.max(0, watchUiFocusRemaining - wallDelta)
 
     // Aim the right pointer at the car to highlight it; pull the trigger to
     // climb in. Gated off while the watch UI owns the laser or while driving.
@@ -3019,6 +3105,8 @@ export const bootstrapApp = async () => {
       azimuth: Math.atan2(rotatingCameraPosition.z, rotatingCameraPosition.x),
       speed: playerTraversal.inertialVelocity.length(),
       frameAngle,
+      regional: { state: colonyMotion.state, pendingArrival: colonyMotion.pendingArrival,
+        error: colonyMotion.error, ...cityscape.authoredColony.getRegionalStatus() },
       groundHeight: playerTraversal.groundHeight,
       rail: { time: rail.service?.time ?? 0, trains: rail.service?.trains.length ?? 0, rider: railRide.train?.id ?? null,
         speed: railRide.train?.speed ?? 0, station: railRide.train?.station?.id ?? null, next: railRide.train?.next.id ?? null,
@@ -3084,17 +3172,18 @@ export const bootstrapApp = async () => {
     // card otherwise covers the held cup and the seated body on portrait screens.
     const roomInteraction = !!roomSeating.seat || railRide.riding || coffeeService.phase !== 'idle'
     const practiceCard = !drive.driving && !roomInteraction ? throwTarget.getCard(rotatingCameraPosition, selectedProjectile === 'ball') : null
-    const visibleTourCard = practiceCard ?? (roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard)
+    const loadingCard = colonyMotion.card
+    const visibleTourCard = loadingCard ?? practiceCard ?? (roomInteraction && tourGuide.activeEvent === 'start' ? null : activeTourCard)
     const resolvedTourCard = resolveTourCard(visibleTourCard, currentControlPlatform())
     const flatTourCard = tourGuide.activeEvent === 'start' && visibleTourCard === activeTourCard && resolvedTourCard
       ? { ...resolvedTourCard, title: 'Welcome to Spinward', body: [
         'Look up — the city wraps overhead. The floor’s push is your gravity.',
         'Choose Places for a destination. Movement controls and settings are in Menu.'
       ] } : resolvedTourCard
-    tourNotice.update(flatTourCard, renderer.xr.isPresenting || journey.status !== 'idle' || drive.driving)
+    tourNotice.update(flatTourCard, renderer.xr.isPresenting || (!loadingCard && (journey.status !== 'idle' || drive.driving)))
     tourCardPanel.update(renderer.xr.isPresenting && watchUiFocusRemaining === 0 ? resolvedTourCard : null, {
       camera: desktopUiCamera,
-      deltaSeconds,
+      deltaSeconds: wallDelta,
       xrActive: renderer.xr.isPresenting,
       bottomClearancePx: Math.max(mobileControls?.getReservedBottomHeight() ?? 0, roomAction.getReservedBottomHeight(), coffeeAction.getReservedBottomHeight())
     })
@@ -3124,12 +3213,12 @@ export const bootstrapApp = async () => {
   // A shared link spawns where it points; otherwise the first-boot "look up"
   // reveal shows the far side of the colony overhead before the player
   // settles. Desktop/mobile only; XR is head-tracked.
-  const interiorVisit = cityscape.getInteriorVisit(new URLSearchParams(window.location.search).get('visit')
-    ?? (cityscape.isAuthoredLandscape() ? 'landscape' : null))
+  const initialVisitKind = new URLSearchParams(window.location.search).get('visit')
+    ?? (cityscape.isAuthoredLandscape() ? 'landscape' : null)
   if (shareState.pose !== null) {
     applySharedPose(shareState.pose, shareState.orientation)
-  } else if (interiorVisit !== null) {
-    applySharedPose({ mode: 'grounded', azimuth: interiorVisit.azimuth, axialPosition: interiorVisit.axial, groundHeight: interiorVisit.groundHeight ?? 0 }, interiorVisit.orientation)
+  } else if (queuePlaceVisit(initialVisitKind)) {
+    // The frame loop applies this pose only after its complete floor is ready.
   } else if (!renderer.xr.isPresenting) {
     desktopLookControls.startIntroReveal()
   }

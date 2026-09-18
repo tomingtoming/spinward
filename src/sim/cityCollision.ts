@@ -43,8 +43,14 @@ export const collideSphereWithBuildings = (
   let collided = false
 
   for (const building of resolveBuildingsNear(buildings, sphereAzimuth, position.y)) {
+    const dx = wrapToPi(sphereAzimuth - building.azimuth) * config.habitatRadius, dy = position.y - building.axial
+    const bc = Math.abs(Math.cos(building.yaw ?? 0)), bs = Math.abs(Math.sin(building.yaw ?? 0))
+    // Boxes use the tangent plane at the body's radius, while authored surface
+    // bounds use unrolled wall metres. This shorter chord safely encloses both.
+    const broadDx = Math.sin(sphereAzimuth - building.azimuth) * Math.min(sphereRadial, config.habitatRadius)
+    if (Math.abs(broadDx) > (building.width * bc + building.depth * bs) / 2 + config.sphereRadius ||
+        Math.abs(dy) > (building.depth * bc + building.width * bs) / 2 + config.sphereRadius) continue
     if (building.surfaceMesh) {
-      const dx = wrapToPi(sphereAzimuth - building.azimuth) * config.habitatRadius, dy = position.y - building.axial
       if (Math.abs(dx) > building.width / 2 + config.sphereRadius || Math.abs(dy) > building.depth / 2 + config.sphereRadius) continue
       const mesh = building.surfaceMesh
       const vertex = (v: THREE.Vector3, i: number) => {

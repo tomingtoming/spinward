@@ -104,7 +104,10 @@ test('all three preserved doors join a near-side footway with continuous support
         mesh.push(Math.atan2(z,x)*3200-w.entrance.x,p.getY(v)-w.entrance.y,3200-Math.hypot(x,z))
       }
       geometry.dispose()
-      return{...w.collider,surfaceMesh:mesh}
+      // These are sidewalk triangles, not the narrower entrance walk. Preserve
+      // their real envelope so the collision broad phase can reject lazy meshes.
+      const xs=mesh.filter((_,i)=>i%3===0),ys=mesh.filter((_,i)=>i%3===1)
+      return{...w.collider,width:2*Math.max(...xs.map(Math.abs)),depth:2*Math.max(...ys.map(Math.abs)),surfaceMesh:mesh}
     })
     for(const side of [-.65,0,.65])for(const reverse of [false,true]){
       let height=reverse?w.landingHeight:.12

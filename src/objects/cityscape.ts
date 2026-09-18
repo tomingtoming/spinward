@@ -1607,8 +1607,12 @@ export class Cityscape {
   getStreetSidewalkCuts(){return [...this.riverDistrict?.sidewalkCuts??[],...this.curvedNeighborhood.plan?.sidewalkCuts??[],...this.carShareBays.map(b=>carShareDrivewayRect(b,this.radius))]}
   sampleRiverRoad(azimuth: number, axial: number) { return sampleRiverRoad(this.riverDistrict, this.radius, azimuth, axial) }
 
-  getInteriorVisit(kind: string | null): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
-    if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) ?? this.authoredColony.visit(kind, this.collisionIndex) : null
+  locateInteriorVisit(kind: string | null) {
+    return this.getInteriorVisit(kind, false)
+  }
+
+  getInteriorVisit(kind: string | null, queryGround = true): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
+    if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) ?? this.authoredColony.visit(kind, queryGround ? this.collisionIndex : null) : null
     if (kind === 'landscape') return this.authoredLandscape.visit()
     if (kind === 'deck') {
       const tower = this.cityPlan?.tower ?? null

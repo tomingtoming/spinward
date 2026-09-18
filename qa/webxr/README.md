@@ -5,7 +5,24 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest facade verification (2026-09-18): 7,394 native building parcels have
+Regional ground integration (2026-09-19): `colony-regional.xr.mjs` adds six passing
+WebXR 0.3.0 cases for delayed ground, walking and wrist travel in all three bands,
+missing/corrupt replies and explicit recovery, and cancellation when moving to
+Cooper. The long tram ride and four-world regression also pass (two cases).
+These ran on an isolated candidate, now served on the normal 5192 preview with
+byte-identical HTML and JavaScript. Three-band desktop arrival/walk checks also
+pass against that normal preview; authored scenery still requires `landscape=authored`.
+The wrist helper navigates Places page 2 before choosing Nearby square.
+Existing world/rail tests await regional readiness after travel. Large terrain
+holes are not apparent in the captured views; clipped VR tutorial cards and
+unattributed junction details remain. **1,196 unit tests and production build pass**.
+Desktop boot checks cover all 18 districts, free-flight landing, a normal throw
+and exterior travel. Physical-headset performance remains unmeasured.
+[Implementation, evidence and limits](../neighborhood-life/colony-regional-streaming.md).
+Evidence: `evidence/colony-spatial-loading-20260919/xr-regional-final/` and
+`xr-transit-worlds/`.
+
+Previous facade verification (2026-09-18): 7,394 native building parcels have
 recessed near windows and matching middle room patterns, with unchanged ground,
 collision and far geometry. **Ten actual WebXR 0.3.0 cases pass in 2.8 minutes**:
 stairs, relocated entry, balcony, A/B/C original and compact infill door

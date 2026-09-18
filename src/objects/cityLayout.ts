@@ -918,12 +918,15 @@ export const getCityGroundHeight = (
 
   for (const building of resolveBuildingsNear(buildings, azimuth, axialPosition)) {
     const dx = wrapToPi(azimuth - building.azimuth) * radius, dy = axialPosition - building.axial
+    const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
+    const margin = (building.groundMargin ?? .3) * (Math.abs(c) + Math.abs(s))
+    if (Math.abs(dx) > (building.width * Math.abs(c) + building.depth * Math.abs(s)) / 2 + margin ||
+        Math.abs(dy) > (building.depth * Math.abs(c) + building.width * Math.abs(s)) / 2 + margin) continue
     if (building.surfaceMesh) {
       if (building.groundSurface === false) continue
       groundHeight = Math.max(groundHeight, sampleProjectedCitySurface(building.surfaceMesh, radius, dx, dy, altitude + stepTolerance))
       continue
     }
-    const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
     const top = (building.baseHeight ?? 0) + building.height
     if (
       top <= groundHeight ||

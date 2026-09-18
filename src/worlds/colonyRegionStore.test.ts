@@ -4,6 +4,7 @@ import { AuthoredColony, type ColonyManifest } from './authoredColony'
 import { ColonyRegionStore, colonyRegionDistance, readColonyRegions, type ColonyRegions, type RegionalMesh, type ColonyFocus } from './colonyRegionStore'
 import { ColonyCollisionCache } from './colonyCollisionCache'
 import { buildCityCollisionIndex, getCityGroundHeight } from '../objects/cityLayout'
+import { collideSphereWithBuildings } from '../sim/cityCollision'
 
 const radius = 3200, palette = { earth: '#ffffff' }
 const focus = (x = 0, distance = 30): ColonyFocus => ({ azimuth: x / radius, axial: 0, distance })
@@ -170,4 +171,45 @@ test('regional rendering replaces only the ready far ranges and restores floor b
   expect(layer.getRegionalStatus()).toBeNull()
   expect(manifest.base.meshes.earth).toEqual([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7])
   layer.dispose()
+})
+
+test('destination listing does not read unloaded floors, while arrival resolution requires them', async () => {
+  const f = await fixture(), layer = new AuthoredColony(new THREE.Group(), undefined, f.load)
+  const manifest: ColonyManifest = { version: 1, radius, span: 40000, palette,
+    visits: { home: { band: 0, position: [0, 0] } }, tiles: [], streaming: f.catalog,
+    base: { ...f.packed[0], surfaces: [] } }
+  layer.rebuild(manifest)
+  const index = buildCityCollisionIndex(layer.getColliders(), radius, 40000)
+  expect(layer.visit('home', null)?.axial).toBe(0)
+  expect(layer.getRegionalStatus()?.pending).toBe(0)
+  expect(() => layer.visit('home', index)).toThrow('not ready')
+  layer.prepareRegions([focus()]); await tick()
+  const original = buildCityCollisionIndex(new ColonyCollisionCache().colliders(f.packed[0], radius), radius, 40000)
+  expect(layer.visit('home', index)?.groundHeight).toBe(getCityGroundHeight(original, radius, 0, 0, 400))
+  layer.dispose()
+})
+
+test('broad-phase false positives outside regional bounds do not decode an unavailable floor', () => {
+  let reads = 0
+  const absent = { azimuth: 0, axial: 0, width: 20, depth: 20, height: 10,
+    kind: 'block' as const, tone: .5, get surfaceMesh(): number[] { reads++; throw Error('unloaded') } }
+  expect(getCityGroundHeight([absent], radius, 0, 100, 20)).toBe(0)
+  expect(collideSphereWithBuildings(new THREE.Vector3(radius - 5, 100, 0), new THREE.Vector3(), [absent],
+    { habitatRadius: radius, sphereRadius: .18, restitution: .5 })).toBe(false)
+  expect(reads).toBe(0)
+  expect(() => getCityGroundHeight([absent], radius, 0, 0, 20)).toThrow('unloaded')
+})
+
+test('explicit retry recovers a terminal failure without a timer or abandoning the area', async () => {
+  const f = await fixture(); let broken = true, now = 0, requests = 0
+  const store = new ColonyRegionStore(f.catalog, radius, palette, { now: () => now,
+    load: async url => { requests++; if (broken) throw Error('offline'); return f.load(url) } })
+  for (let i = 0; i < 3; i++) { store.request([focus()]); await tick(); now += 5001 }
+  expect(store.stats.failed[0].attempts).toBe(3)
+  broken = false
+  store.request([focus()]); await tick(); expect(requests).toBe(3)
+  store.retry(); await tick()
+  expect(store.readyAt(focus())).toBe(true); expect(requests).toBe(4)
+  expect(store.stats.failed).toEqual([])
+  store.dispose()
 })
