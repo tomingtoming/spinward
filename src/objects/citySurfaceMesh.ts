@@ -2,6 +2,28 @@
  * height above the hull. Shared by rendering, grounding and streamed Rapier. */
 export type CitySurfaceMesh = readonly number[] | Float64Array
 
+/** Conservative local rectangles for the actual triangles, including vertical
+ * walls. Grouping by triangle centre bounds metadata size; the rectangle still
+ * encloses all three vertices even when a triangle crosses several cells. */
+export function citySurfaceRegions(vertices: ArrayLike<number>, indices?: readonly number[], x = 0, y = 0) {
+  const groups = new Map<string, number[]>()
+  const count = indices?.length ?? vertices.length / 3
+  for (let i = 0; i < count; i += 3) {
+    const a = (indices?.[i] ?? i) * 3, b = (indices?.[i + 1] ?? i + 1) * 3, c = (indices?.[i + 2] ?? i + 2) * 3
+    const x0 = Math.min(vertices[a], vertices[b], vertices[c]) - x
+    const y0 = Math.min(vertices[a + 1], vertices[b + 1], vertices[c + 1]) - y
+    const x1 = Math.max(vertices[a], vertices[b], vertices[c]) - x
+    const y1 = Math.max(vertices[a + 1], vertices[b + 1], vertices[c + 1]) - y
+    const key = `${Math.floor(((vertices[a] + vertices[b] + vertices[c]) / 3 - x) / 4)}:${Math.floor(((vertices[a + 1] + vertices[b + 1] + vertices[c + 1]) / 3 - y) / 4)}`
+    const bounds = groups.get(key)
+    if (bounds) {
+      bounds[0] = Math.min(bounds[0], x0); bounds[1] = Math.min(bounds[1], y0)
+      bounds[2] = Math.max(bounds[2], x1); bounds[3] = Math.max(bounds[3], y1)
+    } else groups.set(key, [x0, y0, x1, y1])
+  }
+  return Float64Array.from([...groups.values()].flat())
+}
+
 type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number;
   toleranceU: number; toleranceV: number; toleranceW: number }
 const projectedCache = new WeakMap<CitySurfaceMesh, { radius: number; triangles: ProjectedTriangle[] }>()

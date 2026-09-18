@@ -11,6 +11,10 @@ for name,digest in contract['dependencies'].items():
 scene=bpy.data.scenes['SW_izma_rail'];assert scene.get('owner')=='spinward-izma-rail-v1';scene.view_layers[0].update()
 path=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(path)
 manifest.pop('landUse',None)
+manifest.pop('streetFrontages',None)
+manifest.pop('cornerBlocks',None)
+manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
+manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
 manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
 assert hashlib.sha256(json.dumps(manifest['base'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==contract['baseDigest'],'Rebuild rail after terrain changes'

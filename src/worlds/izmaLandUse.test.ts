@@ -58,15 +58,20 @@ test('terrain overlays remain supported and every accepted path matches native p
   }
  }
  const walk=index(drawn['land-path'])
+ // Some paths now meet the continuous street-edge pavement. Its visible
+ // top covers the older path, so both rendered layers determine support.
+ const pavement=index(m.streetFrontages ? decodeColonyMesh(m.streetFrontages.fixed,false).meshes['frontage-paving'] : [])
  for(const z of land.zones){
   if(!z.access){expect(m.visits['land-'+z.id]).toBeUndefined();continue}
   expect(m.visits['land-'+z.id]).toBeDefined()
   for(const rows of [z.access.profile,...z.walkProfiles])for(let i=1;i<rows.length;i++){
    const a=rows[i-1],b=rows[i],x=(a[0]+b[0])/2,y=(a[1]+b[1])/2,h=(a[2]+b[2])/2
-   const visible=getCityGroundHeight(walk,3200,x/3200,y,h+.2,0)
+   const path=getCityGroundHeight(walk,3200,x/3200,y,h+.2,0)
+   const visible=Math.max(path,getCityGroundHeight(pavement,3200,x/3200,y,h+.2,0))
    // Profiles average both edges. A triangulated quad's centre can differ
    // at a terrain crease or the 14 cm street crossfall. The decisive check
    // below compares actual visible and physical triangles within 2 cm.
+   expect(Math.abs(path-h),z.id).toBeLessThan(.18)
    expect(Math.abs(visible-h),z.id).toBeLessThan(.18)
    expect(Math.abs(getCityGroundHeight(physics,3200,x/3200,y,visible+.03,0)-visible),z.id).toBeLessThan(.02)
   }

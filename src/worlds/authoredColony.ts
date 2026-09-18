@@ -10,7 +10,7 @@ import type { ColonyRailData } from './colonyRailData'
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
 export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable' | 'canopy']
-export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; architecture?: boolean; publicRealm?: boolean; neighbourhood?: boolean; railway?: boolean; landUse?: boolean }
+export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; proxyMesh?: ColonyPackedMesh; architecture?: boolean; publicRealm?: boolean; neighbourhood?: boolean; railway?: boolean; landUse?: boolean; cornerBlock?: boolean }
 type ColonyArchitecture = { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][]; lights?: LandscapeLight[];
   counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
@@ -19,6 +19,8 @@ export type ColonyManifest = { version: 1; radius: number; span: number; palette
   neighbourhoods?: ColonyArchitecture;
   railways?: ColonyRailData;
   landUse?: { version: 1; fixed: ColonyPackedMesh; counts: { zones: number; fixtures: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; collisionTriangles: number } };
+  streetFrontages?: { version: 1; fixed: ColonyPackedMesh; counts: { streets: number; districts: number; fixedTriangles: number; collisionTriangles: number; surfaceGroups: number } };
+  cornerBlocks?: { version: 1; fixed: ColonyPackedMesh; counts: { buildings: number; districts: number; nearTriangles: number; midTriangles: number; farTriangles: number; fixedTriangles: number; collisionTriangles: number; surfaceGroups: number } };
   structures?: [number, number, number, number, number, number, number][];
   publicRealm?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { places: number; trees: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; collisionTriangles: number } };
   visits: Record<string, { band: number; position: [number, number]; lookAt?: [number, number]; heightHint?: number }> }
@@ -40,11 +42,17 @@ export function readColonyManifest(value: unknown): ColonyManifest {
     ids.add(tile.id)
     for (const box of tile.boxes) if (box.length !== 8 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony box')
     for (const box of tile.proxyParts ?? []) if (box.length !== 9 || !box.slice(0, 7).every(Number.isFinite) || !p.palette[box[7]] || !['box', 'gable', 'canopy'].includes(box[8]) || box[3] <= 0 || box[4] <= 0 || box[5] <= 0) throw Error('Invalid colony proxy')
+    if (tile.proxyMesh) {
+      const proxy = decodeColonyMesh(tile.proxyMesh, false)
+      if (Object.keys(proxy.meshes).some(name => !p.palette[name])) throw Error('Invalid colony mesh proxy material')
+    }
   }
   for (const visit of Object.values(p.visits)) if (!Number.isInteger(visit.band) || visit.band < 0 || visit.band > 2 || !finiteTuple(visit.position, 2) ||
     (visit.lookAt !== undefined && !finiteTuple(visit.lookAt, 2)) || (visit.heightHint !== undefined && !Number.isFinite(visit.heightHint))) throw Error('Invalid colony visit')
   if (p.publicRealm && (p.publicRealm.version !== 1 || !p.publicRealm.fixed)) throw Error('Invalid public realm')
   if (p.landUse && (p.landUse.version !== 1 || !p.landUse.fixed)) throw Error('Invalid land use')
+  if (p.streetFrontages && (p.streetFrontages.version !== 1 || !p.streetFrontages.fixed)) throw Error('Invalid street frontages')
+  if (p.cornerBlocks && (p.cornerBlocks.version !== 1 || !p.cornerBlocks.fixed)) throw Error('Invalid corner blocks')
   if (p.neighbourhoods && (p.neighbourhoods.version !== 1 || !p.neighbourhoods.fixed)) throw Error('Invalid neighbourhoods')
   if (p.railways && (p.railways.version !== 1 || !p.railways.fixed || p.railways.stations.length !== 18)) throw Error('Invalid railways')
   return p
@@ -77,8 +85,10 @@ export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColon
   publicSurfaces = manifest.publicRealm ? decodeColonyMesh(manifest.publicRealm.fixed).surfaces : [],
   neighbourhoodSurfaces = manifest.neighbourhoods ? decodeColonyMesh(manifest.neighbourhoods.fixed).surfaces : [],
   railSurfaces = manifest.railways ? decodeColonyMesh(manifest.railways.fixed).surfaces : [],
-  landSurfaces = manifest.landUse ? decodeColonyMesh(manifest.landUse.fixed).surfaces : []): CityBuilding[] {
-  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces, ...neighbourhoodSurfaces, ...railSurfaces, ...landSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
+  landSurfaces = manifest.landUse ? decodeColonyMesh(manifest.landUse.fixed).surfaces : [],
+  frontageSurfaces = manifest.streetFrontages ? decodeColonyMesh(manifest.streetFrontages.fixed).surfaces : [],
+  cornerSurfaces = manifest.cornerBlocks ? decodeColonyMesh(manifest.cornerBlocks.fixed).surfaces : []): CityBuilding[] {
+  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces, ...neighbourhoodSurfaces, ...railSurfaces, ...landSurfaces, ...frontageSurfaces, ...cornerSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
 }
 
 function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
@@ -110,6 +120,7 @@ export class AuthoredColony {
   private textures = new Map<string, THREE.Texture>()
   private surfaceKinds = new Map<string, NonNullable<LandscapeMaterial['surface']>>()
   private proxies: Proxy[] = []
+  private meshProxies: { tile: ColonyTile; group: THREE.Group }[] = []
   private loaded = new Map<string, TileState>()
   private pending = new Map<string, AbortController>()
   private failed = new Map<string, { attempts: number; retryAt: number; message: string }>()
@@ -157,6 +168,8 @@ export class AuthoredColony {
       ...(manifest.neighbourhoods ? this.collisionCache.colliders(manifest.neighbourhoods.fixed, manifest.radius) : []),
       ...(manifest.railways ? this.collisionCache.colliders(manifest.railways.fixed, manifest.radius) : []),
       ...(manifest.landUse ? this.collisionCache.colliders(manifest.landUse.fixed, manifest.radius) : []),
+      ...(manifest.streetFrontages ? this.collisionCache.colliders(manifest.streetFrontages.fixed, manifest.radius) : []),
+      ...(manifest.cornerBlocks ? this.collisionCache.colliders(manifest.cornerBlocks.fixed, manifest.radius) : []),
       ...colonySolidColliders(manifest)]
     this.group.add(this.createMeshes(base.meshes, 'colony-base'))
     if (manifest.architecture) {
@@ -167,6 +180,12 @@ export class AuthoredColony {
     if (manifest.neighbourhoods) this.group.add(this.createMeshes(decodeColonyMesh(manifest.neighbourhoods.fixed, false).meshes, 'colony-neighbourhood-ground'))
     if (manifest.railways) this.group.add(this.createMeshes(decodeColonyMesh(manifest.railways.fixed, false).meshes, 'colony-station-ground'))
     if (manifest.landUse) this.group.add(this.createMeshes(decodeColonyMesh(manifest.landUse.fixed, false).meshes, 'colony-land-use-ground'))
+    if (manifest.streetFrontages) this.group.add(this.createMeshes(decodeColonyMesh(manifest.streetFrontages.fixed, false).meshes, 'colony-street-frontages'))
+    if (manifest.cornerBlocks) this.group.add(this.createMeshes(decodeColonyMesh(manifest.cornerBlocks.fixed, false).meshes, 'colony-corner-ground'))
+    for (const tile of manifest.tiles) if (tile.proxyMesh) {
+      const group = this.createMeshes(decodeColonyMesh(tile.proxyMesh, false).meshes, 'colony-mesh-proxy-' + tile.id)
+      this.meshProxies.push({ tile, group }); this.group.add(group)
+    }
     const boxes = manifest.tiles.flatMap(tile => (tile.proxyParts ?? tile.boxes).map(box => ({ tile, box })))
     const rotation = new THREE.Quaternion(), localYaw = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0)
     for (const name of this.materials.keys()) for (const shape of ['box', 'gable', 'canopy'] as const) {
@@ -198,6 +217,8 @@ export class AuthoredColony {
     this.group.userData.neighbourhoodBuildings = manifest.neighbourhoods?.counts.buildings ?? 0
     this.group.userData.railStations = manifest.railways?.stations.length ?? 0
     this.group.userData.landUseZones = manifest.landUse?.counts.zones ?? 0
+    this.group.userData.pavedUrbanStreets = manifest.streetFrontages?.counts.streets ?? 0
+    this.group.userData.cornerBuildings = manifest.cornerBlocks?.counts.buildings ?? 0
     this.setDaylight(this.daylight)
   }
 
@@ -276,6 +297,7 @@ export class AuthoredColony {
       if (visible === p.visible) continue
       p.visible = visible; p.mesh.setMatrixAt(p.instance, visible ? p.matrix : hidden); p.mesh.instanceMatrix.needsUpdate = true
     }
+    for (const { tile, group } of this.meshProxies) group.visible = !this.loaded.get(tile.id)?.group.visible
   }
 
   private pump() {
@@ -356,7 +378,7 @@ export class AuthoredColony {
     for (const texture of this.textures.values()) texture.dispose()
     this.textures.clear(); this.surfaceKinds.clear()
     this.collisionCache.clear(); this.colliders = []
-    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.emissive = []
+    this.group.clear(); this.group.userData = {}; this.materials.clear(); this.proxies = []; this.meshProxies = []; this.emissive = []
     this.manifest = null; this.lastFocus = { azimuth: Infinity, axial: Infinity, altitude: Infinity }
   }
   dispose() { this.clear(); this.group.removeFromParent() }

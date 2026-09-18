@@ -3,15 +3,24 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, MeshBasicMa
 import fs from 'node:fs/promises'
 
 const plan = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
+const corners = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-corner-blocks.json', import.meta.url), 'utf8'))
 const transport = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-transport.json', import.meta.url), 'utf8'))
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link','interior passage'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
-  const deep=mode==='second-depth',interior=mode==='interior passage',centre=mode==='centre link'||interior
+for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link','interior passage','pavement','corner entrance'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
+  const corner=mode==='corner entrance',pavement=mode==='pavement',deep=mode==='second-depth',interior=mode==='interior passage',centre=mode==='centre link'||interior
   test.setTimeout(centre?600000:deep?480000:360000)
   const linkNames=interior?{'a-old-town':'inner-row','b-housing':'east-court','c-market':'market-inner'}:{'a-old-town':'north-row','b-housing':'housing-south','c-market':'market-north'}
-  const street = centre?plan.streets.find(s=>s.id===`urban-${district}-link-${linkNames[district]}`):deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
+  let street = centre?plan.streets.find(s=>s.id===`urban-${district}-link-${linkNames[district]}`):deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
   expect(street,'authored street is actually built').toBeDefined()
   let path = [...street.profile]
+  if(pavement){
+    const first=Math.floor(path.length/3),last=Math.min(path.length-2,first+12)
+    path=path.slice(first,last+1).map((p,i)=>{
+      const a=street.profile[first+i-1],b=street.profile[first+i+1],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)
+      const offset=street.width/2+.65
+      return [p[0]-dy/length*offset,p[1]+dx/length*offset,p[2]+.045]
+    })
+  }
   if(deep||centre){
     const parents=street.connections.map(id=>plan.streets.find(s=>s.id===id)??{
       profile:transport.profiles.find(s=>s.id===id).points.map(p=>[p[0]+street.band*Math.PI*6400/3,p[1],p[2]])
@@ -20,6 +29,14 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     const start=near(parents[0],path[0]),end=near(parents[1],path.at(-1))
     path=[...parents[0].profile.slice(Math.max(0,start-6),start+1),...path,...parents[1].profile.slice(end,end+7)]
     if(deep)path=[...path,...path.slice(0,-1).reverse()]
+  }
+  if(corner){
+    const parcel=corners.parcels.find(p=>p.district===district)
+    expect(parcel,'corner address is saved').toBeDefined()
+    const a=parcel.entrance.start,b=parcel.entrance.end,length=Math.hypot(b[0]-a[0],b[1]-a[1])
+    street={id:parcel.id,band:parcel.band}
+    // Stop with the body outside the closed door's wall envelope.
+    path=Array.from({length:8},(_,i)=>a.map((v,k)=>v+(b[k]-v)*(1-.6/length)*i/7))
   }
   const startPoint = path[0]
   const errors = [], samples = [], captures = []
@@ -33,7 +50,7 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     const gl = document.querySelector('canvas').getContext('webgl2'), ext = gl.getExtension('WEBGL_debug_renderer_info')
     const positions = [], minY = Math.min(...points.map(p => p[1])) - 20, maxY = Math.max(...points.map(p => p[1])) + 20
     const extentX = Math.max(...points.map(p => Math.abs(p[0] - points[0][0]))) + 20
-    for (const name of ['colony-base', 'colony-neighbourhood-ground']) for (const mesh of colony.getObjectByName(name).children) {
+    for (const name of ['colony-base', 'colony-parcel-ground', 'colony-public-ground', 'colony-neighbourhood-ground', 'colony-station-ground', 'colony-land-use-ground', 'colony-street-frontages', 'colony-corner-ground']) for (const mesh of colony.getObjectByName(name)?.children??[]) {
       const v = mesh.geometry.attributes.position.array
       for (let i = 0; i < v.length; i += 9) {
         const dx = Math.atan2(Math.sin(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200), Math.cos(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200)) * 3200
@@ -92,7 +109,7 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     }
     await xr.settle(200); const end = await sample(); await capture('street-return')
     if(deep)expect(Math.hypot(end.x-start.x,end.axial-start.axial)).toBeLessThan(.4)
-    else expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(90)
+    else expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(corner?1:pavement?18:90)
     await xr.endSession({ sessionId: diagnostic.session.id, timeout: 5000 })
     expect(errors).toEqual([])
     await fs.writeFile(info.outputPath('report.json'), JSON.stringify({ street: street.id, gpu: drawing.gpu, diagnostic, start, end, captures }, null, 2))

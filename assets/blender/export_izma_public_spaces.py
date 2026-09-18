@@ -14,6 +14,10 @@ ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3
 source=ROOT/'src/worlds/generated/izmaColony.json'
 manifest=read_manifest(source)
 manifest.pop('landUse',None)
+manifest.pop('streetFrontages',None)
+manifest.pop('cornerBlocks',None)
+manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
+manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
 manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
 contract=json.loads((ROOT/'assets/blender/izma-public-spaces.json').read_text())

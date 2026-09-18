@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { CityBuilding } from '../objects/cityLayout'
-import { citySurfaceVertices } from '../objects/citySurfaceMesh'
+import { citySurfaceRegions, citySurfaceVertices } from '../objects/citySurfaceMesh'
 import type { LandscapeData, LandscapeLight } from './landscapeData'
 import type { AuthoredWorldId } from './worldDefinitions'
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
@@ -11,12 +11,14 @@ export const LANDSCAPE_LIGHT_BUDGET = 6
 export function landscapeColliders(data: Pick<LandscapeData, 'surfaces' | 'solids'>, radius: number): CityBuilding[] {
   const surfaces: CityBuilding[] = data.surfaces.map(({ vertices, bounds, groundSurface }) => {
     const x = (bounds[0] + bounds[2]) / 2, y = (bounds[1] + bounds[3]) / 2
+    let regions: Float64Array | undefined
     let height = 0
     const surfaceMesh = vertices.map((n, i) => {
       if (i % 3 === 2) { height = Math.max(height, n); return n }
       return n - (i % 3 === 0 ? x : y)
     })
     return { azimuth: x / radius, axial: y, width: bounds[2] - bounds[0], depth: bounds[3] - bounds[1],
+      get collisionRegions() { return regions ??= citySurfaceRegions(vertices, undefined, x, y) },
       height, surfaceMesh, groundSurface: groundSurface !== false, collisionMargin: 0, groundMargin: 0, kind: 'block', tone: .5 }
   })
   return [...surfaces, ...data.solids.map(s => ({

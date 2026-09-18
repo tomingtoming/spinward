@@ -38,6 +38,9 @@ export type CityBuilding = {
   // Width axis rotated from +tangent toward +axial, in surface radians.
   yaw?: number
   surfaceMesh?: CitySurfaceMesh
+  // Local rectangles enclosing every collision triangle; lazy and bounded
+  // independently of whether the expanded physical mesh is currently resident.
+  collisionRegions?: CitySurfaceMesh
   groundSurface?: boolean
   // Exact interior openings may opt out of the vehicle-oriented box inflation.
   collisionMargin?: number
@@ -796,24 +799,43 @@ export const collectCityBuildingsInWindow = (
   return out
 }
 
-/** Refine the cell broad phase before expanding meshes into Rapier. A square
- * of cells includes distant corners and changes size relative to the focus;
- * dense streets need only the guaranteed travel buffer. Keep
- * the insertion margin and rotated bounds, including across the seam. */
+/** Refine the cell broad phase before expanding meshes into Rapier. The grid's
+ * insertion margin serves point queries; it is not another physics lead-in.
+ * Keep the travel buffer around the actual inflated collider bounds, including
+ * rotated boxes and the circumference seam, without decoding any mesh. */
 export const collectCityCollidersNear = (
   index: CityCollisionIndex, azimuth: number, axial: number, cellRadius: number,
-  out: Set<CityBuilding>
+  out: Set<CityBuilding>, margin = 0
 ): Set<CityBuilding> => {
   collectCityBuildingsInWindow(index, azimuth, axial, cellRadius, out)
   const range = cellRadius * Math.min(CITY_COLLIDER_TRAVEL_BUFFER,
     TWO_PI * index.radius / index.azimuthCellCount, index.axialCellSize)
   for (const building of out) {
     const c = Math.abs(Math.cos(building.yaw ?? 0)), s = Math.abs(Math.sin(building.yaw ?? 0))
+    const padding = building.collisionMargin ?? margin
+    const width = building.width + padding * 2, depth = building.depth + padding * 2
     const dx = Math.max(0, Math.abs(wrapToPi(azimuth - building.azimuth)) * index.radius
-      - (building.width * c + building.depth * s) / 2 - COLLISION_INSERT_MARGIN)
+      - (width * c + depth * s) / 2)
     const dy = Math.max(0, Math.abs(axial - building.axial)
-      - (building.depth * c + building.width * s) / 2 - COLLISION_INSERT_MARGIN)
-    if (dx * dx + dy * dy > range * range) out.delete(building)
+      - (depth * c + width * s) / 2)
+    if (dx * dx + dy * dy > range * range) { out.delete(building); continue }
+    // A compound's outer rectangle can span a large empty corner between two
+    // streets. Refine against its occupied regions without loading its mesh.
+    if (building.width < Math.PI * index.radius) {
+      const regions = building.collisionRegions
+      if (regions) {
+        const tx = wrapToPi(azimuth - building.azimuth) * index.radius, ty = axial - building.axial
+        const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
+        const x = c * tx + s * ty, y = -s * tx + c * ty
+        let intersects = false
+        for (let i = 0; i < regions.length; i += 4) {
+          const dx = Math.max(0, regions[i] - padding - x, x - regions[i + 2] - padding)
+          const dy = Math.max(0, regions[i + 1] - padding - y, y - regions[i + 3] - padding)
+          if (dx * dx + dy * dy <= range * range) { intersects = true; break }
+        }
+        if (!intersects) out.delete(building)
+      }
+    }
   }
   return out
 }

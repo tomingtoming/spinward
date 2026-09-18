@@ -119,7 +119,7 @@ export const createRotatingCityColliders = (
     // car (<=~10 m/step at the dt cap) and walker (<=~0.25 m/step) clear the
     // ~32 m buffer easily; revisit if a max speed or the dt cap is raised.
     update(focusAzimuth: number, focusAxial: number) {
-      collectCityCollidersNear(index, focusAzimuth, focusAxial, cellRadius, near)
+      collectCityCollidersNear(index, focusAzimuth, focusAxial, cellRadius, near, margin)
 
       for (const building of near) {
         if (!active.has(building)) {

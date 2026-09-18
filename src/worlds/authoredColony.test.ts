@@ -14,6 +14,65 @@ const fixture = (count = 1): ColonyManifest => ({ version: 1, radius: 3200, span
   visits: {}, tiles: Array.from({ length: count }, (_, i) => ({ id: `tile-${i}`, url: `/tile-${i}`, band: 0, districts: ['test'],
     bounds: [-20, i * 300 - 20, 20, i * 300 + 20], boxes: [[0, i * 300, 2, 10, 10, 10, 0, 'housing']] })) })
 
+test('native frontage pavement is drawn and physically supports the same height on each band', () => {
+  for (let band = 0; band < 3; band++) {
+    const f = fixture(0), x = band * Math.PI * 2 * 3200 / 3
+    const fixed: ColonyPackedMesh = { vertices: [x-2,-2,3,x+2,-2,3,x+2,2,3],
+      meshes: { earth: [0,1,2] }, surfaces: [{ indices: [0,1,2], bounds: [x-2,-2,x+2,2] }] }
+    f.streetFrontages = { version: 1, fixed,
+      counts: { streets: 1, districts: 1, fixedTriangles: 1, collisionTriangles: 1, surfaceGroups: 1 } }
+    const layer = new AuthoredColony(new THREE.Group(), async () => small)
+    layer.rebuild(f); layer.group.updateMatrixWorld(true)
+    const a = (x+.5)/3200, out = new THREE.Vector3(Math.cos(a),0,Math.sin(a)), origin = out.clone().multiplyScalar(2800)
+    const hits = new THREE.Raycaster(origin,out,0,600).intersectObject(layer.group.getObjectByName('colony-street-frontages')!,true)
+    expect(hits.length).toBeGreaterThan(0)
+    const height = 3200-Math.hypot(hits[0].point.x,hits[0].point.z)
+    const index = buildCityCollisionIndex(layer.getColliders(),3200,40000)
+    expect(Math.abs(getCityGroundHeight(index,3200,a,0,3)-height)).toBeLessThan(.001)
+    expect(layer.group.userData.pavedUrbanStreets).toBe(1)
+    layer.rebuild(fixture(0))
+    expect(layer.group.getObjectByName('colony-street-frontages')).toBeUndefined()
+    expect(layer.getColliders()).toHaveLength(0)
+    layer.dispose()
+  }
+})
+
+test('saved urban pavement has matching native floor support across the three inhabited strips', () => {
+  const packed = manifest.streetFrontages!.fixed, ids = packed.meshes['frontage-paving']
+  const layer = new AuthoredColony(new THREE.Group(), async () => small)
+  layer.rebuild({ ...fixture(0), base: { vertices: [], meshes: {}, surfaces: [] },
+    palette: manifest.palette, streetFrontages: manifest.streetFrontages })
+  layer.group.updateMatrixWorld(true)
+  const index = buildCityCollisionIndex(layer.getColliders(),3200,40000), bands = new Set<number>()
+  let probes = 0
+  for (let i = 0; i < ids.length; i += Math.max(3,Math.floor(ids.length/20/3)*3)) {
+    // Clipping produces millimetre-wide boundary slivers. Place the walking
+    // probe inside a usable floor triangle, clear of float32 edge rounding.
+    let selected = i
+    for (; selected < ids.length; selected += 3) {
+      const points = ids.slice(selected,selected+3).map(id=>packed.vertices.slice(id*3,id*3+2))
+      const [a,b,c] = points, twiceArea = Math.abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))
+      if (points.every((p,j)=>twiceArea/(3*Math.hypot(p[0]-points[(j+1)%3][0],p[1]-points[(j+1)%3][1]))>.05)) break
+    }
+    if (selected >= ids.length) continue
+    const centre = new THREE.Vector3()
+    for (const id of ids.slice(selected,selected+3)) {
+      const [x,y,h] = packed.vertices.slice(id*3,id*3+3), a = x/3200
+      centre.add(new THREE.Vector3(Math.cos(a)*(3200-h),y,Math.sin(a)*(3200-h)).multiplyScalar(1/3))
+      bands.add(Math.round(x/(Math.PI*6400/3)))
+    }
+    const a = Math.atan2(centre.z,centre.x), h = 3200-Math.hypot(centre.x,centre.z)
+    const outward = new THREE.Vector3(Math.cos(a),0,Math.sin(a)), origin = centre.clone().addScaledVector(outward,-.3)
+    const hits = new THREE.Raycaster(origin,outward,0,.6).intersectObject(layer.group,true)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(Math.abs(3200-Math.hypot(hits[0].point.x,hits[0].point.z)-h)).toBeLessThan(.01)
+    expect(Math.abs(getCityGroundHeight(index,3200,a,centre.y,h)-h)).toBeLessThan(.01)
+    probes++
+  }
+  expect(bands.size).toBe(3); expect(probes).toBeGreaterThanOrEqual(20)
+  layer.dispose()
+})
+
 test('whole-colony floor drawing and collision agree across all bands and the preserved study boundary', () => {
   const layer = new AuthoredColony(new THREE.Group(), async () => small)
   layer.rebuild(manifest); layer.group.updateMatrixWorld(true)
@@ -31,7 +90,10 @@ test('whole-colony floor drawing and collision agree across all bands and the pr
       const h = 3200 - Math.hypot(hits[0].point.x, hits[0].point.z)
       const sampled = getCityGroundHeight(index, 3200, a, axial, h)
       expect(Math.abs(sampled - h)).toBeLessThan(.01)
-      expect(collectCityBuildingsInWindow(index, a, axial, 1, new Set()).size).toBeLessThan(45)
+      // The original layers used fewer than 45 descriptors here. Street-edge
+      // floors add at most 18 per window (checked over all occupied cells in
+      // colonyCollisionCache.test.ts); keep the combined query below 64.
+      expect(collectCityBuildingsInWindow(index, a, axial, 1, new Set()).size).toBeLessThan(64)
       probes++
     }
   }

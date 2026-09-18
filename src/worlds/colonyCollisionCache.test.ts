@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { ColonyCollisionCache, COLONY_COLLISION_CACHE_BYTES, COLONY_COLLISION_CACHE_ENTRIES } from './colonyCollisionCache'
 import { colonyColliders, readColonyManifest, type ColonyPackedMesh } from './authoredColony'
-import { buildCityCollisionIndex, getCityGroundHeight } from '../objects/cityLayout'
+import { buildCityCollisionIndex, collectCityBuildingsInWindow, collectCityCollidersNear, getCityGroundHeight } from '../objects/cityLayout'
 import raw from '../../qa/neighborhood-life/colony-source'
 import parcels from '../../assets/blender/izma-parcels.json'
 import landUse from '../../assets/blender/izma-land-use.json'
@@ -47,6 +47,44 @@ test('invalid or individually oversized collision surfaces fail before a walking
   expect(() => new ColonyCollisionCache().colliders(nonfinite, 3200)).toThrow('vertices')
 })
 
+test('empty corners are excluded while long triangle edges stay within the same bounded cold cache', () => {
+  const packed: ColonyPackedMesh = { vertices: [0,0,2,60,0,2,0,1,2, 0,0,2,1,0,2,0,60,2],
+    meshes: {}, surfaces: [{ indices: [0,1,2,3,4,5], bounds: [0,0,60,60] }] }
+  const cache = new ColonyCollisionCache(2, 200), bodies = cache.colliders(packed, 3200)
+  const index = buildCityCollisionIndex(bodies, 3200, 40000)
+  expect(collectCityBuildingsInWindow(index, 55/3200, 55, 1, new Set()).has(bodies[0])).toBe(true)
+  expect(collectCityCollidersNear(index, 55/3200, 55, 1, new Set()).has(bodies[0])).toBe(false)
+  // Only two bounding rectangles (64 bytes) were expanded, not the 144-byte mesh.
+  expect(cache.stats.bytes).toBe(64)
+  expect(collectCityCollidersNear(index, 59/3200, 20, 1, new Set()).has(bodies[0])).toBe(true)
+  const bounds = bodies[0].collisionRegions!
+  void bodies[0].surfaceMesh // Mesh and regions together exceed this tiny cache.
+  expect(cache.stats.bytes).toBe(144)
+  expect(bodies[0].collisionRegions).not.toBe(bounds)
+  expect(cache.stats.peakBytes).toBeLessThanOrEqual(200)
+})
+
+test('street-edge floors keep every local collision window bounded without decoding distant meshes', () => {
+  const manifest = readColonyManifest(raw), cache = new ColonyCollisionCache()
+  const index = buildCityCollisionIndex(cache.colliders(manifest.streetFrontages!.fixed, 3200), 3200, 40000)
+  const sites = new Set<number>(), n = index.azimuthCellCount
+  // A 3x3 query can intersect pavement only in an occupied cell or its
+  // neighbours. Cover all such windows, including the circumference seam.
+  for (const key of index.cells.keys()) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    sites.add((Math.floor(key / n) + dy) * n + (key % n + dx + n) % n)
+  }
+  const scratch = new Set<number>()
+  let maximum = 0
+  for (const key of sites) {
+    const a = (key % n + .5) / n * Math.PI * 2
+    const y = index.axialMin + (Math.floor(key / n) + .5) * index.axialCellSize
+    maximum = Math.max(maximum, collectCityBuildingsInWindow(index, a, y, 1, scratch).size)
+  }
+  expect(maximum).toBeGreaterThan(0)
+  expect(maximum).toBeLessThanOrEqual(18)
+  expect(cache.stats.entries).toBe(0)
+})
+
 test('cold and evicted building and land-use approaches retain the whole-colony support heights', () => {
   const manifest = readColonyManifest(raw), cache = new ColonyCollisionCache()
   const reference = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
@@ -56,6 +94,8 @@ test('cold and evicted building and land-use approaches retain the whole-colony 
     ...cache.colliders(manifest.neighbourhoods!.fixed, 3200),
     ...cache.colliders(manifest.railways!.fixed, 3200),
     ...cache.colliders(manifest.landUse!.fixed, 3200),
+    ...(manifest.streetFrontages ? cache.colliders(manifest.streetFrontages.fixed, 3200) : []),
+    ...(manifest.cornerBlocks ? cache.colliders(manifest.cornerBlocks.fixed, 3200) : []),
     ...reference.all.filter(b => !b.surfaceMesh)], 3200, 40000)
   expect(cached.all.length).toBe(reference.all.length)
   expect(cache.stats.entries).toBe(0)

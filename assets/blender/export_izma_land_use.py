@@ -42,6 +42,9 @@ def pack(groups,surfaces=None):
     for vs in (surfaces or {}).values():
         ss.append({'indices':ids(vs),'bounds':[min(p[0]for p in vs),min(p[1]for p in vs),max(p[0]for p in vs),max(p[1]for p in vs)]})
     return {'vertices':pool,'meshes':meshes,'surfaces':ss}
+manifest.pop('cornerBlocks',None)
+manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
+manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
 manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
 for name,d in contract['materials'].items():

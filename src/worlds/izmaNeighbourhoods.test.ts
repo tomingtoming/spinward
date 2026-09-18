@@ -36,6 +36,13 @@ function drawnMeshIndex(positions: number[]) {
   })
   return buildCityCollisionIndex(landscapeColliders({ surfaces, solids: [] }, 3200), 3200, 40000)
 }
+// New road-side paving can cover the former individual frontage surface.
+// Check the original surface still exists, then compare physics with the
+// visible top of both independent drawing layers at the same location.
+const streetPaving = drawnMeshIndex(manifest.streetFrontages
+  ? decodeColonyMesh(manifest.streetFrontages.fixed, false).meshes['frontage-paving'] : [])
+const withStreetPaving = (h: number, x: number, y: number) => Math.max(h,
+  getCityGroundHeight(streetPaving, 3200, x / 3200, y, 400, 0))
 
 test('station, centre-link and public-place catchments have mixed uses and current reservation sources', async () => {
   for (const [name, digest] of Object.entries(parcels.dependencies)) {
@@ -139,7 +146,8 @@ test('paved frontages abut both angled entrance edges and the foundation apron',
       const qx = x + c * u - s * v, qy = y + s * u + c * v
       const h = getCityGroundHeight(paving, 3200, qx / 3200, qy, 400)
       expect(h, p.id + ' missing paved entrance edge').toBeGreaterThan(0)
-      expect(Math.abs(getCityGroundHeight(physics, 3200, qx / 3200, qy, h + .03) - h), p.id).toBeLessThan(.02)
+      const visible = withStreetPaving(h, qx, qy)
+      expect(Math.abs(getCityGroundHeight(physics, 3200, qx / 3200, qy, visible + .03) - visible), p.id).toBeLessThan(.02)
       probes++
     }
   }
@@ -269,7 +277,8 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
       const h = Math.max(getCityGroundHeight(drawn, 3200, q[0] / 3200, q[1], 400), ...tiles.map(tile =>
         getCityGroundHeight(foundations.get(tile.id)!, 3200, q[0] / 3200, q[1], p.floor + .05, 0)))
       expect(h, p.id).toBeGreaterThan(0)
-      expect(Math.abs(getCityGroundHeight(physics, 3200, q[0] / 3200, q[1], h + .03) - h), p.id).toBeLessThan(.02)
+      const visible = withStreetPaving(h, q[0], q[1])
+      expect(Math.abs(getCityGroundHeight(physics, 3200, q[0] / 3200, q[1], visible + .03) - visible), p.id).toBeLessThan(.02)
       collectCityCollidersNear(physics, q[0] / 3200, q[1], 1, near)
       expect(near.size, p.id).toBeLessThanOrEqual(32)
       expect([...near].reduce((sum, b) => sum + (b.surfaceMesh?.length ?? 0) / 9, 0), p.id).toBeLessThanOrEqual(4096)
@@ -279,7 +288,8 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
     const y = p.position[1] + Math.sin(p.yaw) * u + Math.cos(p.yaw) * v
     const h = getCityGroundHeight(drawn, 3200, x / 3200, y, 400)
     expect(h, p.id).toBeGreaterThan(0)
-    expect(Math.abs(getCityGroundHeight(physics, 3200, x / 3200, y, h + .03) - h), p.id).toBeLessThan(.02)
+    const visible = withStreetPaving(h, x, y)
+    expect(Math.abs(getCityGroundHeight(physics, 3200, x / 3200, y, visible + .03) - visible), p.id).toBeLessThan(.02)
   }
 })
 

@@ -24,15 +24,15 @@ test('distance refinement preserves the travel buffer at grid edges, rotated bou
     const index = buildCityCollisionIndex(bodies, radius, 40000), near = new Set<CityBuilding>()
     const range = Math.min(CITY_COLLIDER_TRAVEL_BUFFER, 2 * Math.PI * radius / index.azimuthCellCount, index.axialCellSize)
     let discarded = 0
-    for (const x of [-128.001, -64.001, -.001, 0, 32, 63.999, 64.001, 128]) for (const y of [-64.001, -.001, 0, 63.999]) {
+    for (const margin of [0, .8]) for (const x of [-128.001, -64.001, -.001, 0, 32, 63.999, 64.001, 128]) for (const y of [-64.001, -.001, 0, 63.999]) {
       const a = x / radius
       const broad = collectCityBuildingsInWindow(index, a, y, 1, new Set()).size
-      collectCityCollidersNear(index, a, y, 1, near)
+      collectCityCollidersNear(index, a, y, 1, near, margin)
       discarded += broad - near.size
       for (const b of bodies) {
         const c = Math.abs(Math.cos(b.yaw!)), s = Math.abs(Math.sin(b.yaw!))
-        const dx = Math.max(0, Math.abs(Math.atan2(Math.sin(a - b.azimuth), Math.cos(a - b.azimuth))) * radius - (b.width * c + b.depth * s) / 2 - 8)
-        const dy = Math.max(0, Math.abs(y - b.axial) - (b.depth * c + b.width * s) / 2 - 8)
+        const dx = Math.max(0, Math.abs(Math.atan2(Math.sin(a - b.azimuth), Math.cos(a - b.azimuth))) * radius - ((b.width + 2 * margin) * c + (b.depth + 2 * margin) * s) / 2)
+        const dy = Math.max(0, Math.abs(y - b.axial) - ((b.depth + 2 * margin) * c + (b.width + 2 * margin) * s) / 2)
         expect(near.has(b)).toBe(Math.hypot(dx, dy) <= range)
       }
     }
