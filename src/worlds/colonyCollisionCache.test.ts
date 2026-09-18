@@ -4,6 +4,7 @@ import { colonyColliders, readColonyManifest, type ColonyPackedMesh } from './au
 import { buildCityCollisionIndex, getCityGroundHeight } from '../objects/cityLayout'
 import raw from './generated/izmaColony.json'
 import parcels from '../../assets/blender/izma-parcels.json'
+import landUse from '../../assets/blender/izma-land-use.json'
 
 const fixture = (): ColonyPackedMesh => ({
   vertices: [0, 0, 2, 10, 0, 2, 0, 10, 2, 20, 0, 4, 30, 0, 4, 20, 10, 4, 40, 0, 6, 50, 0, 6, 40, 10, 6],
@@ -46,7 +47,7 @@ test('invalid or individually oversized collision surfaces fail before a walking
   expect(() => new ColonyCollisionCache().colliders(nonfinite, 3200)).toThrow('vertices')
 })
 
-test('cold and evicted parcel approaches retain the whole-colony support heights', () => {
+test('cold and evicted building and land-use approaches retain the whole-colony support heights', () => {
   const manifest = readColonyManifest(raw), cache = new ColonyCollisionCache()
   const reference = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
   const cached = buildCityCollisionIndex([...cache.colliders(manifest.base, 3200),
@@ -54,6 +55,7 @@ test('cold and evicted parcel approaches retain the whole-colony support heights
     ...cache.colliders(manifest.publicRealm!.fixed, 3200),
     ...cache.colliders(manifest.neighbourhoods!.fixed, 3200),
     ...cache.colliders(manifest.railways!.fixed, 3200),
+    ...cache.colliders(manifest.landUse!.fixed, 3200),
     ...reference.all.filter(b => !b.surfaceMesh)], 3200, 40000)
   expect(cached.all.length).toBe(reference.all.length)
   expect(cache.stats.entries).toBe(0)
@@ -65,6 +67,16 @@ test('cold and evicted parcel approaches retain the whole-colony support heights
       const expected = getCityGroundHeight(reference, 3200, p[0] / 3200, p[1], p[2] + .3)
       const actual = getCityGroundHeight(cached, 3200, p[0] / 3200, p[1], p[2] + .3)
       expect(actual, parcel.id).toBe(expected)
+      expect(cache.stats.entries).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_ENTRIES)
+      expect(cache.stats.bytes).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_BYTES)
+    }
+  }
+  const approaches = landUse.zones.filter(zone => zone.access)
+  for (const collection of [approaches, [...approaches].reverse()]) for (const zone of collection) {
+    for (const p of zone.access!.profile) {
+      const expected = getCityGroundHeight(reference, 3200, p[0] / 3200, p[1], p[2] + .3)
+      const actual = getCityGroundHeight(cached, 3200, p[0] / 3200, p[1], p[2] + .3)
+      expect(actual, zone.id).toBe(expected)
       expect(cache.stats.entries).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_ENTRIES)
       expect(cache.stats.bytes).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_BYTES)
     }

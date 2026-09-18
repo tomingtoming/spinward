@@ -5,7 +5,24 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest whole-colony neighbourhood verification (2026-09-18): **545 additional
+Latest whole-colony land-use verification (2026-09-18): **61 garden, working
+yard and productive-land areas across 18 districts**. WebXR **0.3.0** passed
+four road-to-grounds return walks and the cross-world stereo/wrist regression
+in **2.7 minutes**, then an additional **186.4 m sampled garden-interior walk**
+in **2.2 minutes**. All six cases use actual VR entry and controller input on
+one unchanged production build. **72 desktop day/night views** accompany the
+run. This establishes land-use and sampled access, not dense reference-like
+street blocks, complete public access to every planted area or physical-headset
+performance. [Model, unit/build status, costs and limits](../neighborhood-life/colony-land-use.md).
+Evidence: `evidence/colony-land-use-20260918/verified/`, with supplementary
+desktop views in `verified-missing/desktop` beside it. Run the new VR cases with
+`SPINWARD_URL=<preview> bun run test:xr qa/webxr/colony-land-use.xr.mjs`.
+
+The intervening [station and tram work](../neighborhood-life/colony-rail.md)
+and [compact streets / 2,298 re-plotted frontage buildings](../neighborhood-life/colony-urban.md)
+supersede the earlier 545-building neighbourhood count below.
+
+Previous whole-colony neighbourhood verification (2026-09-18): **545 additional
 frontage buildings around all 18 public places**, plus 303 supported street lamps
 sharing the existing six-light pool. **1,139 unit tests**, TypeScript/build and
 **82 day/night desktop views** pass. The WebXR **0.3.0** full run passed **18/19**

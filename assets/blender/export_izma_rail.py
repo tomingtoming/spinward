@@ -7,6 +7,9 @@ for name,digest in contract['dependencies'].items():
     assert hashlib.sha256((ROOT/'assets/blender'/name).read_bytes()).hexdigest()==digest,('Rebuild rail after changed reservation',name)
 scene=bpy.data.scenes['SW_izma_rail'];assert scene.get('owner')=='spinward-izma-rail-v1';scene.view_layers[0].update()
 path=ROOT/'src/worlds/generated/izmaColony.json';manifest=json.loads(path.read_text())
+manifest.pop('landUse',None)
+manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
+manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
 assert hashlib.sha256(json.dumps(manifest['base'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==contract['baseDigest'],'Rebuild rail after terrain changes'
 stations={s['id']:s for s in contract['stations']};tiles={};fixed={};physics={};vehicles={};tile_bands={}
 def pack(groups,surfaces=None):

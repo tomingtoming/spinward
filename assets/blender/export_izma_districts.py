@@ -14,6 +14,11 @@ def export(config=None):
     ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3;TILE=512
     layer=config.get('layer','architecture')
     source=ROOT/'src/worlds/generated/izmaColony.json';manifest=json.loads(source.read_text())
+    # Land use reserves all upstream lots, stations and routes. Re-author it
+    # last, rather than leave planted ground across a moved building or entry.
+    manifest.pop('landUse',None)
+    manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
+    manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
     contract=json.loads((ROOT/'assets/blender'/config.get('contract','izma-parcels.json')).read_text())
     scene=bpy.data.scenes[config.get('scene','SW_izma_districts')];scene.view_layers[0].update()
     assert scene.get('owner')==config.get('owner','spinward-izma-districts-v1')
