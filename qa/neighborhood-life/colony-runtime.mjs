@@ -10,6 +10,7 @@ const out = process.env.SPINWARD_EVIDENCE_DIR ? resolve(process.env.SPINWARD_EVI
 await fs.mkdir(out, { recursive: true })
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const errors = [], failures = [], cases = []
+let gpu, incompleteCase = null, complete = false
 try {
   const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } })
   page.on('pageerror', e => errors.push(e.message))
@@ -37,9 +38,9 @@ try {
     ['band-c-overview', pose([13404, 1200, 750], [13404, 2800, 10], true)],
   ]
   if (process.env.SPINWARD_EXTRA_VIEWS) views.push(...JSON.parse(process.env.SPINWARD_EXTRA_VIEWS))
-  let gpu
   for (const [period, time] of [['day', .42], ['night', .9]]) for (const [name, query] of views) {
     if (process.env.VIEWS && !process.env.VIEWS.split(',').includes(name)) continue
+    incompleteCase = { period, name }
     await boot(query, time)
     const state = await page.evaluate(() => {
       const s = window.__spinward, c = window.__spinwardCity
@@ -48,6 +49,7 @@ try {
         h: s.groundHeight, radial: s.radial, colony: c.authoredColony.group.userData, study: c.authoredLandscape.group.userData,
         jsHeap: performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize } : null }
     })
+    incompleteCase.state = state
     gpu = state.gpu
     if (/unknown|SwiftShader|Software|llvmpipe/i.test(gpu)) throw Error('Hardware GPU required: ' + gpu)
     if (state.colony.loaded > 18 || state.colony.pending > 3 || state.colony.failed.length) throw Error('Tile load failure/budget: ' + JSON.stringify(state.colony))
@@ -59,8 +61,13 @@ try {
     })
     await page.screenshot({ path: out + period + '-' + name + '.png' })
     cases.push({ period, name, state, frames })
+    incompleteCase = null
     console.log(JSON.stringify({ period, name, loaded: state.colony.loaded, h: state.h, frames }))
   }
-  await fs.writeFile(out + 'report.json', JSON.stringify({ gpu, cases, errors, failures }, null, 2))
   if (errors.length || failures.length) throw Error(JSON.stringify({ errors, failures }))
-} finally { await browser.close() }
+  complete = true
+} finally {
+  // A late request/capture failure must retain earlier cases and its diagnostics.
+  try { await fs.writeFile(out + 'report.json', JSON.stringify({ complete, incompleteCase, gpu, cases, errors, failures }, null, 2)) }
+  finally { await browser.close() }
+}

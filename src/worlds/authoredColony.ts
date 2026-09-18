@@ -24,6 +24,7 @@ export type ColonyManifest = { version: 1; radius: number; span: number; palette
   visits: Record<string, { band: number; position: [number, number]; lookAt?: [number, number]; heightHint?: number }> }
 
 export const COLONY_NEAR_DISTANCE = 850
+export const COLONY_BUILDING_NEAR_DISTANCE = 180
 export const COLONY_MID_DISTANCE = 2600
 export const COLONY_TILE_CACHE = 18
 export const COLONY_LOAD_CONCURRENCY = 3
@@ -90,7 +91,7 @@ function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
   ] }, manifest.radius)
 }
 
-type TileState = { group: THREE.Group; near: THREE.Group; mid?: THREE.Group; used: number }
+type TileState = { group: THREE.Group; near: THREE.Group; mid?: THREE.Group; used: number; nearDistance: number }
 type Proxy = { tile: ColonyTile; box: ColonyBox | ColonyProxyPart; mesh: THREE.InstancedMesh; instance: number; matrix: THREE.Matrix4; visible: boolean }
 type FetchTile = (url: string, signal: AbortSignal) => Promise<ColonyPackedMesh>
 const fetchTile: FetchTile = async (url, signal) => {
@@ -298,7 +299,11 @@ export class AuthoredColony {
         const group = new THREE.Group(); group.name = 'colony-tile-' + tile.id
         group.add(near); if (mid) group.add(mid)
         group.visible = this.wanted.some(t => t.id === tile.id)
-        const state = { group, near, mid, used: this.clock }
+        // Recesses and small window frames need close detail. Other layers
+        // retain their wider range for station, garden and street geometry.
+        const building = tile.architecture && !tile.publicRealm && !tile.railway && !tile.landUse
+        const state = { group, near, mid, used: this.clock,
+          nearDistance: building ? COLONY_BUILDING_NEAR_DISTANCE : COLONY_NEAR_DISTANCE }
         this.selectLOD(state, Math.hypot(colonyTileDistance(tile, this.manifest!.radius, this.lastFocus.azimuth, this.lastFocus.axial), Math.max(0, this.lastFocus.altitude - 150)))
         this.group.add(group); this.loaded.set(tile.id, state)
         this.failed.delete(tile.id)
@@ -329,7 +334,8 @@ export class AuthoredColony {
   private selectLOD(state: TileState, distance: number) {
     // A small hysteresis keeps a façade from alternating when standing still
     // near the level boundary. Both levels come from the same saved building.
-    const threshold = COLONY_NEAR_DISTANCE + (state.near.visible ? 60 : -60)
+    const hysteresis = Math.min(60, state.nearDistance * .15)
+    const threshold = state.nearDistance + (state.near.visible ? hysteresis : -hysteresis)
     state.near.visible = !state.mid || distance < threshold
     if (state.mid) state.mid.visible = !state.near.visible
   }

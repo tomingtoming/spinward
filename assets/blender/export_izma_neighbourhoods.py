@@ -20,6 +20,7 @@ for n in contract['neighbourhoods']:
     visits['neighbourhood-'+n['id']]={'band':p['band'],'position':[a[0]-offset,a[1]],
         'lookAt':[b[0]-offset,b[1]],'heightHint':a[2]+.3}
 result=library['export']({'layer':'neighbourhoods','contract':'izma-neighbourhood-parcels.json',
+    'appearanceOnly':globals().get('_APPEARANCE_ONLY',False),
     'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v1',
     'evidence':'qa/webxr/evidence/colony-urban-20260918','visits':visits,
     'baseTransform':partition['refine_colony_base'],

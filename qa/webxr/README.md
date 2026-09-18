@@ -5,7 +5,22 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest data-loading verification (2026-09-18): the unchanged colony geometry
+Latest facade verification (2026-09-18): 7,394 native building parcels have
+recessed near windows and matching middle room patterns, with unchanged ground,
+collision and far geometry. **Ten actual WebXR 0.3.0 cases pass in 2.8 minutes**:
+stairs, relocated entry, balcony, A/B/C original and compact infill door
+approaches, and stereo walking/wrist travel through all four worlds.
+**1,161 unit tests pass.** Twelve matched close desktop images pass; the wider
+82-view capture required a targeted rerun after two fetch failures in the last
+view, so it is not a successful uninterrupted sweep. Wide shop-awning contacts,
+broken frontage paving, repetitive forms and large empty areas remain open.
+Building near detail is now 180 m, but both LODs remain resident and some desktop
+views still have 33.4 ms frames. Physical-headset performance is unmeasured.
+[Native model, reference comparison, verification and limits](../neighborhood-life/colony-facades.md).
+Evidence: `evidence/colony-facades-20260918/`; XR output: `final-xr/`.
+Run `qa/webxr/colony-architecture.xr.mjs qa/webxr/colony-neighbourhoods.xr.mjs qa/webxr/world-landscapes.xr.mjs`.
+
+Previous data-loading verification (2026-09-18): the unchanged colony geometry
 loads from 67 content-addressed JSON parts instead of one 105 MB JavaScript
 module. **Three final WebXR 0.3.0 cases pass in 59.8 seconds**, covering missing
 and corrupt data, safe startup failure, Reload into real VR, and the four-world /

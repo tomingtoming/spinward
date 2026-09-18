@@ -103,10 +103,10 @@ for p in built['parcels']:
             lamp.finish(p['id']+f'_lamp{lod}',p,lod)
         p['solids'].append([u,v,z,.16,.16,4.05])
         p['proxyParts'].extend([[u,v,z,.16,.16,4.05,'metal','box'],[u,v-.3,z+3.9,.7,.95,.15,'metal','box']])
-        data=bpy.data.lights.new(p['id']+'_street_light','POINT');data.energy=500
+        data=bpy.data.lights.new(p['id']+'_street_light','POINT');data.energy=140
         obj=bpy.data.objects.new(data.name,data);built['scene'].collection.objects.link(obj)
         obj.location=(ly+(-c)*.47,-(lx+s*.47),h+3.84)
-        obj['parcel_id']=p['id'];obj['color']='#ffdfa8';obj['intensity']=500;obj['distance']=32
+        obj['parcel_id']=p['id'];obj['color']='#ffdfa8';obj['intensity']=140;obj['distance']=28
 built['scene'].view_layers[0].update()
 bpy.data.libraries.write(str(ROOT/'assets/blender/izma-neighbourhoods.blend'),{built['scene']},fake_user=True,compress=True)
 contract=ROOT/'assets/blender/izma-neighbourhood-parcels.json'

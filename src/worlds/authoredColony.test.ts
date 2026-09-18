@@ -116,11 +116,33 @@ test('architecture keeps a roof silhouette while loading and changes facade LOD 
   expect(near.visible).toBe(false); expect(mid.visible).toBe(true)
   roof.getMatrixAt(0, matrix); expect(matrix.determinant()).toBe(0)
   layer.update(0, 300, 2)
+  expect(near.visible).toBe(false); expect(mid.visible).toBe(true)
+  layer.update(0, 100, 2)
   expect(near.visible).toBe(true); expect(mid.visible).toBe(false)
+  layer.update(0, 210, 2)
+  expect(near.visible).toBe(true) // stay near inside the outward hysteresis band
+  layer.update(0, 250, 2)
+  expect(near.visible).toBe(false); expect(mid.visible).toBe(true)
+  layer.update(0, 190, 2)
+  expect(near.visible).toBe(false) // stay middle on the return through the same band
+  layer.update(0, 150, 2)
+  expect(near.visible).toBe(true)
   layer.update(0, 2800, 2)
   expect(near.parent!.visible).toBe(false)
   roof.getMatrixAt(0, matrix); expect(matrix.determinant()).toBeGreaterThan(0)
   layer.dispose()
+})
+
+test('station, public-space and land detail keep their existing range beside close facade LODs', async () => {
+  for (const kind of ['railway', 'publicRealm', 'landUse'] as const) {
+    const f = fixture(); f.tiles[0].architecture = true; f.tiles[0][kind] = true
+    const layer = new AuthoredColony(new THREE.Group(), async () => ({ ...small, mid: small }))
+    layer.rebuild(f); layer.update(0, 600, 2); await tick()
+    expect(layer.group.getObjectByName('colony-tile-tile-0-near')!.visible).toBe(true)
+    layer.update(0, 1200, 2)
+    expect(layer.group.getObjectByName('colony-tile-tile-0-mid')!.visible).toBe(true)
+    layer.dispose()
+  }
 })
 
 test('malformed middle detail keeps the roof fallback and creates no partial tile', async () => {

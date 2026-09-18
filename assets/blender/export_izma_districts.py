@@ -6,6 +6,7 @@ resident so the silhouette survives a missing tile. Ground/roof collision is
 independent of detail requests. Run after export_izma_colony.py.
 """
 import bpy, json, math, hashlib
+from collections import Counter
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -17,11 +18,18 @@ def export(config=None):
     ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3;TILE=512
     layer=config.get('layer','architecture')
     source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
+    appearance_only=config.get('appearanceOnly',False)
+    previous_layer=manifest.get(layer)
+    def owns_tile(tile):
+        if layer=='neighbourhoods':return bool(tile.get('neighbourhood'))
+        return tile.get('architecture') and not any(tile.get(k)for k in ['neighbourhood','publicRealm','railway','landUse'])
+    previous_tiles=[t for t in manifest['tiles']if owns_tile(t)]
     # Land use reserves all upstream lots, stations and routes. Re-author it
     # last, rather than leave planted ground across a moved building or entry.
-    manifest.pop('landUse',None)
-    manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
-    manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
+    if not appearance_only:
+        manifest.pop('landUse',None)
+        manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
+        manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
     contract=json.loads((ROOT/'assets/blender'/config.get('contract','izma-parcels.json')).read_text())
     scene=bpy.data.scenes[config.get('scene','SW_izma_districts')];scene.view_layers[0].update()
     assert scene.get('owner')==config.get('owner','spinward-izma-districts-v1')
@@ -126,10 +134,15 @@ def export(config=None):
     # Additional neighbourhoods reserve existing parcels/public spaces. Rebuilding
     # primary architecture invalidates dependent layers; an additive export only
     # replaces its own tiles, surfaces and visits.
-    manifest.pop('railways',None)
-    manifest['tiles']=[t for t in manifest['tiles']if not t.get('railway')]
-    manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('station-')}
-    if layer=='architecture':
+    if not appearance_only:
+        manifest.pop('railways',None)
+        manifest['tiles']=[t for t in manifest['tiles']if not t.get('railway')]
+        manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('station-')}
+    if appearance_only:
+        assert previous_layer is not None, 'An appearance revision requires a previous exported layer'
+        replaced={t['id']for t in previous_tiles}
+        manifest['tiles']=[t for t in manifest['tiles']if t['id']not in replaced]
+    elif layer=='architecture':
         manifest.pop('publicRealm',None);manifest.pop('neighbourhoods',None)
         manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith(('public-','neighbourhood-'))}
         manifest['palette']={k:v for k,v in manifest['palette'].items()if not k.startswith('public-')}
@@ -180,6 +193,30 @@ def export(config=None):
             w=obj.matrix_world.translation
             manifest[layer]['lights'].append({'position':[-w.y,w.x,w.z],
                 'color':obj['color'],'intensity':obj['intensity'],'distance':obj['distance']})
+    if appearance_only:
+        current=manifest[layer]
+        assert previous_layer['parcels']==current['parcels'], 'An appearance revision cannot move/change parcels or access'
+        assert previous_layer['solids']==current['solids'], 'An appearance revision cannot change wall envelopes'
+        def triangles(packed,indices):
+            vertices=packed['vertices'];result=Counter()
+            for i in range(0,len(indices),3):
+                points=tuple(tuple(vertices[j*3:j*3+3])for j in indices[i:i+3])
+                result[min(points[k:]+points[:k]for k in range(3))]+=1
+            return result
+        before,after=previous_layer['fixed'],current['fixed']
+        assert before['meshes'].keys()==after['meshes'].keys(), 'Fixed ground materials changed'
+        for name in before['meshes']:
+            assert triangles(before,before['meshes'][name])==triangles(after,after['meshes'][name]),('Ground drawing changed',name)
+        assert len(before['surfaces'])==len(after['surfaces']), 'Physical compound count changed'
+        for a,b in zip(before['surfaces'],after['surfaces']):
+            assert a['bounds']==b['bounds'] and a.get('groundSurface')==b.get('groundSurface'), 'Physical compound bounds changed'
+            assert triangles(before,a['indices'])==triangles(after,b['indices']), 'Physical compound triangles changed'
+        # Keep the previous order and packaged bytes after proving equality;
+        # native scene object order is unrelated to spatial surface ownership.
+        current['fixed']=before
+        new_tiles=[t for t in manifest['tiles']if owns_tile(t)]
+        for field in ['boxes','proxyParts']:
+            assert Counter(tuple(p)for t in previous_tiles for p in t[field])==Counter(tuple(p)for t in new_tiles for p in t[field]),('Distant shape changed',field)
     if 'visits' in config:manifest['visits'].update(config['visits'])
     if 'baseTransform' in config:manifest['base']=config['baseTransform'](manifest['base'])
     write_manifest(source, manifest)
@@ -192,4 +229,4 @@ def export(config=None):
     return result
 
 if not globals().get("_DISTRICTS_LIBRARY",False):
-    result=export()
+    result=export({'appearanceOnly':globals().get('_APPEARANCE_ONLY',False)})
