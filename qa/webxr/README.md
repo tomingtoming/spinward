@@ -5,7 +5,25 @@ Run the real VR entry, wrist laser and controller trigger through
 emulated sessions in Chrome, not measurements from a physical Quest.
 The current locked version is **0.3.0** (updated at the user’s direction on 2026-09-13).
 
-Latest whole-colony block-depth verification (2026-09-18): **5,080 buildings,
+Latest frontage-parcel verification (2026-09-18): **5,600 buildings** on the
+retained 60 local streets, **1,153 unit tests**, production build, **82 desktop
+day/night captures** and twelve matched before/after views. All **15 current
+WebXR 0.3.0 cases** are covered on one unchanged build: thirteen passed in the
+initial run, followed by two successful repaired/unrun cases in 2.0 minutes.
+The initial garden fixture wrongly assumed a chain instead of a fork; discovery
+also included archived source tests. Evidence/artifacts are now excluded and
+`--list` confirms fifteen current cases. Three new-lane return walks cover
+**412.1 / 408.6 / 420.1 m**; the branched garden return covers **90.5 m**.
+Forced-GC JS heap is **215.87–216.73 MiB**, with separate backing storage of
+**217.61–228.09 MiB**. The local audit stays within **30 bodies / 3,574 triangles**.
+Footprint occupancy improves, but some ground viewpoints lose enclosure and
+garden approaches decrease from 46 to 41. Large green gaps, repeated facades
+and uneven night lighting remain. These checks are emulation, not physical
+headset measurements. See [model, comparisons and limits](../neighborhood-life/colony-block-depth.md#contiguous-frontage-parcels).
+Evidence: `evidence/colony-parcel-blocks-20260918/`, with the two follow-ups in
+`xr-repaired/`. Served HTML and all three JS bundle hashes match before/after.
+
+Previous whole-colony block-depth verification (2026-09-18): **5,080 buildings,
 60 accepted local streets and 79 land-use areas**. The corrected compact-frontage
 model passes **1,153 unit tests**, TypeScript/build and **15 WebXR 0.3.0 cases
 in 20.9 minutes**, including three new full back-lane returns of
@@ -18,7 +36,7 @@ gaps and repeated facades; B-housing's retained-road frontage coverage is below
 the previous model. Passing movement checks does not establish reference-like
 density or physical-headset performance.
 [Model, reference comparison and verification](../neighborhood-life/colony-block-depth.md).
-Current evidence is in `evidence/colony-block-depth-20260918/filled/`; the
+That model's evidence is in `evidence/colony-block-depth-20260918/filled/`; the
 adjacent `initial/`, `verified/` and root-level captures predate compact infill.
 Run `colony-urban.xr.mjs --grep 'second-depth:'` for the new extended returns;
 `colony-neighbourhoods.xr.mjs` now includes both principal and compact entrances.

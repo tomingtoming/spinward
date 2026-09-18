@@ -281,7 +281,7 @@ def build(config=None):
         family=block.get('family') or choose(PLAN['districts'][block['district']],n)
         ow,od,oh=block['size'];yaw=block['yaw']
         w=min(ow,9.2+(n%6)*.6) if family in ['house','farmhouse'] and not block.get('fixedSize') else ow
-        d=min(od,15.5) if family in ['house','farmhouse','pavilion'] else od
+        d=min(od,15.5) if family in ['house','farmhouse','pavilion'] and not block.get('fixedSize') else od
         placement=place(i,block,w,d,family)
         if block.get('fixedSize'):assert 'relocatedFrom' not in placement,('Planned parcel lost its frontage',parcel_id)
         x,y=placement['position'];yaw=placement['yaw'];c,s=math.cos(yaw),math.sin(yaw)

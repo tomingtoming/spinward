@@ -5,6 +5,10 @@ created: 2026-09-18
 
 # Deeper blocks and building forms
 
+The latest frontage-partition update is recorded at the end of this document.
+The earlier 5,080-building model and its completed verification below remain a
+baseline; their results do not verify the newer model.
+
 This increment adds streets inside and behind existing blocks, and changes
 building volumes to reflect different uses. It is a step toward deeper inhabited
 blocks, not a completed reference-like city. The reference images remain visibly
@@ -186,3 +190,165 @@ The whole-colony goal remains active. Water facilities, inter-strip transport,
 IC/JCT driving geometry, broader land-use continuity, new interiors, facade
 variety, night-light balance and terrain streaming remain incomplete. Physical
 headset comfort and performance are unmeasured.
+
+## Rejected interior-lane experiment
+
+A subsequent offline experiment sketched 17 passages from the cross lanes into
+existing blocks. Ten passed the native street checks. The first version produced
+3,350 infill buildings; using shallower 8.4 m houses/shops and small yards on the
+new passages produced 3,405, compared with the committed 3,365. Neither version
+improved the intended block density. The new
+`audit-block-interiors.ts` clips actual ground-level body volumes to the same 25
+retained street-centreline loops, including streets/gardens in the denominator.
+It excludes upper storeys and courtyard voids; this is not roof coverage or a
+dimension measured from the animation. Its self-comparison returns zero change.
+
+| District | Committed model | Extra lanes | Extra lanes with small plots |
+| --- | ---: | ---: | ---: |
+| A-old-town | 14.17% | 13.41% | 13.41% |
+| B-housing | 17.58% | 17.40% | 16.62% |
+| C-market | 21.56% | 16.9% | 15.40% |
+
+The added roads consume occupied space and trigger replotting; extra small
+addresses do not compensate for lost building area. More passages/addresses
+would therefore be a misleading success criterion. Both candidates were
+rejected before export, browser verification or a production rebuild. All six
+changed model/source paths were archived with hashes and restored exactly to
+`c129151`; the verified preview is unchanged. Evidence is in
+`qa/webxr/evidence/colony-block-interiors-20260918/` (ignored).
+
+The next layout work must coordinate whole street blocks, lot boundaries and
+building depth, with current structures treated as revisable design rather than
+forcing every change into their remaining gaps. Preserve the original study,
+public entrances, terrain support, transport and distinct open land uses. Assess
+both occupied area and ground/overview images before accepting the layout.
+
+## Contiguous frontage parcels
+
+The next model changes parcel allocation on the thirteen urban districts. It
+partitions complete street-edge intervals, advances by each accepted lot's
+actual frontage, and shares depth with the facing road. Deep narrow shops,
+larger apartment courts and work premises can therefore occupy the block's
+interior. Fixed-size lots retain their authored dimensions in the native mesh.
+The five garden/farming settlements keep their previous placement policy.
+
+This is a parcel-layout change on the retained 60 local streets. It does not
+replace the larger road topology: the small repeated loops and large empty
+surroundings remain unfinished. These dimensions are Spinward design choices,
+not recovered dimensions or a canonical map of Izma.
+
+There are 3,885 additional parcels: 3,600 allocated frontage lots, 109 compact
+gap plots and 176 rural/park plots. With the 1,715 primary buildings, the model
+contains 5,600 buildings, excluding the original study. It retains nine
+architecture families and 1,199 supported street lights sharing six active
+lights. New building interiors remain closed.
+
+On the same retained street-centreline loops, actual ground-level building
+coverage changes as follows. The denominator includes roads and gardens; the
+measurement excludes upper storeys and courtyard voids. All eleven districts
+with comparable closed loops increase their occupied area.
+
+| District | c129151 | Frontage partition |
+| --- | ---: | ---: |
+| A-old-town | 14.17% | 22.72% |
+| B-housing | 17.58% | 29.43% |
+| C-market | 21.56% | 28.68% |
+
+The existing two-sided frontage diagnostic on all retained local streets rises
+from 38.3% to 51.7%, 31.2% to 47.6%, and 33.3% to 52.2% respectively. These
+numbers establish geometric change, not visual equivalence to the reference.
+The ground-footprint plan comparison shows deeper occupied rows and reduced
+slivers, but also the unchanged limited extent of the developed street network.
+
+The first export exceeded the local body budget (maximum 36). Pairing adjacent
+small buildings on the same straight street edge reduces the measured maximum
+to 30, retaining the 32-body limit. Each pair is capped at 256 triangles and a
+48 m bounding extent. The sorted SHA-256 digest of all 337,054 native physical
+triangles is identical before and after pairing; no wall, roof, stair or ground
+triangle was discarded. Surface groups fall from 4,115 to 2,858. The 112,399-point
+cost audit retains a maximum of 3,574 triangles and a collision-cache peak of
+1,526,040 bytes / 128 entries. This is a geometry audit, not a frame-time result.
+
+The revised land layer retains 79 zones and has 4,343 fixtures. Its current
+41 accepted approaches are fewer than the baseline's 46; 27 are grade-rejected
+and eleven have no candidate. Wider buildings require further land-access
+planning. This loss of connected garden approaches is recorded as unfinished
+work, not hidden by tests of the remaining accepted routes.
+
+Six analytical checks cover frontage catchments and depth sharing, and the
+sixteen native surface/access/collision/rail tests pass with 400,738 assertions.
+All 1,153 unit tests pass across 199 files (22,974,733 assertions, 1,009.14 s).
+The production build passes; its colony JS bundle is 85,494,793 bytes, and the
+large-chunk warning remains. Evidence is in
+`qa/webxr/evidence/colony-parcel-blocks-20260918/` (ignored).
+
+All 82 desktop captures completed with no page errors or failed requests and
+at most 18 resident detail tiles. The 18 districts have ground and overview
+views in daylight and at night; five building-form views have both periods.
+Short stationary rAF samples at 1440 × 900 / DPR 1 / Quest quality have a
+16.7 ms median and 16.7–16.8 ms p95 on Apple M1 Pro / ANGLE Metal. The CPU unit
+suite ran concurrently. These are neither sustained walking nor headset
+performance measurements. Twelve additional captures use the baseline parcel
+contract to retain camera sites for a before/after comparison.
+
+Five forced-GC page snapshots give 215.87–216.73 MiB of JS heap and separate
+backing storage of 217.61–228.09 MiB. Three full collider-cache sweeps retain
+128 entries, peak 1,967,760 bytes, and 216.17–216.28 MiB of JS heap. No page
+errors or failed requests occur. These reload/cache-pressure probes do not
+measure continuous travel, cold-load peaks or total process/GPU memory.
+
+The initial VR run found a fixture assumption: the garden test followed only
+forward-oriented edges, requiring two paths to form a chain. The selected
+garden now has two paths branching from its entrance. The fixture now treats
+paths as undirected, retraces the first branch to its junction, and walks the
+second branch. It still requires two distinct connected paths and native
+rendered ground under the moving body. Junctions are retained when thinning
+the walking waypoints. No geometry or tolerance is changed for this fix.
+That run passed thirteen current cases before it was interrupted during an
+unintended archived test: Playwright's recursive discovery had also included
+three `.xr.mjs` copies inside the rejected-experiment evidence directory.
+`playwright.config.mjs` now excludes evidence and artifacts; `--list` confirms
+exactly fifteen current cases in four source files. The archived test's result
+is not counted. The repaired garden case and the unrun four-world/wrist case
+then both passed in 2.0 minutes on the same served build. Together the runs
+cover all fifteen current cases. The initial failure and archive interruption
+remain in `xr/`; the two successful follow-ups are in `xr-repaired/`.
+
+The garden walk covers 90.5 m through both branches and back, with all 115
+samples grounded and a 0.07 m return error. It is the current small garden,
+not the earlier model's longer garden route. Actual VR entry, controller input,
+version 0.3.0 diagnostics and native visible-floor checks remain enabled.
+The four worlds retain their separate geometry and wrist travel in the sampled
+stereo/head-roll views. Physical-headset performance and comfort are unmeasured.
+After verification, all four HTML/JS hashes still match the starting hashes,
+disk and HTTP (`served-after.json`).
+
+The three completed back-lane walks cover 412.1 / 408.6 / 420.1 m. All 1,291
+recorded samples are grounded, with return errors at most 0.25 m and no page
+errors. The simulation clock advances during each roughly five-minute walk,
+so its entry and return images can have different daylight conditions.
+
+Visual review separates an improvement in footprint occupancy from street
+enclosure. The root inspected all 82 captures as labelled contact sheets and
+selected views at full size; an independent reviewer inspected eight daytime
+and eight nighttime views, then twelve matched before/after pairs. Old-town
+and market overviews have deeper roofs and smaller green gaps. From the
+retained old-town and housing street viewpoints, replacement of taller blocks
+with lower rows increases the visible sky and weakens enclosure. Market lamps
+wash out less wall area in the matched night view; a housing entrance is
+darker. Old-town's new selected night viewpoint still has local white clipping.
+The streets retain wide one-sided grass openings, repeated facades and weak
+use-specific cues. Those are unfinished design issues, not visual passes.
+The root also inspected twelve entrance captures and nine stereo loop images.
+Both eyes retain corresponding scenery; no obvious major floating body or
+missing road is visible in this sample. Repeated porch/door forms and dark
+entrances remain. This static review does not clear hidden joins or headset
+comfort. Source frames ep01 `0006` and ep06 `0073` were additionally reopened:
+the overhead city layers and tight service alley remain substantially missing.
+
+The land builder currently validates only the shortest geometrically clear
+approach chosen by the planner. If its native road/terrain junction fails the
+grade check, it drops that access without trying the other candidates. The
+next access correction should evaluate alternative reserved routes against
+native ground, preserving the grade and obstruction limits. Merely choosing
+an easier garden for the VR case would not restore the five lost approaches.

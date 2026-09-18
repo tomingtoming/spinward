@@ -39,9 +39,10 @@ def export(config=None):
             px,py,pz=local_to_world(p,[u,v,z]);tile['proxyParts'].append([px,py,pz,pw,pd,ph,p['yaw'],'arch-'+material,shape])
         body_volume_count=1+len(p['volumes']) if 'volumes' in p else 3 if p['family'] in ['office','civic'] else 2
         for solid_index,(u,v,z,pw,pd,ph) in enumerate(p['solids']):
-            # Keep one physical mesh per parcel. Grouping distant roofs into a
-            # 128 m bucket pulled unnecessary triangles into a nearby street's
-            # collision window. The closed wall volumes join roofs and access
+            # Start with one physical mesh per parcel. Grouping distant roofs
+            # into a 128 m bucket pulled unnecessary triangles into the travel
+            # buffer; an optional later pass pairs only cheap adjacent lots.
+            # The closed wall volumes join roofs and access
             # tops here; vertical faces do not become floors in radial sampling.
             vs=[local_to_world(p,[u+sx*pw/2,v+sy*pd/2,z+sz*ph])for sz in [0,1]for sy in [-1,1]for sx in [-1,1]]
             # Foundations close against the terrain; rail bottoms meet balcony
@@ -100,6 +101,8 @@ def export(config=None):
             if lod>=0:counts[lod]+=1
             if lod<=0 and flags and flags.data[tri.polygon_index].value:
                 floors.setdefault(p['id'],[]).extend(vs)
+
+    if 'surfaceTransform' in config:floors=config['surfaceTransform'](floors)
 
     def pack(groups,surfaces=None):
         pool=[];lookup={}

@@ -6,12 +6,22 @@ test.use({xrStereoEnabled:true,xrIpd:.064,viewport:{width:2560,height:960}})
 for(const [district,interior] of [['a-old-town',false],['b-housing',false],['c-production',false],['c-fields',false],['a-old-town',true]])test(`land use: ${district} road ${interior?'through garden interior':'to grounds'} and back`,async({page,xr},info)=>{
  test.setTimeout(interior?300000:180000)
  const z=land.zones.filter(z=>z.district===district&&z.access).sort((a,b)=>b.fixtures-a.fixtures)[0],path=[...z.access.profile],startPoint=path[0]
+ const junctions=new Set([path.length-1])
  if(interior){
-  const visited=[path.at(-1)]
-  for(let i=0;i<2;i++){
-   const branch=z.walkProfiles.find(p=>Math.hypot(p[0][0]-path.at(-1)[0],p[0][1]-path.at(-1)[1])<.01&&!visited.some(v=>Math.hypot(v[0]-p.at(-1)[0],v[1]-p.at(-1)[1])<.01))
-   expect(branch,'two connected garden branches beyond the entrance').toBeDefined()
-   path.push(...branch.slice(1));visited.push(branch.at(-1))
+  // Native paths are undirected and may fork at the entrance. Visit two
+  // distinct branches, retracing a dead end through its junction when needed.
+  const visited=new Set(),trail=[],same=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])<.01
+  while(visited.size<2){
+   const index=z.walkProfiles.findIndex((p,i)=>!visited.has(i)&&(same(p[0],path.at(-1))||same(p.at(-1),path.at(-1))))
+   let branch
+   if(index>=0){
+    const p=z.walkProfiles[index];branch=same(p[0],path.at(-1))?p:[...p].reverse()
+    visited.add(index);trail.push(branch)
+   }else{
+    expect(trail.length,'two connected garden branches beyond the entrance').toBeGreaterThan(0)
+    branch=[...trail.pop()].reverse()
+   }
+   path.push(...branch.slice(1));junctions.add(path.length-1)
   }
  }
  const errors=[],samples=[],captures=[]
@@ -67,11 +77,11 @@ for(const [district,interior] of [['a-old-town',false],['b-housing',false],['c-p
   const diagnostic=await xr.diagnostics();expect(diagnostic.runtime.playwrightWebxrVersion).toBe('0.3.0')
   await xr.setControllerPose('left',{position:[-.4,.6,-.2],quaternion:[0,0,0,1]})
   const start=await sample();await aim(path.at(-1));await capture('street-entry')
-  const targets=path.filter((_,i)=>i%4===0||i===path.length-1)
+  const targets=path.filter((_,i)=>i%4===0||junctions.has(i)||i===path.length-1)
   await walk(targets.slice(1));const inside=await sample();await aim(startPoint);await capture('grounds-looking-back')
   await walk([...targets].reverse().slice(1));const returned=await sample();await capture('returned')
   expect(Math.hypot(inside.x-start.x,inside.axial-start.axial)).toBeGreaterThan(z.access.length-.8)
   await xr.endSession({sessionId:diagnostic.session.id,timeout:5000});expect(errors).toEqual([])
-  await fs.writeFile(info.outputPath('report.json'),JSON.stringify({zone:z.id,diagnostic,start,inside,returned,captures},null,2))
+  await fs.writeFile(info.outputPath('report.json'),JSON.stringify({zone:z.id,path,diagnostic,start,inside,returned,captures},null,2))
  }finally{geometry.dispose();material.dispose();await fs.writeFile(info.outputPath('samples.json'),JSON.stringify({zone:z.id,samples,errors},null,2))}
 })

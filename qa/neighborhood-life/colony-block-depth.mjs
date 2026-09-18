@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import { Matrix4, Quaternion, Vector3 } from 'three'
-const plan=JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json',import.meta.url),'utf8'))
+// A saved contract keeps the camera sites unchanged for before/after images.
+const plan=JSON.parse(await fs.readFile(process.env.SPINWARD_VIEW_PLAN??new URL('../../assets/blender/izma-neighbourhood-parcels.json',import.meta.url),'utf8'))
 const point=([x,y,h])=>new Vector3(Math.cos(x/3200)*(3200-h),y,Math.sin(x/3200)*(3200-h))
 const pose=(at,target,fly=false)=>{
  const q=new Quaternion().setFromRotationMatrix(new Matrix4().lookAt(point([at[0],at[1],at[2]+1.8]),point(target),new Vector3(-Math.cos(at[0]/3200),0,-Math.sin(at[0]/3200))))

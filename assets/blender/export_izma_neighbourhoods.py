@@ -22,4 +22,6 @@ for n in contract['neighbourhoods']:
 result=library['export']({'layer':'neighbourhoods','contract':'izma-neighbourhood-parcels.json',
     'scene':'SW_izma_neighbourhoods','owner':'spinward-izma-neighbourhoods-v1',
     'evidence':'qa/webxr/evidence/colony-urban-20260918','visits':visits,
-    'baseTransform':partition['refine_colony_base'],'lightSources':True})
+    'baseTransform':partition['refine_colony_base'],
+    'surfaceTransform':lambda surfaces:partition['merge_adjacent_frontages'](surfaces,contract['parcels']),
+    'lightSources':True})

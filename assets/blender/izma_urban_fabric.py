@@ -3,6 +3,7 @@ import math
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 from plan_izma_urban import rectangle, overlaps, corridor, project, ReservationIndex, SPACING
+from izma_frontage_blocks import catchment_intervals, available_depth, dimensions
 
 class UrbanFabric:
     def __init__(self,layout,specs,config,old,public,rail):
@@ -131,7 +132,7 @@ class UrbanFabric:
                     distance=math.hypot(x-anchor[0],y-anchor[1]);in_public=distance<previous['radius']
                     if not in_station and not in_public:continue
                     for side in [-1,1]:candidates.append((min(math.hypot(x-a[0],y-a[1]),distance),x,y,yaw+(math.pi if side<0 else 0),r,in_station,distance))
-            def add_plot(candidate,family,compact=False):
+            def add_plot(candidate,family,compact=False,allocation=None):
                 _,rx,ry,yaw,route,in_station,distance=candidate
                 n=seed(f'urban:{id}:{round(rx)}:{round(ry)}:{family}')
                 dims=self.config['families'][family];widths=[6.5,8,11] if family=='shop-house' else dims['width']
@@ -139,15 +140,18 @@ class UrbanFabric:
                 if id in ['b-housing','b-north','b-campus'] and family=='apartment':widths=[22,34,46]
                 if compact:widths=[6.5,8] if family=='shop-house' else [6.8,8.4]
                 w=widths[n%len(widths)];d=12 if family=='shop-house' else dims['depth'];floors=dims['floors'][n%len(dims['floors'])]
+                if allocation:w,d=allocation['width'],allocation['depth']
                 if id in ['b-housing','b-north'] and family=='apartment':floors=[4,5,7][(n//3)%3]
                 c,s=math.cos(yaw),math.sin(yaw)
                 setback=(min(spec['setback'],2) if compact else spec['setback'])+((n//13)%3)*.25
+                if allocation:setback=allocation['setback']
                 offset=route['width']/2+(2.15 if route['width']>=10 else 0)+setback+d/2
                 x,y=rx-s*offset,ry+c*offset
                 # Later small infill has a shallow private yard and a close
                 # street frontage, unlike the original apartment/workshop lots.
                 rear=min(spec['rear'],3) if compact else spec['rear']
-                lot_w=w+(min(spec['sideGap'],1.2) if compact else spec['sideGap']);lot_d=d+setback+rear
+                if allocation:rear=allocation['rear']
+                lot_w=w+(allocation['gap'] if allocation else min(spec['sideGap'],1.2) if compact else spec['sideGap']);lot_d=d+setback+rear
                 centre=(x-s*(rear-setback)/2,y+c*(rear-setback)/2);lot=rectangle(*centre,yaw,lot_w,lot_d)
                 if any(abs(q[0]-band*SPACING)>3200*math.pi/6-master['edgeReserve'] or not district['axial'][0]<q[1]<district['axial'][1] for q in lot):reject('boundary');return False
                 if reserved[band].intersects(lot,.15):reject('reserved');return False
@@ -166,14 +170,62 @@ class UrbanFabric:
                     'publicPlace':id,'distance':distance,'street':route['id'],'catchment':'station' if in_station else 'public',
                     'frontageUse':'shop' if family=='shop-house' else 'yard' if family in ['warehouse','workshop'] else 'garden' if family in ['house','farmhouse','apartment'] else 'forecourt',
                     'placement':'frontage-gap' if compact else 'principal'}
+                if allocation:
+                    lot_data.update({'placement':'block-frontage','frontageSegment':allocation['segment'],
+                        'frontageRange':allocation['range'],'sharedBlockDepth':allocation['sharedDepth']})
                 blocks.append({'id':pid,'band':band,'district':id,'family':family,'position':[x-band*SPACING,y,0],
                     'size':[w,d,floors*3.2],'yaw':yaw,'fixedSize':True,'lot':lot_data})
                 reserved[band].append(lot);accepted.append(blocks[-1])
                 return True
             ordered=sorted(candidates,key=lambda p:p[0])
-            for candidate in ordered:
-                if 'stationReach' in spec and len(accepted)>=previous['target']*2+12:break
-                add_plot(candidate,spec['families'][len(accepted)%len(spec['families'])])
+            if spec['character']=='groves':
+                for candidate in ordered:
+                    if len(accepted)>=previous['target']*2+12:break
+                    add_plot(candidate,spec['families'][len(accepted)%len(spec['families'])])
+            else:
+                # Allocate consecutive addresses along whole block edges. The
+                # old radial candidate order left unusable slivers between
+                # randomly sized plots and ignored the depth of the block.
+                runs=[]
+                for segment,(p,q,route,_) in enumerate(routes[band]):
+                    if route['kind'] not in ['arterial','local'] or route['id'] not in env['profiles']:continue
+                    length2=math.dist(p,q)
+                    for lo,hi in catchment_intervals(p,q,a,(dx,dy),region['reach'],region['halfWidth'],anchor,previous['radius']):
+                        runs.append((length2*(hi-lo),segment,p,q,route,max(2,lo*length2),min(length2-2,hi*length2)))
+                for _,segment,p,q,route,lo,hi in sorted(runs,reverse=True):
+                    length2=math.dist(p,q);tx,ty=(q[0]-p[0])/length2,(q[1]-p[1])/length2
+                    for side in [-1,1]:
+                        cursor=lo;address=0;yaw=math.atan2(ty,tx)+(math.pi if side<0 else 0)
+                        while cursor+6.8<hi:
+                            token=seed(f'block:{id}:{route["id"]}:{segment}:{side}:{address}')
+                            desired=spec['families'][token%len(spec['families'])]
+                            families=list(dict.fromkeys([desired,*[f for f in spec['families'] if f in ['house','shop-house']]]))
+                            fitted=False
+                            for family in families:
+                                widths,depths=dimensions(family,spec['character'],token,self.config)
+                                setback=min(spec['setback'],2.2);rear=min(spec['rear'],2.5 if spec['character']=='lanes' else 4)
+                                gap=max(1.2,min(spec['sideGap'],2))
+                                for w in dict.fromkeys(widths):
+                                    span=w+gap
+                                    if cursor+span>hi:continue
+                                    at=cursor+span/2;rx,ry=p[0]+tx*at,p[1]+ty*at
+                                    depth=available_depth((rx,ry),(-ty*side,tx*side),route,routes[band],setback,rear,max(depths))
+                                    if route['width']>=10:depth-=2.15
+                                    choices=list(dict.fromkeys([math.floor(min(depth,max(depths))*2)/2,*[v for v in depths if v<=depth]]))
+                                    u=(rx-a[0])*dx+(ry-a[1])*dy;v=abs(-(rx-a[0])*dy+(ry-a[1])*dx)
+                                    in_station=30<u<region['reach']+45 and v<region['halfWidth']
+                                    distance=math.hypot(rx-anchor[0],ry-anchor[1])
+                                    candidate=(0,rx,ry,yaw,route,in_station,distance)
+                                    for d in choices:
+                                        if d<min(depths):continue
+                                        allocation={'width':w,'depth':d,'setback':setback,'rear':rear,'gap':gap,
+                                            'segment':segment,'range':[cursor,cursor+span],'sharedDepth':depth}
+                                        if add_plot(candidate,family,allocation=allocation):
+                                            cursor+=span+.16;fitted=True;break
+                                    if fitted:break
+                                if fitted:break
+                            if not fitted:cursor+=1.5
+                            address+=1
             # A large apartment/workshop can fail on a narrow leftover frontage.
             # Keep those principal buildings, then fit small homes and shops in
             # the remaining urban plots instead of leaving the frontage vacant.

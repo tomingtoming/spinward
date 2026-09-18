@@ -5,6 +5,8 @@ if (!process.env.SPINWARD_URL) throw Error('Set SPINWARD_URL to the running Spin
 export default defineConfig({
   testDir: fileURLToPath(new URL('.', import.meta.url)),
   testMatch: '**/*.xr.mjs',
+  // Evidence may contain archived source fixtures; never execute those copies.
+  testIgnore: ['**/evidence/**', '**/artifacts/**'],
   outputDir: fileURLToPath(new URL('./artifacts', import.meta.url)),
   workers: 1,
   retries: 0,
