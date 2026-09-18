@@ -109,3 +109,9 @@ Evidence: `qa/webxr/evidence/colony-data-parts-20260918/`, including
 `startup/startup.json`. The temporary baseline preview was stopped using its
 recorded PID; the normal 5192 preview remains available. Local work only;
 no push, merge, deployment or scheduler was created.
+
+The next increment partitions all nine current fixed layers, including pavement,
+corner buildings and complete blocks, into lossless local regions. Its current
+authoring checks, candidate distant-ground exporter, bounded regional cache and
+renderer, and unfinished application arrival/physics integration are tracked in [regional streaming](colony-regional-streaming.md).
+The application still uses the atomic whole-document reader described above.

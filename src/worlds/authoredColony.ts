@@ -6,6 +6,7 @@ import type { LandscapeData, LandscapeMaterial, LandscapeLight } from './landsca
 import { landscapeTexture, landscapeUVs } from './landscapeMaterials'
 import { ColonyCollisionCache } from './colonyCollisionCache'
 import type { ColonyRailData } from './colonyRailData'
+import { ColonyRegionStore, readColonyRegions, type ColonyFocus, type ColonyRegions } from './colonyRegionStore'
 
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
@@ -14,6 +15,7 @@ export type ColonyTile = { id: string; url: string; band: number; bounds: [numbe
 type ColonyArchitecture = { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][]; lights?: LandscapeLight[];
   counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
+  streaming?: ColonyRegions;
   materialDetails?: Record<string, LandscapeMaterial>;
   architecture?: ColonyArchitecture;
   neighbourhoods?: ColonyArchitecture;
@@ -58,6 +60,11 @@ export function readColonyManifest(value: unknown): ColonyManifest {
   if (p.cityBlocks && (p.cityBlocks.version !== 1 || !p.cityBlocks.fixed || !Array.isArray(p.cityBlocks.retiredParcelIds))) throw Error('Invalid complete city blocks')
   if (p.neighbourhoods && (p.neighbourhoods.version !== 1 || !p.neighbourhoods.fixed)) throw Error('Invalid neighbourhoods')
   if (p.railways && (p.railways.version !== 1 || !p.railways.fixed || p.railways.stations.length !== 18)) throw Error('Invalid railways')
+  if (p.streaming) {
+    readColonyRegions(p.streaming, p.palette, p.base)
+    const fixed = Object.values(p).flatMap(v => v && typeof v === 'object' && 'fixed' in v ? [v.fixed as ColonyPackedMesh] : [])
+    if (p.base.surfaces.length || fixed.some(mesh => mesh.vertices.length || mesh.surfaces.length || Object.keys(mesh.meshes).length)) throw Error('Regional manifest also contains global fixed geometry')
+  }
   return p
 }
 
@@ -136,8 +143,12 @@ export class AuthoredColony {
   private colliders: CityBuilding[] = []
   private emissive: { material: THREE.MeshStandardMaterial; intensity: number }[] = []
   private daylight = 1
+  private regions: ColonyRegionStore | null = null
+  private regionalGroups = new Map<string, THREE.Group>()
+  private farMeshes = new Map<string, THREE.Mesh>()
 
-  constructor(parent: THREE.Group, private loadTile: FetchTile = fetchTile) {
+  constructor(parent: THREE.Group, private loadTile: FetchTile = fetchTile,
+    private loadRegion?: (url: string, signal: AbortSignal) => Promise<ArrayBuffer>) {
     this.group.name = 'authored-colony'; parent.add(this.group)
   }
 
@@ -176,7 +187,36 @@ export class AuthoredColony {
       ...(manifest.cornerBlocks ? this.collisionCache.colliders(manifest.cornerBlocks.fixed, manifest.radius) : []),
       ...(manifest.cityBlocks ? this.collisionCache.colliders(manifest.cityBlocks.fixed, manifest.radius) : []),
       ...colonySolidColliders(manifest)]
-    this.group.add(this.createMeshes(base.meshes, 'colony-base'))
+    const ground = this.createMeshes(base.meshes, 'colony-base')
+    this.group.add(ground)
+    if (manifest.streaming) {
+      readColonyRegions(manifest.streaming, manifest.palette, manifest.base)
+      for (const child of ground.children) {
+        const mesh = child as THREE.Mesh, count = mesh.geometry.getAttribute('position').count
+        // One draw per material, with independently replaceable region ranges.
+        // Near and far never draw over each other, and eviction restores the
+        // far indices before removing the local group.
+        mesh.geometry.setIndex(new THREE.BufferAttribute(Uint32Array.from({ length: count }, (_, i) => i), 1))
+        mesh.geometry.index!.setUsage(THREE.DynamicDrawUsage)
+        this.farMeshes.set(mesh.name.slice('colony-base-'.length), mesh)
+      }
+      this.regions = new ColonyRegionStore(manifest.streaming, manifest.radius, manifest.palette, {
+        load: this.loadRegion,
+        onLoad: (region, packed) => {
+          const group = this.createMeshes(decodeColonyMesh(packed, false).meshes, 'colony-region-' + region.id)
+          this.group.add(group); this.regionalGroups.set(region.id, group)
+          this.showFarRegion(region.id, false)
+        },
+        onEvict: region => {
+          this.showFarRegion(region.id, true)
+          const group = this.regionalGroups.get(region.id)
+          if (group) this.disposeGroup(group)
+          this.regionalGroups.delete(region.id)
+        }
+      })
+      this.colliders = [...this.collisionCache.regionalColliders(manifest.streaming.regions, manifest.radius,
+        id => this.regions!.get(id)), ...colonySolidColliders(manifest)]
+    }
     if (manifest.architecture) {
       const fixed = decodeColonyMesh(manifest.architecture.fixed, false)
       this.group.add(this.createMeshes(fixed.meshes, 'colony-parcel-ground'))
@@ -226,10 +266,14 @@ export class AuthoredColony {
     this.group.userData.pavedUrbanStreets = manifest.streetFrontages?.counts.streets ?? 0
     this.group.userData.cornerBuildings = manifest.cornerBlocks?.counts.buildings ?? 0
     this.group.userData.completeBlockBuildings = manifest.cityBlocks?.counts.buildings ?? 0
+    if (this.regions) this.group.userData.regions = this.regions.stats
     this.setDaylight(this.daylight)
   }
 
   getColliders() { return this.colliders }
+  prepareRegions(foci: readonly ColonyFocus[]) { return this.regions?.request(foci) ?? true }
+  regionsReady(focus: ColonyFocus) { return this.regions?.readyAt(focus) ?? true }
+  getRegionalStatus() { return this.regions?.stats ?? null }
   getRailData() { return this.manifest?.railways ?? null }
   getRailAppearance() { return { palette: this.manifest?.palette ?? {}, details: this.manifest?.materialDetails ?? {} } }
 
@@ -273,6 +317,14 @@ export class AuthoredColony {
       group.add(mesh)
     }
     return group
+  }
+
+  private showFarRegion(id: string, visible: boolean) {
+    for (const [material, [start, count]] of Object.entries(this.manifest!.streaming!.farRanges[id])) {
+      const index = this.farMeshes.get(material)!.geometry.index!
+      for (let i = start; i < start + count; i++) index.array[i] = visible ? i : 0
+      index.addUpdateRange(start, count); index.needsUpdate = true
+    }
   }
 
   update(azimuth: number, axial: number, altitude: number) {
@@ -378,6 +430,8 @@ export class AuthoredColony {
   }
   clear() {
     this.generation++
+    this.regions?.dispose(); this.regions = null
+    this.regionalGroups.clear(); this.farMeshes.clear()
     for (const controller of this.pending.values()) controller.abort()
     this.pending.clear(); this.loaded.clear(); this.failed.clear(); this.wanted = []
     this.group.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); if (o instanceof THREE.InstancedMesh) o.dispose() })

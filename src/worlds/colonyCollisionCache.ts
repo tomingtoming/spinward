@@ -1,6 +1,7 @@
 import type { CityBuilding } from '../objects/cityLayout'
 import type { ColonyPackedMesh } from './authoredColony'
 import { citySurfaceRegions } from '../objects/citySurfaceMesh'
+import type { ColonyRegion, RegionalMesh } from './colonyRegionStore'
 
 export const COLONY_COLLISION_CACHE_ENTRIES = 128
 export const COLONY_COLLISION_CACHE_BYTES = 4 * 1024 * 1024
@@ -37,8 +38,28 @@ export class ColonyCollisionCache {
     })
   }
 
-  private read(vertices: readonly number[], indices: readonly number[], x: number, y: number) {
-    return this.cached(indices, () => {
+  regionalColliders(regions: readonly ColonyRegion[], radius: number, read: (id: string) => RegionalMesh): CityBuilding[] {
+    return regions.flatMap(region => region.surfaces.map((descriptor, index) => {
+      const { bounds, height, groundSurface } = descriptor
+      const x = (bounds[0] + bounds[2]) / 2, y = (bounds[1] + bounds[3]) / 2, cache = this, regionKey = {}
+      // Descriptors survive eviction, so Rapier's identity map is stable. Read
+      // readiness before even a cache hit: stale expansion cannot mask an
+      // unavailable source region or turn it into a missing floor.
+      return { azimuth: x / radius, axial: y, width: bounds[2] - bounds[0], depth: bounds[3] - bounds[1],
+        height, groundSurface: groundSurface !== false, collisionMargin: 0, groundMargin: 0, kind: 'block' as const, tone: .5,
+        get collisionRegions() {
+          const packed = read(region.id), surface = packed.surfaces[index]
+          return cache.cached(regionKey, () => citySurfaceRegions(packed.vertices, surface.indices, x, y))
+        },
+        get surfaceMesh() {
+          const packed = read(region.id), surface = packed.surfaces[index]
+          return cache.read(packed.vertices, surface.indices, x, y, descriptor)
+        } }
+    }))
+  }
+
+  private read(vertices: readonly number[], indices: readonly number[], x: number, y: number, key: object = indices) {
+    return this.cached(key, () => {
       const mesh = new Float64Array(indices.length * 3)
       for (let i = 0; i < indices.length; i++) {
         const v = indices[i] * 3
