@@ -1,0 +1,35 @@
+{
+  "origin": "ai",
+  "created": "2026-09-18",
+  "version": 1,
+  "premise": "Whole-block replacements drawn inside existing streets. Continuous street fronts enclose deliberately usable courts; individual leftover lawn strips are not the organising unit. These are Spinward designs, not reconstructed anime dimensions.",
+  "blocks": [
+    {
+      "id": "old-town-machiya-court", "district": "a-old-town", "band": 0,
+      "outerStreet": "urban-a-old-town-0-0-outer", "returnStreet": "urban-a-old-town-0-0",
+      "purpose": "Narrow mixed shops and homes around a shared rear passage and small domestic court.",
+      "courtUse": "shared-domestic-court", "courtMaterial": "paving",
+      "frontWidths": [7.2, 9.6, 8.4, 11.2], "depths": [14, 15, 13, 12, 13],
+      "families": ["shop-house", "house", "shop-house", "apartment"], "storeys": [3, 2, 4, 3, 2],
+      "setback": 1.35, "gap": 0.55, "gateWidth": 2.8, "gateEdges": [0, 3]
+    },
+    {
+      "id": "housing-common-court", "district": "b-housing", "band": 1,
+      "outerStreet": "urban-b-housing-0-3-outer", "returnStreet": "urban-b-housing-0-3",
+      "purpose": "Apartment wings and a few lower homes surround a resident garden with two public-to-court passages.",
+      "courtUse": "resident-garden", "courtMaterial": "garden",
+      "frontWidths": [20, 24, 13], "depths": [14, 13, 15, 13],
+      "families": ["apartment", "apartment", "house"], "storeys": [4, 5, 3, 4],
+      "setback": 2.15, "gap": 1.0, "gateWidth": 3.2, "gateEdges": [0, 2]
+    },
+    {
+      "id": "market-delivery-court", "district": "c-market", "band": 2,
+      "outerStreet": "urban-c-market-0-0-outer", "returnStreet": "urban-c-market-0-0",
+      "purpose": "Small trading fronts and repair premises enclose a paved delivery court, with separate customer and service passages.",
+      "courtUse": "loading-and-repair-court", "courtMaterial": "paving",
+      "frontWidths": [6.4, 8.6, 10.8, 7.6], "depths": [16, 18, 15, 15, 14],
+      "families": ["shop-house", "shop-house", "workshop", "shop-house"], "storeys": [2, 3, 3, 4, 2],
+      "setback": 1.3, "gap": 0.5, "gateWidth": 3.4, "gateEdges": [0, 3]
+    }
+  ]
+}

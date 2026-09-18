@@ -19,9 +19,12 @@ from izma_ground_patches import GroundPatches,area
 from izma_mesh_builder import BuildingMeshBuilder
 from izma_street_frontages import PavementPlan,ribbons,clean,covers
 from plan_izma_urban import rectangle,corridor,project,ReservationIndex,SPACING
+from izma_block_composition import read_composition
 
 manifest=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
 neighbours=json.loads((ASSETS/'izma-neighbourhood-parcels.json').read_text())
+composition=read_composition(ASSETS);retired=set(composition['retiredParcelIds'])
+neighbours['parcels']=[p for p in neighbours['parcels'] if p['id'] not in retired]
 primary=json.loads((ASSETS/'izma-parcels.json').read_text())
 specs=json.loads((ASSETS/'izma-urban-plan.json').read_text())
 master=json.loads((ASSETS/'izma-colony-plan.json').read_text())
@@ -63,6 +66,7 @@ for (district,route_id,band),parcels in groups.items():
     if len(section)>1:paths.append({'id':route_id+'-frontage-'+district,'district':district,'band':band,'width':routes[route_id]['width'],'profile':section})
 
 reserved=[[] for _ in range(3)]
+for block in composition['blocks']:reserved[block['band']].extend(block['sectors'])
 for p in primary['parcels']+neighbours['parcels']:
     band=p['band']
     # Keep the full existing foundation envelope and the graded entrance.
@@ -176,7 +180,7 @@ for (district,x,y),builder in builders.items():
 scene.view_layers[0].update()
 dependencies={name:hashlib.sha256((ASSETS/name).read_bytes()).hexdigest() for name in [
     'izma-neighbourhood-parcels.json','izma-parcels.json','izma-urban-plan.json',
-    'izma-colony-plan.json','izma-transport.json','izma-public-spaces.json','izma-rail.json']}
+    'izma-colony-plan.json','izma-transport.json','izma-public-spaces.json','izma-rail.json','izma-block-parcels.json']}
 contract={'origin':'ai','created':'2026-09-18','version':1,'dependencies':dependencies,
           'terrainHash':hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest(),
           'paths':reports,'maximumRaiseAboveTerrain':max_lift,'guardLength':guard_length,

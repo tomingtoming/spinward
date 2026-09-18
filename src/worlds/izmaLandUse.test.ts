@@ -4,6 +4,7 @@ import raw from '../../qa/neighborhood-life/colony-source'
 import land from '../../assets/blender/izma-land-use.json'
 import primary from '../../assets/blender/izma-parcels.json'
 import neighbourhoods from '../../assets/blender/izma-neighbourhood-parcels.json'
+import blocks from '../../assets/blender/izma-block-parcels.json'
 import { readColonyManifest, colonyColliders, decodeColonyMesh } from './authoredColony'
 import { landscapeColliders } from './authoredLandscape'
 import { buildCityCollisionIndex, getCityGroundHeight } from '../objects/cityLayout'
@@ -32,7 +33,8 @@ test('land use retains current reservations, all districts and distinct producti
 })
 test('planted and working ground stays outside saved building plots',()=>{
  const poly=(p:number[][])=>positivePolygon(p.map(([x,y])=>({x,y,u:0,v:0})))
- const lots=[...neighbourhoods.parcels.map(p=>poly(p.lot.polygon)),...primary.parcels.map(p=>poly([[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{
+ const retired=new Set(blocks.blocks.flatMap(b=>b.retiredParcels))
+ const lots=[...blocks.blocks.flatMap(b=>b.sectors.map(poly)),...neighbourhoods.parcels.filter(p=>!retired.has(p.id)).map(p=>poly(p.lot.polygon)),...primary.parcels.map(p=>poly([[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{
   const x=u*(p.size[0]+1)/2,y=v*(p.size[1]+1)/2
   return[p.position[0]+Math.cos(p.yaw)*x-Math.sin(p.yaw)*y,p.position[1]+Math.sin(p.yaw)*x+Math.cos(p.yaw)*y]
  })))]

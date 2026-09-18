@@ -35,7 +35,7 @@ test('every saved corner roof has the same far silhouette and physical support',
   const manifest = readColonyManifest(raw)
   const layer = new AuthoredColony(new THREE.Group(), async () => empty)
   layer.rebuild({ ...manifest, base: empty, architecture: undefined, neighbourhoods: undefined, publicRealm: undefined,
-    railways: undefined, landUse: undefined, streetFrontages: undefined, structures: [],
+    railways: undefined, landUse: undefined, streetFrontages: undefined, cityBlocks: undefined, structures: [],
     tiles: manifest.tiles.filter(t => t.cornerBlock) })
   layer.group.updateMatrixWorld(true)
   const index = buildCityCollisionIndex(layer.getColliders(),3200,40000)

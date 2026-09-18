@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from colony_manifest_io import read_manifest, write_manifest
+from izma_block_composition import invalidate_blocks
 ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
 source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
 contract=json.loads((ASSETS/'izma-land-use.json').read_text());scene=bpy.data.scenes['SW_izma_land_use']
@@ -43,6 +44,7 @@ def pack(groups,surfaces=None):
         ss.append({'indices':ids(vs),'bounds':[min(p[0]for p in vs),min(p[1]for p in vs),max(p[0]for p in vs),max(p[1]for p in vs)]})
     return {'vertices':pool,'meshes':meshes,'surfaces':ss}
 manifest.pop('cornerBlocks',None)
+invalidate_blocks(manifest)
 manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
 manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]

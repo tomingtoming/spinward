@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[2]
 ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
 from colony_manifest_io import read_manifest,write_manifest,encoded
+from izma_block_composition import invalidate_blocks
 from izma_street_frontages import triangle_altitude
 from izma_collision_mesh import simplify_collision_surface
 
@@ -19,6 +20,7 @@ for name,digest in contract['dependencies'].items():
 source=ROOT/'src/worlds/generated/izmaColony.json'
 manifest=read_manifest(source)
 manifest.pop('cornerBlocks',None)
+invalidate_blocks(manifest)
 manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
 manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 assert hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest()==contract['terrainHash']

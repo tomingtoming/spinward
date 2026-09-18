@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from colony_manifest_io import read_manifest, write_manifest
+from izma_block_composition import invalidate_blocks
 ROOT=Path(__file__).resolve().parents[2]
 contract=json.loads((ROOT/'assets/blender/izma-rail.json').read_text())
 for name,digest in contract['dependencies'].items():
@@ -13,6 +14,7 @@ path=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(path)
 manifest.pop('landUse',None)
 manifest.pop('streetFrontages',None)
 manifest.pop('cornerBlocks',None)
+invalidate_blocks(manifest)
 manifest['tiles']=[t for t in manifest['tiles'] if not t.get('cornerBlock')]
 manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
 manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]

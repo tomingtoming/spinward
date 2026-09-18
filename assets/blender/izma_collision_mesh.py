@@ -11,7 +11,7 @@ from mathutils.bvhtree import BVHTree
 from izma_street_frontages import triangle_altitude
 
 
-def simplify_collision_surface(original,radius=3200,max_error=.005):
+def simplify_collision_surface(original,radius=3200,max_error=.005,angle_limit=.01):
     def curved(v,origin):
         a=v[0]/radius;r=radius-v[2]-origin[2]
         return (math.cos(a)*r-radius,v[1],math.sin(a)*r)
@@ -33,7 +33,7 @@ def simplify_collision_surface(original,radius=3200,max_error=.005):
         except ValueError:pass
     bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001)
     bm.normal_update()
-    bmesh.ops.dissolve_limit(bm,angle_limit=.01,use_dissolve_boundaries=False,verts=list(bm.verts),edges=list(bm.edges),delimit=set())
+    bmesh.ops.dissolve_limit(bm,angle_limit=angle_limit,use_dissolve_boundaries=False,verts=list(bm.verts),edges=list(bm.edges),delimit=set())
     bmesh.ops.triangulate(bm,faces=list(bm.faces))
     points=[]
     for f in bm.faces:
@@ -47,3 +47,17 @@ def simplify_collision_surface(original,radius=3200,max_error=.005):
         if deviation>max_error:return original,0
         return points,deviation
     return original,0
+
+
+def simplify_collision_candidates(original):
+    """Keep the smallest candidate that satisfies the same sampled 5 mm bound.
+
+    A large dissolve angle can remove too much curvature and fall back to the
+    full mesh. Smaller angles can still remove redundant terrain subdivisions.
+    Each candidate is compared with the original, never a previous reduction.
+    """
+    best,error=original,0
+    for angle in [.01,.003,.001,.0003]:
+        points,deviation=simplify_collision_surface(original,angle_limit=angle)
+        if len(points)<len(best):best,error=points,deviation
+    return best,error

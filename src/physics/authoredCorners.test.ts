@@ -13,7 +13,7 @@ import { applyWorldLengthUnit } from './rapierBoundary'
 test('all native corner approaches reach the door and their polygon walls stop the live rotating body', async () => {
   const m=readColonyManifest(raw),radius=3200,omega=periodToOmega(113.5),dt=1/60,cache=new ColonyCollisionCache()
   const layers=[m.base,m.architecture!.fixed,m.publicRealm!.fixed,m.neighbourhoods!.fixed,m.railways!.fixed,
-    m.landUse!.fixed,m.streetFrontages!.fixed,m.cornerBlocks!.fixed]
+    m.landUse!.fixed,m.streetFrontages!.fixed,m.cornerBlocks!.fixed,...(m.cityBlocks?[m.cityBlocks.fixed]:[])]
   const index=buildCityCollisionIndex(layers.flatMap(p=>cache.colliders(p,radius)),radius,40000)
   const rapier=await initRapier(),units=createUnitsContext(.02)
   for(const p of corners.parcels) {

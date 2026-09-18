@@ -4,10 +4,11 @@ import fs from 'node:fs/promises'
 
 const plan = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-neighbourhood-parcels.json', import.meta.url), 'utf8'))
 const corners = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-corner-blocks.json', import.meta.url), 'utf8'))
+const blocks = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-block-parcels.json', import.meta.url), 'utf8'))
 const transport = JSON.parse(await fs.readFile(new URL('../../assets/blender/izma-transport.json', import.meta.url), 'utf8'))
 test.use({ xrStereoEnabled: true, xrIpd: .064, viewport: { width: 2560, height: 960 } })
-for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link','interior passage','pavement','corner entrance'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
-  const corner=mode==='corner entrance',pavement=mode==='pavement',deep=mode==='second-depth',interior=mode==='interior passage',centre=mode==='centre link'||interior
+for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>['back street','second-depth','centre link','interior passage','pavement','corner entrance','complete block'].map(mode=>[d,mode]))) test(`${mode}: ${district} continuous route`, async ({ page, xr }, info) => {
+  const complete=mode==='complete block',corner=mode==='corner entrance',pavement=mode==='pavement',deep=mode==='second-depth',interior=mode==='interior passage',centre=mode==='centre link'||interior
   test.setTimeout(centre?600000:deep?480000:360000)
   const linkNames=interior?{'a-old-town':'inner-row','b-housing':'east-court','c-market':'market-inner'}:{'a-old-town':'north-row','b-housing':'housing-south','c-market':'market-north'}
   let street = centre?plan.streets.find(s=>s.id===`urban-${district}-link-${linkNames[district]}`):deep?plan.streets.filter(s=>s.district===district&&s.role==='back-lane').sort((a,b)=>plan.parcels.filter(p=>p.route===b.id).length-plan.parcels.filter(p=>p.route===a.id).length)[0]:plan.streets.find(s => s.district === district)
@@ -38,6 +39,15 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     // Stop with the body outside the closed door's wall envelope.
     path=Array.from({length:8},(_,i)=>a.map((v,k)=>v+(b[k]-v)*(1-.6/length)*i/7))
   }
+  if(complete){
+    const block=blocks.blocks.find(b=>b.district===district),h=Math.min(...block.plots.map(p=>p.floor))
+    street={id:block.id,band:block.band}
+    const points=[block.gates[0].start,block.gates[0].end,block.centre,block.gates[1].end,block.gates[1].start]
+    path=points.slice(1).flatMap((b,i)=>{
+      const a=points[i],count=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/2)
+      return Array.from({length:count},(_,j)=>[a[0]+(b[0]-a[0])*j/count,a[1]+(b[1]-a[1])*j/count,h])
+    });path.push([...points.at(-1),h])
+  }
   const startPoint = path[0]
   const errors = [], samples = [], captures = []
   page.on('pageerror', e => errors.push(e.message))
@@ -50,7 +60,7 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
     const gl = document.querySelector('canvas').getContext('webgl2'), ext = gl.getExtension('WEBGL_debug_renderer_info')
     const positions = [], minY = Math.min(...points.map(p => p[1])) - 20, maxY = Math.max(...points.map(p => p[1])) + 20
     const extentX = Math.max(...points.map(p => Math.abs(p[0] - points[0][0]))) + 20
-    for (const name of ['colony-base', 'colony-parcel-ground', 'colony-public-ground', 'colony-neighbourhood-ground', 'colony-station-ground', 'colony-land-use-ground', 'colony-street-frontages', 'colony-corner-ground']) for (const mesh of colony.getObjectByName(name)?.children??[]) {
+    for (const name of ['colony-base', 'colony-parcel-ground', 'colony-public-ground', 'colony-neighbourhood-ground', 'colony-station-ground', 'colony-land-use-ground', 'colony-street-frontages', 'colony-corner-ground', 'colony-block-courts']) for (const mesh of colony.getObjectByName(name)?.children??[]) {
       const v = mesh.geometry.attributes.position.array
       for (let i = 0; i < v.length; i += 9) {
         const dx = Math.atan2(Math.sin(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200), Math.cos(Math.atan2(v[i + 2], v[i]) - points[0][0] / 3200)) * 3200
@@ -104,12 +114,31 @@ for (const [district,mode] of ['a-old-town','b-housing','c-market'].flatMap(d=>[
         await aim(target); await xr.setAxes('left', 0, -Math.min(.95, Math.max(.15, remaining / 4))); await xr.settle(180)
         await xr.setAxes('left', 0, 0)
       }
+      if(!arrived){
+        const contacts=await page.evaluate(()=>{
+          const world=window.__spinwardDrive.world,bodies=[]
+          world.forEachRigidBody(body=>{
+            if(!body.isDynamic())return
+            const hits=[]
+            for(let i=0;i<body.numColliders();i++){
+              const own=body.collider(i)
+              world.contactPairsWith(own,other=>world.contactPair(own,other,(contact,flipped)=>hits.push({
+                other:other.handle,centre:other.translation(),relative:other.translationWrtParent(),
+                parentRotation:other.parent()?.rotation(),triangles:(other.shape.vertices?.length??0)/9,
+                normal:contact.normal(),flipped,points:Array.from({length:contact.numContacts()},(_,i)=>({
+                  distance:contact.contactDist(i),feature1:contact.contactFid1(i),feature2:contact.contactFid2(i)}))})))
+            }
+            bodies.push({centre:body.translation(),velocity:body.linvel(),hits})
+          });return {state:window.__spinward,bodies}
+        })
+        await fs.writeFile(info.outputPath('stopped-body.json'),JSON.stringify({target,contacts},null,2))
+      }
       expect(arrived, `walk to ${target}`).toBe(true)
       if (j === Math.floor(targets.length / 2)) await capture('inside-block')
     }
     await xr.settle(200); const end = await sample(); await capture('street-return')
     if(deep)expect(Math.hypot(end.x-start.x,end.axial-start.axial)).toBeLessThan(.4)
-    else expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(corner?1:pavement?18:90)
+    else expect(Math.hypot(end.x - start.x, end.axial - start.axial)).toBeGreaterThan(corner?1:complete?20:pavement?18:90)
     await xr.endSession({ sessionId: diagnostic.session.id, timeout: 5000 })
     expect(errors).toEqual([])
     await fs.writeFile(info.outputPath('report.json'), JSON.stringify({ street: street.id, gpu: drawing.gpu, diagnostic, start, end, captures }, null, 2))

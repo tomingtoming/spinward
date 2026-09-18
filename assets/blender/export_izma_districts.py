@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from colony_manifest_io import read_manifest, write_manifest
+from izma_block_composition import invalidate_blocks
 from mathutils import Vector
 
 def export(config=None):
@@ -22,11 +23,12 @@ def export(config=None):
     previous_layer=manifest.get(layer)
     def owns_tile(tile):
         if layer=='neighbourhoods':return bool(tile.get('neighbourhood'))
-        return tile.get('architecture') and not any(tile.get(k)for k in ['neighbourhood','publicRealm','railway','landUse'])
+        return tile.get('architecture') and not any(tile.get(k)for k in ['neighbourhood','publicRealm','railway','landUse','cornerBlock','completeBlock'])
     previous_tiles=[t for t in manifest['tiles']if owns_tile(t)]
     # Land use reserves all upstream lots, stations and routes. Re-author it
     # last, rather than leave planted ground across a moved building or entry.
     if not appearance_only:
+        invalidate_blocks(manifest)
         manifest.pop('landUse',None)
         manifest.pop('streetFrontages',None)
         manifest.pop('cornerBlocks',None)
@@ -39,7 +41,9 @@ def export(config=None):
     assert scene.get('owner')==config.get('owner','spinward-izma-districts-v1')
     terrain_hash=hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest()
     assert contract['terrainHash']==terrain_hash,'Rebuild districts against the current finished terrain'
-    parcels={p['id']:p for p in contract['parcels']}
+    omitted=set(config.get('omitParcelIds',[]))
+    assert omitted<={p['id'] for p in contract['parcels']}, 'Replacement names an absent source parcel'
+    parcels={p['id']:p for p in contract['parcels'] if p['id'] not in omitted}
     tiles={};parcel_meshes={};floors={};fixed={};solid_boxes=[];counts=[0,0];geometry_bounds={}
     def key(p):return f"{p['band']}-{math.floor((p['position'][0]-p['band']*SPACING+R*math.pi/6)/TILE)}-{math.floor((p['position'][1]+20000)/TILE)}"
     def local_to_world(p,v):
@@ -99,6 +103,7 @@ def export(config=None):
                     floors.setdefault(key,[]).extend(vs)
             continue
         if obj.type!='MESH' or 'parcel_id' not in obj:continue
+        if obj['parcel_id'] in omitted:continue
         p=parcels[obj['parcel_id']];lod=int(obj['lod']);mesh=obj.data;mesh.calc_loop_triangles()
         vertices=[]
         for v in mesh.vertices:
@@ -190,6 +195,8 @@ def export(config=None):
         'parcels':[{k:p[k]for k in ['id','band','district','family','position','floor','size','yaw','floors','groundShop','doors','access']}for p in parcels.values()],
         'counts':{'buildings':len(parcels),'nearTriangles':counts[0],'midTriangles':counts[1],'fixedTriangles':sum(len(v)//3 for v in fixed.values()),'surfaceGroups':len(floors)}}
     if 'streets' in contract:manifest[layer]['streets']=contract['streets']
+    if 'compositionHash' in config:
+        manifest[layer]['blockComposition']={'planHash':config['compositionHash'],'omittedParcelIds':sorted(omitted)}
     if config.get('lightSources'):
         manifest[layer]['lights']=[]
         for obj in scene.objects:

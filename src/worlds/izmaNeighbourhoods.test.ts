@@ -16,6 +16,8 @@ import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight,
 import { positivePolygon, polygonArea, intersectStreetPolygons } from '../objects/streetPolygon'
 
 const manifest = readColonyManifest(raw)
+const retired = new Set(manifest.cityBlocks?.retiredParcelIds ?? [])
+const activeParcels = parcels.parcels.filter(p => !retired.has(p.id))
 const physics = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
 function drawingIndex(material?: string) {
   const meshes = decodeColonyMesh(manifest.neighbourhoods!.fixed, false).meshes
@@ -50,7 +52,7 @@ test('station, centre-link and public-place catchments have mixed uses and curre
     expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
   }
   expect(parcels.neighbourhoods.map(n => n.id).sort()).toEqual(publicSpaces.places.map(p => p.id).sort())
-  expect(manifest.neighbourhoods!.counts.buildings).toBe(parcels.parcels.length)
+  expect(manifest.neighbourhoods!.counts.buildings).toBe(activeParcels.length)
   expect(new Set(parcels.parcels.map(p => p.id)).size).toBe(parcels.parcels.length)
   for (const n of parcels.neighbourhoods) {
     const spec = plan.districts[n.id as keyof typeof plan.districts]
@@ -132,7 +134,7 @@ test('every authored centre link is accounted for and keeps its district purpose
 test('paved frontages abut both angled entrance edges and the foundation apron', () => {
   const paving = drawingIndex('arch-court')
   let probes = 0
-  for (const p of parcels.parcels) {
+  for (const p of activeParcels) {
     if (p.lot.frontageUse === 'garden' && urban.districts[p.district as keyof typeof urban.districts].character !== 'lanes') continue
     const c = Math.cos(p.yaw), s = Math.sin(p.yaw), [x, y] = p.position
     const local = (q: number[]) => [c * (q[0] - x) + s * (q[1] - y), -s * (q[0] - x) + c * (q[1] - y)]
@@ -171,7 +173,7 @@ test('all back streets have drawn and physical walkable surfaces connected to th
       const sketch = streets.streets.find(s => s.id === rejected.id)!
       expect(sketch.parents?.some(id => parcels.rejectedStreets.some(s => s.id === id))).toBe(true)
     }
-    expect(parcels.parcels.some(p => p.lot.street === rejected.id)).toBe(false)
+    expect(activeParcels.some(p => p.lot.street === rejected.id)).toBe(false)
   }
   for (const street of parcels.streets) {
     const rows = street.profile
@@ -228,7 +230,7 @@ test('frontage lots stay outside every segment of their own bent street', () => 
       const ny = (b[0] - a[0]) / length * (street.width / 2 - .03)
       return poly([[a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]])
     })
-    for (const p of parcels.parcels.filter(p => p.lot.street === street.id)) for (const road of corridors) {
+    for (const p of activeParcels.filter(p => p.lot.street === street.id)) for (const road of corridors) {
       expect(polygonArea(intersectStreetPolygons(poly(p.lot.polygon), road)), p.id).toBeLessThan(.00001)
     }
   }
@@ -237,13 +239,13 @@ test('frontage lots stay outside every segment of their own bent street', () => 
 test('back lanes serve inhabited second-depth plots and courtyard voids retain native floors', async () => {
   const secondary = parcels.streets.filter(s => s.parents?.length)
   const ids = new Set(secondary.map(s => s.id))
-  const members = parcels.parcels.filter(p => ids.has(p.route))
+  const members = activeParcels.filter(p => ids.has(p.route))
   expect(new Set(members.map(p => p.district)).size).toBeGreaterThanOrEqual(10)
   for (const street of secondary) for (const parent of street.parents!) {
     expect(parcels.streets.some(s => s.id === parent), street.id).toBe(true)
   }
   for (const band of [0, 1, 2]) {
-    const courts = parcels.parcels.filter(p => p.band === band && p.form === 'courtyard-apartment')
+    const courts = activeParcels.filter(p => p.band === band && p.form === 'courtyard-apartment')
     expect(courts.length).toBeGreaterThan(0)
     const p = courts[0], v = p.size[1] * .3
     const x = p.position[0] - Math.sin(p.yaw) * v, y = p.position[1] + Math.cos(p.yaw) * v
@@ -267,7 +269,7 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
     const mesh = decodeColonyMesh(await Bun.file(new URL('../../public' + tile.url, import.meta.url)).json(), false)
     foundations.set(tile.id, drawnMeshIndex(mesh.meshes['arch-foundation'] ?? []))
   }
-  for (const p of parcels.parcels) {
+  for (const p of activeParcels) {
     expect(p.access.maximumStep, p.id).toBeLessThan(.15)
     expect(Math.abs(p.access.end[2] - p.floor), p.id).toBeLessThan(.003)
     for (const t of [.05, .25, .5, .75, .95]) {
@@ -296,7 +298,7 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
 test('collision cost stays bounded between the roads, including the outer edges of dense housing', () => {
   const near = new Set<CityBuilding>()
   for (const n of parcels.neighbourhoods) {
-    const points = parcels.parcels.filter(p => p.district === n.id).flatMap(p => p.lot.polygon)
+    const points = activeParcels.filter(p => p.district === n.id).flatMap(p => p.lot.polygon)
     const xs = points.map(p => p[0]), ys = points.map(p => p[1])
     for (let x = Math.min(...xs) - 64; x <= Math.max(...xs) + 64; x += 16)
       for (let y = Math.min(...ys) - 64; y <= Math.max(...ys) + 64; y += 16) {
@@ -309,7 +311,7 @@ test('collision cost stays bounded between the roads, including the outer edges 
 
 test('street lamps have visible support and share the bounded near-light pool on all strips', () => {
   const lights = manifest.neighbourhoods!.lights!, layer = new AuthoredLandscape(new Group())
-  const poles = parcels.parcels.flatMap(p => p.proxyParts.filter(part => part[3] === .16 && part[4] === .16).map(part => ({
+  const poles = activeParcels.flatMap(p => p.proxyParts.filter(part => part[3] === .16 && part[4] === .16).map(part => ({
     x: p.position[0] + Math.cos(p.yaw) * Number(part[0]) - Math.sin(p.yaw) * Number(part[1]),
     y: p.position[1] + Math.sin(p.yaw) * Number(part[0]) + Math.cos(p.yaw) * Number(part[1]),
     h: p.floor + Number(part[2]) + Number(part[5])

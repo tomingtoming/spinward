@@ -96,6 +96,7 @@ test('cold and evicted building and land-use approaches retain the whole-colony 
     ...cache.colliders(manifest.landUse!.fixed, 3200),
     ...(manifest.streetFrontages ? cache.colliders(manifest.streetFrontages.fixed, 3200) : []),
     ...(manifest.cornerBlocks ? cache.colliders(manifest.cornerBlocks.fixed, 3200) : []),
+    ...(manifest.cityBlocks ? cache.colliders(manifest.cityBlocks.fixed, 3200) : []),
     ...reference.all.filter(b => !b.surfaceMesh)], 3200, 40000)
   expect(cached.all.length).toBe(reference.all.length)
   expect(cache.stats.entries).toBe(0)

@@ -5,6 +5,7 @@ import math
 from collections import Counter
 from pathlib import Path
 from colony_manifest_io import read_manifest
+from izma_block_composition import read_composition
 from izma_corner_lots import corner_outline,frontage_edges,trim_corner,simplify
 from izma_ground_patches import GroundPatches,area
 from izma_street_frontages import clean
@@ -13,7 +14,7 @@ from plan_izma_urban import SPACING,ReservationIndex,corridor,rectangle,project
 ROOT=Path(__file__).resolve().parents[2]
 ASSETS=ROOT/'assets/blender'
 DEPENDENCIES=['izma-parcels.json','izma-neighbourhood-parcels.json','izma-public-spaces.json',
-              'izma-rail.json','izma-street-frontages.json','izma-land-use.json','izma-urban-plan.json','izma-colony-plan.json','izma-transport.json']
+              'izma-rail.json','izma-street-frontages.json','izma-land-use.json','izma-urban-plan.json','izma-colony-plan.json','izma-transport.json','izma-block-parcels.json']
 
 
 def author():
@@ -22,10 +23,14 @@ def author():
     specs=source['izma-urban-plan.json']['districts'];urban={k for k,v in specs.items() if v['character']!='groves'}
     manifest=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
     ground=GroundPatches(manifest['base']);reservations=[ReservationIndex() for _ in range(3)]
+    composition=read_composition(ASSETS);retired=set(composition['retiredParcelIds'])
     def reserve(band,polygon):
         polygon=clean(polygon)
         if polygon:reservations[band].append(polygon)
+    for block in composition['blocks']:
+        for sector in block['sectors']:reserve(block['band'],sector)
     for p in source['izma-parcels.json']['parcels']+neighbours['parcels']:
+        if p['id'] in retired:continue
         reserve(p['band'],p.get('lot',{}).get('polygon') or rectangle(*p['position'],p['yaw'],p['size'][0]+1,p['size'][1]+1))
         reserve(p['band'],corridor(p['access']['start'],p['access']['end'],p['access']['width']+1))
     for p in source['izma-public-spaces.json']['places']:

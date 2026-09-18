@@ -10,6 +10,8 @@ const read = (name: string) => JSON.parse(fs.readFileSync(path.join(assets, name
 const master = read('izma-colony-plan.json'), infill = read('izma-neighbourhood-parcels.json')
 const primary = read('izma-parcels.json'), publicRealm = read('izma-public-spaces.json'), rail = read('izma-rail.json')
 const urban = read('izma-urban-plan.json'), streets = read('izma-urban-streets.json')
+const completeBlocks = read('izma-block-parcels.json')
+const retired = new Set(completeBlocks.blocks.flatMap((b:any) => b.retiredParcels))
 const spacing = Math.PI * 6400 / 3
 type Point = [number, number]
 const poly = (p: number[][]): StreetPolygon => positivePolygon(p.map(([x,y]) => ({ x,y,u:x,v:y })))
@@ -20,7 +22,9 @@ const bounds = (p:StreetPolygon) => [Math.min(...p.map(v=>v.x)),Math.min(...p.ma
 const touches = (a:number[],b:number[]) => a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3]
 const obstacles: { polygon:StreetPolygon; bounds:number[]; kind:string; route?:string }[] = []
 const reserve = (polygon:StreetPolygon,kind:string,route?:string) => obstacles.push({polygon,bounds:bounds(polygon),kind,route})
+for (const block of completeBlocks.blocks) for (const sector of block.sectors) reserve(poly(sector),'complete-block')
 for (const p of [...primary.parcels,...infill.parcels]) {
+  if(retired.has(p.id))continue
   reserve(p.lot ? poly(p.lot.polygon) : rectangle(...p.position,p.yaw,p.size[0]+1.5,p.size[1]+1.5),'parcel')
   reserve(corridor(p.access.start,p.access.end,3),'entrance')
 }
@@ -80,7 +84,7 @@ for(const d of master.districts){
   add('land-'+d.id+'-'+(side<0?'left':'right'),d,use,outline)
  }
 }
-const inputs=['izma-colony-plan.json','izma-parcels.json','izma-neighbourhood-parcels.json','izma-public-spaces.json','izma-rail.json','izma-urban-plan.json','izma-urban-streets.json']
+const inputs=['izma-colony-plan.json','izma-parcels.json','izma-neighbourhood-parcels.json','izma-public-spaces.json','izma-rail.json','izma-urban-plan.json','izma-urban-streets.json','izma-block-parcels.json']
 for(const z of zones){
  const candidates:any[]=[]
  for(const piece of [...z.pieces].sort((a,b)=>polygonArea(poly(b))-polygonArea(poly(a))).slice(0,12)){
