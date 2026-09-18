@@ -3,7 +3,7 @@
 This scene is a replacement design. Export integration must retire the listed
 old parcels and re-author dependent land/entrances; it must not overlap them.
 """
-import bpy,json,hashlib,math,sys
+import bpy,json,hashlib,math,sys,os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
@@ -124,7 +124,7 @@ for block in plan['blocks']:
 
 scene.view_layers[0].update()
 bpy.data.libraries.write(str(ASSETS/'izma-blocks.blend'),{scene},fake_user=True,compress=True)
-evidence=ROOT/'qa/webxr/evidence/colony-block-replot-20260918'
+evidence=Path(os.environ.get('SPINWARD_BLOCK_EVIDENCE',str(ROOT/'qa/webxr/evidence/colony-block-replot-20260918')))
 evidence.mkdir(parents=True,exist_ok=True)
 summary={**counts,'blocks':len(plan['blocks']),'blendBytes':(ASSETS/'izma-blocks.blend').stat().st_size,'status':'native design; runtime replacement pending'}
 (evidence/'native.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary),flush=True)

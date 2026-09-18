@@ -4,7 +4,7 @@ Near, middle and distant polygons come from the same saved Blender scene.
 Only explicitly retired neighbourhood IDs disappear; the source scene remains
 available to the authoring pipeline. Courts are split into local compounds.
 """
-import bpy,json,hashlib,math,sys
+import bpy,json,hashlib,math,sys,os
 from pathlib import Path
 from collections import defaultdict
 ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
@@ -91,7 +91,7 @@ for bid,block in blocks.items():
 manifest['cityBlocks']={'version':1,'fixed':pack(fixed,physical),'planHash':plan['planHash'],
     'retiredParcelIds':plan['retiredParcelIds'],'counts':counts,'blocks':plan['blocks']}
 result=write_manifest(source,manifest)
-out=ROOT/'qa/webxr/evidence/colony-block-replot-20260918'
+out=Path(os.environ.get('SPINWARD_BLOCK_EVIDENCE',str(ROOT/'qa/webxr/evidence/colony-block-replot-20260918')))
 out.mkdir(parents=True,exist_ok=True)
 (out/'export.json').write_text(json.dumps({'counts':counts,'files':files,'discardedDegenerateTriangles':discarded,
     'simplifiedCollisionTriangles':removed,'maximumSampledCollisionError':maximum_error,**result},indent=2)+'\n')

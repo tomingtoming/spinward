@@ -47,11 +47,64 @@ def bevel_acute(polygon):
         if min(la,lb)<1e-7:continue
         u=[(a[k]-p[k])/la for k in range(2)];v=[(b[k]-p[k])/lb for k in range(2)]
         angle=math.acos(max(-1,min(1,sum(u[k]*v[k] for k in range(2)))))
-        if angle>=math.radians(55):continue
-        distance=min(3,min(la,lb)*.22)
+        if angle>=math.radians(75):continue
+        # Size the end wall in metres. A percentage of a short parcel edge
+        # leaves a tiny cap even when the corner no longer has an acute angle.
+        distance=min(4/(2*math.sin(angle/2)),min(la,lb)*.8)
         q=[p[k]+u[k]*distance for k in range(2)];r=[p[k]+v[k]*distance for k in range(2)]
         polygon=half_plane(polygon,q,r,True)
     return polygon
+
+
+def trim_unusable_rear(polygon,front,minimum_width):
+    """Keep room width through the depth, instead of extruding a tapered tail."""
+    a,b=front;length=math.dist(a,b)
+    if length<minimum_width-1e-6:return []
+    tangent=tuple((b[k]-a[k])/length for k in range(2));normal=(-tangent[1],tangent[0])
+    centre=tuple(sum(p[k] for p in polygon)/len(polygon) for k in range(2))
+    if sum((centre[k]-a[k])*normal[k] for k in range(2))<0:normal=tuple(-v for v in normal)
+    local=[tuple(sum((p[k]-a[k])*axis[k] for k in range(2)) for axis in [tangent,normal]) for p in polygon]
+    depth=max(p[1] for p in local)
+    def width_at(y):
+        xs=[]
+        for p,q in zip(local,local[1:]+local[:1]):
+            if abs(q[1]-p[1])<1e-8:
+                if abs(y-p[1])<1e-7:xs.extend([p[0],q[0]])
+            elif min(p[1],q[1])-1e-7<=y<=max(p[1],q[1])+1e-7:
+                xs.append(p[0]+(q[0]-p[0])*(y-p[1])/(q[1]-p[1]))
+        return max(xs)-min(xs) if len(xs)>1 else 0
+    if width_at(depth)<minimum_width:
+        low,high=0,depth
+        for _ in range(40):
+            middle=(low+high)/2
+            if width_at(middle)>=minimum_width:low=middle
+            else:high=middle
+        depth=low
+    if depth<4:return []
+    return restrict(polygon,a,normal,-1e-7,depth)
+
+
+def fit_front_rectangle(polygon,front,minimum_width):
+    """Fit an orthogonal wing inside a convex lot, keeping its door on the road."""
+    a,b=front;length=math.dist(a,b);t=tuple((b[k]-a[k])/length for k in range(2));n=(-t[1],t[0])
+    if sum(sum((p[k]-a[k])*n[k] for k in range(2)) for p in polygon)<0:n=tuple(-v for v in n)
+    local=[tuple(sum((p[k]-a[k])*axis[k] for k in range(2)) for axis in [t,n]) for p in polygon]
+    maximum=max(p[1] for p in local);candidates=[]
+    for depth in [maximum,*[i*.25 for i in range(16,math.ceil(maximum/.25))]]:
+        if depth<4:continue
+        xs=[]
+        for p,q in zip(local,local[1:]+local[:1]):
+            if abs(q[1]-p[1])<1e-8:
+                if abs(depth-p[1])<1e-7:xs.extend([p[0],q[0]])
+            elif min(p[1],q[1])-1e-7<=depth<=max(p[1],q[1])+1e-7:
+                xs.append(p[0]+(q[0]-p[0])*(depth-p[1])/(q[1]-p[1]))
+        if len(xs)<2:continue
+        lo,hi=max(0,min(xs)),min(length,max(xs))
+        if hi-lo>=minimum_width:candidates.append(((hi-lo)*depth,lo,hi,depth))
+    if not candidates:return []
+    _,lo,hi,depth=max(candidates)
+    return clean([tuple(a[k]+t[k]*x+n[k]*y for k in range(2))
+                  for x,y in [(lo,0),(hi,0),(hi,depth),(lo,depth)]])
 
 
 def partition(polygon,widths,spec):
@@ -78,10 +131,11 @@ def partition(polygon,widths,spec):
             gates.append({'edge':edge,'start':road,'end':inner,'width':spec['gateWidth']})
         for begin,end in intervals:
             cursor=begin;address=0
-            while end-cursor>=4.2:
+            minimum_front=spec.get('minimumFrontage',4.2)
+            while end-cursor>=minimum_front:
                 desired=spec['frontWidths'][(edge+address)%len(spec['frontWidths'])]
                 remaining=end-cursor
-                span=remaining if remaining<desired+4.2 else desired
+                span=remaining if remaining<desired+minimum_front else desired
                 gap=spec['gap'];piece=restrict(ribbon,a,t,cursor+gap/2,cursor+span-gap/2)
                 fa=[p for p in piece if abs((p[0]-a[0])*n[0]+(p[1]-a[1])*n[1]-verge)<1e-5]
                 if len(fa)==2 and math.dist(*fa)>=3.5 and abs(area(piece))>=24:
@@ -108,13 +162,26 @@ def partition(polygon,widths,spec):
         choices=[]
         for piece in pieces:
             piece=bevel_acute(piece)
+            if not piece:continue
             front=[p for p in piece if abs(dx*(p[1]-a[1])-dy*(p[0]-a[0]))/length<1e-5]
             if len(front)!=2 or math.dist(*front)<3.5 or abs(area(piece))<24:continue
-            choices.append((abs(area(piece)),piece,front))
+            families=[plot['family']]
+            if spec.get('smallBuildingFamily') and plot['family']=='apartment':families.append(spec['smallBuildingFamily'])
+            for family in families:
+                fitted=trim_unusable_rear(piece,front,6 if family=='apartment' else 4)
+                if not fitted or abs(area(fitted))<24:continue
+                if spec.get('rectangularWings'):
+                    fitted=fit_front_rectangle(fitted,front,6 if family=='apartment' else 4)
+                if not fitted or abs(area(fitted))<24:continue
+                fitted_front=[p for p in fitted if abs(dx*(p[1]-a[1])-dy*(p[0]-a[0]))/length<1e-5]
+                if len(fitted_front)!=2:continue
+                floors=plot['floors'] if family==plot['family'] else min(2,plot['floors'])
+                if spec.get('smallBuildingStoreys') and abs(area(fitted))<55:floors=min(floors,spec['smallBuildingStoreys'])
+                choices.append((abs(area(fitted)),fitted,fitted_front,family,floors));break
         if not choices:continue
-        size,piece,front=max(choices,key=lambda c:c[0]);entry=[sum(q[k] for q in front)/2 for k in range(2)]
+        size,piece,front,family,floors=max(choices,key=lambda c:c[0]);entry=[sum(q[k] for q in front)/2 for k in range(2)]
         delta=[entry[k]-plot['entry'][k] for k in range(2)]
-        accepted.append({**plot,'outline':piece,'front':front,'area':size,'entry':entry,
+        accepted.append({**plot,'outline':piece,'front':front,'area':size,'entry':entry,'family':family,'floors':floors,
                          'approach':[plot['approach'][k]+delta[k] for k in range(2)]})
     legal=[]
     for sector in sectors:
