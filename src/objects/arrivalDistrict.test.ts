@@ -17,10 +17,29 @@ import {paintDistrictFootways} from '../app/streetRouteGrid'
 import {StreetNetwork} from './streetNetwork'
 import type {StreetPath} from './streetPath'
 
+// The snapshot is written on one machine; libm results differ in the last bits across
+// CPUs, so coordinates are compared to a micrometre while structure stays exact.
+const snapshotMismatch=(actual:unknown,expected:unknown,path='roads'):string|null=>{
+  if(typeof expected==='number')return typeof actual==='number'&&Math.abs(actual-expected)<=1e-6?null:`${path}: ${actual} != ${expected}`
+  if(Array.isArray(expected)){
+    if(!Array.isArray(actual)||actual.length!==expected.length)return `${path}: length ${Array.isArray(actual)?actual.length:typeof actual} != ${expected.length}`
+    for(let i=0;i<expected.length;i++){const m=snapshotMismatch(actual[i],expected[i],`${path}[${i}]`);if(m)return m}
+    return null
+  }
+  if(expected&&typeof expected==='object'){
+    if(!actual||typeof actual!=='object')return `${path}: ${typeof actual} != object`
+    const a=Object.keys(actual).sort(),e=Object.keys(expected).sort()
+    if(a.join()!==e.join())return `${path}: keys ${a} != ${e}`
+    for(const k of e){const m=snapshotMismatch((actual as Record<string,unknown>)[k],(expected as Record<string,unknown>)[k],`${path}.${k}`);if(m)return m}
+    return null
+  }
+  return actual===expected?null:`${path}: ${actual} != ${expected}`
+}
+
 test('runtime road snapshot is generated from the complete land and transport plan',()=>{
   const plan=planBandTransport(proposedBandLand(),proposedBandExpressway())
   const geometry=prepareBandStreetGeometry(plan.surface)
-  expect(geometry.roads).toEqual(snapshot.roads)
+  expect(snapshotMismatch(JSON.parse(JSON.stringify(geometry.roads)),snapshot.roads)).toBeNull()
   expect(geometry.remaining).toEqual({sharp:[],short:[]})
 },30000)
 

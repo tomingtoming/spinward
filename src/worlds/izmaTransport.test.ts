@@ -240,7 +240,7 @@ test('motorway parapets leave each ordinary road approach open', () => {
     }
     expect(checked).toBeGreaterThanOrEqual(18)
   } finally { geometry.dispose(); material.dispose() }
-}, 60_000) // Full-city raycasts validate geometry, not a frame-time budget.
+}, 180_000) // Full-city raycasts validate geometry, not a frame-time budget.
 
 test('concrete foundations reach the real terrain and parapets use collision meshes without becoming walking floors', () => {
   const groups = new Map<string, number[]>()

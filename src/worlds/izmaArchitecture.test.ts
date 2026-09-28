@@ -44,7 +44,7 @@ test('all streamed district tiles exist under the hash named by the manifest', a
     expect(tile.url.endsWith('-' + digest + '.json'), tile.id).toBe(true)
     expect(bytes.byteLength, tile.id).toBeLessThan(4 * 1024 * 1024)
   }
-})
+}, 30_000) // Hashes every streamed tile; slow under a parallel full-suite run.
 
 test('entrances use feasible grades and foundations support the whole footprint', () => {
   for (const p of parcels.parcels) {
