@@ -1,6 +1,12 @@
 import * as T from 'three'
 import {outsideShellBounds} from './closed-building-shell.js'
 
+// Rasterizer back-face culling for meshes made only of certified shells. It is
+// a per-draw state change, so it follows the same both-eye exterior test as
+// the shader discard. It can move isolated silhouette-edge pixels, so
+// ?shellCull=off restores the two-sided draw for on-device A/B comparisons.
+export const shellFaceCulling={enabled:globalThis.location?new URLSearchParams(globalThis.location.search).get('shellCull')!=='off':true}
+
 export function patchBuildingShellCulling(mesh,data,base){
   if(!data.shellBounds||!data.attributes.closedShell)return
   const material=mesh.material,previous=material.onBeforeCompile,key=material.customProgramCacheKey()
@@ -10,13 +16,14 @@ export function patchBuildingShellCulling(mesh,data,base){
     shader.uniforms.metroExteriorEye=enabled
     shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nattribute float closedShell; varying float vClosedShell;')
       .replace('#include <begin_vertex>','#include <begin_vertex>\nvClosedShell=closedShell;')
-    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float metroExteriorEye; varying float vClosedShell;')
+    // The program may compile during a front-only draw; keep two-sided normals.
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#ifndef DOUBLE_SIDED\n#define DOUBLE_SIDED\n#endif\n#include <common>\nuniform float metroExteriorEye; varying float vClosedShell;')
       // Preserve normal/texture derivatives before any distance-dependent
       // discard. Rejecting a helper invocation earlier can alter edge pixels.
       // Distant silhouettes retain the original double-sided path.
       .replace('#include <lights_physical_fragment>','if(metroExteriorEye>.5 && vClosedShell>.5 && !gl_FrontFacing && dot(vViewPosition,vViewPosition)<10000.0)discard;\n#include <lights_physical_fragment>')
   }
-  material.customProgramCacheKey=()=>`${key}-closed-exterior-near-v3`
+  material.customProgramCacheKey=()=>`${key}-closed-exterior-near-v4`
   const before=mesh.onBeforeRender
   mesh.onBeforeRender=function(renderer,scene,camera,...rest){
     before.call(this,renderer,scene,camera,...rest)
@@ -36,5 +43,14 @@ export function patchBuildingShellCulling(mesh,data,base){
     }
     enabled.value=outsideShellBounds(data.shellBounds,x,y,z,.05+nearRadius*warp)?1:0
   }
-  mesh.userData.shellCulling=enabled
+  mesh.userData.shellCulling=enabled;mesh.userData.shellFaceCulling=shellFaceCulling
+  if(!data.attributes.closedShell.every(v=>v>.5))return
+  // Shadows derive their side from material.side unless shadowSide is set.
+  const side=material.side,beforeMaterial=material.onBeforeRender,after=mesh.onAfterRender
+  material.shadowSide??=side
+  material.onBeforeRender=function(...args){
+    beforeMaterial.apply(this,args)
+    if(enabled.value&&shellFaceCulling.enabled)material.side=T.FrontSide
+  }
+  mesh.onAfterRender=function(...args){after.apply(this,args);material.side=side}
 }

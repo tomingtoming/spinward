@@ -2,7 +2,7 @@ import {test,expect} from 'bun:test'
 import * as T from 'three'
 import {closedBuildingShells,outsideShellBounds,MAX_SHELL_TRIANGLES} from './closed-building-shell.js'
 import {prepareTile} from './tile-processing.js'
-import {patchBuildingShellCulling} from './building-shell-culling.js'
+import {patchBuildingShellCulling,shellFaceCulling} from './building-shell-culling.js'
 import {surfacePoint} from './surface-frame.js'
 
 const cube=()=>({position:new Float32Array([-1,-1,0,1,-1,0,1,1,0,-1,1,0,-1,-1,2,1,-1,2,1,1,2,-1,1,2]),
@@ -57,4 +57,35 @@ test('both eye positions and flat/colony placement preserve interior faces and s
       expect(shader.uniforms.metroExteriorEye.value).toBe(expected)
     }
   }
+})
+test('fully certified meshes cull back faces per draw only from outside, then restore the side',()=>{
+  const sample={band:0,anchor:{local:[0,0]}},base={mode:'flat',study:{radius:3200},sample}
+  const draw=(mesh:T.Mesh,x:number)=>{
+    const material=mesh.material as T.Material,camera=new T.PerspectiveCamera()
+    camera.position.set(...surfacePoint(3200,sample,'flat',x,0,1) as [number,number,number]);camera.updateMatrixWorld()
+    mesh.onBeforeRender({} as any,{} as any,camera,mesh.geometry,material,null as any)
+    material.onBeforeRender({} as any,{} as any,camera,mesh.geometry,mesh,null as any)
+    const side=material.side
+    mesh.onAfterRender({} as any,{} as any,camera,mesh.geometry,material,null as any)
+    return side
+  }
+  const make=(mask:number[])=>{
+    const material=new T.MeshStandardMaterial({side:T.DoubleSide}),mesh=new T.Mesh(new T.BoxGeometry(),material)
+    patchBuildingShellCulling(mesh,{attributes:{closedShell:Uint8Array.from(mask)},shellBounds:new Float32Array([-1,-1,0,1,1,2])},base)
+    return mesh
+  }
+  const closed=make(Array(8).fill(1)),material=closed.material as T.MeshStandardMaterial
+  expect(material.shadowSide).toBe(T.DoubleSide)
+  expect(draw(closed,2)).toBe(T.FrontSide)
+  expect(material.side).toBe(T.DoubleSide)
+  expect(draw(closed,0)).toBe(T.DoubleSide) // eye inside a shell
+  expect(draw(closed,1.01)).toBe(T.DoubleSide) // near plane reaches the wall
+  shellFaceCulling.enabled=false
+  try{expect(draw(closed,2)).toBe(T.DoubleSide)}finally{shellFaceCulling.enabled=true}
+  // One uncertified component keeps the whole draw two-sided.
+  expect(draw(make([1,1,1,1,1,1,1,0]),2)).toBe(T.DoubleSide)
+  // A program compiled during a front-only draw still flips back-face normals.
+  const shader:any={uniforms:{},vertexShader:'#include <common>\n#include <begin_vertex>',fragmentShader:'#include <common>\n#include <lights_physical_fragment>'}
+  material.onBeforeCompile(shader,{} as any)
+  expect(shader.fragmentShader).toContain('#ifndef DOUBLE_SIDED\n#define DOUBLE_SIDED')
 })
