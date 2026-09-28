@@ -3,14 +3,15 @@ import bpy,json,math,hashlib
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from colony_manifest_io import read_manifest, write_manifest
+from colony_manifest_io import read_manifest, write_manifest,write_immutable
 from izma_block_composition import invalidate_blocks
-ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
+from izma_authoring_paths import authoring_root,city_asset_name
+ROOT=authoring_root();ASSETS=ROOT/'assets/blender'
 source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
-contract=json.loads((ASSETS/'izma-land-use.json').read_text());scene=bpy.data.scenes['SW_izma_land_use']
+contract=json.loads((ASSETS/city_asset_name('izma-land-use.json')).read_text());scene=bpy.data.scenes['SW_izma_land_use']
 assert scene.get('owner')=='spinward-izma-land-use-v1'
 for name,digest in contract['dependencies'].items():assert hashlib.sha256((ASSETS/name).read_bytes()).hexdigest()==digest,('Rebuild land use',name)
-assert hashlib.sha256((ASSETS/'izma-land-use-layout.json').read_bytes()).hexdigest()==contract['layoutHash']
+assert hashlib.sha256((ASSETS/city_asset_name('izma-land-use-layout.json')).read_bytes()).hexdigest()==contract['layoutHash']
 assert hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest()==contract['terrainHash']
 scene.view_layers[0].update();fixed={};physical={};tiles={}
 for obj in scene.objects:
@@ -57,7 +58,7 @@ for name,tile in sorted(tiles.items()):
     data=pack(tile['lods'][0]);data['mid']=pack(tile['lods'][1]);encoded=json.dumps(data,separators=(',',':'))+'\n'
     assert len(encoded.encode())<4*1024*1024,('Land-use tile exceeds request bound',name)
     digest=hashlib.sha256(encoded.encode()).hexdigest()[:12];filename=f'land-{name}-{digest}.json'
-    (ROOT/'public/landscapes/izma'/filename).write_text(encoded);files.append({'url':'/landscapes/izma/'+filename,'bytes':len(encoded.encode())})
+    write_immutable(ROOT/'public/landscapes/izma'/filename,encoded.encode());files.append({'url':'/landscapes/izma/'+filename,'bytes':len(encoded.encode())})
     vs=[p for group in tile['lods'][0].values()for p in group]
     for lod,key in [(0,'nearTriangles'),(1,'midTriangles')]:counts[key]+=sum(len(v)//3 for v in tile['lods'][lod].values())
     manifest['tiles'].append({'id':'land-'+name,'url':files[-1]['url'],'band':tile['band'],'districts':sorted(tile['districts']),
@@ -71,5 +72,5 @@ manifest['landUse']={'version':1,'fixed':pack(fixed,physical),'counts':counts,
     'zones':[{k:z[k]for k in ['id','district','band','use','area','access','accessRejected','fixtures']}for z in contract['zones']]}
 write_manifest(source, manifest)
 out=ROOT/'qa/webxr/evidence/colony-land-use-20260918';out.mkdir(parents=True,exist_ok=True)
-result={'counts':counts,'files':files,'manifestBytes':source.stat().st_size,'sourceHash':hashlib.sha256((ASSETS/'izma-land-use.blend').read_bytes()).hexdigest()}
+result={'counts':counts,'files':files,'manifestBytes':source.stat().st_size,'sourceHash':hashlib.sha256((ASSETS/city_asset_name('izma-land-use.blend')).read_bytes()).hexdigest()}
 (out/'export.json').write_text(json.dumps(result,indent=2)+'\n')

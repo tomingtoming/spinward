@@ -1,6 +1,7 @@
 import { OUTING_DESTINATIONS, type OutingAction } from '../../app/neighborhoodRoute'
+import { METRO_DIRECTIONS } from '../../worlds/metroRoads'
 import * as THREE from 'three'
-import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../../app/placeVisits'
+import { PLACE_DESTINATIONS, type PlaceVisitAction, type PlaceDestination } from '../../app/placeVisits'
 import {
   WATCH_PARAMETER_SPECS,
   type WatchParameterActionId,
@@ -231,15 +232,16 @@ const createHomeLayout = (width: number, height: number): WatchScreenLayout => {
   }
 }
 
-const createPlacesLayout = (width: number, height: number, secondPage = false): WatchScreenLayout => {
+const createPlacesLayout = (width: number, height: number, secondPage = false, offered: readonly PlaceDestination[] = PLACE_DESTINATIONS, metroRoutes=false): WatchScreenLayout => {
   const backButton = makeBackButton()
   // Preserve large laser targets and breathing room as destinations grow.
-  const paginated = PLACE_DESTINATIONS.length > 12
-  const destinations = paginated ? PLACE_DESTINATIONS.slice(secondPage ? 8 : 0, secondPage ? undefined : 8) : PLACE_DESTINATIONS
+  const metro = offered.some(p => p.id.startsWith('visit-metro-'))
+  const paginated = offered.length > 8
+  const destinations = paginated ? offered.slice(secondPage ? 8 : 0, secondPage ? 16 : 8) : offered
   const rows = Math.ceil(destinations.length / 2)
-  const placesFooter = !paginated && rows <= 4
+  const placesFooter = !metro && !paginated && rows <= 4
   const step = Math.min(104, Math.floor((height - 108 - 84 - (placesFooter ? 92 : 20)) / rows))
-  const placesSection: WatchSection = { top: 108, height: 84 + rows * step, title: paginated ? `STREET LIFE · ${secondPage ? 2 : 1}/2` : 'STREET LIFE' }
+  const placesSection: WatchSection = { top: 108, height: 84 + rows * step, title: `${metro ? 'TOKYO & SAITAMA' : 'STREET LIFE'}${paginated ? ` · ${secondPage ? 2 : 1}/2` : ''}` }
   const placeButtons = destinations.map((place, i) => makeActionButton(
     place.id, place.label, CONTENT_LEFT + (i % 2) * 310,
     placesSection.top + 84 + Math.floor(i / 2) * step, 290, 80
@@ -247,7 +249,7 @@ const createPlacesLayout = (width: number, height: number, secondPage = false): 
   const pager = paginated ? [makeActionButton(secondPage ? 'nav-places' : 'nav-places-more',
     secondPage ? '‹ First places' : 'More places ›', CONTENT_LEFT, height - 80, 290, 64)] : []
   return { screen: secondPage ? 'places-more' : 'places', width, height, backButton, title: 'PLACES',
-    placesSection, placesFooter, placeButtons, buttons: [backButton, makeActionButton('nav-outing','Directions ›',430,26,240,54), ...placeButtons, ...pager] }
+    placesSection, placesFooter, placeButtons, buttons: [backButton, ...(!metro||metroRoutes ? [makeActionButton('nav-outing','Directions ›',430,26,240,54)] : []), ...placeButtons, ...pager] }
 }
 
 const createHabitatLayout = (width: number, height: number): WatchScreenLayout => {
@@ -341,10 +343,10 @@ const createLegendLayout = (width: number, height: number): WatchScreenLayout =>
   }
 }
 
-const createOutingLayout = (width:number,height:number):WatchScreenLayout => {
+const createOutingLayout = (width:number,height:number,metro=false):WatchScreenLayout => {
   const backButton=makeBackButton()
-  const actions=[...OUTING_DESTINATIONS,{id:'guide-cancel' as const,label:'Cancel directions'}, {id:'drive-mode-toggle' as const,label:'Street / Experiment'}, {id:'park-car' as const,label:'Park car'}]
-  const outingFooter={top:height-122,height:100,title:''},rows=Math.ceil(actions.length/2)
+  const actions=metro?[...METRO_DIRECTIONS,{id:'guide-cancel' as const,label:'Cancel directions'}]:[...OUTING_DESTINATIONS,{id:'guide-cancel' as const,label:'Cancel directions'}, {id:'drive-mode-toggle' as const,label:'Street / Experiment'}, {id:'park-car' as const,label:'Park car'}]
+  const outingFooter={top:height-134,height:112,title:''},rows=Math.ceil(actions.length/2)
   // Reserve the full two-line instruction area before fitting button rows.
   // Keep the 80px targets; the spare space belongs between rows, not in text.
   const step=Math.min(104,Math.floor((outingFooter.top-24-120-80)/Math.max(1,rows-1)))
@@ -355,17 +357,19 @@ const createOutingLayout = (width:number,height:number):WatchScreenLayout => {
 export const createWatchLayout = (
   screen: WatchScreen,
   width = WATCH_CANVAS_SIZE.width,
-  height = WATCH_CANVAS_SIZE.height
+  height = WATCH_CANVAS_SIZE.height,
+  places: readonly PlaceDestination[] = PLACE_DESTINATIONS,
+  metroRoutes=false
 ): WatchScreenLayout => {
   switch (screen) {
     case 'home':
       return createHomeLayout(width, height)
     case 'outing':
-      return createOutingLayout(width,height)
+      return createOutingLayout(width,height,places.some(p=>p.id.startsWith('visit-metro-')))
     case 'places':
-      return createPlacesLayout(width, height)
+      return createPlacesLayout(width, height, false, places,metroRoutes)
     case 'places-more':
-      return createPlacesLayout(width, height, true)
+      return createPlacesLayout(width, height, true, places,metroRoutes)
     case 'habitat':
       return createHabitatLayout(width, height)
     case 'tweaks':
@@ -381,12 +385,14 @@ export const createWatchLayout = (
 
 export const createAllWatchLayouts = (
   width = WATCH_CANVAS_SIZE.width,
-  height = WATCH_CANVAS_SIZE.height
+  height = WATCH_CANVAS_SIZE.height,
+  places: readonly PlaceDestination[] = PLACE_DESTINATIONS,
+  metroRoutes=false
 ): Record<WatchScreen, WatchScreenLayout> => ({
   home: createWatchLayout('home', width, height),
-  outing: createWatchLayout('outing', width, height),
-  places: createWatchLayout('places', width, height),
-  'places-more': createWatchLayout('places-more', width, height),
+  outing: createWatchLayout('outing', width, height, places,metroRoutes),
+  places: createWatchLayout('places', width, height, places,metroRoutes),
+  'places-more': createWatchLayout('places-more', width, height, places,metroRoutes),
   habitat: createWatchLayout('habitat', width, height),
   tweaks: createWatchLayout('tweaks', width, height),
   legend: createWatchLayout('legend', width, height)

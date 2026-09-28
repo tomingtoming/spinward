@@ -2,15 +2,16 @@ import { expect, test } from 'bun:test'
 import { buildCityCollisionIndex, collectCityBuildingsInWindow, collectCityCollidersNear, CITY_COLLIDER_TRAVEL_BUFFER, type CityBuilding } from './cityLayout'
 import { GameLoop } from '../app/gameLoop'
 import { VEHICLE_TUNING } from '../gameplay/vehicle'
+import { CAR_COLLIDER_RADIUS } from '../app/driveRuntime'
 import type { WebGLRenderer } from 'three'
 
-test('the streamed lead-in covers three maximum-speed steps at the actual frame cap', () => {
+test('the streamed lead-in covers the car radius beyond three maximum-speed steps at the actual frame cap', () => {
   let frame!: (time: number) => void
   const deltas: number[] = []
   const renderer = { xr: { addEventListener() {} }, setAnimationLoop(callback: typeof frame) { frame = callback } }
   new GameLoop(renderer as unknown as WebGLRenderer, s => deltas.push(s.deltaSeconds)).start()
   frame(0); frame(1000)
-  expect(CITY_COLLIDER_TRAVEL_BUFFER).toBeGreaterThan(3 * VEHICLE_TUNING.maxSpeed * Math.max(...deltas))
+  expect(CITY_COLLIDER_TRAVEL_BUFFER).toBeGreaterThan(3 * VEHICLE_TUNING.maxSpeed * Math.max(...deltas) + CAR_COLLIDER_RADIUS)
 })
 
 test('distance refinement preserves the travel buffer at grid edges, rotated bounds and the cylinder seam without expanding meshes', () => {

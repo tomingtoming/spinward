@@ -21,3 +21,10 @@ qa/webxr/evidence/
 
 # Atomic publication of the generated colony data index.
 src/worlds/generated/izmaColony.json.next
+src/worlds/generated/izmaColonyRuntime.json.next
+
+# New authoring models and generated district payloads are restored from the
+# server asset snapshot. Existing tracked assets remain in Git history.
+# See docs/development-handoff.md and docs/development-assets.sha256.
+/assets/blender/*.blend
+/public/landscapes/izma/*.json

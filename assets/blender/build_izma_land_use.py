@@ -9,11 +9,13 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from colony_manifest_io import read_manifest
+from izma_authoring_paths import authoring_root,city_asset_name
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender';R=3200
-layout=json.loads((ASSETS/'izma-land-use-layout.json').read_text())
+ROOT=authoring_root();ASSETS=ROOT/'assets/blender';R=3200
+layout_name=city_asset_name('izma-land-use-layout.json')
+layout=json.loads((ASSETS/layout_name).read_text())
 for name,digest in layout['dependencies'].items():
     assert hashlib.sha256((ASSETS/name).read_bytes()).hexdigest()==digest,('Stale land reservations',name)
 base=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')['base']
@@ -67,7 +69,7 @@ for i in range(0,len(base['meshes']['earth']),3):
 earth=BVHTree.FromPolygons(vertices,[tuple(range(i,i+3))for i in range(0,len(vertices),3)],all_triangles=True)
 road_vertices=[]
 manifest=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
-for packed,names in [(base,['local','arterial','walk']),(manifest['neighbourhoods']['fixed'],['arch-lane'])]:
+for packed,names in [(base,['local','arterial','walk']),(manifest['neighbourhoods']['fixed'],['arch-lane','arch-paving','arch-court'])]:
     for name in names:
         for index in packed['meshes'].get(name,[]):
             x,y,h=packed['vertices'][index*3:index*3+3];road_vertices.append((math.cos(x/R)*(R-h),y,math.sin(x/R)*(R-h)))
@@ -226,11 +228,11 @@ for (tile,lod),data in meshes.items():
     obj=bpy.data.objects.new(me.name,me);scene.collection.objects.link(obj);obj.location=(oy,-ox,0)
     obj['tile']=tile;obj['lod']=lod;obj['band']=data['band'];obj['districts']=json.dumps(sorted(data['districts']));obj.hide_render=lod==1
 scene.view_layers[0].update()
-bpy.data.libraries.write(str(ASSETS/'izma-land-use.blend'),{scene},fake_user=True,compress=True)
+bpy.data.libraries.write(str(ASSETS/city_asset_name('izma-land-use.blend')),{scene},fake_user=True,compress=True)
 contract={**layout,'materials':definitions,'fixtures':fixtures,'proxies':proxies,
  'terrainHash':hashlib.sha256(json.dumps([base['vertices'],base['meshes']['earth']],separators=(',',':')).encode()).hexdigest(),
- 'layoutHash':hashlib.sha256((ASSETS/'izma-land-use-layout.json').read_bytes()).hexdigest()}
-(ASSETS/'izma-land-use.json').write_text(json.dumps(contract,separators=(',',':'))+'\n')
+ 'layoutHash':hashlib.sha256((ASSETS/layout_name).read_bytes()).hexdigest()}
+(ASSETS/city_asset_name('izma-land-use.json')).write_text(json.dumps(contract,separators=(',',':'))+'\n')
 result={'zones':len(layout['zones']),'fixtures':len(fixtures),'accesses':sum(bool(z['access'])for z in layout['zones']),
  'rejectedAccesses':sum(bool(z['accessRejected'])for z in layout['zones']),'nativeObjects':len(scene.objects),
- 'blendBytes':(ASSETS/'izma-land-use.blend').stat().st_size}
+ 'blendBytes':(ASSETS/city_asset_name('izma-land-use.blend')).stat().st_size}

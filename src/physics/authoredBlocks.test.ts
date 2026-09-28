@@ -39,7 +39,7 @@ async function walk(start:number[],path:number[][],label:string,wall?:number[][]
       stepGroundedPlayer(state,{radius,length:40000,omega,frameAngleEnd:frame*omega*dt,deltaSeconds:dt,
         tangentDistanceDelta:(wall?direction[0]/directionLength:dx/Math.max(distance,.001))*speed*dt,
         axisDistanceDelta:(wall?direction[1]/directionLength:dy/Math.max(distance,.001))*speed*dt,
-        sampleGroundHeight:(a,y,h)=>getCityGroundHeight(index,radius,a,y,h)})
+        sampleGroundHeight:(a,y,h,tolerance)=>getCityGroundHeight(index,radius,a,y,h,tolerance)})
       world.step();syncGroundedSurfaceFromPhysics(state,frame*omega*dt)
       expect(state.mode,label).toBe('grounded')
       if(wall){

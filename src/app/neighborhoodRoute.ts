@@ -23,7 +23,7 @@ export const OUTING_DESTINATIONS = [
   { id: 'guide-river', label: 'Riverside' },
   { id: 'guide-garden', label: 'Garden street' }
 ] as const
-export type GuideAction = typeof OUTING_DESTINATIONS[number]['id']
+export type GuideAction = typeof OUTING_DESTINATIONS[number]['id'] | `guide-metro-${string}`
 export type OutingAction = GuideAction | 'guide-cancel' | 'drive-mode-toggle' | 'park-car'
 export type OutingDestination = { label: string; entrance: SurfacePoint; bay: CarShareBay | null }
 export const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))

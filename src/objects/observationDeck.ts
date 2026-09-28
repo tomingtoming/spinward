@@ -71,11 +71,16 @@ export class ObservationDeck {
   private modules: THREE.BufferGeometry[] = [fallbackGeometry()]
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .85, metalness: .12 })
   private disposed = false
-  constructor(parent: THREE.Group) {
+  private requested = false
+  constructor(parent: THREE.Group, private readonly loadAsset?: () => Promise<{ scene: THREE.Group }>) {
     this.group.name = 'observation-deck'; parent.add(this.group); this.group.add(this.lod)
     this.group.visible = false; this.group.userData.asset = 'fallback'; this.setMeshes()
-    if (typeof document === 'undefined') return
-    new GLTFLoader().loadAsync('/assets/observation-deck.glb').then(g => {
+  }
+  private requestModel() {
+    if (this.disposed || this.requested || (!this.loadAsset && typeof document === 'undefined')) return
+    this.requested = true
+    const load = this.loadAsset ?? (() => new GLTFLoader().loadAsync('/assets/observation-deck.glb'))
+    load().then(g => {
       const next: THREE.BufferGeometry[] = []
       try {
         if (this.disposed) return
@@ -103,6 +108,7 @@ export class ObservationDeck {
   setPlan(tower: CityTower | null, radius: number) {
     this.group.visible = hasObservationDeck(tower, radius)
     if (!this.group.visible || !tower) return
+    this.requestModel()
     const c = Math.cos(tower.azimuth), s = Math.sin(tower.azimuth)
     this.group.position.set(c * radius, tower.axial, s * radius)
     this.group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(

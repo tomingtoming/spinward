@@ -2,8 +2,13 @@ import { test, expect } from 'playwright-webxr'
 import { aimQuaternion } from 'playwright-webxr/examples/aim-controller'
 import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Vector3 } from 'three'
 import fs from 'node:fs/promises'
+import { pathToFileURL } from 'node:url'
+import { isAbsolute } from 'node:path'
 
-const root=new URL('../../',import.meta.url)
+if(process.env.SPINWARD_AUTHORING_ROOT&&!isAbsolute(process.env.SPINWARD_AUTHORING_ROOT))throw Error('Use an absolute SPINWARD_AUTHORING_ROOT')
+const root=process.env.SPINWARD_AUTHORING_ROOT
+  ? pathToFileURL(process.env.SPINWARD_AUTHORING_ROOT.replace(/\/$/,'')+'/')
+  : new URL('../../',import.meta.url)
 const document=JSON.parse(await fs.readFile(new URL('src/worlds/generated/izmaColonyRuntime.json',root)))
 async function unpack(value){
   if(value?.$part)return JSON.parse(await fs.readFile(new URL('public'+value.$part,root)))

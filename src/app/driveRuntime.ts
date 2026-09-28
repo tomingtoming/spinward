@@ -29,7 +29,7 @@ import type { UnitsContext } from '../units/units'
 // rests on the wall panels via real Rapier contact at every azimuth, its
 // center one collider radius inside the inner face (P3 removed the analytic
 // suspension, so this radius is also where it settles and is seated on entry).
-const CAR_COLLIDER_RADIUS = 0.5
+export const CAR_COLLIDER_RADIUS = 0.5
 // Contact is "grounded" while the body center sits near its resting radius.
 const GROUND_TOLERANCE = 0.6
 const ENTER_DISTANCE = 6

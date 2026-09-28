@@ -80,7 +80,9 @@ export const getQualityProfile = (): QualityProfile => {
   if (tier === 'quest') {
     return {
       tier,
-      pixelRatioCap: Number.POSITIVE_INFINITY,
+      // Keep the pre-entry browser canvas small as well as the separate XR
+      // target. They coexist during immersive-session allocation.
+      pixelRatioCap: 1,
       maxBuildings: 18000,
       maxTraffic: 160,
       cityFocusStepMeters: 24,

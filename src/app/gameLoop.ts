@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 
 export type FrameUpdate = {
+  // Bounded simulation time; never use this to measure the display cadence.
   deltaSeconds: number
+  rawDeltaSeconds: number
   elapsedSeconds: number
 }
 
@@ -23,10 +25,11 @@ export class GameLoop {
     this.renderer.setAnimationLoop((time) => {
       const elapsedSeconds = time * 0.001
       const frameSeconds = this.lastTimeSeconds === null ? 0 : elapsedSeconds - this.lastTimeSeconds
-      const deltaSeconds = frameSeconds > 0 ? Math.min(0.05, frameSeconds) : 1 / 60
+      const rawDeltaSeconds = frameSeconds > 0 ? frameSeconds : 1 / 60
+      const deltaSeconds = Math.min(0.05, rawDeltaSeconds)
 
       this.lastTimeSeconds = elapsedSeconds
-      this.updateFrame({ deltaSeconds, elapsedSeconds })
+      this.updateFrame({ deltaSeconds, rawDeltaSeconds, elapsedSeconds })
     })
   }
 }

@@ -2,6 +2,15 @@ import { expect, test } from 'bun:test'
 import { PlayerFootSurface } from './playerFootSurface'
 import type { CityPlan } from './cityLayout'
 
+test('imported terrain feet follow signed slopes and clear the sampler on preset changes', () => {
+  const surface = new PlayerFootSurface()
+  surface.setPlan(null, [], 3200, null, (_azimuth, axial, _height) => -2 + axial * .05)
+  expect(surface.sample(0, 0, -2, false)).toBeCloseTo(-1.985)
+  expect(surface.sample(0, 2, -2, false)).toBeCloseTo(-1.885)
+  surface.setPlan(null, [], 18)
+  expect(surface.sample(0, 0, 0, false)).toBeCloseTo(.1)
+})
+
 test('feet follow road, kerb, indoor floor and roof levels across the cylindrical seam', () => {
   for (const radius of [18, 180, 3200, 10000]) {
     const surface = new PlayerFootSurface()

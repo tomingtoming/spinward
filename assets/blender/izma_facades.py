@@ -11,7 +11,10 @@ def seed(text):
     return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], 'big')
 
 
-def window_rows(span, floors, kind, n, side, balcony=False, ground_shop=False, base=0):
+def window_rows(span, floors, kind, n, side, balcony=False, ground_shop=False, base=0, identity=None):
+    if identity is not None:
+        from izma_building_identity import room_openings
+        return room_openings(span, floors, kind, n, side, balcony, ground_shop, base, identity)
     office = kind == 'office'
     floor_h = 3.4 if office else 3.2
     nominal = ([2.4, 3.0, 3.6][n % 3] if office else [2.8, 3.3, 3.9][(n + side) % 3])
@@ -43,7 +46,7 @@ def window_rows(span, floors, kind, n, side, balcony=False, ground_shop=False, b
     return rows
 
 
-def facade(builder, x, y, z, w, d, floors, kind, n, lod, wall, balcony=False, ground_shop=False):
+def facade(builder, x, y, z, w, d, floors, kind, n, lod, wall, balcony=False, ground_shop=False, identity=None):
     floor_h = 3.4 if kind == 'office' else 3.2
     for side in range(4):
         span = w if side < 2 else d
@@ -59,7 +62,7 @@ def facade(builder, x, y, z, w, d, floors, kind, n, lod, wall, balcony=False, gr
             for a, b in zip(cuts, cuts[1:]):
                 builder.quad(at(a, bottom, extra), at(b, bottom, extra),
                              at(b, top, extra), at(a, top, extra), mat)
-        rows = window_rows(span, floors, kind, n, side, balcony, ground_shop, z)
+        rows = window_rows(span, floors, kind, n, side, balcony, ground_shop, z, identity)
         # A straight edge in the native plan becomes a curved-cylinder chord.
         # Bands, piers and reveals therefore need identical edge vertices;
         # T-junctions which look closed in Blender become visible hairline gaps.
@@ -73,14 +76,17 @@ def facade(builder, x, y, z, w, d, floors, kind, n, lod, wall, balcony=False, gr
                 if not openings:
                     rect(-span / 2, span / 2, low, high, wall)
                     continue
-                bottom, top = openings[0]['bottom'], openings[0]['top']
-                rect(-span / 2, span / 2, low, bottom, wall)
-                rect(-span / 2, span / 2, top, high, wall)
-                left = -span / 2
-                for opening in openings:
-                    rect(left, opening['left'], bottom, top, wall)
-                    left = opening['right']
-                rect(left, span / 2, bottom, top, wall)
+                # Service and living windows need different sill heights.
+                # Fill horizontal bands around the real apertures; assuming
+                # the first opening's height puts opaque walls over the others.
+                levels = sorted({low, high, *[o[k] for o in openings for k in ['bottom','top']]})
+                for bottom, top in zip(levels, levels[1:]):
+                    active = [o for o in openings if o['bottom'] < top-1e-8 and o['top'] > bottom+1e-8]
+                    left = -span/2
+                    for opening in active:
+                        rect(left, opening['left'], bottom, top, wall)
+                        left = opening['right']
+                    rect(left, span/2, bottom, top, wall)
             for opening in openings:
                 a, b, low, high = [opening[k] for k in ['left', 'right', 'bottom', 'top']]
                 if lod:
@@ -111,13 +117,16 @@ def facade(builder, x, y, z, w, d, floors, kind, n, lod, wall, balcony=False, gr
                 # The back sits inside the opaque wall below the door sill.
                 # A second coplanar face flickers after cylindrical projection.
                 builder.box(x, slab_y, level - .16, w * .92, 1.6, .16, 'foundation', True, back=False)
-                builder.box(x, slab_y - .75, level, w * .92 + .1, .1, .98, wall)
+                guard_material = 'metal' if identity and identity['balconyMaterial']=='metal' else wall
+                builder.box(x, slab_y - .75, level, w * .92 + .1, .1, .98, guard_material)
                 for edge in [-1, 1]:
                     builder.box(x + edge * w * .46, slab_y, level, .1, 1.6, .98, wall)
                 # A distinct cap and spaced partition panels articulate the
                 # repeated slabs without hundreds of decorative guard bars.
                 builder.box(x, slab_y - .75, level + .95, w * .92 + .1, .1, .03, 'metal')
                 if not lod:
-                    for j in range(1, bays):
-                        builder.box(x - w * .46 + j * w * .92 / bays, slab_y, level,
+                    partitions = ([(a['right']+b['left'])/2 for a,b in zip(rows[row],rows[row][1:])]
+                                  if identity else [-w*.46+j*w*.92/bays for j in range(1,bays)])
+                    for partition in partitions:
+                        builder.box(x + partition, slab_y, level,
                                     .07, 1.48, 1.45, 'metal')

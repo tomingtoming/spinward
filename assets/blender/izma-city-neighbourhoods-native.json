@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "contractSha256": "d65e3559b3acd5453df37d8085409a75c4cfc2110f6481585b15333e6c1042b1",
+  "sourceAssemblySha256": "bbb58f6d29d1e0303622a45e7de8e9ce035b03d7621d3e2520e08a0b1c5da54c",
+  "owner": "spinward-izma-city-neighbourhoods-v1",
+  "planSha256": "8dbbfeb25a3e1c9f7c988030f6e903309298c746265249a4812d019d0beb06da",
+  "parts": [
+    {
+      "district": "a-civic",
+      "scene": "SW_city_a-civic",
+      "file": "izma-city-neighbourhoods-a-civic.blend",
+      "sha256": "f06334163307b3896156c3af8965be964eb46b3a405757201623dc31f13ca931",
+      "bytes": 30852549,
+      "objects": 3333
+    },
+    {
+      "district": "a-old-town",
+      "scene": "SW_city_a-old-town",
+      "file": "izma-city-neighbourhoods-a-old-town.blend",
+      "sha256": "7520fcf76170bfe5c4f7c662b0fd0d0a47df3177c676058eff937400564c3378",
+      "bytes": 17217745,
+      "objects": 3257
+    },
+    {
+      "district": "a-port",
+      "scene": "SW_city_a-port",
+      "file": "izma-city-neighbourhoods-a-port.blend",
+      "sha256": "aa2bcd8d06856f6aff7fdd5474deb563c04863b129053f9e52378605b416eaac",
+      "bytes": 11376369,
+      "objects": 1990
+    },
+    {
+      "district": "a-river",
+      "scene": "SW_city_a-river",
+      "file": "izma-city-neighbourhoods-a-river.blend",
+      "sha256": "cc2c7d8a29703b10161d4b7b57c163b5efe9471e6188526c6ff3c887a8188217",
+      "bytes": 10366829,
+      "objects": 2103
+    },
+    {
+      "district": "a-upland",
+      "scene": "SW_city_a-upland",
+      "file": "izma-city-neighbourhoods-a-upland.blend",
+      "sha256": "cbc610d692a284d0d142d9a25fa204b5006865128439a2451ab95a153dd295ba",
+      "bytes": 7541920,
+      "objects": 1519
+    },
+    {
+      "district": "a-water",
+      "scene": "SW_city_a-water",
+      "file": "izma-city-neighbourhoods-a-water.blend",
+      "sha256": "f802005bbda162f71fdef6b1bc3515be18d330d059740e87c46d0148419922b7",
+      "bytes": 437425,
+      "objects": 170
+    },
+    {
+      "district": "b-campus",
+      "scene": "SW_city_b-campus",
+      "file": "izma-city-neighbourhoods-b-campus.blend",
+      "sha256": "80cf6b10ba455895c3da48d95af2b8927fe767773673bde7a7f9ab9d6f1d7ae0",
+      "bytes": 32129879,
+      "objects": 3752
+    },
+    {
+      "district": "b-commons",
+      "scene": "SW_city_b-commons",
+      "file": "izma-city-neighbourhoods-b-commons.blend",
+      "sha256": "37768d84b67e9821cb261efe54264a79d3f8398794248fbed7c04832e62e24f9",
+      "bytes": 455940,
+      "objects": 176
+    },
+    {
+      "district": "b-housing",
+      "scene": "SW_city_b-housing",
+      "file": "izma-city-neighbourhoods-b-housing.blend",
+      "sha256": "4704f363e081dd421d8a920e97156e48af5b9e6c7d2adf4d0e8a4c4a92f393a0",
+      "bytes": 18759894,
+      "objects": 2438
+    },
+    {
+      "district": "b-north",
+      "scene": "SW_city_b-north",
+      "file": "izma-city-neighbourhoods-b-north.blend",
+      "sha256": "842dce9da54785caf40634361db1ade2e59136b35651693c1bcbeba74f71128a",
+      "bytes": 24904990,
+      "objects": 3025
+    },
+    {
+      "district": "b-station",
+      "scene": "SW_city_b-station",
+      "file": "izma-city-neighbourhoods-b-station.blend",
+      "sha256": "016af53863ee0993ed25188d29926d8fb3ef9ce1e2cc028f96c552e035882689",
+      "bytes": 28094032,
+      "objects": 3192
+    },
+    {
+      "district": "b-workshop",
+      "scene": "SW_city_b-workshop",
+      "file": "izma-city-neighbourhoods-b-workshop.blend",
+      "sha256": "2f1006ad109f0bcf01d13390324476708049791c8ad5707bda65f15d2d76b46d",
+      "bytes": 13897110,
+      "objects": 2222
+    },
+    {
+      "district": "c-cargo",
+      "scene": "SW_city_c-cargo",
+      "file": "izma-city-neighbourhoods-c-cargo.blend",
+      "sha256": "413b75fa04f13f21260cfa34a54306664a373057ebbc2712264d293b70292d9f",
+      "bytes": 7430408,
+      "objects": 1538
+    },
+    {
+      "district": "c-fields",
+      "scene": "SW_city_c-fields",
+      "file": "izma-city-neighbourhoods-c-fields.blend",
+      "sha256": "f3d9b02e2fa5d01f708f4608354f25d8691f778ae834fe9ef3889cc637ad1f0f",
+      "bytes": 724365,
+      "objects": 223
+    },
+    {
+      "district": "c-forest",
+      "scene": "SW_city_c-forest",
+      "file": "izma-city-neighbourhoods-c-forest.blend",
+      "sha256": "ccc8dac1c283592b831b5ddd282f2ec3520e225675ae4776755e22cf5881fabb",
+      "bytes": 546752,
+      "objects": 188
+    },
+    {
+      "district": "c-market",
+      "scene": "SW_city_c-market",
+      "file": "izma-city-neighbourhoods-c-market.blend",
+      "sha256": "a94d99d4904068fc55e565c8b2463cb3ca4117d57c29c982842983aad04fbdbb",
+      "bytes": 16939726,
+      "objects": 3313
+    },
+    {
+      "district": "c-orchards",
+      "scene": "SW_city_c-orchards",
+      "file": "izma-city-neighbourhoods-c-orchards.blend",
+      "sha256": "f30c67f170622ed6ac0ba4d792b7b0907175176fff18f28a9e965498c7d07316",
+      "bytes": 570677,
+      "objects": 221
+    },
+    {
+      "district": "c-production",
+      "scene": "SW_city_c-production",
+      "file": "izma-city-neighbourhoods-c-production.blend",
+      "sha256": "f42bc040fdb14004f0ef3e58dc96a15598ebe126f09f800ac55daf4158a17f68",
+      "bytes": 13079876,
+      "objects": 3285
+    }
+  ],
+  "streetDetailsRevision": {
+    "version": 2,
+    "sourceIndexSha256": "890844ddd84660db2fe608474d9a68962f6a5343a2130acd415a6b49e5fad5b1",
+    "scriptSha256": "7010dc5af19a2e70491e558f620383802d24d06ce4c0b03e51eadd5c6296fd37",
+    "entrySidesSha256": "81a2d9662dee9e4744b3b61e8e2e086b48a0de8e456a1599a5995b3d7e6bb9e4",
+    "entrances": 4574,
+    "lights": 1180,
+    "wallMountPatchSha256": "2814e8f82757fac0e80e0c48bd6afd436d3a699bb6adf3306fcdf2a03e41b198"
+  },
+  "buildingIdentityRevision": {
+    "version": 1,
+    "sourceIndexSha256": "1154400c09b22afa1ae6093f968a625f6001bbf6d6662b7e983704a8faae4dc2",
+    "code": {
+      "izma_building_identity.py": "05a9829f99a96f2d5e908ca781203d9f26e2797ad53dfa91805d9cd561ae3ba4",
+      "izma_building_meshes.py": "1242fa09e2591a6189900e502f5fba4a2ee31615c61f5a9b27af8bf949b0aa4c",
+      "izma_facades.py": "4147c0e0229ebc89a816016b3c5f5fb864c1791a5a3684e8e37910c315645fb7",
+      "izma_native_signs.py": "cf81105487c6b3a5ba30e76b5c5ee7d0913710af8a2d9cb8b141bb3c6e46292e",
+      "izma_mesh_builder.py": "6f3f747614396a495c66d38a092855936160456a8b15d63ec68a72780deeac59",
+      "refit_izma_city_identity.py": "b4b9fc2231e1064e16ebf5b0bbbc3d94038cac512e54fb6251eb013f339575d1"
+    },
+    "buildings": 4574,
+    "physicalFacesUnchanged": true
+  },
+  "accessClearanceRevision": {
+    "version": 1,
+    "sourceContractSha256": "f460559f0870dfb877b47aceb35f8348575ec53fdb609564b0ae3f9ec26aa65f",
+    "sourceIndexSha256": "19b8c43697830ffc0799f3c2719d0b768d31ae2826671d5b15dbd988917d52ee",
+    "planSha256": "bf1057d7d4ea7f9dd6cf6c5dce1695ef0fcc8e5d736763b47f186dd84a041569",
+    "code": {
+      "refit_izma_city_access.py": "ed305754bba9a0f3d33b5d235d199f72e4073f3bdf8ede9a80e27020352a9ac6",
+      "izma_city_access.py": "e8333f52be1886fd95be0c9eac7696d915e7de929e13508c5eeb645f21392dcf",
+      "izma_city_entry_sides.py": "0c440636f9081ce7ff86c8169eb29b0363a455b52f9598b0cb86b8c7af7fdbf1",
+      "izma_city_contract.py": "91c94609bce08602e31860a86702bd8e08519369faf17bea8bdb930780103aeb",
+      "izma_building_meshes.py": "1242fa09e2591a6189900e502f5fba4a2ee31615c61f5a9b27af8bf949b0aa4c",
+      "izma_building_identity.py": "05a9829f99a96f2d5e908ca781203d9f26e2797ad53dfa91805d9cd561ae3ba4",
+      "izma_facades.py": "4147c0e0229ebc89a816016b3c5f5fb864c1791a5a3684e8e37910c315645fb7",
+      "izma_mesh_builder.py": "6f3f747614396a495c66d38a092855936160456a8b15d63ec68a72780deeac59"
+    },
+    "entrances": 123
+  }
+}

@@ -4,8 +4,8 @@ import raw from '../../qa/neighborhood-life/colony-source'
 import studyRaw from './generated/worldLandscapes.json'
 import { unpackLandscapeLibrary } from './landscapeData'
 import { landscapeColliders } from './authoredLandscape'
-import { AuthoredColony, colonyTileDistance, decodeColonyMesh, readColonyManifest, COLONY_TILE_CACHE, COLONY_LOAD_CONCURRENCY, type ColonyManifest, type ColonyPackedMesh } from './authoredColony'
-import { buildCityCollisionIndex, collectCityBuildingsInWindow, getCityGroundHeight } from '../objects/cityLayout'
+import { AuthoredColony, colonyColliders, colonyTileDistance, decodeColonyMesh, readColonyManifest, COLONY_TILE_CACHE, COLONY_LOAD_CONCURRENCY, type ColonyManifest, type ColonyPackedMesh } from './authoredColony'
+import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight } from '../objects/cityLayout'
 
 const manifest = readColonyManifest(raw)
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
@@ -13,6 +13,34 @@ const small: ColonyPackedMesh = { vertices: [-10, -10, 2, 10, -10, 2, 10, 10, 2]
 const fixture = (count = 1): ColonyManifest => ({ version: 1, radius: 3200, span: 40000, palette: { earth: '#778866', housing: '#ccccbb' }, base: small,
   visits: {}, tiles: Array.from({ length: count }, (_, i) => ({ id: `tile-${i}`, url: `/tile-${i}`, band: 0, districts: ['test'],
     bounds: [-20, i * 300 - 20, 20, i * 300 + 20], boxes: [[0, i * 300, 2, 10, 10, 10, 0, 'housing']] })) })
+
+test('waterworks retain drawn floor support without detail and release it on world change', async () => {
+  for (let band = 0; band < 3; band++) {
+    const x = band * Math.PI * 6400 / 3, f = fixture(0)
+    f.base = { vertices: [], meshes: {}, surfaces: [] }
+    const fixed: ColonyPackedMesh = { vertices: [x-2,-2,3,x+2,-2,3,x+2,2,3],
+      meshes: { earth: [0,1,2] }, surfaces: [{ indices: [0,1,2], bounds: [x-2,-2,x+2,2], groundSurface: true }] }
+    f.waterworks = { version: 1, fixed, counts: { facilities: 1, nearTriangles: 0, midTriangles: 0,
+      farTriangles: 0, fixedTriangles: 1, collisionTriangles: 1, surfaceGroups: 1 } }
+    f.visits.test = { band, position: [.5, 0], heightHint: 3 }
+    const layer = new AuthoredColony(new THREE.Group(), async () => { throw Error('detail unavailable') })
+    layer.rebuild(readColonyManifest(f)); layer.group.updateMatrixWorld(true)
+    const a = (x+.5)/3200, out = new THREE.Vector3(Math.cos(a),0,Math.sin(a))
+    const hits = new THREE.Raycaster(out.clone().multiplyScalar(2800), out, 0, 600).intersectObject(layer.group, true)
+    expect(hits.length).toBeGreaterThan(0)
+    const height = 3200-Math.hypot(hits[0].point.x,hits[0].point.z)
+    for (const bodies of [layer.getColliders(), colonyColliders(f)]) {
+      const index = buildCityCollisionIndex(bodies,3200,40000)
+      expect(Math.abs(getCityGroundHeight(index,3200,a,0,height+.01,0)-height)).toBeLessThan(.001)
+      expect(layer.visit('test',index)?.groundHeight).toBeCloseTo(height, 2)
+    }
+    expect(layer.group.userData.waterworksFacilities).toBe(1)
+    layer.rebuild(fixture(0))
+    expect(layer.group.getObjectByName('colony-waterworks-ground')).toBeUndefined()
+    expect(layer.getColliders()).toHaveLength(0)
+    layer.dispose()
+  }
+})
 
 test('native frontage pavement is drawn and physically supports the same height on each band', () => {
   for (let band = 0; band < 3; band++) {
@@ -90,10 +118,11 @@ test('whole-colony floor drawing and collision agree across all bands and the pr
       const h = 3200 - Math.hypot(hits[0].point.x, hits[0].point.z)
       const sampled = getCityGroundHeight(index, 3200, a, axial, h)
       expect(Math.abs(sampled - h)).toBeLessThan(.01)
-      // The original layers used fewer than 45 descriptors here. Street-edge
-      // floors add at most 18 per window (checked over all occupied cells in
-      // colonyCollisionCache.test.ts); keep the combined query below 64.
-      expect(collectCityBuildingsInWindow(index, a, axial, 1, new Set()).size).toBeLessThan(64)
+      // Match the runtime query: coarse index cells include neighbouring
+      // surfaces that never enter the player's collision window.
+      const near = collectCityCollidersNear(index, a, axial, 1, new Set())
+      expect(near.size, `band ${band}, ${x},${axial}`).toBeLessThanOrEqual(32)
+      expect([...near].reduce((sum, b) => sum + (b.surfaceMesh?.length ?? 0) / 9, 0)).toBeLessThanOrEqual(4096)
       probes++
     }
   }

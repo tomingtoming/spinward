@@ -11,11 +11,14 @@ import { ColonyRegionStore, readColonyRegions, type ColonyFocus, type ColonyRegi
 export type ColonyPackedMesh = { vertices: number[]; meshes: Record<string, number[]>; surfaces: { indices: number[]; bounds: [number, number, number, number]; groundSurface?: boolean }[]; mid?: ColonyPackedMesh }
 export type ColonyBox = [number, number, number, number, number, number, number, string]
 export type ColonyProxyPart = [...ColonyBox, 'box' | 'gable' | 'canopy']
-export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; proxyMesh?: ColonyPackedMesh; architecture?: boolean; publicRealm?: boolean; neighbourhood?: boolean; railway?: boolean; landUse?: boolean; cornerBlock?: boolean; completeBlock?: boolean }
+export type ColonyTile = { id: string; url: string; band: number; bounds: [number, number, number, number]; districts: string[]; boxes: ColonyBox[]; proxyParts?: ColonyProxyPart[]; proxyMesh?: ColonyPackedMesh; architecture?: boolean; publicRealm?: boolean; neighbourhood?: boolean; railway?: boolean; landUse?: boolean; cornerBlock?: boolean; completeBlock?: boolean; waterworks?: boolean }
 type ColonyArchitecture = { version: 1; fixed: ColonyPackedMesh; solids: [number, number, number, number, number, number, number][]; lights?: LandscapeLight[];
   counts: { buildings: number; nearTriangles: number; midTriangles: number; fixedTriangles: number; surfaceGroups: number } }
 export type ColonyManifest = { version: 1; radius: number; span: number; palette: Record<string, string>; base: ColonyPackedMesh; tiles: ColonyTile[];
   streaming?: ColonyRegions;
+  waterworks?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { facilities: number; nearTriangles: number; midTriangles: number; farTriangles: number; fixedTriangles: number; collisionTriangles: number; surfaceGroups: number } };
+  interband?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { rings: number; approaches: number; fixedTriangles: number; collisionTriangles: number; supports: number; lights: number; surfaceGroups: number } };
+  motorway?: { version: 1; fixed: ColonyPackedMesh; lights?: LandscapeLight[]; counts: { interchanges: number; ramps: number; fixedTriangles: number; collisionTriangles: number; surfaceGroups: number; relocatedSupports: number; lights?: number } };
   materialDetails?: Record<string, LandscapeMaterial>;
   architecture?: ColonyArchitecture;
   neighbourhoods?: ColonyArchitecture;
@@ -54,6 +57,9 @@ export function readColonyManifest(value: unknown): ColonyManifest {
   for (const visit of Object.values(p.visits)) if (!Number.isInteger(visit.band) || visit.band < 0 || visit.band > 2 || !finiteTuple(visit.position, 2) ||
     (visit.lookAt !== undefined && !finiteTuple(visit.lookAt, 2)) || (visit.heightHint !== undefined && !Number.isFinite(visit.heightHint))) throw Error('Invalid colony visit')
   if (p.publicRealm && (p.publicRealm.version !== 1 || !p.publicRealm.fixed)) throw Error('Invalid public realm')
+  if (p.waterworks && (p.waterworks.version !== 1 || !p.waterworks.fixed)) throw Error('Invalid waterworks')
+  if (p.interband && (p.interband.version !== 1 || !p.interband.fixed)) throw Error('Invalid interband transport')
+  if (p.motorway && (p.motorway.version !== 1 || !p.motorway.fixed)) throw Error('Invalid motorway transport')
   if (p.landUse && (p.landUse.version !== 1 || !p.landUse.fixed)) throw Error('Invalid land use')
   if (p.streetFrontages && (p.streetFrontages.version !== 1 || !p.streetFrontages.fixed)) throw Error('Invalid street frontages')
   if (p.cornerBlocks && (p.cornerBlocks.version !== 1 || !p.cornerBlocks.fixed)) throw Error('Invalid corner blocks')
@@ -98,8 +104,11 @@ export function colonyColliders(manifest: ColonyManifest, surfaces = decodeColon
   landSurfaces = manifest.landUse ? decodeColonyMesh(manifest.landUse.fixed).surfaces : [],
   frontageSurfaces = manifest.streetFrontages ? decodeColonyMesh(manifest.streetFrontages.fixed).surfaces : [],
   cornerSurfaces = manifest.cornerBlocks ? decodeColonyMesh(manifest.cornerBlocks.fixed).surfaces : [],
-  blockSurfaces = manifest.cityBlocks ? decodeColonyMesh(manifest.cityBlocks.fixed).surfaces : []): CityBuilding[] {
-  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces, ...neighbourhoodSurfaces, ...railSurfaces, ...landSurfaces, ...frontageSurfaces, ...cornerSurfaces, ...blockSurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
+  blockSurfaces = manifest.cityBlocks ? decodeColonyMesh(manifest.cityBlocks.fixed).surfaces : [],
+  waterSurfaces = manifest.waterworks ? decodeColonyMesh(manifest.waterworks.fixed).surfaces : [],
+  interbandSurfaces = manifest.interband ? decodeColonyMesh(manifest.interband.fixed).surfaces : [],
+  motorwaySurfaces = manifest.motorway ? decodeColonyMesh(manifest.motorway.fixed).surfaces : []): CityBuilding[] {
+  return [...landscapeColliders({ surfaces: [...surfaces, ...architectureSurfaces, ...publicSurfaces, ...neighbourhoodSurfaces, ...railSurfaces, ...landSurfaces, ...frontageSurfaces, ...cornerSurfaces, ...blockSurfaces, ...waterSurfaces, ...interbandSurfaces, ...motorwaySurfaces], solids: [] }, manifest.radius), ...colonySolidColliders(manifest)]
 }
 
 function colonySolidColliders(manifest: ColonyManifest): CityBuilding[] {
@@ -186,6 +195,9 @@ export class AuthoredColony {
       ...(manifest.streetFrontages ? this.collisionCache.colliders(manifest.streetFrontages.fixed, manifest.radius) : []),
       ...(manifest.cornerBlocks ? this.collisionCache.colliders(manifest.cornerBlocks.fixed, manifest.radius) : []),
       ...(manifest.cityBlocks ? this.collisionCache.colliders(manifest.cityBlocks.fixed, manifest.radius) : []),
+      ...(manifest.waterworks ? this.collisionCache.colliders(manifest.waterworks.fixed, manifest.radius) : []),
+      ...(manifest.interband ? this.collisionCache.colliders(manifest.interband.fixed, manifest.radius) : []),
+      ...(manifest.motorway ? this.collisionCache.colliders(manifest.motorway.fixed, manifest.radius) : []),
       ...colonySolidColliders(manifest)]
     const ground = this.createMeshes(base.meshes, 'colony-base')
     this.group.add(ground)
@@ -228,6 +240,9 @@ export class AuthoredColony {
     if (manifest.streetFrontages) this.group.add(this.createMeshes(decodeColonyMesh(manifest.streetFrontages.fixed, false).meshes, 'colony-street-frontages'))
     if (manifest.cornerBlocks) this.group.add(this.createMeshes(decodeColonyMesh(manifest.cornerBlocks.fixed, false).meshes, 'colony-corner-ground'))
     if (manifest.cityBlocks) this.group.add(this.createMeshes(decodeColonyMesh(manifest.cityBlocks.fixed, false).meshes, 'colony-block-courts'))
+    if (manifest.waterworks) this.group.add(this.createMeshes(decodeColonyMesh(manifest.waterworks.fixed, false).meshes, 'colony-waterworks-ground'))
+    if (manifest.interband) this.group.add(this.createMeshes(decodeColonyMesh(manifest.interband.fixed, false).meshes, 'colony-interband-ground'))
+    if (manifest.motorway) this.group.add(this.createMeshes(decodeColonyMesh(manifest.motorway.fixed, false).meshes, 'colony-motorway-ground'))
     for (const tile of manifest.tiles) if (tile.proxyMesh) {
       const group = this.createMeshes(decodeColonyMesh(tile.proxyMesh, false).meshes, 'colony-mesh-proxy-' + tile.id)
       this.meshProxies.push({ tile, group }); this.group.add(group)
@@ -266,6 +281,8 @@ export class AuthoredColony {
     this.group.userData.pavedUrbanStreets = manifest.streetFrontages?.counts.streets ?? 0
     this.group.userData.cornerBuildings = manifest.cornerBlocks?.counts.buildings ?? 0
     this.group.userData.completeBlockBuildings = manifest.cityBlocks?.counts.buildings ?? 0
+    this.group.userData.waterworksFacilities = manifest.waterworks?.counts.facilities ?? 0
+    this.group.userData.interbandRings = manifest.interband?.counts.rings ?? 0
     if (this.regions) this.group.userData.regions = this.regions.stats
     this.setDaylight(this.daylight)
   }

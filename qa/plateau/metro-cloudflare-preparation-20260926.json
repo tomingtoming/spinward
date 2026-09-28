@@ -1,0 +1,111 @@
+{
+  "origin": "ai",
+  "created": "2026-09-26",
+  "account": "809e6a1cf10d5cd0491c6dff583a88fe",
+  "zone": "1e54fcf0dbc56a369c4b1549dd833ebe",
+  "bucket": {
+    "name": "spinward-metro",
+    "storageClass": "Standard",
+    "locationHint": "apac",
+    "created": true,
+    "corsVerified": true,
+    "r2DevEnabled": false
+  },
+  "domain": {
+    "host": "data.spinward.toming.app",
+    "ownership": "active",
+    "ssl": "active",
+    "minTLS": "1.2",
+    "httpsVerified": true
+  },
+  "application": {
+    "worker": "spinward-metro-candidate",
+    "url": "https://spinward-metro-candidate.toming.workers.dev/",
+    "deployed": true,
+    "sha256": "4fec24b4d126f9f054e39b459ea59ab0b38037089f5309e11572055cb37c65b7",
+    "files": 115,
+    "bytes": 22779788,
+    "dataRoot": "https://data.spinward.toming.app/",
+    "package": "/tmp/spinward-app-cdn-candidate-20260926-v1",
+    "dryRunPassed": true,
+    "workerVersion": "617e0037-8532-40e1-84de-28d4e7cfb734",
+    "publicAssetsReadBack": 113,
+    "durablePackage": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/app-cdn-candidate-v1"
+  },
+  "city": {
+    "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+    "files": 71604,
+    "bytes": 2370602829,
+    "allHashesReverified": true,
+    "uploaded": true,
+    "uploadJob": {
+      "status": "completed",
+      "pid": 84727,
+      "sessionId": 43051,
+      "workers": 16,
+      "report": "/tmp/spinward-r2-publish-20260926.json",
+      "recordedAt": "2026-09-26T07:49:37.058539+00:00",
+      "completedAtLastObservation": 71604
+    },
+    "uploadResult": {
+      "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+      "uploaded": 71604,
+      "reused": 0
+    },
+    "sameReleaseReexecution": {
+      "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+      "uploaded": 0,
+      "reused": 71604
+    }
+  },
+  "production": {
+    "worker": "spinward",
+    "previousVersion": "22ddddde-89bb-4369-9c2c-ee0c1bcacff6",
+    "changed": false,
+    "versionAfterCandidate": "22ddddde-89bb-4369-9c2c-ee0c1bcacff6"
+  },
+  "cdnRules": {
+    "config": "assets/plateau/cloudflare-metro-rules.json",
+    "count": 4,
+    "applied": true,
+    "observedDefault404CacheControl": "max-age=14400",
+    "observedDefault404CacheStatus": "MISS",
+    "verifiedBy": "Authenticated dashboard active rule readback",
+    "rules": [
+      {
+        "name": "Spinward immutable city data",
+        "id": "171ae77890a649c58e90771b0dbde0b8",
+        "phase": "http_request_cache_settings"
+      },
+      {
+        "name": "Spinward preserve compressed bytes",
+        "id": "9b6efb6dc2974249b4d2540f9d16f559",
+        "phase": "http_response_compression"
+      },
+      {
+        "name": "Spinward city timing",
+        "id": "8d4b16e307844cfa8409bb6a1a6d4769",
+        "phase": "http_response_headers_transform"
+      },
+      {
+        "name": "Spinward city errors no-store",
+        "id": "214b11aa13c9495eb64b5f65dbf190be",
+        "phase": "http_response_headers_transform"
+      }
+    ]
+  },
+  "pending": [
+    "Production cutover final approval; candidate acceptance is complete"
+  ],
+  "tests": {
+    "publisher": 4,
+    "packaging": 8,
+    "cdnContractNewTestExecuted": true,
+    "cdnContractNewTestPassed": true,
+    "publicRuntimePassed": 18,
+    "publicStartupPassed": 3,
+    "publicFlightProfilesPassed": 2,
+    "publicPlacesVisitsPassed": 12
+  },
+  "acceptance": "qa/plateau/metro-cloudflare-acceptance-20260926.json"
+}

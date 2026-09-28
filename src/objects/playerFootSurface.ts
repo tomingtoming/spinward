@@ -19,7 +19,10 @@ export class PlayerFootSurface {
   private radius = 3200
   private network:StreetNetwork|undefined
   private nativeRoads=new Set<string>()
-  setPlan(plan: CityPlan | null, sidewalks: SidewalkSegment[], radius: number, park: PublicPark | null = null) {
+  private groundSampler: ((azimuth: number, axial: number, height: number) => number) | null = null
+  setPlan(plan: CityPlan | null, sidewalks: SidewalkSegment[], radius: number, park: PublicPark | null = null,
+    groundSampler: ((azimuth: number, axial: number, height: number) => number) | null = null) {
+    this.groundSampler = groundSampler
     this.radius = radius
     this.network=plan?.streetNetwork
     this.nativeRoads=new Set(plan?.nativeDistricts?.flatMap(d=>d.streets.map(p=>p.id))??[])
@@ -38,6 +41,9 @@ export class PlayerFootSurface {
     this.surfaces.forEach((s, i) => this.index.insert(s, i))
   }
   sample(azimuth: number, axial: number, groundHeight: number, indoors: boolean) {
+    // Imported terrain has signed elevations and slopes, with no procedural
+    // grass/kerb offset. Sample each foot against its actual nearby triangles.
+    if (this.groundSampler) return this.groundSampler(azimuth, axial, groundHeight) + .015
     if (groundHeight > .5) return groundHeight + .015
     if (indoors) return .25
     if(this.nativeRoads.size&&this.network)for(const s of this.network.query(azimuth,axial,.01,.01)){

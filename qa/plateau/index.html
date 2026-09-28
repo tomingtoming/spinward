@@ -1,0 +1,18 @@
+<!doctype html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>Spinward — 三つの街の転写</title></head>
+<body><div id="viewport"></div><aside>
+<header class="panel-header"><a class="brand" href="./">SPINWARD <span>都市転写スタディ</span></a>
+<button id="menu-toggle" aria-expanded="false" aria-controls="panel-body">街のメニュー</button></header><div id="panel-body">
+<h1>三つの街を、<br>ひとつの空の下に。</h1><p class="intro">地球の街の寸法と配置を保ったまま、コロニーの内壁へ。</p>
+<nav aria-label="地域"><button data-region="tokyo" aria-pressed="true"><b>01 東京</b><span>荻窪 — 四ツ谷</span></button><button data-region="tama" aria-pressed="false"><b>02 多摩</b><span>永山 — 南大沢</span></button><button data-region="azumino" aria-pressed="false"><b>03 安曇野</b><span>一日市場 — 安曇追分</span></button></nav>
+<div class="modes" role="group" aria-label="表示"><button data-mode="flat" aria-pressed="true">平面</button><button data-mode="curved" aria-pressed="false">曲面</button><button data-mode="colony" aria-pressed="false">三枚の内壁</button></div>
+<button id="walk" class="walk-button">地上を歩く</button>
+<button id="interior" aria-pressed="false">内壁の中で歩く</button>
+<div id="sites" role="group" aria-label="街区"><button data-site="station" aria-pressed="true">駅前の街区</button><button data-site="east" aria-pressed="false">東の街区へ</button></div>
+<div id="exploration" hidden><label id="route-length" for="landmark">街を巡る</label><select id="landmark" aria-label="散策の見どころ"><option value="" disabled selected>見どころへ移動</option></select></div>
+<details id="navigation-panel" hidden open><summary>行き先と地図</summary><label for="destination">行き先</label><select id="destination"></select><div class="nav-actions"><button id="guide">経路を案内</button><button id="travel">ここへ移動</button></div><canvas id="city-map" width="480" height="330" aria-label="現在地と周囲700メートルの道路地図" role="img"></canvas><p id="nav-status" role="status"></p><button id="return-home">東高円寺へ戻る</button></details>
+<section aria-live="polite"><h2 id="place">読み込み中…</h2><p id="character"></p><dl id="stats"></dl></section>
+<div class="legend"><i style="background:#ede6d6"></i>建物 <i style="background:#555b60"></i>道路 <i style="background:#aabb76"></i>農地等</div>
+<p class="note" id="limits">各地域 1.4 × 1.4 km の実データ試作。東高円寺の22棟にSpinward独自の外観と歩道を追加。その他はLOD1の形状です。内装は未制作です。</p>
+
+<details><summary>出典と変換の範囲</summary><p id="source-editions">PLATEAU 2025（東京23区・多摩市・八王子市・安曇野市）、国土地理院 標高タイル、国土数値情報 鉄道データ 2025 を加工。安曇野の土地利用調査年は2023年。</p><p id="source-transforms">標高の原点を移し、円筒に変換しています。灰色の地面は用途未分類。40 kmの帯全域は未転写。道路はLOD1を地表へ投影。立体交差と一部の地形干渉は未解消です。窓・入口・材質・歩道はコロニー向けの設計で、現地外観の復元ではありません。</p><p><a href="https://www.mlit.go.jp/plateau/">PLATEAU</a> · <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a> · <a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html">国土数値情報</a></p><p>公園の輪郭・園路: <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors / ODbL</a> を加工。園路幅・舗装・植栽はSpinwardの設計。</p></details>
+</div></aside><div id="guide-surface" hidden><b id="guide-goal"></b><span id="guide-status"></span></div><div id="stream-notice"><p id="detail-status" role="status"></p><button id="retry-details" hidden>再読み込み</button></div><div id="touch-walk" aria-label="徒歩移動"><button data-step="[0,1]" aria-label="前へ">↑</button><button data-step="[-1,0]" aria-label="左へ">←</button><button data-step="[0,-1]" aria-label="後ろへ">↓</button><button data-step="[1,0]" aria-label="右へ">→</button></div><footer><span id="hint">ドラッグで回転 · ホイールで拡大 · 右ドラッグで移動</span><button id="reset">視点を戻す</button></footer><div id="error" role="alert" hidden></div><script type="module" src="./viewer.js"></script></body></html>

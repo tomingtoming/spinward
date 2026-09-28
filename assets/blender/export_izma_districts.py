@@ -18,8 +18,11 @@ def export(config=None):
     config=config or {}
     ROOT=Path(__file__).resolve().parents[2];R=3200;SPACING=math.tau*R/3;TILE=512
     layer=config.get('layer','architecture')
-    source=ROOT/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
+    output_root=Path(config.get('outputRoot',ROOT))
+    assert output_root.is_absolute(), 'Use an explicit absolute export root'
+    source=output_root/'src/worlds/generated/izmaColony.json';manifest=read_manifest(source)
     appearance_only=config.get('appearanceOnly',False)
+    preserve_layout=config.get('preserveLayout',False)
     previous_layer=manifest.get(layer)
     def owns_tile(tile):
         if layer=='neighbourhoods':return bool(tile.get('neighbourhood'))
@@ -27,7 +30,7 @@ def export(config=None):
     previous_tiles=[t for t in manifest['tiles']if owns_tile(t)]
     # Land use reserves all upstream lots, stations and routes. Re-author it
     # last, rather than leave planted ground across a moved building or entry.
-    if not appearance_only:
+    if not appearance_only and not preserve_layout:
         invalidate_blocks(manifest)
         manifest.pop('landUse',None)
         manifest.pop('streetFrontages',None)
@@ -36,14 +39,25 @@ def export(config=None):
         manifest['visits']={k:v for k,v in manifest['visits'].items() if not k.startswith('corner-')}
         manifest['tiles']=[t for t in manifest['tiles']if not t.get('landUse')]
         manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('land-')}
-    contract=json.loads((ROOT/'assets/blender'/config.get('contract','izma-parcels.json')).read_text())
+    contract_path=Path(config.get('contractPath',ROOT/'assets/blender'/config.get('contract','izma-parcels.json')))
+    assert contract_path.is_absolute(), 'Use an explicit absolute native contract path'
+    contract=json.loads(contract_path.read_text())
     scene=bpy.data.scenes[config.get('scene','SW_izma_districts')];scene.view_layers[0].update()
     assert scene.get('owner')==config.get('owner','spinward-izma-districts-v1')
     terrain_hash=hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest()
     assert contract['terrainHash']==terrain_hash,'Rebuild districts against the current finished terrain'
+    def material_key(material):
+        name=material.get('spinward_material',material.name.removeprefix('SWD_'))
+        assert name in contract['materials'],('Unknown saved material',material.name,name)
+        return 'arch-'+name
     omitted=set(config.get('omitParcelIds',[]))
     assert omitted<={p['id'] for p in contract['parcels']}, 'Replacement names an absent source parcel'
     parcels={p['id']:p for p in contract['parcels'] if p['id'] not in omitted}
+    if preserve_layout:
+        assert previous_layer is not None, 'Site-preserving export requires an existing layer'
+        fields=['id','band','district','family','position','floor','size','yaw','floors','groundShop','doors','access']
+        assert previous_layer['parcels']==[{k:p[k]for k in fields}for p in parcels.values()], 'Parcel or entrance layout changed'
+        assert previous_layer.get('streets')==contract.get('streets'), 'Street layout changed'
     tiles={};parcel_meshes={};floors={};fixed={};solid_boxes=[];counts=[0,0];geometry_bounds={}
     def key(p):return f"{p['band']}-{math.floor((p['position'][0]-p['band']*SPACING+R*math.pi/6)/TILE)}-{math.floor((p['position'][1]+20000)/TILE)}"
     def local_to_world(p,v):
@@ -92,7 +106,7 @@ def export(config=None):
                 w=obj.matrix_world@v.co;vertices.append((-w.y,w.x,w.z))
             flags=mesh.attributes.get('ground_surface')
             for tri in mesh.loop_triangles:
-                material='arch-'+mesh.materials[tri.material_index].name.removeprefix('SWD_')
+                material=material_key(mesh.materials[tri.material_index])
                 vs=[vertices[i] for i in tri.vertices];fixed.setdefault(material,[]).extend(vs)
                 if flags and flags.data[tri.polygon_index].value:
                     # At a lane junction several short road chunks overlap the
@@ -114,7 +128,7 @@ def export(config=None):
             geometry_bounds[p['id']][lod]=[min(bounds[i],previous[i])if i<3 else max(bounds[i],previous[i])for i in range(6)]if previous else bounds
         flags=mesh.attributes.get('ground_surface')
         for tri in mesh.loop_triangles:
-            material='arch-'+mesh.materials[tri.material_index].name.removeprefix('SWD_')
+            material=material_key(mesh.materials[tri.material_index])
             vs=[vertices[i] for i in tri.vertices]
             groups=fixed if lod<0 else parcel_meshes[p['id']][lod]
             groups.setdefault(material,[]).extend(vs)
@@ -143,11 +157,11 @@ def export(config=None):
     # Additional neighbourhoods reserve existing parcels/public spaces. Rebuilding
     # primary architecture invalidates dependent layers; an additive export only
     # replaces its own tiles, surfaces and visits.
-    if not appearance_only:
+    if not appearance_only and not preserve_layout:
         manifest.pop('railways',None)
         manifest['tiles']=[t for t in manifest['tiles']if not t.get('railway')]
         manifest['visits']={k:v for k,v in manifest['visits'].items()if not k.startswith('station-')}
-    if appearance_only:
+    if appearance_only or preserve_layout:
         assert previous_layer is not None, 'An appearance revision requires a previous exported layer'
         replaced={t['id']for t in previous_tiles}
         manifest['tiles']=[t for t in manifest['tiles']if t['id']not in replaced]
@@ -178,7 +192,12 @@ def export(config=None):
             emit_tile(name+'-0',ids[:middle]);emit_tile(name+'-1',ids[middle:]);return
         emitted+=1;file_bytes+=len(encoded);largest=max(largest,len(encoded))
         digest=hashlib.sha256(encoded.encode()).hexdigest()[:12];filename=name+'-'+digest+'.json'
-        (ROOT/'public/landscapes/izma'/filename).write_text(encoded)
+        target=output_root/'public/landscapes/izma'/filename
+        target.parent.mkdir(parents=True,exist_ok=True)
+        if target.exists():
+            assert target.read_text()==encoded,('Immutable tile content mismatch',target)
+        else:
+            target.write_text(encoded)
         boxes=[];proxies=[];bounds=[]
         for pid in ids:
             p=parcels[pid];x,y=p['position'];w,d,h=p['size']
@@ -191,12 +210,20 @@ def export(config=None):
             'districts':sorted(set(parcels[i]['district']for i in ids)),
             'boxes':boxes,'proxyParts':proxies,'architecture':True,**({'neighbourhood':True}if layer!='architecture'else{})})
     for name,tile in sorted(tiles.items()):emit_tile(('neighbourhood-'if layer!='architecture'else'')+name,tile['parcels'])
-    manifest[layer]={'version':1,'fixed':pack(fixed,floors),'solids':solid_boxes,
+    packed_fixed=pack(fixed,floors)
+    if 'fixedTransform' in config:packed_fixed=config['fixedTransform'](packed_fixed)
+    else:
+        from izma_ground_cleanup import clean_ground
+        packed_fixed,removed=clean_ground(packed_fixed)
+        print(json.dumps({'groundCleanup':removed}),flush=True)
+    manifest[layer]={'version':1,'fixed':packed_fixed,'solids':solid_boxes,
         'parcels':[{k:p[k]for k in ['id','band','district','family','position','floor','size','yaw','floors','groundShop','doors','access']}for p in parcels.values()],
-        'counts':{'buildings':len(parcels),'nearTriangles':counts[0],'midTriangles':counts[1],'fixedTriangles':sum(len(v)//3 for v in fixed.values()),'surfaceGroups':len(floors)}}
+        'counts':{'buildings':len(parcels),'nearTriangles':counts[0],'midTriangles':counts[1],'fixedTriangles':sum(len(v)//3 for v in packed_fixed['meshes'].values()),'surfaceGroups':len(packed_fixed['surfaces'])}}
     if 'streets' in contract:manifest[layer]['streets']=contract['streets']
     if 'compositionHash' in config:
         manifest[layer]['blockComposition']={'planHash':config['compositionHash'],'omittedParcelIds':sorted(omitted)}
+    if 'cityFabric' in contract:
+        manifest[layer]['cityFabric']=contract['cityFabric']
     if config.get('lightSources'):
         manifest[layer]['lights']=[]
         for obj in scene.objects:
@@ -204,6 +231,25 @@ def export(config=None):
             w=obj.matrix_world.translation
             manifest[layer]['lights'].append({'position':[-w.y,w.x,w.z],
                 'color':obj['color'],'intensity':obj['intensity'],'distance':obj['distance']})
+    if preserve_layout:
+        current=manifest[layer]
+        assert previous_layer['solids']==current['solids'], 'Site-preserving export cannot change wall envelopes'
+        def face_counts(packed, material):
+            vertices=packed['vertices'];ids=packed['meshes'].get(material,[]);result=Counter()
+            for i in range(0,len(ids),3):
+                points=tuple(tuple(vertices[j*3:j*3+3])for j in ids[i:i+3])
+                result[min(points[k:]+points[:k]for k in range(3))]+=1
+            return result
+        before,after=previous_layer['fixed'],current['fixed']
+        assert set(before['meshes'])==set(after['meshes']), 'Ground material set changed'
+        for material in before['meshes']:
+            old,new=face_counts(before,material),face_counts(after,material)
+            if material=='arch-foundation':
+                assert not old-new, 'A site-preserving entrance update removed existing foundation faces'
+            else:assert old==new, ('Existing paving, lanes or planted ground changed',material)
+        new_tiles=[t for t in manifest['tiles']if owns_tile(t)]
+        for field in ['boxes','proxyParts']:
+            assert Counter(tuple(p)for t in previous_tiles for p in t[field])==Counter(tuple(p)for t in new_tiles for p in t[field]), ('Existing distant building shapes changed',field)
     if appearance_only:
         current=manifest[layer]
         assert previous_layer['parcels']==current['parcels'], 'An appearance revision cannot move/change parcels or access'
@@ -239,5 +285,5 @@ def export(config=None):
 
     return result
 
-if not globals().get("_DISTRICTS_LIBRARY",False):
+if __name__ == '__main__' and not globals().get("_DISTRICTS_LIBRARY",False):
     result=export({'appearanceOnly':globals().get('_APPEARANCE_ONLY',False)})

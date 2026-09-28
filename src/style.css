@@ -769,6 +769,8 @@ body.is-vr-entry #VRButton {
 .ui-panel .preset-menu__item { border: 0; text-align: left; }
 .place-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #c0ccb814; flex-shrink: 0; }
 .place-row:last-child { border-bottom: 0; }
+.places-menu { gap: 2px; }
+.places-menu.ui-panel > h2 { background: rgb(22, 30, 29); }
 .ui-panel .place-guide, .place-label { flex: 1; min-width: 0; text-align: left; padding: 12px 4px; border: 0; background: transparent; }
 .place-label { color: var(--ui-muted); font-size: 13px; }
 .place-guide span { float: right; padding-left: 8px; color: var(--ui-accent); }

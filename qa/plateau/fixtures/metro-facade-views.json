@@ -1,0 +1,9 @@
+{
+  "origin": "ai",
+  "created": "2026-09-25",
+  "method": "PLATEAU facade wall, source road clearance >=0.55m and building/water clearance >=0.6m; unobstructed ray to the wall. Ground interpolated from current walk tiles. Designed facade, not surveyed architecture.",
+  "views": [
+    {"family":"house","id":"13115:bldg_5b15d7f9-a1ca-46a8-86dd-82b77f3f8ac7","usage":"住宅","tile":"15-168","region":"west","band":2,"spawn":[1475.9612647991269,13778.571904046772],"ground":40.3476069267456,"heading":-1.3681750571308067},
+    {"family":"apartments","id":"13114:bldg_6ec59480-7e6f-421a-a637-0dda0e5abee1","usage":"共同住宅","tile":"11-169","region":"west","band":2,"spawn":[656.4046735049245,13839.548130985631],"ground":37.101427665942595,"heading":-2.9825452161273054}
+  ]
+}

@@ -5,6 +5,10 @@ created: 2026-09-13
 
 # Bulkhead structural bays and metric cladding
 
+This records the 2026-09-13 surface increment. The 2026-09-25 physical girders,
+shared Blender equipment, revised budgets and verification are in
+[Colony end-wall structure](../../docs/metro-endcaps.md).
+
 References `izma-0041` and `izma-0044` distinguish large wall divisions from
 supported infrastructure at human scale. Only that distinction informs this
 original surface treatment. Source hashes and remaining gates, conduits and

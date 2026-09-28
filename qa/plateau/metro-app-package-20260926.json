@@ -1,0 +1,472 @@
+{
+  "origin": "ai",
+  "created": "2026-09-26",
+  "originalFilesMatched": 114,
+  "version": 1,
+  "sha256": "3dc3955b9686e9cec6db6be8b95e86a4b820b4ff6c082e14eac55c8a71844b35",
+  "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+  "dataRoot": "/metro-data/",
+  "objects": {
+    ".assetsignore": {
+      "bytes": 20,
+      "sha256": "23378964827be4054c203ef2e5f5d182b0ac029042492cc31df437cd4fcee183"
+    },
+    "_headers": {
+      "bytes": 225,
+      "sha256": "83c943a2e42e4f5c7911b86d4389e582ac73edbd71107df14db3508528e51dde"
+    },
+    "assets/index-BRrtKfD8.js": {
+      "bytes": 10700,
+      "sha256": "79a5e4c30a0396d3e7c6f1003229d9e04b92195de42874ff37e9f89cb68a30a6"
+    },
+    "assets/index-CEl_yb38.css": {
+      "bytes": 16625,
+      "sha256": "a8f8725353c74cfa7fc3d1d39e8adec64f1fd41ccb9e2562ca7bda2d89b210e5"
+    },
+    "assets/main-7xXbad-s.js": {
+      "bytes": 4116210,
+      "sha256": "e16bd661326e935cf63c414d768928006f88d039f3380c0c22e5ef4610aee2f9"
+    },
+    "assets/metroCity-DpR23Wi_.js": {
+      "bytes": 143771,
+      "sha256": "717d9a3d41ac4c02ee5b0c6e13b0d10b7b257727ec6adb8f274a77b5cfbb8e89"
+    },
+    "assets/tile-worker-DqVuZsmL.js": {
+      "bytes": 27984,
+      "sha256": "dd9f578f2df2113d3731afdf146b313079df2d7087af922c077c83aae668f7fa"
+    },
+    "favicon.png": {
+      "bytes": 2356,
+      "sha256": "ef989d82e746a8a577e45cebe6102b4573232a4e4be6c35c1e7f842ebcc1de2b"
+    },
+    "icon-192.png": {
+      "bytes": 20059,
+      "sha256": "32e5a499636d1c2694eb50d5f35ddca3b164cbd6a60581544591a0ca7cfa58b3"
+    },
+    "icon-512.png": {
+      "bytes": 50285,
+      "sha256": "e2f5ab3819bc429d5bfbe16ef47badbfd58cdf2c34917231a2c717e58b02ce55"
+    },
+    "index.html": {
+      "bytes": 2649,
+      "sha256": "0823629bffff193e750fbd22d9484ad4ce6aa79d8f7789604a27f3e775eff2e8"
+    },
+    "manifest.webmanifest": {
+      "bytes": 543,
+      "sha256": "6583a252d78e653daf56a9fd62fd62eca3bb63830d0a90598a6ea92e2e4c1a1b"
+    },
+    "og-2026-09.jpg": {
+      "bytes": 146680,
+      "sha256": "1d9f89d5ccd1b776c0d2f1bd488f85097e4c946fce2a31aebe9563f6afc26c8c"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/balcony-life.glb": {
+      "bytes": 19936,
+      "sha256": "c12df701cf97195ba91c087ce08ae0e6b472d0886ebfd164c742451f68ecf107"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/cafe-pilot-runtime.glb": {
+      "bytes": 4073604,
+      "sha256": "bc3bb19f321f041736764bc2a72cc272e073d6f93833f943f30dc97adf28cd50"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/city-block-commercial.glb": {
+      "bytes": 468224,
+      "sha256": "6f99067bf9e42d1f5ecbef3fc580b27b1a4b831df142a32b5cac6f851f6b1463"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/city-block-office.glb": {
+      "bytes": 475140,
+      "sha256": "ced77658613e9b10268f4e9e8ba41cb8b7edac89de2d2269bcb393a5df0adbdc"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/city-block-residential.glb": {
+      "bytes": 639240,
+      "sha256": "664936dd3d8060ffa22eef7845f2eba4ce5bd7b7650c2d7f6bd8ce449ed4b988"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/coffee-service.glb": {
+      "bytes": 101632,
+      "sha256": "df16cd628bd7f42aa7d4e4a67df8e4a3582f1288136d2b032b5428444f0a763d"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/colony-modules.glb": {
+      "bytes": 66028,
+      "sha256": "772551f22dc59d32821f73efc43a93a300f4d8fce6004ede00b3eb9415166296"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/License.txt": {
+      "bytes": 708,
+      "sha256": "c38cee408d022e57e44e49f1cd655c2fe0dc881a07b881276b795215cdc0de69"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/Textures/colormap.png": {
+      "bytes": 11002,
+      "sha256": "191bec3889aaaca5018380038fecc129ebb5c2182879a099b7b538b3fa050b5d"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-a.glb": {
+      "bytes": 108936,
+      "sha256": "5cf220f90ee3f21e7abe38055ca409a48aa8ef1d5ffab6e2deb99e5a5e1ed5e0"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-b.glb": {
+      "bytes": 106408,
+      "sha256": "3b5d3ac0799c024781d92bb15971d42f4f8e380554dc5cf6a40c2f07d948947a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-c.glb": {
+      "bytes": 102788,
+      "sha256": "f6887608a95a165503561730252c30506938803731c6546efca12bd47b1666bd"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-d.glb": {
+      "bytes": 95160,
+      "sha256": "40605608e9aca0c98e294acff4af0f74afa417a51d589be490ca98f33ce4c2f5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-e.glb": {
+      "bytes": 128208,
+      "sha256": "edbe5b49858a3c83e72d3cf496129c06082ef3a3d6005769f8883138e275b456"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-f.glb": {
+      "bytes": 148952,
+      "sha256": "633a25f7fb3ccf98e304a885a36ed900aecee5bde7ecd554729dec753cceea78"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-g.glb": {
+      "bytes": 166356,
+      "sha256": "9a28fa2fdfac07492ee95589882213cfd6eb32d6752cb3b2f5404604c676d27a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-h.glb": {
+      "bytes": 127384,
+      "sha256": "6881613ce218bb33a0f56137d4d33b00d307c47e518fbb21ccba1083efbea896"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-i.glb": {
+      "bytes": 209728,
+      "sha256": "3e572277d3eead30e24668a653ec6a11a488228a219d4902f08638cbca7c3dfe"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-j.glb": {
+      "bytes": 440652,
+      "sha256": "eedc2690cda345b62351f03a218a817a6ad59f399c12e064ca5ff37333d059f5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-k.glb": {
+      "bytes": 246976,
+      "sha256": "afd36f573b9d6a6a890675aa0fbe762b29efb6258f322990752d79d9f0da42c6"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-l.glb": {
+      "bytes": 290516,
+      "sha256": "0c3d1b346c142198b7f504d12b40cb1630bb14c3ff38a013922b700d09f9dcff"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-m.glb": {
+      "bytes": 301004,
+      "sha256": "1cdc717ac86a0479043ff0d0146142f5dfc2622c0e3aaac484fad5807f94d580"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-n.glb": {
+      "bytes": 341232,
+      "sha256": "35dc225d48516ead483a49e90dd164f1bc62b1ad75d3095488bd404cad1848b0"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-skyscraper-a.glb": {
+      "bytes": 111336,
+      "sha256": "d8339bbb75944ff91d1ec9a70ec6dead71bd98b94a42d3dd0fc1f3b107ddbe85"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-skyscraper-b.glb": {
+      "bytes": 138480,
+      "sha256": "3a383e8a0a8819023d30b2aee1c6f40fa6bc28990227a306a86e531f36c6b8d5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-skyscraper-c.glb": {
+      "bytes": 149524,
+      "sha256": "e73c357554f7561fedb8c1cbecf9d7163ba09ada264d661c59a0f0a180e0185f"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-skyscraper-d.glb": {
+      "bytes": 167148,
+      "sha256": "5c524ec13be53fff85ace8b328bc2587cba4e93962230e4a0ba98998e53d30b5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/building-skyscraper-e.glb": {
+      "bytes": 101880,
+      "sha256": "21b58a2f2b18d6a7cf8915e8b947bdb6a6a0706da6cffb5a01677c29f03b5935"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-a.glb": {
+      "bytes": 14340,
+      "sha256": "c3986108805f0aa7e27e566f5052cb5e8d478417e267779e55ade583ea809a0a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-b.glb": {
+      "bytes": 16336,
+      "sha256": "ef2ab63731c38a469df7f993c26b0e8137746f90ac20ed9485d61f48aa50fbdb"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-c.glb": {
+      "bytes": 12284,
+      "sha256": "91ea91b2399cbb94e9b2209e12823dc5b720affc7163f74e0cb8ee07faf62d85"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-d.glb": {
+      "bytes": 8716,
+      "sha256": "cca2c05bba22e1e33c5aeb3c4746843b61235cc75cb2c0269e9e0755b276f121"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-e.glb": {
+      "bytes": 8240,
+      "sha256": "48c9554b54c6a6089ebf7d8acd0186fe5936dfc1711cabebdd97ad918b340fba"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-f.glb": {
+      "bytes": 6932,
+      "sha256": "adc5b93981bb86aca9c7459e35920647039aa217d51705e445d4e699d2c54967"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-g.glb": {
+      "bytes": 16320,
+      "sha256": "f9bc2fe27ffc93689a317959542ad6d1c24aeeaa1efcfed59f7ba67423f65702"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-h.glb": {
+      "bytes": 26812,
+      "sha256": "6de95299129118224b739845202a6d6a688e3ca6f9f61c4b0fd04dba99a61e23"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-i.glb": {
+      "bytes": 11768,
+      "sha256": "e277aad27d3e98f5880ac65acee0ec1f68cc20e7fb28eed0a688afe48f6564ae"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-j.glb": {
+      "bytes": 16404,
+      "sha256": "a1291d4e277c45ee53fa5dc610490c54c302ab1cdc677b6b6b2ce31670f0423c"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-k.glb": {
+      "bytes": 7556,
+      "sha256": "36215b34b01de7a48a78b9cc344a577ed436e13596b59d2bcb01bab9f50aab5c"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-l.glb": {
+      "bytes": 12128,
+      "sha256": "6cc75bfa0e821db2997dca8a14d9f63c675de5987781c2ff0977b8a644d25fd5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-m.glb": {
+      "bytes": 15112,
+      "sha256": "597d8c18ac63de895de66fc4fe0695bd9958d76ccb9b340ad0dfd1589666a22e"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/commercial/low-detail-building-n.glb": {
+      "bytes": 5904,
+      "sha256": "8ab4dc2ed40e3f0c2d82eb9010b6e50a946dc07a3125e28568f0dfd12eae00bd"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/License.txt": {
+      "bytes": 708,
+      "sha256": "bf1195a387c996ab4bb6d05bb7ead8c5b233c0532634fec916ef9e090936c3e5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/Textures/colormap.png": {
+      "bytes": 11107,
+      "sha256": "4a912ef8e95fbec4ac0cacc295b9221a4b66c482d4f90bec4e2277689c21a623"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-a.glb": {
+      "bytes": 176884,
+      "sha256": "62b0b9ffbcea8dd914a899cacd10b54629bf7013db7bd221f2708c7ba8b054ea"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-b.glb": {
+      "bytes": 211608,
+      "sha256": "b199574a95e26d10bfa55e1b6846f982876426e11deac401431607377d099752"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-c.glb": {
+      "bytes": 159552,
+      "sha256": "a17f4f45a6495d6341952fc44d1432674dccc52bf135c47092ed5ffaec52fee4"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-d.glb": {
+      "bytes": 100336,
+      "sha256": "32874b4da6aac35ae04f1f033a99c9f0533268919486471654847601692b12d1"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-e.glb": {
+      "bytes": 128964,
+      "sha256": "866d2e4f1ca4bb39b878ce8225ace663ce08e67db60adcf0891fa77ee8a60cd7"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-f.glb": {
+      "bytes": 134484,
+      "sha256": "3426be2ea52645bd61b8f668a56397ca01bb7e0af0c5f301bf50088b5582ed64"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-g.glb": {
+      "bytes": 106508,
+      "sha256": "88b91e5a0ce509706150657b8c845d506974acce51db7d74d54d6a53a6000063"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-h.glb": {
+      "bytes": 63212,
+      "sha256": "78ab08340e3e8c26a2c58ad9fe1699cfbb13dee7cac2102ec41fa3cd1347dfed"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-i.glb": {
+      "bytes": 73416,
+      "sha256": "c36fa11de6077c89c5c78e37677320ae40a5c8ef157ba1848ef53d9c486fd4ed"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/industrial/building-j.glb": {
+      "bytes": 80364,
+      "sha256": "0ba5049b30e8f8b97998a27e83f0b03dcbc7d8d1b185405eac65470994054963"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/License.txt": {
+      "bytes": 706,
+      "sha256": "d778fa769a89a7d9f167bc337fdf8fc2144e47d9abb0c35eb6ad897c0ee24d0a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/Textures/colormap.png": {
+      "bytes": 11784,
+      "sha256": "9b5de86078c25ef02351a80d35ff3c978693a1044565b73eedd9ae9b5b80665d"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-a.glb": {
+      "bytes": 98604,
+      "sha256": "49f32e20b9dcd24b1c8f6d6488807b8c8cb684cbb595bfb0bb36ad903e470faa"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-b.glb": {
+      "bytes": 146720,
+      "sha256": "a964a10c51bb334be677657fd8fa483531974dd15b4243575990192818e2300e"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-c.glb": {
+      "bytes": 99592,
+      "sha256": "86a69f30f1a09461283e158514945ae5cc9d56357b0ddc83a9a3f0eecd113591"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-d.glb": {
+      "bytes": 147368,
+      "sha256": "a41cd28265b2b224e700373c3a8356562619699998b7fa4d70ed41de629a6731"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-e.glb": {
+      "bytes": 145512,
+      "sha256": "9ec43994c8c332b1ae5b058d8b9646255831fd91047c1a35b1fc1ecae4c082fc"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-f.glb": {
+      "bytes": 138536,
+      "sha256": "6f778f50d7f03c86f9a018e428cf8ffdd9e918df09954c0651d1c9559584a22b"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-g.glb": {
+      "bytes": 93596,
+      "sha256": "f497a7bc3a8e6b6273ba99f090042d1cfb3141da57d3c51998c57a479a0ece11"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-h.glb": {
+      "bytes": 65364,
+      "sha256": "b8b8eb7a50f85fa20b4862723e133157f553d69a0daad39b850ddbd2099ebb84"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-k.glb": {
+      "bytes": 89152,
+      "sha256": "c1b819a526bbcf9663bc40c98e22337cded7fff7c50c14679132d5d98d75f583"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-l.glb": {
+      "bytes": 109232,
+      "sha256": "5f03bf2e65a3a795afc18f7e56a5da891908d59d937e660be8478b66905d2cee"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-o.glb": {
+      "bytes": 114424,
+      "sha256": "aa256fa55613bb4c5fbdf379123454e4f98cde4d07a68bc826bb143d287ae0c1"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-q.glb": {
+      "bytes": 98632,
+      "sha256": "9b56037cab0de804e308766cc5e69b95b3576ffb444084c9016a0748cbcaca04"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-s.glb": {
+      "bytes": 103172,
+      "sha256": "56dfd278f10bea2546cb0946f48659dde5876bc9ce100ea1fbe37c0cc94bf9e6"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/building-type-u.glb": {
+      "bytes": 117912,
+      "sha256": "fb259246fc73bdce626eed8b7167d5e97bd63651890551661ec4507311eba279"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/fence.glb": {
+      "bytes": 9672,
+      "sha256": "073bd2000ac51879516d49f835d5156dac4d5038085380b1232858fc3f562d02"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/path-long.glb": {
+      "bytes": 2940,
+      "sha256": "af6869e19f9922e84df23a48795618f03565587dc2c397bd84cf1f066cfa39d5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/tree-large.glb": {
+      "bytes": 5812,
+      "sha256": "16d1f95c149bc727a953a473cf20bf21de9bf1a88747c4f9d2eeb4ac7d43e291"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/kenney/suburban/tree-small.glb": {
+      "bytes": 5812,
+      "sha256": "5f63359e5f392609d7617cc98070855ca1ffd4f4b4bc3978a5ff56ece88a58d6"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/lobby-pilot-runtime.glb": {
+      "bytes": 1050852,
+      "sha256": "69fbcc09a1272d77a9b3b12af068bfed0f4041b2dfbdfb00c4bf69a14343afa1"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/neighborhood-fronts.glb": {
+      "bytes": 446332,
+      "sha256": "218d0f559f901d2d6c6f3a305ef73423ba58c9ab07aa39f20e31d67555026968"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/nyaan-apartment.glb": {
+      "bytes": 963312,
+      "sha256": "bf87182c985a223ae709b516037234ce1f74727d4fe6df4c9392769872bd7991"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/old-town-services.glb": {
+      "bytes": 125808,
+      "sha256": "4cfeb83d214d04115c830ad8831aad51d49a8427ce50a9a3ade73768b0ff3518"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/river-bridge.glb": {
+      "bytes": 28168,
+      "sha256": "4cdb3f6de195e0ff40c1dfb6eeee4d0fabfe31792ec45914f2c13b34d07e545b"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/room-dressing.glb": {
+      "bytes": 372252,
+      "sha256": "c2763eb57eaa1f0710dbd3384a276df978c7445374964f90c4d4f2796dd5024e"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/buildings/spinward-buildings.glb": {
+      "bytes": 740508,
+      "sha256": "195f207c0aeb80acc0a15b3f4c6e7774ce22e495cc4ed5d134ac208fea68bff8"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/bulkhead-service.glb": {
+      "bytes": 84436,
+      "sha256": "8bc1850dd77b526f7a1929f7f1bcf58559655a305ce8a4d64362a36989bc8920"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/docking-collar.glb": {
+      "bytes": 87776,
+      "sha256": "99660909e24c4518fb435abea7a946d3b627e4c77567f35c27ad8dd287380d3a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/observation-deck.glb": {
+      "bytes": 490508,
+      "sha256": "0926acb541d93786aabbdae709f7fc4a551f0876d241ffc0c4e2f85c4baf3c27"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/people/resident.glb": {
+      "bytes": 166640,
+      "sha256": "a4b250fa8b186ddbb079c6bf7959b00127d07e6f7a7039d570c51d1d6452fb4e"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/License.txt": {
+      "bytes": 717,
+      "sha256": "70d0b4ef26a341070faf76b058bcc5753925d6cf118420fd51c73957573f7b4d"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/Textures/colormap.png": {
+      "bytes": 8658,
+      "sha256": "ebbdaadf298f684ee534d0e63e2bdb223f7501da9fc13eb7bcdc94489162aca5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/road-bend-sidewalk.glb": {
+      "bytes": 17040,
+      "sha256": "19846d1a2f6946d4ef1e8bda2074162140e0d08c3b681e152039fac043940d80"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/road-crossing.glb": {
+      "bytes": 8720,
+      "sha256": "ffe5c924f9a14f53616988f157db825fafdaddeb76662379044cbe26ddedd932"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/road-crossroad-path.glb": {
+      "bytes": 18724,
+      "sha256": "126f6ff1c80c593b09fe94d2e09486f7aba5b22de832a3e54769465efff72126"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/road-intersection-path.glb": {
+      "bytes": 13752,
+      "sha256": "b32af1ef6c58d7f1c6a3076cc04022940c0d609f898d606bb286d4e966a74e93"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/roads/road-straight.glb": {
+      "bytes": 5264,
+      "sha256": "c3d524d39ff60ae4ca418aa99e83af25ee87ddbdc3c1a021774f30314bf73ca4"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/signal-visors.glb": {
+      "bytes": 29024,
+      "sha256": "3b1dcdd142f6b03e37d0039aa4fb1ff13781c424b6411073bd032e21c4d0dff3"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/transit/three-band-tram.json": {
+      "bytes": 31559,
+      "sha256": "c80cb38ed785a41a8505995074801c74f4f9e82789d39073f90c9f61e132b447"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/License.txt": {
+      "bytes": 696,
+      "sha256": "c33b7f6453d134deae7b1b8493717d9ccfa754c25ab97f6de89b88f8fda19b00"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/Textures/colormap.png": {
+      "bytes": 12371,
+      "sha256": "f3622a03a20c6696065cae9cbe391351be873508af190c2ebd1d420c055787a5"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/delivery.glb": {
+      "bytes": 240264,
+      "sha256": "426a3e3a2c242c05c889b1445ba02ef95b2c8b7cd6f597e1275ef736a826014b"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/hatchback-sports.glb": {
+      "bytes": 197804,
+      "sha256": "bd5c9d4c3b4bdd254a66b8426563a68b1487ae7a5076df3a2488e6ffed7be64f"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/sedan.glb": {
+      "bytes": 172216,
+      "sha256": "b532ea7d2c59f7f6b22b138cf1955218a2c1898f1cea932af4d3fd563c3959b7"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/suv.glb": {
+      "bytes": 207572,
+      "sha256": "9df31f6e89e927a8176fc792aa125f0b19dc1ba29d2025bfef7c4f4d6ab1778a"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/taxi.glb": {
+      "bytes": 175608,
+      "sha256": "3803539718ffd3b84b515dbce8ed6b489f1ff5be58edb1903d2c5db5c584bdc7"
+    },
+    "shared/ad58abe2721b4b5409a1e5813018e8ab469220a1046f0092d304aa8668f9030b/assets/vehicles/kenney/truck.glb": {
+      "bytes": 176360,
+      "sha256": "5e1bc66c343501dd7d5734b57e672dd949bf95d7abdce680c6508cef99d374f8"
+    }
+  },
+  "bytes": 22779767
+}

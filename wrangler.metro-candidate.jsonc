@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Candidate only. The audited application directory must be supplied with
+  // --assets. This config has no production routes, domains, or Analytics sink.
+  "name": "spinward-metro-candidate",
+  "account_id": "809e6a1cf10d5cd0491c6dff583a88fe",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-06-17",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": ["/", "/metric"]
+  },
+  "observability": { "enabled": true }
+}

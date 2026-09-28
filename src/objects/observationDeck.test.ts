@@ -79,6 +79,25 @@ test('authored floor rays and the physical support agree around the deck across 
   geometry.dispose()
 })
 
+test('an unused deck does not download and entering a compatible world loads it once', async () => {
+  let requests = 0
+  let deliver!: (value: { scene: THREE.Group }) => void
+  const pending = new Promise<{ scene: THREE.Group }>(resolve => { deliver = resolve })
+  const deck = new ObservationDeck(new THREE.Group(), () => { requests++; return pending })
+  deck.setPlan(null, 3200)
+  deck.setPlan(getOverlookTower(18), 18)
+  expect(requests).toBe(0)
+  deck.setPlan(getOverlookTower(3200), 3200)
+  deck.setPlan(null, 3200)
+  deck.setPlan(getOverlookTower(3200), 3200)
+  expect(requests).toBe(1)
+  deck.dispose()
+  deliver({ scene: new THREE.Group() })
+  await pending
+  expect(deck.group.parent).toBeNull()
+  expect(deck.group.userData.asset).toBe('fallback')
+})
+
 test('guardrail blocks a walking body around its full circumference while the interior and underside stay distinct', () => {
   const radius = 3200, tower = getOverlookTower(radius), colliders = observationDeckColliders(tower, radius)
   const blocked = (x: number, h: number, z: number) => collideSphereWithBuildings(

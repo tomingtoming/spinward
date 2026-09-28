@@ -5,6 +5,7 @@ import {
   type HabitatType
 } from '../sim/habitatConfig'
 import { getWindowArcs } from './cityLayout'
+import { BulkheadStructure } from './bulkheadStructure'
 import {
   createCityShellPlaceholderTextureSet,
   createEndCapBulkheadTextureSet,
@@ -223,6 +224,7 @@ export const resolveCylinderShellUvTransform = (
 export class CylinderHabitat {
   readonly group = new THREE.Group()
   readonly shellGroup = new THREE.Group()
+  private readonly bulkheadStructure = new BulkheadStructure()
   private readonly nearShellTexture = createCylinderSurfaceTexture()
   private readonly farShellTexture = createCylinderSurfaceTexture()
   private readonly hullTextures = createExteriorHullTextureSet()
@@ -355,6 +357,11 @@ export class CylinderHabitat {
   // side-lit colony's +Y end are opaque bulkheads and get no pane (so this is
   // null for side-lit colonies like Izma).
   private endHazePanes: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
+  private floorHeight = 0
+  setFloorHeight(height: number) {
+    if (height === this.floorHeight) return
+    this.floorHeight = height; this.rebuildShells()
+  }
   private radius = 0
   private length = 0
   private focusAzimuth = 0
@@ -367,6 +374,7 @@ export class CylinderHabitat {
     this.installCityShellLayer(this.nearShellMaterial)
     this.installCityShellLayer(this.farShellMaterial)
     this.group.add(this.shellGroup)
+    this.group.add(this.bulkheadStructure.group)
     this.setDimensions(dimensions)
   }
 
@@ -453,6 +461,7 @@ export class CylinderHabitat {
   setCityShellDaylight(daylight: number) {
     const night = 1 - THREE.MathUtils.clamp(daylight, 0, 1)
     this.cityShellUniforms.uCityGlow.value = night * night * CITY_SHELL_GLOW_GAIN
+    this.bulkheadStructure.setDaylight(daylight)
   }
 
   setDimensions({ radius, length, topology, type }: CylinderDimensions) {
@@ -505,6 +514,7 @@ export class CylinderHabitat {
     const geometries: THREE.BufferGeometry[] = []
     const capGeometries: THREE.BufferGeometry[] = []
     const hazeGeometries: THREE.BufferGeometry[] = []
+    const solidEnds: number[] = []
 
     const addHubRing = (y: number) => {
       const hub = new THREE.TorusGeometry(hubRadius, tube, 6, 20)
@@ -515,7 +525,7 @@ export class CylinderHabitat {
 
     // A solid, opaque end cap: the colony's structural bulkhead.
     const addSolidCap = (y: number) => {
-      const cap = new THREE.CircleGeometry(radius, 64)
+      const cap = new THREE.CircleGeometry(radius, radius >= 180 ? 192 : 64)
       cap.rotateX(Math.PI * 0.5)
       cap.translate(0, y, 0)
       capGeometries.push(cap)
@@ -537,7 +547,7 @@ export class CylinderHabitat {
       // the side opposite the sun — is the opaque docking bulkhead.
       const isPortEnd = endSign < 0
 
-      const rim = new THREE.TorusGeometry(rimRadius, tube, 6, 48)
+      const rim = new THREE.TorusGeometry(rimRadius, tube, 6, !isRing && radius >= 180 ? 192 : 48)
       rim.rotateX(Math.PI * 0.5)
       rim.translate(0, y, 0)
       geometries.push(rim)
@@ -566,10 +576,8 @@ export class CylinderHabitat {
       }
 
       // Opaque bulkhead: the spaceport (-Y) end, or a side-lit colony's +Y wall.
-      // The port end carries a hub ring as an airlock-hatch detail.
-      if (isPortEnd) {
-        addHubRing(y)
-      }
+      // Its structural relief supplies the transfer ring and axial collar.
+      solidEnds.push(endSign)
       addSolidCap(y)
     }
 
@@ -602,6 +610,7 @@ export class CylinderHabitat {
       this.endHazePanes = new THREE.Mesh(mergedHaze, this.hazeMaterial)
       this.group.add(this.endHazePanes)
     }
+    this.bulkheadStructure.rebuild(radius,length,solidEnds)
   }
 
   setFocusAzimuth(focusAzimuth: number) {
@@ -731,13 +740,15 @@ export class CylinderHabitat {
       nearIntervals,
       nearShellSegmentsPerRadian(this.radius),
       surfaceRepeat.circumferential,
-      surfaceRepeat.axial
+      surfaceRepeat.axial,
+      this.radius - this.floorHeight
     )
     const farGeometry = this.buildShellGeometry(
       farIntervals,
       farShellSegments / farArcRadians,
       surfaceRepeat.circumferential,
-      surfaceRepeat.axial
+      surfaceRepeat.axial,
+      this.radius - this.floorHeight
     )
 
     if (farGeometry !== null) {
@@ -761,7 +772,7 @@ export class CylinderHabitat {
       farShellSegments / farArcRadians,
       hullRepeat.circumferential,
       hullRepeat.axial,
-      this.radius + Math.max(0.5, this.radius * 0.001)
+      this.radius - this.floorHeight + Math.max(0.5, this.radius * 0.001)
     )
 
     if (hullGeometry !== null) {

@@ -1,11 +1,12 @@
 """Run with Blender's Python: native simplification must retain holes and steps."""
 import math
+import copy
 import unittest
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from mathutils.bvhtree import BVHTree
-from izma_collision_mesh import simplify_collision_surface
+from izma_collision_mesh import simplify_collision_surface,simplify_packed_collision,finalize_packed_collision
 
 
 def unroll(x,y,z):
@@ -17,6 +18,24 @@ def physical(points):
 
 
 class CollisionMeshTests(unittest.TestCase):
+    def test_final_compounds_do_not_accumulate_repeated_approximation(self):
+        points=[]
+        for z in range(40):
+            a,b,c,d=[unroll(3190,y,t) for t,y in [(z,0),(z+1,0),(z+1,4),(z,4)]]
+            points.extend([a,b,c,a,c,d])
+        source={'vertices':[v for p in points for v in p],'meshes':{'walk':list(range(len(points)))},
+                'surfaces':[{'indices':list(range(len(points))),'bounds':[0,0,41,4]}],
+                'collisionPartition':{'version':2}}
+        first,audit=finalize_packed_collision(source)
+        self.assertGreater(audit['removedTriangles'],0)
+        self.assertEqual(first['collisionPartition'],source['collisionPartition'])
+        self.assertEqual(first['meshes'],source['meshes'])
+        second,repeated=finalize_packed_collision(first)
+        self.assertIs(second,first);self.assertTrue(repeated['reused'])
+        changed=copy.deepcopy(first)
+        changed['vertices'][changed['surfaces'][0]['indices'][0]*3+2]+=.1
+        with self.assertRaisesRegex(ValueError,'native source'):finalize_packed_collision(changed)
+
     def test_a_dense_curved_coordinate_floor_keeps_its_entrance_void(self):
         points=[]
         for z in range(40):
@@ -24,7 +43,18 @@ class CollisionMeshTests(unittest.TestCase):
                 if 16<=z<24 and 2<=y<6:continue
                 a,b,c,d=[unroll(3190,yy,zz) for zz,yy in [(z,y),(z+1,y),(z+1,y+1),(z,y+1)]]
                 points.extend([a,b,c,a,c,d])
-        reduced,error=simplify_collision_surface(points)
+        packed={'vertices':[v for p in points for v in p],
+                'meshes':{'walk':list(range(len(points)))},
+                'surfaces':[{'indices':list(range(len(points))),'bounds':[0,0,41,8],'groundSurface':False}]}
+        before=copy.deepcopy(packed)
+        result,audit=simplify_packed_collision(packed)
+        reduced=[result['vertices'][i*3:i*3+3] for i in result['surfaces'][0]['indices']]
+        error=audit['maximumSampledError']
+        self.assertEqual(packed,before)
+        self.assertEqual(result['meshes'],packed['meshes'])
+        self.assertEqual(result['vertices'][:len(packed['vertices'])],packed['vertices'])
+        self.assertFalse(result['surfaces'][0]['groundSurface'])
+        self.assertEqual(audit['accepted'],1)
         self.assertLess(len(reduced),len(points)//2)
         self.assertLessEqual(error,.005)
         tree=BVHTree.FromPolygons(physical(reduced),[(i,i+1,i+2) for i in range(0,len(reduced),3)],all_triangles=True)

@@ -1,0 +1,3528 @@
+{
+  "origin": "ai",
+  "created": "2026-09-22",
+  "purpose": "Reviewed 3-city transfer study; no full-band coverage claim",
+  "versions": {
+    "pyproj": "3.7.2",
+    "shapely": "2.1.2",
+    "three": "0.180.0",
+    "playwrightWebxr": "0.3.0"
+  },
+  "imports": {
+    "origin": "ai",
+    "created": "2026-09-22",
+    "samples": [
+      {
+        "id": "tokyo",
+        "cityCode": "13115",
+        "name": "荻窪〜新宿〜四ツ谷",
+        "station": "東高円寺",
+        "frame": {
+          "epsg": 6677,
+          "origin": [
+            -14340.084181777034,
+            -33771.47978610881
+          ],
+          "angle": 2.935047061640298,
+          "stationEnvelopeWidth": 621.8363507284957,
+          "stationEnvelopeLength": 10337.520808671043,
+          "remainingWidth": 2729.195813100617,
+          "fitsWith750mEachSide": true
+        },
+        "anchor": {
+          "name": "東高円寺",
+          "position": [
+            139.658295,
+            35.697964999999996
+          ],
+          "geometry": [
+            [
+              139.659,
+              35.69787
+            ],
+            [
+              139.65759,
+              35.69806
+            ]
+          ],
+          "local": [
+            -37.28223062667297,
+            1525.1720517451029
+          ]
+        },
+        "half": 700.0,
+        "bbox": [
+          139.64914932589278,
+          35.690504134307126,
+          139.6674417936809,
+          35.705425554136696
+        ],
+        "corners": [
+          [
+            139.6642950711276,
+            35.690504134307126
+          ],
+          [
+            139.6674417936809,
+            35.70285944992562
+          ],
+          [
+            139.65229380929878,
+            35.705425554136696
+          ],
+          [
+            139.64914932589278,
+            35.69306985430169
+          ]
+        ],
+        "dataset": {
+          "id": "13115_bldg_lod1",
+          "name": "建築物モデル（杉並区）",
+          "pref": "東京都",
+          "pref_code": "13",
+          "city": "杉並区",
+          "city_code": "13115",
+          "ward": null,
+          "ward_code": null,
+          "type": "建築物モデル",
+          "type_en": "bldg",
+          "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/tileset.json",
+          "file_size": 82755350,
+          "composite_url": "https://api.plateauview.mlit.go.jp/datacatalog/3dtiles/13115-bldg-lod1-texture-2025/tileset.json",
+          "layers": null,
+          "year": 2025,
+          "registration_year": 2025,
+          "spec": "5.0",
+          "format": "3D Tiles",
+          "format_version": "1.0",
+          "lod": "1",
+          "texture": true
+        },
+        "buildings": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data16.b3dm",
+            "region": [
+              2.437476972493296,
+              0.6231193219624873,
+              2.437568367264274,
+              0.6231917994435012,
+              71.05572449578882,
+              93.32214986050879
+            ],
+            "path": "raw/bd7d9495aa8ca08f80ababe6.b3dm",
+            "bytes": 3845000,
+            "sha256": "df600398960c20b6ab3d5201e71e1da3df51d74bb076174fdca515e94e51b625"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data17.b3dm",
+            "region": [
+              2.4374773594039647,
+              0.623048770203024,
+              2.437568544813909,
+              0.6231233055391486,
+              69.75618165728018,
+              115.98765013147562
+            ],
+            "path": "raw/9f2571040b7d20056734c218.b3dm",
+            "bytes": 6621316,
+            "sha256": "421a058a07922d45cccda901d67d64ce4bf9f65ede09aef888ccb32f6d89f064"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data19.b3dm",
+            "region": [
+              2.4373867530687954,
+              0.6231194756621272,
+              2.437480094659953,
+              0.623195631262989,
+              70.93904783174152,
+              101.08468889882438
+            ],
+            "path": "raw/facdb80578c118487776f546.b3dm",
+            "bytes": 5878824,
+            "sha256": "7a9050690934b3f251aacf9fc1118a3b1a2be98779cd7f412d118400ea21d68d"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data20.b3dm",
+            "region": [
+              2.4372978065591866,
+              0.6231198682598067,
+              2.437391025308863,
+              0.6231940401594653,
+              72.31420640282008,
+              118.16201901661616
+            ],
+            "path": "raw/01d40459fb717e1a2245d4ab.b3dm",
+            "bytes": 6095492,
+            "sha256": "186db03d74ee32b2c0b183d9e50c077a762fb48592458cfebdf7ecb1cd8fcd49"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data21.b3dm",
+            "region": [
+              2.4373858223218416,
+              0.6230494969625298,
+              2.4374793470420926,
+              0.6231220871926355,
+              70.54189643748987,
+              112.85524950950881
+            ],
+            "path": "raw/a1d77385e2458c1fc0831313.b3dm",
+            "bytes": 5401720,
+            "sha256": "98545afd1fbbd3f37f2eea684c0d034b70f741669edec32b4db79174b90f1775"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data22.b3dm",
+            "region": [
+              2.43729724180342,
+              0.6230485071070136,
+              2.4373896847287027,
+              0.623122551084726,
+              72.00275958705045,
+              110.99331922757219
+            ],
+            "path": "raw/e4e0ebdaf25d04725315e569.b3dm",
+            "bytes": 6353104,
+            "sha256": "cfd906a61d77f8b25866ccbd7a76dfedb2aa4068bf655e1749a2e16a7185b30a"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data124.b3dm",
+            "region": [
+              2.437566590257306,
+              0.622978634690448,
+              2.4376582141768663,
+              0.6230508168599097,
+              68.03660382534301,
+              86.90562630884679
+            ],
+            "path": "raw/f42c93ce58233e4288c6b258.b3dm",
+            "bytes": 947316,
+            "sha256": "2a228eb78fdd72c8461a08e3c9f8a259a8e89128d755670b8a002c330eff3877"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data125.b3dm",
+            "region": [
+              2.437476664270556,
+              0.6229786116509493,
+              2.4375694751375,
+              0.6230533776775979,
+              71.71781352019715,
+              115.26105738394492
+            ],
+            "path": "raw/80babcada42402c7c36802a6.b3dm",
+            "bytes": 5392784,
+            "sha256": "925bdfbd5d524a58259bb8231f50174fc6e70597acecd0c9d43562352f54106a"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data126.b3dm",
+            "region": [
+              2.4375652186013186,
+              0.6229056338649098,
+              2.4376582141768663,
+              0.6229810040154209,
+              64.4676626286431,
+              92.42478447315969
+            ],
+            "path": "raw/fae7f6c1b2221aec23c8633c.b3dm",
+            "bytes": 4721048,
+            "sha256": "ff05507860527826cebd8d8ea1ca31c92b7d69aeaaae9dffe59a83c589fd9336"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data127.b3dm",
+            "region": [
+              2.437476509411044,
+              0.6229062193119748,
+              2.437571208528144,
+              0.62298147138141,
+              68.91295745892138,
+              95.70182611164829
+            ],
+            "path": "raw/a1447077401fcea7701dfa35.b3dm",
+            "bytes": 6079760,
+            "sha256": "92d8dd474a2a7ef9a8293445970c9dcef71797fff14e8b8d09b70683981c48b2"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data129.b3dm",
+            "region": [
+              2.4373881620596833,
+              0.6229790447542557,
+              2.4374787998358305,
+              0.623051740087107,
+              73.47647467640357,
+              114.85774339709154
+            ],
+            "path": "raw/3f03b1144b6b0bbd515309aa.b3dm",
+            "bytes": 3764392,
+            "sha256": "3326c1aae68c409a71e922416f4f6c03d1db432e7349debf075e5aa2a7783b76"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data130.b3dm",
+            "region": [
+              2.4372955067612696,
+              0.6229792113128876,
+              2.4373886734390897,
+              0.6230527977285998,
+              76.84091851955333,
+              112.41571269439797
+            ],
+            "path": "raw/672528c21dbbac643ac261ae.b3dm",
+            "bytes": 4970464,
+            "sha256": "304ce598b993d76372a07571917a0990bab91b75aed64a613b6df3af466448d0"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data131.b3dm",
+            "region": [
+              2.437387704355856,
+              0.622901416713004,
+              2.437480769591365,
+              0.6229812343285235,
+              75.48123952088949,
+              118.4784595660945
+            ],
+            "path": "raw/d31d6ac7d4bac3af01ff1eed.b3dm",
+            "bytes": 6154184,
+            "sha256": "ad1fb1fb8814a98ff7220c31bdd933a3b0f75e9628c401e9ac65e4e2fafbd3fe"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/fe/edc7a4-9189-4579-ad90-3648f112f275/13115_suginami-ku_city_2025_citygml_1_op_bldg_3dtiles_13115_suginami-ku_lod1/data/data132.b3dm",
+            "region": [
+              2.4372912539685525,
+              0.6229094032628082,
+              2.4373918599237734,
+              0.6229811927747078,
+              72.52229972922942,
+              93.73434177991555
+            ],
+            "path": "raw/492c96ee9a3c5bff5c82e33c.b3dm",
+            "bytes": 6563552,
+            "sha256": "6f7b3203f1c13a9ae636c30068dadfac62c43338b93e1a0532ea891b538eb31c"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data142.b3dm",
+            "region": [
+              2.437587566005844,
+              0.6231222869252673,
+              2.437667022899227,
+              0.6231890287750849,
+              64.09192128915888,
+              210.4048294239036
+            ],
+            "cityCode": "13114",
+            "path": "raw/3b7b219147ffb6dc96f4d56a.b3dm",
+            "bytes": 2903448,
+            "sha256": "55b1248edf77c91c7ab20f7103c208e2d3748c08a57f63e61acd73a9265d501c"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data143.b3dm",
+            "region": [
+              2.437512297522162,
+              0.6231228713990583,
+              2.4375909180380417,
+              0.6231889080425852,
+              73.45019962017605,
+              105.4195236901817
+            ],
+            "cityCode": "13114",
+            "path": "raw/a67c455984892b12a86fb8f0.b3dm",
+            "bytes": 2668796,
+            "sha256": "6c5b3b9864fdd4cf6528f530fc96f3f0e34e1e9400f43f53099409f75b77d700"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data144.b3dm",
+            "region": [
+              2.4375875877272075,
+              0.6230587237476914,
+              2.437668215524358,
+              0.6231258880642201,
+              67.61696610129772,
+              113.34042357400581
+            ],
+            "cityCode": "13114",
+            "path": "raw/84f9fa419b442df4795fdeb1.b3dm",
+            "bytes": 4575528,
+            "sha256": "6ec2225cec85388b521da16db7a4eaf8042144623a5563df87d9108925409cac"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data145.b3dm",
+            "region": [
+              2.4375127477831624,
+              0.623059025598837,
+              2.4375899774046763,
+              0.6231252227553781,
+              68.6777923709146,
+              93.53188240237559
+            ],
+            "cityCode": "13114",
+            "path": "raw/05cabcc18ddd7b53778b4036.b3dm",
+            "bytes": 2973164,
+            "sha256": "4ba0a3f922200decd6b1d20df7b4e64106606a898012dc7aceda52dd352ef1c2"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data152.b3dm",
+            "region": [
+              2.437587847551057,
+              0.62299495942144,
+              2.437666349072725,
+              0.6230605383738224,
+              70.84337053976415,
+              117.38669558312276
+            ],
+            "cityCode": "13114",
+            "path": "raw/88ff70f8004aa8dd7d74e6c3.b3dm",
+            "bytes": 4998748,
+            "sha256": "ea93580145afc18584043943db3044a8b698a96e414429fd7f9eab52bf29def6"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data153.b3dm",
+            "region": [
+              2.4375127477831624,
+              0.622995092069335,
+              2.4375901053843263,
+              0.6230598780914903,
+              72.59684226585622,
+              112.9426764512975
+            ],
+            "cityCode": "13114",
+            "path": "raw/054832ac89c70d3ccdab8ef7.b3dm",
+            "bytes": 2715624,
+            "sha256": "790a539a2ee73fe66e13d5207f56ce0958d1ba57b74233ca7d29cb2a73e342be"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data154.b3dm",
+            "region": [
+              2.4375889211378623,
+              0.6229302278861932,
+              2.4376663484986327,
+              0.6229962951533614,
+              65.60267550764945,
+              112.07919251980007
+            ],
+            "cityCode": "13114",
+            "path": "raw/83622ef60187d17e97bca3ce.b3dm",
+            "bytes": 1098676,
+            "sha256": "8969a9d4d184dca1d4d42cffd42bc584790a4b85837468b398c1e8b4f85af409"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data155.b3dm",
+            "region": [
+              2.4375127477831624,
+              0.6229313367680361,
+              2.4375889211378623,
+              0.6229956078213054,
+              75.31011261843484,
+              82.74501158251961
+            ],
+            "cityCode": "13114",
+            "path": "raw/5bde63dd1b7f57f27372c564.b3dm",
+            "bytes": 23396,
+            "sha256": "98b9367991e0c22c5a7ed0e4c6a9d7dbf73b0cf6edf11a76e35847dcf34f6ce2"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data168.b3dm",
+            "region": [
+              2.43758869714216,
+              0.6228618673901732,
+              2.437666044507155,
+              0.6229316062579195,
+              63.349524945991234,
+              97.77041154956778
+            ],
+            "cityCode": "13114",
+            "path": "raw/31e0491dd98ea6f940908e1f.b3dm",
+            "bytes": 2750172,
+            "sha256": "d63201ddc04ddb0ed2a386242784e4947e1e520d9ddc3a4ff0daca3ce1eb4998"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data169.b3dm",
+            "region": [
+              2.4375127477831624,
+              0.6228670703141426,
+              2.4375889211378623,
+              0.6229313367680361,
+              67.13746449718369,
+              74.13834286883697
+            ],
+            "cityCode": "13114",
+            "path": "raw/b9803ea89a87cf1a1124f76d.b3dm",
+            "bytes": 11596,
+            "sha256": "09d718e098b20c32da7e9a263c5af3025f9d145876feb068296c3fb68c04cb1b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/data/data183.b3dm",
+            "region": [
+              2.4374365744284625,
+              0.6231241361297173,
+              2.437513331907235,
+              0.6231891165253557,
+              74.98349357512103,
+              91.52303903948449
+            ],
+            "cityCode": "13114",
+            "path": "raw/2be33b7ec73d3b980dcf362c.b3dm",
+            "bytes": 337228,
+            "sha256": "67d85b8ccf9bd9557d22bdd14332bc414a4093d9b00325c9d02f31e3a2132048"
+          }
+        ],
+        "roads": [
+          {
+            "code": "53394521",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394521_tran_6697_op.gml",
+            "fileSize": 3434706,
+            "features": 1201,
+            "lod0": 0,
+            "lod1": 1201,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/07cd57028ee57a89a2fb2006.gml",
+            "bytes": 3434706,
+            "sha256": "713f5ea5829ffc42756b74094f57f5c484e60b2d22b51bab3334f129cbcd546a"
+          },
+          {
+            "code": "53394522",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394522_tran_6697_op.gml",
+            "fileSize": 3546383,
+            "features": 1226,
+            "lod0": 0,
+            "lod1": 1226,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/5071578ca9cc21d4c5026744.gml",
+            "bytes": 3546383,
+            "sha256": "d5d12e8048f79c296ed1aab668011f483d4270a3379bbc38440325c8dade3747"
+          },
+          {
+            "code": "53394523",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394523_tran_6697_op.gml",
+            "fileSize": 3306424,
+            "features": 1155,
+            "lod0": 0,
+            "lod1": 1155,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/68aae5c11908804dc84fdcb5.gml",
+            "bytes": 3306424,
+            "sha256": "3c2511efd45859af517154e42618edfca551ac58f72dfec8456db89164b8e021"
+          },
+          {
+            "code": "53394531",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394531_tran_6697_op.gml",
+            "fileSize": 4670789,
+            "features": 1651,
+            "lod0": 0,
+            "lod1": 1651,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/cbc2ac2b51ed15da231a602a.gml",
+            "bytes": 4670789,
+            "sha256": "9d9596f210d6ad2ab021ba57b216aad4aad3517e3b947310a539b54f97f1fcf2"
+          },
+          {
+            "code": "53394532",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394532_tran_6697_op.gml",
+            "fileSize": 4135833,
+            "features": 1450,
+            "lod0": 0,
+            "lod1": 1450,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/8b336be8b9a09f2d641eb154.gml",
+            "bytes": 4135833,
+            "sha256": "3af7400989e1c0cb669b4e81fb3fecc4ed1de3c80f88a7386e0aecfd326ad1a9"
+          },
+          {
+            "code": "53394533",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394533_tran_6697_op.gml",
+            "fileSize": 4499831,
+            "features": 1589,
+            "lod0": 0,
+            "lod1": 1589,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/91fa3a67076adf11872eccbb.gml",
+            "bytes": 4499831,
+            "sha256": "ba0418beab4c09a51d504b404889a5b6ffd12963596b7cd40b5fdb512268bf54"
+          },
+          {
+            "code": "53394541",
+            "maxLod": 2,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394541_tran_6697_op.gml",
+            "fileSize": 5273404,
+            "features": 1704,
+            "lod0": 0,
+            "lod1": 1704,
+            "lod2": 255,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/d32405abcec94706a7899d6a.gml",
+            "bytes": 5273404,
+            "sha256": "df1cb4685e7ff06aab7ef338b78fa2ef38f3f6ea24d513c9546bc5b0dc324a86"
+          },
+          {
+            "code": "53394542",
+            "maxLod": 2,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/tran/53394542_tran_6697_op.gml",
+            "fileSize": 4328125,
+            "features": 1404,
+            "lod0": 0,
+            "lod1": 1404,
+            "lod2": 176,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/be14f5995896a7910f074c55.gml",
+            "bytes": 4328125,
+            "sha256": "b01cbfb5358622249c21be07fa45aa2b1c8c61d09ce4f610d07111428b66645a"
+          }
+        ],
+        "land": [
+          {
+            "kind": "wtr",
+            "code": "533945",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/1f/4afed5-f8d0-42e7-b334-e507471ecd51/13115_suginami-ku_pref_2025_citygml_1_op/udx/wtr/533945_wtr_6697_op.gml",
+            "fileSize": 8694740,
+            "features": 183,
+            "lod0": 183,
+            "lod1": 183,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/7166c99d14ead816dbf590b7.gml",
+            "bytes": 8694740,
+            "sha256": "4a8879dc31edff46748061760dafd0b5ad45be09b8c9cee237a508ca3ab0498d"
+          }
+        ],
+        "dem": [
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14547,
+            "y": 6450,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14547/6450.txt",
+            "path": "raw/5c19096bebc1cdc4253c90aa.txt",
+            "bytes": 393216,
+            "sha256": "d479875ddc06a2d3d8d971f349c3e4f00f269855b0eb51c25be0719dcbdec10f"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14547,
+            "y": 6451,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14547/6451.txt",
+            "path": "raw/6e220844e981f2072b5186a2.txt",
+            "bytes": 393216,
+            "sha256": "8a5482a482b93e319e8b336115fb0a92776337a87ba62ddce4ab3e24d47821c2"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14548,
+            "y": 6450,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14548/6450.txt",
+            "path": "raw/fa99ca492fdf88cbd56285a5.txt",
+            "bytes": 393216,
+            "sha256": "a784b149a38eec3ff8593742b7c429985044325f30218ea9bdca7e6ef19528a2"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14548,
+            "y": 6451,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14548/6451.txt",
+            "path": "raw/e6e1c18e7fe33d61c59f8449.txt",
+            "bytes": 393216,
+            "sha256": "671e0938ca1557ac2b8c705f67006befbe971c7fdfa580f63c47db70da5b2974"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14547,
+            "y": 6450,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14547/6450.txt",
+            "path": "raw/4bbd75e53c8ac45577db0823.txt",
+            "bytes": 393216,
+            "sha256": "e22148da6ebdbba43aece02f6270e4c2d1ad6d2716504df132d4e64944901ca5"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14547,
+            "y": 6451,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14547/6451.txt",
+            "path": "raw/b112622928b2f8688f3f83d1.txt",
+            "bytes": 393216,
+            "sha256": "f85c349958322c7d63bdc94282c648fd55d61efe93c21aec503da533476ff92f"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14548,
+            "y": 6450,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14548/6450.txt",
+            "path": "raw/87552588ad4b747646113957.txt",
+            "bytes": 393216,
+            "sha256": "d29f3ba1f1076548d93b2291b4aa1d0cd06b3897d8272688092f59046256abbf"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14548,
+            "y": 6451,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14548/6451.txt",
+            "path": "raw/325c52e366bb99dcf3605a0d.txt",
+            "bytes": 393216,
+            "sha256": "a66067198efad9e85cedc776408ee2e6d5189e3ee3f210e35c2ef3c9394b64e6"
+          }
+        ],
+        "metadata": {
+          "url": "https://api.plateauview.mlit.go.jp/datacatalog/citygml/r:139.64914932589278,35.690504134307126,139.6674417936809,35.705425554136696?types=tran,luse,wtr",
+          "path": "raw/50d752a96a084f7c3f4ae105.705425554136696",
+          "bytes": 13226,
+          "sha256": "437bd9de0fcac92669a02eb4525e1b8df902224ae610ccce8fec3a776bd7f301"
+        },
+        "codelists": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/70/3c30b0-aab7-4aff-a77f-a03f3f049781/13115_suginami-ku_pref_2025_citygml_1_op_codelists.zip",
+            "path": "raw/add258741072c4712e1cd9ef.zip",
+            "bytes": 806577,
+            "sha256": "462413f86b839b81883eeb141620fec6feec6d9acc7c9925b0e7418cd3387f66"
+          }
+        ],
+        "skippedContext": [],
+        "neighborDatasets": [
+          {
+            "id": "13114_bldg_lod1",
+            "name": "建築物モデル（中野区）",
+            "pref": "東京都",
+            "pref_code": "13",
+            "city": "中野区",
+            "city_code": "13114",
+            "ward": null,
+            "ward_code": null,
+            "type": "建築物モデル",
+            "type_en": "bldg",
+            "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/tileset.json",
+            "file_size": 42382900,
+            "composite_url": "https://api.plateauview.mlit.go.jp/datacatalog/3dtiles/13114-bldg-lod1-texture-2025/tileset.json",
+            "layers": null,
+            "year": 2025,
+            "registration_year": 2025,
+            "spec": "5.0",
+            "format": "3D Tiles",
+            "format_version": "1.0",
+            "lod": "1",
+            "texture": true
+          }
+        ],
+        "neighborCoverageChecks": [
+          {
+            "cityCode": "13104",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/bd/858f21-55cb-46da-afcf-885d44eee90f/13104_shinjuku-ku_pref_2025_citygml_1_op_bldg_3dtiles_13104_shinjuku-ku_lod1/tileset.json",
+              "path": "raw/ea0e94ed036b1a5b2db81248.json",
+              "bytes": 123642,
+              "sha256": "28813ef2999ca358549c45745cafcb06b334eed670185a1be4905286899d4735"
+            }
+          },
+          {
+            "cityCode": "13113",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/cf/26763c-faae-41b3-b110-2a4dd602f250/13113_shibuya-ku_pref_2025_citygml_1_op_bldg_3dtiles_13113_shibuya-ku_lod1/tileset.json",
+              "path": "raw/4708c3c41301d99d23fc63cc.json",
+              "bytes": 126699,
+              "sha256": "284884263a9be28b4982f29f4982b9be7565b39fce6301fcb23292668f8197d1"
+            }
+          },
+          {
+            "cityCode": "13114",
+            "leafTiles": 11,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/00/0bafbd-0652-4f11-ab1f-ca88d81a98a7/13114_nakano-ku_pref_2025_citygml_1_op_bldg_3dtiles_13114_nakano-ku_lod1/tileset.json",
+              "path": "raw/dacd16d7fdf3381ab5b83785.json",
+              "bytes": 109359,
+              "sha256": "2808fa5310a4018cc787a6a889f226abca759091ea5383b0781f07612638d265"
+            }
+          },
+          {
+            "cityCode": "13116",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/0a/f58fff-4c1a-429e-a626-efb32d7423ed/13116_toshima-ku_pref_2025_citygml_1_op_bldg_3dtiles_13116_toshima-ku_lod1/tileset.json",
+              "path": "raw/f9be445149f938e20c81f3d9.json",
+              "bytes": 40855,
+              "sha256": "217125306de03db6e7e953887c2864a40e70051a31380f9b6bfd748e804e3907"
+            }
+          },
+          {
+            "cityCode": "13120",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/77/4ec481-2b86-4654-a600-95a52471d540/13120_nerima-ku_pref_2025_citygml_1_op_bldg_3dtiles_13120_nerima-ku_lod1/tileset.json",
+              "path": "raw/21baf52ecc980446db8b4766.json",
+              "bytes": 150634,
+              "sha256": "5e5bb8a2349ef2f6b17b2af4f64327cb8403be0ae4015fc5d4dca1442d901493"
+            }
+          }
+        ]
+      },
+      {
+        "id": "tama",
+        "cityCode": "13224",
+        "name": "永山〜多摩センター〜南大沢",
+        "station": "京王多摩センター",
+        "frame": {
+          "epsg": 6677,
+          "origin": [
+            -38068.80162285591,
+            -41565.38565242795
+          ],
+          "angle": 0.2715935053405367,
+          "stationEnvelopeWidth": 655.220838708261,
+          "stationEnvelopeLength": 6647.519628748923,
+          "remainingWidth": 2695.811325120852,
+          "fitsWith750mEachSide": true
+        },
+        "anchor": {
+          "name": "京王多摩センター",
+          "position": [
+            139.42416500000002,
+            35.625225
+          ],
+          "geometry": [
+            [
+              139.42516,
+              35.62558
+            ],
+            [
+              139.42317,
+              35.62487
+            ]
+          ],
+          "local": [
+            209.06553400190742,
+            986.5967164171594
+          ]
+        },
+        "half": 700.0,
+        "bbox": [
+          139.41462444816338,
+          35.61743578432769,
+          139.4337045227471,
+          35.633013976501175
+        ],
+        "corners": [
+          [
+            139.41462444816338,
+            35.6295778856168
+          ],
+          [
+            139.41883365792415,
+            35.61743578432769
+          ],
+          [
+            139.4337045227471,
+            35.620871348909226
+          ],
+          [
+            139.42949737116547,
+            35.633013976501175
+          ]
+        ],
+        "dataset": {
+          "id": "13224_bldg_lod1",
+          "name": "建築物モデル（多摩市）",
+          "pref": "東京都",
+          "pref_code": "13",
+          "city": "多摩市",
+          "city_code": "13224",
+          "ward": null,
+          "ward_code": null,
+          "type": "建築物モデル",
+          "type_en": "bldg",
+          "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+          "file_size": 18700560,
+          "composite_url": "https://api.plateauview.mlit.go.jp/datacatalog/3dtiles/13224-bldg-lod1-texture-2025/tileset.json",
+          "layers": null,
+          "year": 2025,
+          "registration_year": 2025,
+          "spec": "5.0",
+          "format": "3D Tiles",
+          "format_version": "1.0",
+          "lod": "1",
+          "texture": true
+        },
+        "buildings": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data17.b3dm",
+            "region": [
+              2.433567557096129,
+              0.6218792598229164,
+              2.4337416279948307,
+              0.6219929506574801,
+              108.24789847102845,
+              165.96948884721965
+            ],
+            "path": "raw/3d3aab7d06bfdfc1e9ff6807.b3dm",
+            "bytes": 6504724,
+            "sha256": "7c6b2f83b7aee169818dadc1fe599b447d968e43240a01934378c71bbae0032c"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data25.b3dm",
+            "region": [
+              2.433399122857072,
+              0.6218811772717426,
+              2.4335766157992924,
+              0.6219925305759488,
+              104.59037273876172,
+              189.81047431763926
+            ],
+            "path": "raw/cc4f5ae4aebb67c16c70ff7b.b3dm",
+            "bytes": 3498112,
+            "sha256": "1d559b7bb471b1e3f1680663f418a435716b710694cf12d05114caab73f0274d"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data34.b3dm",
+            "region": [
+              2.4335674530053706,
+              0.6217716073374684,
+              2.4337404447440685,
+              0.6218851655932777,
+              108.79102721538631,
+              178.9954203033378
+            ],
+            "path": "raw/7e72d30b76bb7559a408653a.b3dm",
+            "bytes": 6046568,
+            "sha256": "067ae65e8c4c2099572b77ad7e96df0e9215b3047f720b6115ad832db6f3717f"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data36.b3dm",
+            "region": [
+              2.433567426458875,
+              0.6216607512843889,
+              2.433738935778767,
+              0.6217761741443605,
+              120.17387584605444,
+              181.51607521400564
+            ],
+            "path": "raw/481f70375d8b8812715950f1.b3dm",
+            "bytes": 4330012,
+            "sha256": "02ad12af6652ca9800245d954a4e28fd110ad5b80a7abe0f45a0ed1f9addc99b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data40.b3dm",
+            "region": [
+              2.4335654929924084,
+              0.6215499931678191,
+              2.4337390399936565,
+              0.6216642697687982,
+              132.03746480695992,
+              192.0770565784154
+            ],
+            "path": "raw/1ec72b1c6f222b676cc27aa3.b3dm",
+            "bytes": 3478156,
+            "sha256": "2b19708ef83ec6e515152d58f5a53a5a00502393d224e40ea83dd1ce6c8deca8"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data45.b3dm",
+            "region": [
+              2.4333949512078763,
+              0.6217648485648266,
+              2.4335721245133093,
+              0.6218865147187764,
+              114.14459102963012,
+              188.51668182656428
+            ],
+            "path": "raw/0b126316246ac3cf524cd9d1.b3dm",
+            "bytes": 5322100,
+            "sha256": "c5b9e1d713abeac6f77d1673f4949ccd636fe5048954c312513a10dca385506a"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data46.b3dm",
+            "region": [
+              2.4332249808301665,
+              0.6217714795702384,
+              2.433399122857072,
+              0.6218821271141006,
+              124.84928836185748,
+              177.88513106858582
+            ],
+            "path": "raw/8d44f7f72bdac4b34f990405.b3dm",
+            "bytes": 1431908,
+            "sha256": "29afb0d9b9200242b639137b800f138383908408f71f4ed40f290a4802159563"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data47.b3dm",
+            "region": [
+              2.433399122857072,
+              0.621658068728011,
+              2.433569125965008,
+              0.6217804588697726,
+              120.5980978080516,
+              251.1329669286005
+            ],
+            "path": "raw/f3433d4fb906ba5c4e89b56e.b3dm",
+            "bytes": 3241468,
+            "sha256": "fdd41dfbf183735cac06fbf4278675b9b925683ae3d4364603c7c01d4e2419d6"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data48.b3dm",
+            "region": [
+              2.4332249522495695,
+              0.62165818218653,
+              2.4334059767596066,
+              0.6217738733070131,
+              125.76797010824038,
+              230.98214574889184
+            ],
+            "path": "raw/61845e4454a4a7cab1de28b5.b3dm",
+            "bytes": 4412996,
+            "sha256": "ba37f19da15fce97a339af589dfd425a9613eccb10f5c451e32d0729bc6a064b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data53.b3dm",
+            "region": [
+              2.433395212644177,
+              0.6215518383377143,
+              2.433574811224566,
+              0.6216705650360302,
+              144.06578117470653,
+              213.9672385408256
+            ],
+            "path": "raw/53794f0947d85b63e3f45821.b3dm",
+            "bytes": 3736880,
+            "sha256": "6747dda8c39a3e66fe0eb5f6c2ee505a8ca5ea272370e8ba7c81513f29034b3a"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/66/384aed-8228-44c1-b158-736eae199367/13224_tama-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data54.b3dm",
+            "region": [
+              2.433226472761626,
+              0.6215497098902314,
+              2.43340401888826,
+              0.6216684792482291,
+              139.45483477917043,
+              213.88680156047198
+            ],
+            "path": "raw/7d05cfae91a3301e44f8ae9f.b3dm",
+            "bytes": 3722960,
+            "sha256": "bf0eeb081d665b13da3f4d0a21b6a79fd96a2bb09a75406dd6bd72674ef5640b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data403.b3dm",
+            "region": [
+              2.4333658444344097,
+              0.6218868543676859,
+              2.433510222452751,
+              0.6219539308497831,
+              104.53375364297082,
+              157.0294940077472
+            ],
+            "cityCode": "13201",
+            "path": "raw/7d491a5aac9dd5914cb19a00.b3dm",
+            "bytes": 2237880,
+            "sha256": "06303ef3919fb171eb70aece51ad34ea6694ac45b75329c4e0a2f82958f4115b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data404.b3dm",
+            "region": [
+              2.4332221056132175,
+              0.62188469331779,
+              2.4333732042022924,
+              0.6219543471368627,
+              109.23101983506675,
+              159.7173883804066
+            ],
+            "cityCode": "13201",
+            "path": "raw/8fa0c1d30414d42eae47af75.b3dm",
+            "bytes": 3815204,
+            "sha256": "3c30addb9a3603a23fecd9baaa9d8a212897b73fb654b0c491ef8d93a681e25b"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data405.b3dm",
+            "region": [
+              2.43336141759173,
+              0.6218230661853175,
+              2.433510222452751,
+              0.6218881387640318,
+              143.21583036542035,
+              183.19097500900745
+            ],
+            "cityCode": "13201",
+            "path": "raw/2a93dd02ad99c03e69f9e388.b3dm",
+            "bytes": 123728,
+            "sha256": "6bf60ef675c556aa392854c80a368ab075747ee6551a922b47eca99fcd83be56"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data406.b3dm",
+            "region": [
+              2.433221444830961,
+              0.621823011617477,
+              2.433368493704852,
+              0.6218904930634768,
+              134.09849502413698,
+              182.52594635184306
+            ],
+            "cityCode": "13201",
+            "path": "raw/cc03cef34e10efb3f70ddd4c.b3dm",
+            "bytes": 1570704,
+            "sha256": "3a7f77dbb72ae6b3630a4d5ac4ad83d5807cf1760307fdbecc978994dae0df52"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/data/data521.b3dm",
+            "region": [
+              2.433222888857529,
+              0.621757993606603,
+              2.4333665556551405,
+              0.6218253595114202,
+              153.13142669944932,
+              208.6645057821807
+            ],
+            "cityCode": "13201",
+            "path": "raw/4f93ba6d48f7ba4e076c2543.b3dm",
+            "bytes": 366728,
+            "sha256": "24c61147ced45535e04effb9ec414e2934fc374a3ce821c806fe9a9d1a6d47ed"
+          }
+        ],
+        "roads": [
+          {
+            "code": "53393343",
+            "maxLod": 3,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/tran/53393343_tran_6697_op.gml",
+            "fileSize": 4298318,
+            "features": 540,
+            "lod0": 0,
+            "lod1": 540,
+            "lod2": 310,
+            "lod3": 15,
+            "lod4": 0,
+            "path": "raw/75193f8700a49eb1fd38dc77.gml",
+            "bytes": 4298318,
+            "sha256": "a70719da94dee26e0ce1b3bfc6fd9d0bc2c0fc75db6785d9164f948a7c4396ab"
+          },
+          {
+            "code": "53393344",
+            "maxLod": 3,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/tran/53393344_tran_6697_op.gml",
+            "fileSize": 3298222,
+            "features": 577,
+            "lod0": 0,
+            "lod1": 577,
+            "lod2": 229,
+            "lod3": 7,
+            "lod4": 0,
+            "path": "raw/40a58ccdaf57a40a19d09b2d.gml",
+            "bytes": 3298222,
+            "sha256": "ea90c923a102e1218b4d97ab19f9c895f3c2239ea964e008534862eab7a06846"
+          },
+          {
+            "code": "53393353",
+            "maxLod": 2,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/tran/53393353_tran_6697_op.gml",
+            "fileSize": 2182619,
+            "features": 475,
+            "lod0": 0,
+            "lod1": 475,
+            "lod2": 173,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/3e8474315c64e18373110c5f.gml",
+            "bytes": 2182619,
+            "sha256": "9a6075fc3669e0cfffaf05ea057f6f76e6aa341b8b8ad2dbc3b2ff0598ed6c82"
+          },
+          {
+            "code": "53393354",
+            "maxLod": 3,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/tran/53393354_tran_6697_op.gml",
+            "fileSize": 3321914,
+            "features": 876,
+            "lod0": 0,
+            "lod1": 876,
+            "lod2": 84,
+            "lod3": 2,
+            "lod4": 0,
+            "path": "raw/be5aa06bf0fc86eaeea1de52.gml",
+            "bytes": 3321914,
+            "sha256": "92a252454f5b09c96b536e116fc999d4b1f49b6d82108f2e298c41ae49fcae05"
+          }
+        ],
+        "land": [
+          {
+            "kind": "wtr",
+            "code": "533933",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/wtr/533933_wtr_6697_op.gml",
+            "fileSize": 40000800,
+            "features": 906,
+            "lod0": 906,
+            "lod1": 906,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/d944aab8c4c91fce74e31f76.gml",
+            "bytes": 40000800,
+            "sha256": "7e7afdf4cb953773ef24f890c847e0e8ef51056d79f044d12d264a160c6af7df"
+          }
+        ],
+        "dem": [
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14536,
+            "y": 6454,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14536/6454.txt",
+            "path": "raw/74db87b56434b0f65ffce2eb.txt",
+            "bytes": 422821,
+            "sha256": "955825a8d7f0adfb60e9c8d502b26031124f1a9e42a07de4d6fd161752fa238b"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14536,
+            "y": 6455,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14536/6455.txt",
+            "path": "raw/ede7e5ffccdf14ea73005af0.txt",
+            "bytes": 457990,
+            "sha256": "53a88080cb17eee2426cecec96c8686a199ba221a8059bc2978b4f32592ff3fb"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14537,
+            "y": 6454,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14537/6454.txt",
+            "path": "raw/1a1992f624229aefd6bcb34c.txt",
+            "bytes": 412307,
+            "sha256": "4c6f953d5cfe5522f84f5d48b74cc5364963f82f88b8d5f0dcbd9dad4254186a"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14537,
+            "y": 6455,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14537/6455.txt",
+            "path": "raw/b00ac3ceeebe0eba3895cf8a.txt",
+            "bytes": 455055,
+            "sha256": "5a0bc4ffffa86b70857cdf425251d7960bf31b8bc5697d3cbf46d94690e77331"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14536,
+            "y": 6454,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14536/6454.txt",
+            "path": "raw/22578b03948df9de5aedb6fa.txt",
+            "bytes": 424248,
+            "sha256": "a29f0afb288d197e594732a9a52a8d4ad14d63ec9f513cd6960511dcd8e4f3f3"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14536,
+            "y": 6455,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14536/6455.txt",
+            "path": "raw/e1b89c78f57e229955675231.txt",
+            "bytes": 458255,
+            "sha256": "57976341139a2a3efcc9b102446947aea28312d31a054468da11b6b17ab9c3b3"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14537,
+            "y": 6454,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14537/6454.txt",
+            "path": "raw/3629db1751e6ff0db3e4da04.txt",
+            "bytes": 412342,
+            "sha256": "56b5497670580ae9691553fd588181745631c6c1a3c93517896d9dc38d757166"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14537,
+            "y": 6455,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14537/6455.txt",
+            "path": "raw/cdb7423ef72d6590669cae42.txt",
+            "bytes": 456227,
+            "sha256": "7384b4e64b2b3644ca8b693a76f548ce248c29c3c0aa623eec02ffef71525d59"
+          }
+        ],
+        "metadata": {
+          "url": "https://api.plateauview.mlit.go.jp/datacatalog/citygml/r:139.41462444816338,35.61743578432769,139.4337045227471,35.633013976501175?types=tran,luse,wtr",
+          "path": "raw/d22323c1d58e3a6c937dd4e0.633013976501175",
+          "bytes": 10599,
+          "sha256": "83b74640df956e7fdc965d3d24c9cdd50fc11204f53771ce834d963dd21e3f9d"
+        },
+        "codelists": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/a5/111e80-4a65-428b-8dba-b1622b524963/13224_tama-shi_pref_2025_citygml_1_op_codelists.zip",
+            "path": "raw/901b95905a11e49e89953894.zip",
+            "bytes": 804813,
+            "sha256": "b447a6c10712fe30f49dd680898c6f80953007c8303ce7de26d5967b88a268f6"
+          }
+        ],
+        "skippedContext": [
+          {
+            "code": "533933",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/da/0643f5-f92e-4fea-a93b-c8cee4ecb44e/13224_tama-shi_pref_2025_citygml_1_op/udx/luse/533933_luse_6697_op.gml",
+            "fileSize": 211179800,
+            "features": 55892,
+            "lod0": 0,
+            "lod1": 55892,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0
+          }
+        ],
+        "neighborDatasets": [
+          {
+            "id": "13201_bldg_lod1",
+            "name": "建築物モデル（八王子市）",
+            "pref": "東京都",
+            "pref_code": "13",
+            "city": "八王子市",
+            "city_code": "13201",
+            "ward": null,
+            "ward_code": null,
+            "type": "建築物モデル",
+            "type_en": "bldg",
+            "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+            "file_size": 124089680,
+            "composite_url": "https://api.plateauview.mlit.go.jp/datacatalog/3dtiles/13201-bldg-lod1-texture-2025/tileset.json",
+            "layers": null,
+            "year": 2025,
+            "registration_year": 2025,
+            "spec": "5.0",
+            "format": "3D Tiles",
+            "format_version": "1.0",
+            "lod": "1",
+            "texture": true
+          }
+        ],
+        "neighborCoverageChecks": [
+          {
+            "cityCode": "13201",
+            "leafTiles": 5,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/9b/095ae0-b42a-4390-a1b7-74aceb3fbd7a/13201_hachioji-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+              "path": "raw/0326ee29a25f33db71d326ef.json",
+              "bytes": 445895,
+              "sha256": "973a259065cdb977eb18f853ef8e25d981109b2edc78d25328559cdcac15e84a"
+            }
+          },
+          {
+            "cityCode": "13206",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/3d/928b9f-2733-4e74-bf2b-24ff074497e0/13206_fuchu-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+              "path": "raw/776a7db0a8a7bd48c8262d4f.json",
+              "bytes": 145136,
+              "sha256": "505be715cd1f9f9fd784395db16400308eb839c429e80e6bd2ff4bedb0d604bc"
+            }
+          },
+          {
+            "cityCode": "13209",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/25/83c3be-dfec-47f2-8cb8-2d9bad85d3eb/13209_machida-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+              "path": "raw/030efcd74eb7b2597ea64f95.json",
+              "bytes": 284933,
+              "sha256": "101d4e8c68298b19bd5ec0fbda342155a4fb5af3a189cc7a0c7587ce22c24854"
+            }
+          },
+          {
+            "cityCode": "13212",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/12/4243b6-cf41-4d1c-b9fc-9fe1e2cb1632/13212_hino-shi_pref_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+              "path": "raw/01f6b461a98773bb8c2175dd.json",
+              "bytes": 45504,
+              "sha256": "f7283e61f51fcb603cc5113336f13bbe7586f35098e73b47717cdde91d39b355"
+            }
+          },
+          {
+            "cityCode": "14130",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/16/003fe8-d709-469d-bf2f-d0233cfad231/14130_kawasaki-shi_city_2022_citygml_4_op_bldg_3dtiles_14134_takatsu-ku_lod1/tileset.json",
+              "path": "raw/8f5753140380d866f751f380.json",
+              "bytes": 50393,
+              "sha256": "bffb889b519ecd9c56fc9cdb0b6541d1c015cab2cfc948762aba7bca6860b639"
+            }
+          }
+        ]
+      },
+      {
+        "id": "azumino",
+        "cityCode": "20220",
+        "name": "一日市場〜豊科〜穂高〜安曇追分",
+        "station": "柏矢町",
+        "frame": {
+          "epsg": 6676,
+          "origin": [
+            -54571.611653208485,
+            35305.56809330088
+          ],
+          "angle": 1.7855259164127653,
+          "stationEnvelopeWidth": 751.5305934172575,
+          "stationEnvelopeLength": 12850.884080032862,
+          "remainingWidth": 2599.5015704118555,
+          "fitsWith750mEachSide": true
+        },
+        "anchor": {
+          "name": "柏矢町",
+          "position": [
+            137.88836,
+            36.322475
+          ],
+          "geometry": [
+            [
+              137.88853,
+              36.32189
+            ],
+            [
+              137.88819,
+              36.32306
+            ]
+          ],
+          "local": [
+            -199.7458026998983,
+            705.7222076773872
+          ]
+        },
+        "half": 700.0,
+        "bbox": [
+          137.87904379619908,
+          36.31493644593886,
+          137.89767507420476,
+          36.33001326444985
+        ],
+        "corners": [
+          [
+            137.88246358552988,
+            36.31493644593886
+          ],
+          [
+            137.89767507420476,
+            36.31770267124356
+          ],
+          [
+            137.89425754406633,
+            36.33001326444985
+          ],
+          [
+            137.87904379619908,
+            36.32724658811171
+          ]
+        ],
+        "dataset": {
+          "id": "20220_bldg_lod1",
+          "name": "建築物モデル（安曇野市）",
+          "pref": "長野県",
+          "pref_code": "20",
+          "city": "安曇野市",
+          "city_code": "20220",
+          "ward": null,
+          "ward_code": null,
+          "type": "建築物モデル",
+          "type_en": "bldg",
+          "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/tileset.json",
+          "file_size": 68405630,
+          "composite_url": "https://api.plateauview.mlit.go.jp/datacatalog/3dtiles/20220-bldg-lod1-texture-2025/tileset.json",
+          "layers": null,
+          "year": 2025,
+          "registration_year": 2025,
+          "spec": "4.1",
+          "format": "3D Tiles",
+          "format_version": "1.0",
+          "lod": "1",
+          "texture": true
+        },
+        "buildings": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data196.b3dm",
+            "region": [
+              2.4066920367708664,
+              0.633984609339045,
+              2.406791763035838,
+              0.6340802404130218,
+              570.7851961314952,
+              599.6264574660786
+            ],
+            "path": "raw/f18ec512f7bbc80d9a0ac393.b3dm",
+            "bytes": 2326704,
+            "sha256": "ae541db26506caef89798b386762321369b254b4182575509a8c942db7d2eaff"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data320.b3dm",
+            "region": [
+              2.4065964169426364,
+              0.6340762615527145,
+              2.406693875802927,
+              0.6341765973944461,
+              577.4349630854346,
+              592.6801012981246
+            ],
+            "path": "raw/f359e118a696878fa4d6ab1f.b3dm",
+            "bytes": 2122912,
+            "sha256": "21edfca07af2028dcf7a7f4564db208caaad53dab671959f60b411a00fddb266"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data322.b3dm",
+            "region": [
+              2.4065966515598274,
+              0.6339846988706286,
+              2.4066958551512116,
+              0.6340810525034302,
+              578.9432615991624,
+              593.7940877666414
+            ],
+            "path": "raw/083f26692dd957ac64b71a36.b3dm",
+            "bytes": 3083384,
+            "sha256": "c7ad7029a3ea9d7bda4f5ff440574218696c49f6eeff5653f58c8ff63d03ea32"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data323.b3dm",
+            "region": [
+              2.406501941412588,
+              0.6339850215985994,
+              2.406599472714818,
+              0.6340810656076878,
+              586.4473225715592,
+              601.1539313925175
+            ],
+            "path": "raw/7316ae159f6fed62c28187a2.b3dm",
+            "bytes": 2207964,
+            "sha256": "a60f139c045361c6ccb8b561cc77e2ef6e5683ebd02cdf771dbd2ba59c7c2e96"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data327.b3dm",
+            "region": [
+              2.406404090739229,
+              0.6339853859091877,
+              2.4065022204535635,
+              0.634080515981166,
+              594.5955554506336,
+              610.1409061324006
+            ],
+            "path": "raw/fd1eb5dd3e8ae03c85460408.b3dm",
+            "bytes": 1243460,
+            "sha256": "84399f5d49e9fbb7d1c838479f5a72165e08c2412f250251a02bb495970bc9fb"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data467.b3dm",
+            "region": [
+              2.406692763892865,
+              0.6338896615289302,
+              2.4067911351483633,
+              0.6339864701608867,
+              572.5744147986383,
+              591.919982110087
+            ],
+            "path": "raw/398dc03e1a8547ac5f3c0efb.b3dm",
+            "bytes": 1712436,
+            "sha256": "edbcd2fb7b1761b9790135b7efc728d6ef1f0f7d8e7249036749b45253300608"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data469.b3dm",
+            "region": [
+              2.406692801509702,
+              0.633794415956808,
+              2.4067910425888854,
+              0.6338909781716235,
+              575.2765948258286,
+              589.5302448288422
+            ],
+            "path": "raw/9cc8ec9661db8ba95dd58ed3.b3dm",
+            "bytes": 1925840,
+            "sha256": "2a385d66d7851daa92266d952ac68bc30c3a657ffb47a2085b569ce9e8cee6c9"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data600.b3dm",
+            "region": [
+              2.40659660531077,
+              0.6338870186957808,
+              2.4066944821900194,
+              0.6339864672885049,
+              580.0010369019194,
+              596.5835823814878
+            ],
+            "path": "raw/5bafc44f5b29de5a7e35522a.b3dm",
+            "bytes": 3477956,
+            "sha256": "3b2bc691b9e7a668de064727b47c3d523aa05f20e0fcfbbe54896cdfda43d2ae"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data601.b3dm",
+            "region": [
+              2.406501871935797,
+              0.6338901596373607,
+              2.4065998324594786,
+              0.633985920246319,
+              586.7543445015676,
+              605.2348959765266
+            ],
+            "path": "raw/617a2213e05f5fb95404380e.b3dm",
+            "bytes": 3675616,
+            "sha256": "3ea3fec081c3ee29ee3111a1798a5060ef5df7882a92f6dbca7530cdd92b6530"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data602.b3dm",
+            "region": [
+              2.406597174493867,
+              0.6337956769015194,
+              2.4066946348992673,
+              0.6338945257597787,
+              581.856742867542,
+              598.1375387173075
+            ],
+            "path": "raw/57f12ff4037b2b0cd05d0c29.b3dm",
+            "bytes": 472004,
+            "sha256": "e7aff38b0e97cf59306017e772dcb87b85a5e43968168ddaa5a38be8a854b2e4"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data603.b3dm",
+            "region": [
+              2.406501941412588,
+              0.6337956769015194,
+              2.4065983463398006,
+              0.6338910570163969,
+              591.1367588856579,
+              609.2158951481754
+            ],
+            "path": "raw/0d29c0efc326176b628604b7.b3dm",
+            "bytes": 264760,
+            "sha256": "f69e8a981255869f3f8ebd47101cc02f8f9450f1c8455072bb6d2ac97b9f186a"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data605.b3dm",
+            "region": [
+              2.406403745433172,
+              0.6338905314053537,
+              2.4065027058290007,
+              0.6339853859091877,
+              595.6066515628042,
+              613.214764107587
+            ],
+            "path": "raw/6b74d548ee72ab2c1aa090f7.b3dm",
+            "bytes": 2279544,
+            "sha256": "59e54d58a7f63d2eb0f1279fb4098f1b8836593ac22152726d72331c3ee61b6e"
+          },
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/12/5ed1f4-8aeb-479a-a072-db538e881d7f/20220_azumino-shi_city_2025_citygml_1_op_bldg_3dtiles_lod1/data/data607.b3dm",
+            "region": [
+              2.40640368140658,
+              0.6337956769015194,
+              2.406501941412588,
+              0.6338905314053537,
+              603.3737999162745,
+              616.2798758277328
+            ],
+            "path": "raw/4894015c811a905a4d3d6715.b3dm",
+            "bytes": 137608,
+            "sha256": "cc44db151e2290a9b4e670142322ed0251e80fe98986cd99c5e622620a79b184"
+          }
+        ],
+        "roads": [
+          {
+            "code": "54373770",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373770_tran_6697_op.gml",
+            "fileSize": 477547,
+            "features": 181,
+            "lod0": 0,
+            "lod1": 181,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/4daf80115a8133ec6c9e4eb1.gml",
+            "bytes": 477547,
+            "sha256": "523c013df1d7305f032b744aa2ce50296a23733d27eecffb44a3f7ccb2fcfec8"
+          },
+          {
+            "code": "54373771",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373771_tran_6697_op.gml",
+            "fileSize": 824310,
+            "features": 325,
+            "lod0": 0,
+            "lod1": 325,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/9514c3ac709f11699c60535d.gml",
+            "bytes": 824310,
+            "sha256": "742fd09766876f09b1e3e8119b611ccbe662a7b03418dc1a020a462f4bc2c002"
+          },
+          {
+            "code": "54373780",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373780_tran_6697_op.gml",
+            "fileSize": 1365604,
+            "features": 576,
+            "lod0": 0,
+            "lod1": 576,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/d2a687a4f0e1c02692ef877a.gml",
+            "bytes": 1365604,
+            "sha256": "dd2978b65537a0c0c36dccc61a3472c31aff5bf6d848c2fcd2173b1cd0b84270"
+          },
+          {
+            "code": "54373781",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373781_tran_6697_op.gml",
+            "fileSize": 1152536,
+            "features": 475,
+            "lod0": 0,
+            "lod1": 475,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/4dd5284aafeea2bcd3d20601.gml",
+            "bytes": 1152536,
+            "sha256": "1b1cfb059b4341c9b1172f4a432e7a5e81e96b4530b5acf239963ec9fbdb4e75"
+          },
+          {
+            "code": "54373790",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373790_tran_6697_op.gml",
+            "fileSize": 1117743,
+            "features": 456,
+            "lod0": 0,
+            "lod1": 456,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/0bde3cd6a2b531de3b8f066a.gml",
+            "bytes": 1117743,
+            "sha256": "2ec972efac7ef428482cc9df720260602f1b04aa59f43c41fcc7547d26d69ddc"
+          },
+          {
+            "code": "54373791",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/tran/54373791_tran_6697_op.gml",
+            "fileSize": 1422880,
+            "features": 593,
+            "lod0": 0,
+            "lod1": 593,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/6ce1fd4ef101a25c864644e4.gml",
+            "bytes": 1422880,
+            "sha256": "474cf0fce410fc0be257ce8dc292823b0e407ae7065b0d5d8ce36117a2337ad4"
+          }
+        ],
+        "land": [
+          {
+            "kind": "luse",
+            "code": "543737",
+            "maxLod": 1,
+            "url": "https://assets.cms.plateau.reearth.io/assets/c7/51b1fe-1ec2-4fca-a26a-af2cbd7ba4ef/20220_azumino-shi_city_2025_citygml_1_op/udx/luse/543737_luse_6697_op.gml",
+            "fileSize": 58373483,
+            "features": 19405,
+            "lod0": 0,
+            "lod1": 19405,
+            "lod2": 0,
+            "lod3": 0,
+            "lod4": 0,
+            "path": "raw/5da4da075c52a8103c8be789.gml",
+            "bytes": 58373483,
+            "sha256": "aaa80041e7a022fd684ace2f6fb4c4950800c5b8c80c1baeb9bc3347214b1682"
+          }
+        ],
+        "dem": [
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14467,
+            "y": 6415,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14467/6415.txt",
+            "path": "raw/8ffef2633b6b2315a44762a7.txt",
+            "bytes": 458647,
+            "sha256": "f73c693ff1b4011c4a67f14370e81205ed0a3483d6f5c375217c87c255484c97"
+          },
+          {
+            "layer": "dem5a",
+            "z": 14,
+            "x": 14467,
+            "y": 6416,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a/14/14467/6416.txt",
+            "path": "raw/6279bd40d8201e6372f78b78.txt",
+            "bytes": 458302,
+            "sha256": "c492f704df34e1f9d5ec04d9ef8fe20f9b84daa92db3f95d3cf8e92ae373b67d"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14467,
+            "y": 6415,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14467/6415.txt",
+            "path": "raw/e7541b65cc299ecc7d3e69b7.txt",
+            "bytes": 458752,
+            "sha256": "c4991c175f02f3baa537bb34baa0d417161a06268425112a9e1adf2fca475ec3"
+          },
+          {
+            "layer": "dem",
+            "z": 14,
+            "x": 14467,
+            "y": 6416,
+            "url": "https://cyberjapandata.gsi.go.jp/xyz/dem/14/14467/6416.txt",
+            "path": "raw/824fbdc48247054620b5d0d7.txt",
+            "bytes": 458752,
+            "sha256": "859e67bb08730a74d8ab72741995f8087e833cc8c5af538e6bcbe926fd09ef06"
+          }
+        ],
+        "metadata": {
+          "url": "https://api.plateauview.mlit.go.jp/datacatalog/citygml/r:137.87904379619908,36.31493644593886,137.89767507420476,36.33001326444985?types=tran,luse,wtr",
+          "path": "raw/fe2179410f629806f1a4a5b5.33001326444985",
+          "bytes": 4216,
+          "sha256": "02c0458af31873e7a3aaece139dc18ef857d8eefc3c12f72e62fe8ab12a6821c"
+        },
+        "codelists": [
+          {
+            "url": "https://assets.cms.plateau.reearth.io/assets/58/756e29-3100-41e5-b47d-2fef6ec82935/20220_azumino-shi_city_2025_citygml_1_op_codelists.zip",
+            "path": "raw/b3b800df8b403542bd2eb934.zip",
+            "bytes": 738627,
+            "sha256": "9ac84675b93fa5772d21a2f09a6f06b855eea6f631577c76b4d696471f8fef67"
+          }
+        ],
+        "skippedContext": [],
+        "neighborDatasets": [],
+        "neighborCoverageChecks": [
+          {
+            "cityCode": "20202",
+            "leafTiles": 0,
+            "tileset": {
+              "url": "https://assets.cms.plateau.reearth.io/assets/a3/c54f9c-6f6b-47dd-837e-dbc20b581a8d/20202_matsumoto-shi_city_2020_citygml_7_op_bldg_3dtiles_lod1/tileset.json",
+              "path": "raw/045407b7ed29e1ecdbcb0a01.json",
+              "bytes": 1343356,
+              "sha256": "0da08232a723167eb27a957b71afdefd388ef0e9f3ed16116c3c8bd49fe785fa"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "survey": {
+    "origin": "ai",
+    "created": "2026-09-22",
+    "radius": 3200,
+    "width": 3351.032163829113,
+    "span": 40000.0,
+    "source": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html",
+    "sourceSha256": "908e2c3036e9c80760ae3514be3682c77f81f0bd60ab5fb1b3da1aa9352bbd94",
+    "candidates": [
+      {
+        "id": "tokyo-full",
+        "name": "丸ノ内線全線",
+        "frame": {
+          "epsg": 6677,
+          "origin": [
+            -12584.907286835376,
+            -32620.083745212974
+          ],
+          "angle": 3.013661951182021,
+          "stationEnvelopeWidth": 5806.429504487722,
+          "stationEnvelopeLength": 13507.80033412589,
+          "remainingWidth": -2455.3973406586088,
+          "fitsWith750mEachSide": false
+        },
+        "stations": [
+          {
+            "name": "後楽園",
+            "position": [
+              139.75106,
+              35.707315
+            ],
+            "geometry": [
+              [
+                139.75164,
+                35.70734
+              ],
+              [
+                139.75156,
+                35.70733
+              ],
+              [
+                139.75096,
+                35.70731
+              ],
+              [
+                139.75008,
+                35.70728
+              ]
+            ],
+            "local": [
+              805.779317502902,
+              -5078.972722482277
+            ]
+          },
+          {
+            "name": "御茶ノ水",
+            "position": [
+              139.764405,
+              35.70043
+            ],
+            "geometry": [
+              [
+                139.76355,
+                35.70069
+              ],
+              [
+                139.76526,
+                35.70017
+              ]
+            ],
+            "local": [
+              201.252806978977,
+              -6373.687860468391
+            ]
+          },
+          {
+            "name": "本郷三丁目",
+            "position": [
+              139.76011000000003,
+              35.70675333333333
+            ],
+            "geometry": [
+              [
+                139.7595,
+                35.70728
+              ],
+              [
+                139.76006,
+                35.70685
+              ],
+              [
+                139.76077,
+                35.70613
+              ]
+            ],
+            "local": [
+              847.8040907180718,
+              -5899.171458185496
+            ]
+          },
+          {
+            "name": "新高円寺",
+            "position": [
+              139.64851,
+              35.69786
+            ],
+            "geometry": [
+              [
+                139.64926,
+                35.69788
+              ],
+              [
+                139.64776,
+                35.69784
+              ]
+            ],
+            "local": [
+              -1406.2283355115162,
+              3994.348112062051
+            ]
+          },
+          {
+            "name": "南阿佐ヶ谷",
+            "position": [
+              139.635575,
+              35.699455
+            ],
+            "geometry": [
+              [
+                139.63624,
+                35.69918
+              ],
+              [
+                139.63491,
+                35.69973
+              ]
+            ],
+            "local": [
+              -1377.7593131028814,
+              5177.880411429242
+            ]
+          },
+          {
+            "name": "荻窪",
+            "position": [
+              139.61975999999999,
+              35.704175
+            ],
+            "geometry": [
+              [
+                139.62077,
+                35.70419
+              ],
+              [
+                139.61875,
+                35.70416
+              ]
+            ],
+            "local": [
+              -1037.864728015231,
+              6663.435050236543
+            ]
+          },
+          {
+            "name": "茗荷谷",
+            "position": [
+              139.736895,
+              35.7172
+            ],
+            "geometry": [
+              [
+                139.73649,
+                35.71758
+              ],
+              [
+                139.7373,
+                35.71682
+              ]
+            ],
+            "local": [
+              1731.252446340629,
+              -3668.7082918119004
+            ]
+          },
+          {
+            "name": "新中野",
+            "position": [
+              139.66951,
+              35.697475
+            ],
+            "geometry": [
+              [
+                139.67029,
+                35.6975
+              ],
+              [
+                139.66873,
+                35.69745
+              ]
+            ],
+            "local": [
+              -1209.4848116537478,
+              2103.623082609039
+            ]
+          },
+          {
+            "name": "東高円寺",
+            "position": [
+              139.658295,
+              35.697964999999996
+            ],
+            "geometry": [
+              [
+                139.659,
+                35.69787
+              ],
+              [
+                139.65759,
+                35.69806
+              ]
+            ],
+            "local": [
+              -1283.305205104294,
+              3117.3255720851466
+            ]
+          },
+          {
+            "name": "池袋",
+            "position": [
+              139.71115,
+              35.730345
+            ],
+            "geometry": [
+              [
+                139.71034,
+                35.73061
+              ],
+              [
+                139.71196,
+                35.73008
+              ]
+            ],
+            "local": [
+              2883.307942565898,
+              -1173.8628894720218
+            ]
+          },
+          {
+            "name": "新大塚",
+            "position": [
+              139.72940666666668,
+              35.72609333333333
+            ],
+            "geometry": [
+              [
+                139.7288,
+                35.72652
+              ],
+              [
+                139.72951,
+                35.72602
+              ],
+              [
+                139.72991,
+                35.72574
+              ]
+            ],
+            "local": [
+              2624.2220098938997,
+              -2871.803359089314
+            ]
+          },
+          {
+            "name": "中野坂上",
+            "position": [
+              139.682205,
+              35.697085
+            ],
+            "geometry": [
+              [
+                139.68284,
+                35.69701
+              ],
+              [
+                139.68157,
+                35.69716
+              ]
+            ],
+            "local": [
+              -1107.6595243530394,
+              958.4522185719158
+            ]
+          },
+          {
+            "name": "東京",
+            "position": [
+              139.76479999999998,
+              35.681934999999996
+            ],
+            "geometry": [
+              [
+                139.765,
+                35.68273
+              ],
+              [
+                139.7646,
+                35.68114
+              ]
+            ],
+            "local": [
+              -1829.5026441326572,
+              -6669.506596323635
+            ]
+          },
+          {
+            "name": "国会議事堂前",
+            "position": [
+              139.7453416666667,
+              35.674845
+            ],
+            "geometry": [
+              [
+                139.74455,
+                35.67429
+              ],
+              [
+                139.74478,
+                35.67438
+              ],
+              [
+                139.74511,
+                35.67463
+              ],
+              [
+                139.74546,
+                35.67482
+              ],
+              [
+                139.74588,
+                35.67523
+              ],
+              [
+                139.74627,
+                35.67572
+              ]
+            ],
+            "local": [
+              -2833.058923180837,
+              -5022.097888522896
+            ]
+          },
+          {
+            "name": "淡路町",
+            "position": [
+              139.76745499999998,
+              35.694869999999995
+            ],
+            "geometry": [
+              [
+                139.76746,
+                35.69535
+              ],
+              [
+                139.76745,
+                35.69439
+              ]
+            ],
+            "local": [
+              -375.572841167702,
+              -6725.751647702588
+            ]
+          },
+          {
+            "name": "四谷三丁目",
+            "position": [
+              139.719325,
+              35.687835
+            ],
+            "geometry": [
+              [
+                139.72037,
+                35.68793
+              ],
+              [
+                139.71828,
+                35.68774
+              ]
+            ],
+            "local": [
+              -1701.553962915698,
+              -2503.7148514659043
+            ]
+          },
+          {
+            "name": "銀座",
+            "position": [
+              139.7639025,
+              35.673195
+            ],
+            "geometry": [
+              [
+                139.76443,
+                35.67358
+              ],
+              [
+                139.76413,
+                35.67325
+              ],
+              [
+                139.76382,
+                35.67306
+              ],
+              [
+                139.76323,
+                35.67289
+              ]
+            ],
+            "local": [
+              -2801.6068994481634,
+              -6711.953724303962
+            ]
+          },
+          {
+            "name": "霞ヶ関",
+            "position": [
+              139.75268,
+              35.674234999999996
+            ],
+            "geometry": [
+              [
+                139.75346,
+                35.67391
+              ],
+              [
+                139.7519,
+                35.67456
+              ]
+            ],
+            "local": [
+              -2816.0015144647346,
+              -5689.611421065036
+            ]
+          },
+          {
+            "name": "四ツ谷",
+            "position": [
+              139.73004,
+              35.68425125
+            ],
+            "geometry": [
+              [
+                139.73009,
+                35.68326
+              ],
+              [
+                139.73009,
+                35.68361
+              ],
+              [
+                139.73009,
+                35.68399
+              ],
+              [
+                139.73008,
+                35.68424
+              ],
+              [
+                139.73006,
+                35.68441
+              ],
+              [
+                139.73004,
+                35.6845
+              ],
+              [
+                139.72997,
+                35.68488
+              ],
+              [
+                139.7299,
+                35.68512
+              ]
+            ],
+            "local": [
+              -1973.2821193533887,
+              -3516.0375836775406
+            ]
+          },
+          {
+            "name": "大手町",
+            "position": [
+              139.76617666666667,
+              35.68677
+            ],
+            "geometry": [
+              [
+                139.76633,
+                35.68736
+              ],
+              [
+                139.76612,
+                35.68656
+              ],
+              [
+                139.76608,
+                35.68639
+              ]
+            ],
+            "local": [
+              -1281.6217804747705,
+              -6725.036800299443
+            ]
+          },
+          {
+            "name": "赤坂見附",
+            "position": [
+              139.737365,
+              35.6768325
+            ],
+            "geometry": [
+              [
+                139.73773,
+                35.67621
+              ],
+              [
+                139.73745,
+                35.67661
+              ],
+              [
+                139.73724,
+                35.67699
+              ],
+              [
+                139.73704,
+                35.67752
+              ]
+            ],
+            "local": [
+              -2705.7894365424636,
+              -4277.9200633476585
+            ]
+          },
+          {
+            "name": "西新宿",
+            "position": [
+              139.69256000000001,
+              35.694514999999996
+            ],
+            "geometry": [
+              [
+                139.6932,
+                35.69428
+              ],
+              [
+                139.69192,
+                35.69475
+              ]
+            ],
+            "local": [
+              -1272.3267437037093,
+              -7.148128201124393
+            ]
+          },
+          {
+            "name": "新宿三丁目",
+            "position": [
+              139.70421,
+              35.69118
+            ],
+            "geometry": [
+              [
+                139.70489,
+                35.69087
+              ],
+              [
+                139.70353,
+                35.69149
+              ]
+            ],
+            "local": [
+              -1506.2802574044113,
+              -1099.7774352984982
+            ]
+          },
+          {
+            "name": "新宿御苑前",
+            "position": [
+              139.710915,
+              35.688525
+            ],
+            "geometry": [
+              [
+                139.71185,
+                35.68834
+              ],
+              [
+                139.70998,
+                35.68871
+              ]
+            ],
+            "local": [
+              -1721.8211961929082,
+              -1738.9683954042846
+            ]
+          },
+          {
+            "name": "新宿",
+            "position": [
+              139.70059,
+              35.69244
+            ],
+            "geometry": [
+              [
+                139.7013,
+                35.69235
+              ],
+              [
+                139.70068,
+                35.69246
+              ],
+              [
+                139.69979,
+                35.69251
+              ]
+            ],
+            "local": [
+              -1408.977383413205,
+              -757.1242879935086
+            ]
+          },
+          {
+            "name": "中野新橋",
+            "position": [
+              139.674005,
+              35.691697500000004
+            ],
+            "geometry": [
+              [
+                139.67448,
+                35.69207
+              ],
+              [
+                139.67416,
+                35.69177
+              ],
+              [
+                139.6739,
+                35.69159
+              ],
+              [
+                139.67348,
+                35.69136
+              ]
+            ],
+            "local": [
+              -1794.1142542654145,
+              1619.329342346139
+            ]
+          },
+          {
+            "name": "方南町",
+            "position": [
+              139.657935,
+              35.683515
+            ],
+            "geometry": [
+              [
+                139.65867,
+                35.68367
+              ],
+              [
+                139.6572,
+                35.68336
+              ]
+            ],
+            "local": [
+              -2877.7856552036733,
+              2947.9566212621557
+            ]
+          },
+          {
+            "name": "中野富士見町",
+            "position": [
+              139.668155,
+              35.69082
+            ],
+            "geometry": [
+              [
+                139.6689,
+                35.69089
+              ],
+              [
+                139.66741,
+                35.69075
+              ]
+            ],
+            "local": [
+              -1957.3722835379829,
+              2132.3069883754674
+            ]
+          }
+        ],
+        "corridor": [
+          [
+            139.9110733580229,
+            35.66797613189482
+          ],
+          [
+            139.91582666966124,
+            35.697931373984844
+          ],
+          [
+            139.47723454415026,
+            35.74343187654344
+          ],
+          [
+            139.47264278598098,
+            35.71346020075266
+          ]
+        ],
+        "note": "Station envelope only; track bends, buildings and complete 40 km coverage require separate checks."
+      },
+      {
+        "id": "tokyo",
+        "name": "荻窪〜新宿〜四ツ谷",
+        "frame": {
+          "epsg": 6677,
+          "origin": [
+            -14340.084181777034,
+            -33771.47978610881
+          ],
+          "angle": 2.935047061640298,
+          "stationEnvelopeWidth": 621.8363507284957,
+          "stationEnvelopeLength": 10337.520808671043,
+          "remainingWidth": 2729.195813100617,
+          "fitsWith750mEachSide": true
+        },
+        "stations": [
+          {
+            "name": "新高円寺",
+            "position": [
+              139.64851,
+              35.69786
+            ],
+            "geometry": [
+              [
+                139.64926,
+                35.69788
+              ],
+              [
+                139.64776,
+                35.69784
+              ]
+            ],
+            "local": [
+              -228.70173881257494,
+              2389.8322182281663
+            ]
+          },
+          {
+            "name": "南阿佐ヶ谷",
+            "position": [
+              139.635575,
+              35.699455
+            ],
+            "geometry": [
+              [
+                139.63624,
+                35.69918
+              ],
+              [
+                139.63491,
+                35.69973
+              ]
+            ],
+            "local": [
+              -293.2680960374287,
+              3571.944892382795
+            ]
+          },
+          {
+            "name": "荻窪",
+            "position": [
+              139.61975999999999,
+              35.704175
+            ],
+            "geometry": [
+              [
+                139.62077,
+                35.70419
+              ],
+              [
+                139.61875,
+                35.70416
+              ]
+            ],
+            "local": [
+              -71.08975034976231,
+              5079.604567694597
+            ]
+          },
+          {
+            "name": "新中野",
+            "position": [
+              139.66951,
+              35.697475
+            ],
+            "geometry": [
+              [
+                139.67029,
+                35.6975
+              ],
+              [
+                139.66873,
+                35.69745
+              ]
+            ],
+            "local": [
+              115.92021189688252,
+              520.397848620805
+            ]
+          },
+          {
+            "name": "東高円寺",
+            "position": [
+              139.658295,
+              35.697964999999996
+            ],
+            "geometry": [
+              [
+                139.659,
+                35.69787
+              ],
+              [
+                139.65759,
+                35.69806
+              ]
+            ],
+            "local": [
+              -37.28223062667297,
+              1525.1720517451029
+            ]
+          },
+          {
+            "name": "中野坂上",
+            "position": [
+              139.682205,
+              35.697085
+            ],
+            "geometry": [
+              [
+                139.68284,
+                35.69701
+              ],
+              [
+                139.68157,
+                35.69716
+              ]
+            ],
+            "local": [
+              307.36578257908275,
+              -613.2393466227039
+            ]
+          },
+          {
+            "name": "四谷三丁目",
+            "position": [
+              139.719325,
+              35.687835
+            ],
+            "geometry": [
+              [
+                139.72037,
+                35.68793
+              ],
+              [
+                139.71828,
+                35.68774
+              ]
+            ],
+            "local": [
+              -12.796766279096573,
+              -4111.354177116202
+            ]
+          },
+          {
+            "name": "四ツ谷",
+            "position": [
+              139.73004,
+              35.68425125
+            ],
+            "geometry": [
+              [
+                139.73009,
+                35.68326
+              ],
+              [
+                139.73009,
+                35.68361
+              ],
+              [
+                139.73009,
+                35.68399
+              ],
+              [
+                139.73008,
+                35.68424
+              ],
+              [
+                139.73006,
+                35.68441
+              ],
+              [
+                139.73004,
+                35.6845
+              ],
+              [
+                139.72997,
+                35.68488
+              ],
+              [
+                139.7299,
+                35.68512
+              ]
+            ],
+            "local": [
+              -204.18398424357827,
+              -5141.8901725832575
+            ]
+          },
+          {
+            "name": "西新宿",
+            "position": [
+              139.69256000000001,
+              35.694514999999996
+            ],
+            "geometry": [
+              [
+                139.6932,
+                35.69428
+              ],
+              [
+                139.69192,
+                35.69475
+              ]
+            ],
+            "local": [
+              219.03954476613646,
+              -1588.7893445883171
+            ]
+          },
+          {
+            "name": "新宿三丁目",
+            "position": [
+              139.70421,
+              35.69118
+            ],
+            "geometry": [
+              [
+                139.70489,
+                35.69087
+              ],
+              [
+                139.70353,
+                35.69149
+              ]
+            ],
+            "local": [
+              71.61709183182938,
+              -2696.417291902678
+            ]
+          },
+          {
+            "name": "新宿御苑前",
+            "position": [
+              139.710915,
+              35.688525
+            ],
+            "geometry": [
+              [
+                139.71185,
+                35.68834
+              ],
+              [
+                139.70998,
+                35.68871
+              ]
+            ],
+            "local": [
+              -93.05995322322292,
+              -3350.561351423759
+            ]
+          },
+          {
+            "name": "新宿",
+            "position": [
+              139.70059,
+              35.69244
+            ],
+            "geometry": [
+              [
+                139.7013,
+                35.69235
+              ],
+              [
+                139.70068,
+                35.69246
+              ],
+              [
+                139.69979,
+                35.69251
+              ]
+            ],
+            "local": [
+              141.70953935106962,
+              -2347.1808713424416
+            ]
+          }
+        ],
+        "corridor": [
+          [
+            139.8873449917262,
+            35.64383731676112
+          ],
+          [
+            139.89495650994226,
+            35.67339702156273
+          ],
+          [
+            139.46214187561102,
+            35.7467811775136
+          ],
+          [
+            139.45468342494786,
+            35.71719513803142
+          ]
+        ],
+        "note": "Station envelope only; track bends, buildings and complete 40 km coverage require separate checks."
+      },
+      {
+        "id": "tama",
+        "name": "永山〜多摩センター〜南大沢",
+        "frame": {
+          "epsg": 6677,
+          "origin": [
+            -38068.80162285591,
+            -41565.38565242795
+          ],
+          "angle": 0.2715935053405367,
+          "stationEnvelopeWidth": 655.220838708261,
+          "stationEnvelopeLength": 6647.519628748923,
+          "remainingWidth": 2695.811325120852,
+          "fitsWith750mEachSide": true
+        },
+        "stations": [
+          {
+            "name": "京王堀之内",
+            "position": [
+              139.400325,
+              35.624475000000004
+            ],
+            "geometry": [
+              [
+                139.40131,
+                35.62497
+              ],
+              [
+                139.39934,
+                35.62398
+              ]
+            ],
+            "local": [
+              -299.0851303937796,
+              -1113.872489333767
+            ]
+          },
+          {
+            "name": "南大沢",
+            "position": [
+              139.3798,
+              35.6140725
+            ],
+            "geometry": [
+              [
+                139.38091,
+                35.61458
+              ],
+              [
+                139.37996,
+                35.61414
+              ],
+              [
+                139.37959,
+                35.61396
+              ],
+              [
+                139.37874,
+                35.61361
+              ]
+            ],
+            "local": [
+              304.4323514004434,
+              -3217.376964539381
+            ]
+          },
+          {
+            "name": "京王多摩センター",
+            "position": [
+              139.42416500000002,
+              35.625225
+            ],
+            "geometry": [
+              [
+                139.42516,
+                35.62558
+              ],
+              [
+                139.42317,
+                35.62487
+              ]
+            ],
+            "local": [
+              209.06553400190742,
+              986.5967164171594
+            ]
+          },
+          {
+            "name": "京王永山",
+            "position": [
+              139.448165,
+              35.6302525
+            ],
+            "geometry": [
+              [
+                139.44935,
+                35.62993
+              ],
+              [
+                139.44893,
+                35.63005
+              ],
+              [
+                139.44731,
+                35.63048
+              ],
+              [
+                139.44707,
+                35.63055
+              ]
+            ],
+            "local": [
+              263.9830937389104,
+              3230.2089273336233
+            ]
+          }
+        ],
+        "corridor": [
+          [
+            139.19566710614836,
+            35.589849633220744
+          ],
+          [
+            139.2058138000411,
+            35.560804872278865
+          ],
+          [
+            139.63063654002084,
+            35.65899177050008
+          ],
+          [
+            139.6206305573888,
+            35.68807256118902
+          ]
+        ],
+        "note": "Station envelope only; track bends, buildings and complete 40 km coverage require separate checks."
+      },
+      {
+        "id": "azumino-full",
+        "name": "松本〜穂高",
+        "frame": {
+          "epsg": 6676,
+          "origin": [
+            -53002.56154209508,
+            30971.154124186236
+          ],
+          "angle": 2.1229461690740496,
+          "stationEnvelopeWidth": 2996.4817929206292,
+          "stationEnvelopeLength": 14390.557061367603,
+          "remainingWidth": 354.5503709084837,
+          "fitsWith750mEachSide": false
+        },
+        "stations": [
+          {
+            "name": "松本",
+            "position": [
+              137.964625,
+              36.230270000000004
+            ],
+            "geometry": [
+              [
+                137.9652,
+                36.22914
+              ],
+              [
+                137.96405,
+                36.2314
+              ]
+            ],
+            "local": [
+              1377.2487011618177,
+              -7061.540470900074
+            ]
+          },
+          {
+            "name": "一日市場",
+            "position": [
+              137.90398,
+              36.260085000000004
+            ],
+            "geometry": [
+              [
+                137.90445,
+                36.25953
+              ],
+              [
+                137.90351,
+                36.26064
+              ]
+            ],
+            "local": [
+              -1495.0420197966407,
+              -1369.1606966756315
+            ]
+          },
+          {
+            "name": "島内",
+            "position": [
+              137.94476333333333,
+              36.24690666666667
+            ],
+            "geometry": [
+              [
+                137.94512,
+                36.24675
+              ],
+              [
+                137.94476,
+                36.24691
+              ],
+              [
+                137.94441,
+                36.24706
+              ]
+            ],
+            "local": [
+              839.6209933544483,
+              -4550.4463798431425
+            ]
+          },
+          {
+            "name": "中萱",
+            "position": [
+              137.9033,
+              36.273885
+            ],
+            "geometry": [
+              [
+                137.90329,
+                36.27331
+              ],
+              [
+                137.90331,
+                36.27446
+              ]
+            ],
+            "local": [
+              -735.7073753781333,
+              -38.09770410987778
+            ]
+          },
+          {
+            "name": "島高松",
+            "position": [
+              137.93161999999998,
+              36.24633
+            ],
+            "geometry": [
+              [
+                137.93218,
+                36.24637
+              ],
+              [
+                137.93162,
+                36.24633
+              ],
+              [
+                137.93106,
+                36.24629
+              ]
+            ],
+            "local": [
+              -196.37794987013672,
+              -3979.308666940092
+            ]
+          },
+          {
+            "name": "南豊科",
+            "position": [
+              137.90349,
+              36.29099
+            ],
+            "geometry": [
+              [
+                137.90348,
+                36.29039
+              ],
+              [
+                137.90349,
+                36.29099
+              ],
+              [
+                137.9035,
+                36.29159
+              ]
+            ],
+            "local": [
+              284.2028030310911,
+              1562.5827025987041
+            ]
+          },
+          {
+            "name": "北松本",
+            "position": [
+              137.9611,
+              36.236898000000004
+            ],
+            "geometry": [
+              [
+                137.96147,
+                36.23639
+              ],
+              [
+                137.96126,
+                36.2367
+              ],
+              [
+                137.96113,
+                36.23687
+              ],
+              [
+                137.96096,
+                36.23709
+              ],
+              [
+                137.96068,
+                36.23744
+              ]
+            ],
+            "local": [
+              1497.5971402782106,
+              -6269.864395088685
+            ]
+          },
+          {
+            "name": "梓橋",
+            "position": [
+              137.91808,
+              36.25018333333333
+            ],
+            "geometry": [
+              [
+                137.9187,
+                36.24979
+              ],
+              [
+                137.91808,
+                36.25018
+              ],
+              [
+                137.91746,
+                36.25058
+              ]
+            ],
+            "local": [
+              -1002.2204699306197,
+              -2972.205956496389
+            ]
+          },
+          {
+            "name": "豊科",
+            "position": [
+              137.90094,
+              36.30002
+            ],
+            "geometry": [
+              [
+                137.90132,
+                36.29944
+              ],
+              [
+                137.90056,
+                36.3006
+              ]
+            ],
+            "local": [
+              620.7399436409884,
+              2533.714050479174
+            ]
+          },
+          {
+            "name": "穂高",
+            "position": [
+              137.881942,
+              36.339056
+            ],
+            "geometry": [
+              [
+                137.88228,
+                36.33832
+              ],
+              [
+                137.88206,
+                36.33868
+              ],
+              [
+                137.88188,
+                36.33904
+              ],
+              [
+                137.88177,
+                36.3394
+              ],
+              [
+                137.88172,
+                36.33984
+              ]
+            ],
+            "local": [
+              1469.040006220459,
+              7110.946001817755
+            ]
+          },
+          {
+            "name": "柏矢町",
+            "position": [
+              137.88836,
+              36.322475
+            ],
+            "geometry": [
+              [
+                137.88853,
+                36.32189
+              ],
+              [
+                137.88819,
+                36.32306
+              ]
+            ],
+            "local": [
+              982.7437936537406,
+              5245.365864953019
+            ]
+          }
+        ],
+        "corridor": [
+          [
+            138.011910944841,
+            36.11675656255703
+          ],
+          [
+            138.04351129872433,
+            36.13272303996225
+          ],
+          [
+            137.80770834920125,
+            36.43852530769831
+          ],
+          [
+            137.77603447921462,
+            36.422496559839566
+          ]
+        ],
+        "note": "Station envelope only; track bends, buildings and complete 40 km coverage require separate checks."
+      },
+      {
+        "id": "azumino",
+        "name": "一日市場〜豊科〜穂高〜安曇追分",
+        "frame": {
+          "epsg": 6676,
+          "origin": [
+            -54571.611653208485,
+            35305.56809330088
+          ],
+          "angle": 1.7855259164127653,
+          "stationEnvelopeWidth": 751.5305934172575,
+          "stationEnvelopeLength": 12850.884080032862,
+          "remainingWidth": 2599.5015704118555,
+          "fitsWith750mEachSide": true
+        },
+        "stations": [
+          {
+            "name": "一日市場",
+            "position": [
+              137.90398,
+              36.260085000000004
+            ],
+            "geometry": [
+              [
+                137.90445,
+                36.25953
+              ],
+              [
+                137.90351,
+                36.26064
+              ]
+            ],
+            "local": [
+              -348.0489104065375,
+              -6356.104068865491
+            ]
+          },
+          {
+            "name": "中萱",
+            "position": [
+              137.9033,
+              36.273885
+            ],
+            "geometry": [
+              [
+                137.90329,
+                36.27331
+              ],
+              [
+                137.90331,
+                36.27446
+              ]
+            ],
+            "local": [
+              -72.18536598477226,
+              -4848.716561536556
+            ]
+          },
+          {
+            "name": "南豊科",
+            "position": [
+              137.90349,
+              36.29099
+            ],
+            "geometry": [
+              [
+                137.90348,
+                36.29039
+              ],
+              [
+                137.90349,
+                36.29099
+              ],
+              [
+                137.9035,
+                36.29159
+              ]
+            ],
+            "local": [
+              360.3024366565695,
+              -3000.650318944059
+            ]
+          },
+          {
+            "name": "豊科",
+            "position": [
+              137.90094,
+              36.30002
+            ],
+            "geometry": [
+              [
+                137.90132,
+                36.29944
+              ],
+              [
+                137.90056,
+                36.3006
+              ]
+            ],
+            "local": [
+              356.3660311573115,
+              -1972.8673425537268
+            ]
+          },
+          {
+            "name": "安曇追分",
+            "position": [
+              137.872775,
+              36.371865
+            ],
+            "geometry": [
+              [
+                137.87308,
+                36.37131
+              ],
+              [
+                137.87247,
+                36.37242
+              ]
+            ],
+            "local": [
+              -362.5763947002997,
+              6359.355208542275
+            ]
+          },
+          {
+            "name": "穂高",
+            "position": [
+              137.881942,
+              36.339056
+            ],
+            "geometry": [
+              [
+                137.88228,
+                36.33832
+              ],
+              [
+                137.88206,
+                36.33868
+              ],
+              [
+                137.88188,
+                36.33904
+              ],
+              [
+                137.88177,
+                36.3394
+              ],
+              [
+                137.88172,
+                36.33984
+              ]
+            ],
+            "local": [
+              -358.47854928806726,
+              2627.0959788581945
+            ]
+          },
+          {
+            "name": "柏矢町",
+            "position": [
+              137.88836,
+              36.322475
+            ],
+            "geometry": [
+              [
+                137.88853,
+                36.32189
+              ],
+              [
+                137.88819,
+                36.32306
+              ]
+            ],
+            "local": [
+              -199.7458026998983,
+              705.7222076773872
+            ]
+          },
+          {
+            "name": "有明",
+            "position": [
+              137.87824666666668,
+              36.36001
+            ],
+            "geometry": [
+              [
+                137.87852,
+                36.35927
+              ],
+              [
+                137.87825,
+                36.36001
+              ],
+              [
+                137.87797,
+                36.36075
+              ]
+            ],
+            "local": [
+              -172.107175049945,
+              4968.2566972943105
+            ]
+          }
+        ],
+        "corridor": [
+          [
+            137.9228010238167,
+            36.13748234807243
+          ],
+          [
+            137.95913457524702,
+            36.14408758648937
+          ],
+          [
+            137.86155997040424,
+            36.495831403185605
+          ],
+          [
+            137.82507194776085,
+            36.48919533954604
+          ]
+        ],
+        "note": "Station envelope only; track bends, buildings and complete 40 km coverage require separate checks."
+      }
+    ]
+  }
+}

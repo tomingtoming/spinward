@@ -1,12 +1,13 @@
 import { closeEverything, createDropdownChip } from './dropdownLayer'
-import { PLACE_DESTINATIONS, type PlaceVisitAction } from '../app/placeVisits'
+import { ALL_PLACE_DESTINATIONS as PLACE_DESTINATIONS, METRO_PLACE_DESTINATIONS, type PlaceVisitAction } from '../app/placeVisits'
 import type { OutingAction } from '../app/neighborhoodRoute'
+import { METRO_DIRECTIONS } from '../worlds/metroRoads'
 
 export type BeatBarAction = PlaceVisitAction | OutingAction | 'respawn-inner-wall' | 'respawn-old-town' |
   'respawn-overlook' | 'respawn-axis-end' | 'respawn-exterior' | 'rpm-coarse-decrement' |
   'rpm-coarse-increment' | 'audio-mute-toggle'
 export type BeatBarSnapshot = {
-  driving?: boolean; rpm: number; feltGravity: number; axisAvailable: boolean; oldTownAvailable: boolean
+  driving?: boolean; metroRoutes?: boolean; rpm: number; feltGravity: number; axisAvailable: boolean; oldTownAvailable: boolean
   raining: boolean; muted: boolean; availablePlaces: ReadonlySet<PlaceVisitAction>
 }
 export type BeatBarHandle = {
@@ -23,7 +24,8 @@ const PLACE_ROWS: {label:string; guide?:BeatBarAction; visit?:BeatBarAction; ava
   {label:'Riverside',guide:'guide-river',visit:'visit-river',available:'visit-river'},
   {label:'Garden street',guide:'guide-garden',visit:'visit-garden',available:'visit-garden'},
   {label:'Your car',guide:'guide-car',available:'visit-car-share'},
-  ...PLACE_DESTINATIONS.filter(p=>!['visit-cafe','visit-park','visit-river','visit-garden'].includes(p.id)).map(p=>({label:p.label,visit:p.id,available:p.id}))
+  ...PLACE_DESTINATIONS.filter(p=>!['visit-cafe','visit-park','visit-river','visit-garden'].includes(p.id)).map(p=>({label:p.label,visit:p.id,available:p.id,
+    guide:METRO_DIRECTIONS.find(d=>d.id.replace('guide-','visit-')===p.id)?.id}))
 ]
 export const createBeatBar = (onAction:(action:BeatBarAction)=>void, mount:HTMLElement,
   onToggleRain?:()=>void, primary:HTMLElement=mount):BeatBarHandle => {
@@ -77,7 +79,10 @@ export const createBeatBar = (onAction:(action:BeatBarAction)=>void, mount:HTMLE
     destroy(){places.destroy();explore.destroy();places.chip.remove();explore.chip.remove();root.remove()},
     setVisible(v){root.hidden=!v;places.chip.hidden=!v;explore.chip.hidden=!v},
     update(s){
-      for(const {place,row,label} of rows){row.hidden=!s.availablePlaces.has(place.available);if(place.guide) (label as HTMLButtonElement).disabled=(place.guide==='guide-car'||place.guide==='guide-river'||place.guide==='guide-garden')&&!!s.driving}
+      const metro = METRO_PLACE_DESTINATIONS.some(p=>s.availablePlaces.has(p.id))
+      const hintText=metro?(s.metroRoutes?'↗ Walking routes: Tokyo–Takebashi–Suidobashi. Go now skips the journey.':'Choose a location. Go now takes you to street level.'):'Choose a place for directions. Go now skips the journey.'
+      if(hint.textContent!==hintText)hint.textContent=hintText
+      for(const {place,row,label} of rows){row.hidden=!s.availablePlaces.has(place.available)||(metro&&place.available==='visit-landscape');if(place.guide) (label as HTMLButtonElement).disabled=place.guide.startsWith('guide-metro-')?(!s.metroRoutes||!!s.driving):(place.guide==='guide-car'||place.guide==='guide-river'||place.guide==='guide-garden')&&!!s.driving}
       places.chip.hidden=s.availablePlaces.size===0
       for(const item of explore.menuItems){
         if(item.id==='respawn-old-town')item.element.hidden=!s.oldTownAvailable

@@ -127,7 +127,7 @@ export const encodeShareState = ({
     params.set('a', String(round(pose.azimuth, 5)))
     params.set('ax', String(round(pose.axialPosition, 1)))
     // Street level is the overwhelmingly common case; keep it out of the URL.
-    if (pose.groundHeight > 0.05) {
+    if (Math.abs(pose.groundHeight) > 0.05) {
       params.set('gh', String(round(pose.groundHeight, 1)))
     }
   } else {
@@ -170,7 +170,7 @@ export const decodeShareState = (search: string): ShareState => {
         mode: 'grounded',
         azimuth,
         axialPosition,
-        groundHeight: Math.max(0, groundHeight)
+        groundHeight
       }
     }
   } else if (mode === 'f') {

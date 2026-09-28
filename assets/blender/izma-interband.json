@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "origin": "ai",
+  "created": "2026-09-20",
+  "owner": "spinward-izma-interband-v1",
+  "planSha256": "12d65440cb72c986a1c1f3c8a419d0e5dc25697651e8e07319e7ecf3633d6f3c",
+  "nativeSha256": "f468366ab34d7feb769f6e27deb12ca65c8a6a7419351b8eb0f0ca8a26c6b511",
+  "objects": [
+    {
+      "id": "end-minus",
+      "vertices": 74085,
+      "faces": 58477
+    },
+    {
+      "id": "end-plus",
+      "vertices": 74085,
+      "faces": 58477
+    },
+    {
+      "id": "end-minus-band-0",
+      "vertices": 2156,
+      "faces": 1679
+    },
+    {
+      "id": "end-minus-band-1",
+      "vertices": 2012,
+      "faces": 1679
+    },
+    {
+      "id": "end-minus-band-2",
+      "vertices": 2012,
+      "faces": 1679
+    },
+    {
+      "id": "end-plus-band-0",
+      "vertices": 2156,
+      "faces": 1679
+    },
+    {
+      "id": "end-plus-band-1",
+      "vertices": 2012,
+      "faces": 1679
+    },
+    {
+      "id": "end-plus-band-2",
+      "vertices": 2012,
+      "faces": 1679
+    },
+    {
+      "id": "supports",
+      "vertices": 23112,
+      "faces": 12840
+    }
+  ],
+  "supportedLights": 1814,
+  "supports": 1284,
+  "materials": {
+    "road": "#686e6b",
+    "walk": "#b0ac9b",
+    "structure": "#929b96",
+    "kerb": "#c2bdaa",
+    "rail": "#667776",
+    "mark": "#ccc6ad",
+    "lamp": "#d4d1b6"
+  },
+  "scope": "two general-traffic end rings and six existing-road approaches; motorway/central structures pending"
+}

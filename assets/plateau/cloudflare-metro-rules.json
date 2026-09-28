@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "host": "data.spinward.toming.app",
+  "phases": {
+    "http_request_cache_settings": [
+      {
+        "ref": "spinward_metro_immutable_data",
+        "description": "Spinward immutable city objects and releases",
+        "expression": "(http.host eq \"data.spinward.toming.app\" and http.request.method in {\"GET\" \"HEAD\"} and (starts_with(http.request.uri.path, \"/objects/\") or starts_with(http.request.uri.path, \"/releases/\")))",
+        "action": "set_cache_settings",
+        "action_parameters": {
+          "cache": true,
+          "edge_ttl": {
+            "mode": "bypass_by_default",
+            "status_code_ttl": [
+              {"status_code_range": {"from": 400, "to": 599}, "value": -1}
+            ]
+          },
+          "browser_ttl": {"mode": "respect_origin"},
+          "respect_strong_etags": true
+        },
+        "enabled": true
+      }
+    ],
+    "http_response_compression": [
+      {
+        "ref": "spinward_metro_opaque_bytes",
+        "description": "Preserve Spinward checksummed wire bytes",
+        "expression": "(http.host eq \"data.spinward.toming.app\")",
+        "action": "compress_response",
+        "action_parameters": {"algorithms": [{"name": "none"}]},
+        "enabled": true
+      }
+    ],
+    "http_response_headers_transform": [
+      {
+        "ref": "spinward_metro_timing",
+        "description": "Measure public Spinward city transfer across origins",
+        "expression": "(http.host eq \"data.spinward.toming.app\")",
+        "action": "rewrite",
+        "action_parameters": {
+          "headers": {"timing-allow-origin": {"operation": "set", "value": "*"}}
+        },
+        "enabled": true
+      },
+      {
+        "ref": "spinward_metro_errors_no_store",
+        "description": "Do not retain missing or failed city objects in browser caches",
+        "expression": "(http.host eq \"data.spinward.toming.app\" and http.response.code ge 400)",
+        "action": "rewrite",
+        "action_parameters": {
+          "headers": {"cache-control": {"operation": "set", "value": "no-store"}}
+        },
+        "enabled": true
+      }
+    ]
+  }
+}

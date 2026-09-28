@@ -1,7 +1,8 @@
+import type { RegionalMotion, RegionalPreparation } from '../worlds/regionalMotion'
 import type { ColonyFocus } from '../worlds/colonyRegionStore'
 
 export type RegionalReadiness = {
-  prepareRegions(foci: readonly ColonyFocus[]): boolean
+  prepareRegions(foci: readonly ColonyFocus[], preparation?: RegionalPreparation): boolean
   getRegionalStatus(): { failed: { attempts: number; message: string }[] } | null
   retryRegions(): void
 }
@@ -23,11 +24,12 @@ export class ColonyMotionGate {
     this.arrival = { key, focus, apply }; this.state = 'loading'
   }
 
-  step(source: RegionalReadiness, foci: readonly ColonyFocus[]): boolean {
+  step(source: RegionalReadiness, foci: readonly ColonyFocus[], motion?: RegionalMotion): boolean {
     const key = source.getRegionalStatus()
     if (this.arrival && this.arrival.key !== key) this.cancel()
     try {
-      const ready = source.prepareRegions(this.arrival ? [...foci, this.arrival.focus] : foci)
+      const ready = source.prepareRegions(this.arrival ? [...foci, this.arrival.focus] : foci,
+        motion ? { motion, arrival: this.arrival?.focus } : undefined)
       if (!ready) {
         this.state = key?.failed.some(f => f.attempts >= 3) ? 'failed' : 'loading'
         this.error = key?.failed[0]?.message ?? ''

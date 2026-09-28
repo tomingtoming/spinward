@@ -1,3 +1,4 @@
+import { placesForHabitat } from '../../app/placeVisits'
 import * as THREE from 'three'
 
 import {
@@ -77,10 +78,12 @@ export class WatchPanel {
     new THREE.PlaneGeometry(1, 1),
     createMaterial(this.expandedTexture)
   )
-  private readonly layouts = createAllWatchLayouts()
+  private layouts = createAllWatchLayouts()
+  private placesKey = ''
   private screen: WatchScreen = 'home'
   private hoveredAction: WatchActionId | null = null
   private snapshot: WatchRenderSnapshot | null = null
+  private paintPending = false
 
   private get layout() {
     return this.layouts[this.screen]
@@ -94,6 +97,15 @@ export class WatchPanel {
     this.group.renderOrder = 30
     this.group.add(this.expandedMesh)
     this.group.visible = false
+    // Frustum culling runs before this callback. An offscreen wrist needs its
+    // pose and input updated, but no canvas painting or texture upload. Clear
+    // the flag after painting so both XR eyes share one fresh texture.
+    this.expandedMesh.onBeforeRender = () => {
+      if (!this.paintPending || this.snapshot === null) return
+      renderWatch(this.expandedCanvas.context, this.layout, this.snapshot, this.hoveredAction)
+      this.expandedTexture.needsUpdate = true
+      this.paintPending = false
+    }
   }
 
   get interactiveObject() {
@@ -111,6 +123,15 @@ export class WatchPanel {
     leftController: THREE.Object3D | null
   ) {
     this.snapshot = snapshot
+    this.paintPending = true
+    const places = placesForHabitat(snapshot.availablePlaces)
+    const key = places.map(p => p.id).join(',')+':'+!!snapshot.metroRoutes
+    if (key !== this.placesKey) {
+      this.placesKey = key
+      this.layouts = createAllWatchLayouts(WATCH_CANVAS_SIZE.width, WATCH_CANVAS_SIZE.height, places,!!snapshot.metroRoutes)
+      if (this.screen === 'places-more') this.screen = 'places'
+      this.hoveredAction = null
+    }
 
     if (!xrActive || leftGrip === null || leftController === null) {
       this.group.visible = false
@@ -139,13 +160,6 @@ export class WatchPanel {
     this.group.quaternion.copy(panelQuaternion)
     this.group.visible = true
 
-    renderWatch(
-      this.expandedCanvas.context,
-      this.layout,
-      snapshot,
-      this.hoveredAction
-    )
-    this.expandedTexture.needsUpdate = true
   }
 
   updateHover(uv: THREE.Vector2 | null) {

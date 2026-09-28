@@ -1,5 +1,8 @@
 # Spinward
 
+東京版・Quest改善の開発再開は [開発引き継ぎ](docs/development-handoff.md) を参照。
+この開発ブランチの生成アセットは別保管のため、全単体テストや旧手作り都市を動かす前に復元する。
+
 **Held by the spin. Not by gravity.**
 
 [![Night over Izma Colony: the far side of the city hangs overhead](docs/img/hero-night.jpg)](https://spinward.toming.app/)

@@ -85,6 +85,38 @@ class ColonySpatialDataTest(unittest.TestCase):
             region = next(r for r in catalog['regions'] if any(s['id'] == 'base:0' for s in r['surfaces']))
             self.assertEqual(region['bounds'], [-2.000001, -.000001, 514.000001, 3.000001])
 
+    def test_dense_regions_split_without_losing_faces_or_renumbering_compounds(self):
+        layer = {'vertices': [], 'meshes': {'walk': []}, 'surfaces': []}
+        for x in (20.125, 300.125):
+            offset = len(layer['vertices']) // 3
+            layer['vertices'].extend([x, 10.0, 2, x + 8, 10.0, 2, x, 18.0, 2])
+            ids = list(range(offset, offset + 3))
+            layer['meshes']['walk'].extend(ids)
+            layer['surfaces'].append({'indices': ids, 'bounds': [x, 10.0, x + 8, 18.0]})
+        source = {'base': layer, 'cityBlocks': {'fixed': copy.deepcopy(layer)}}
+        original = partition(source)
+        self.assertEqual(len(original), 1)
+        original_packed = next(iter(original.values()))
+        limit = len(encoded(original_packed)) - 1
+        before = encoded(source)
+        with tempfile.TemporaryDirectory(prefix='spinward-dense-region-') as temp:
+            result = write_regions(Path(temp), source, byte_limit=limit)
+            self.assertGreater(len(result['regions']), 1)
+            self.assertEqual(result, write_regions(Path(temp), source, byte_limit=limit))
+            actual_faces, compounds = [], {}
+            for region in result['regions']:
+                self.assertLessEqual(region['bytes'], limit)
+                packed = json.loads((Path(temp) / 'public' / region['url'][1:]).read_bytes())
+                actual_faces.extend(faces(packed))
+                for s in packed['surfaces']:
+                    self.assertNotIn(s['id'], compounds)
+                    compounds[s['id']] = encoded([s['bounds'], [packed['vertices'][i*3:i*3+3] for i in s['indices']]])
+            self.assertEqual(sorted(actual_faces), faces(original_packed))
+            for s in original_packed['surfaces']:
+                self.assertEqual(compounds.pop(s['id']), encoded([s['bounds'], [original_packed['vertices'][i*3:i*3+3] for i in s['indices']]]))
+            self.assertEqual(compounds, {})
+            self.assertEqual(encoded(source), before)
+
 
 if __name__ == '__main__':
     unittest.main()

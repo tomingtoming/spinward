@@ -1,3 +1,4 @@
+import type { MetroCity } from '../worlds/metroCity'
 import { rebuildNativeDistricts } from './nativeDistricts'
 import {preserveCityPlaces} from './cityPlaces'
 import {rebuildArrivalWest,rebuildArrivalCentral,isArrivalStreet} from './arrivalDistrict'
@@ -111,6 +112,7 @@ type CityscapeDimensions = {
 }
 
 type CityscapeOptions = {
+  metro?: MetroCity | null
   landscapes?: LandscapeLibrary | null
   colony?: ColonyManifest | null
   maxBuildings?: number
@@ -981,6 +983,8 @@ export class Cityscape {
   private cables: THREE.Mesh | null = null
   private spineRings: THREE.Mesh | null = null
   private axisSpine: THREE.Mesh | null = null
+  private readonly metro: MetroCity | null
+  get metroWorld() { return this.metro?.active ? this.metro : null }
   private radius = 0
   private length = 0
   private topology: HabitatTopology = ISLAND_THREE_TOPOLOGY
@@ -1000,6 +1004,8 @@ export class Cityscape {
     dimensions: CityscapeDimensions,
     options?: CityscapeOptions
   ) {
+    this.metro = options?.metro ?? null
+    if (this.metro) this.group.add(this.metro.group)
     this.landscapes = options?.landscapes ?? null
     this.colony = options?.colony ?? null
     // The structural pattern is readable nearby but recedes into the large
@@ -1423,6 +1429,18 @@ export class Cityscape {
       return
     }
 
+    if (this.metro?.configure({ radius, length, topology: this.topology, type: this.habitatType, worldId })) {
+      this.authoredWorldId = null
+      this.authoredBlock.rebuild([], radius)
+      this.colonyBuildings.rebuild([], radius, new Map(), [])
+      this.collisionIndex = this.metro.index
+      this.cityPlan = { buildings: [], roads: [], patches: [], trees: [], intersections: [],
+        tower: null, expressway: null, streetNetwork: new StreetNetwork([], radius) }
+      this.buildWindowStrips(radius, length)
+      this.buildMirrors(radius, length)
+      return
+    }
+
     this.authoredWorldId = this.landscapes ? resolveAuthoredWorld({ radius, length,
       topology: this.topology, type: this.habitatType, worldId }) : null
     if (this.authoredWorldId && this.landscapes) {
@@ -1430,7 +1448,7 @@ export class Cityscape {
       this.colonyBuildings.rebuild([], radius, new Map(), [])
       const data = this.landscapes[this.authoredWorldId]
       this.authoredLandscape.rebuild(this.authoredWorldId, data, radius,
-        this.authoredWorldId === 'izma' ? [...this.colony?.publicRealm?.lights ?? [], ...this.colony?.neighbourhoods?.lights ?? [], ...this.colony?.railways?.lights ?? []] : undefined)
+        this.authoredWorldId === 'izma' ? [...this.colony?.publicRealm?.lights ?? [], ...this.colony?.neighbourhoods?.lights ?? [], ...this.colony?.railways?.lights ?? [], ...this.colony?.waterworks?.lights ?? [], ...this.colony?.interband?.lights ?? [], ...this.colony?.motorway?.lights ?? []] : undefined)
       this.authoredColony.rebuild(this.authoredWorldId === 'izma' ? this.colony : null, data)
       this.collisionBuildings = [...landscapeColliders(data, radius), ...this.authoredColony.getColliders()]
       this.collisionIndex = buildCityCollisionIndex(this.collisionBuildings, radius, length)
@@ -1612,6 +1630,7 @@ export class Cityscape {
   }
 
   getInteriorVisit(kind: string | null, queryGround = true): { azimuth: number; axial: number; orientation: THREE.Quaternion; groundHeight?: number } | null {
+    if (this.metroWorld) return kind ? this.metroWorld.visit(kind) : null
     if (this.authoredWorldId) return kind ? this.authoredLandscape.visit(kind) ?? this.authoredColony.visit(kind, queryGround ? this.collisionIndex : null) : null
     if (kind === 'landscape') return this.authoredLandscape.visit()
     if (kind === 'deck') {
@@ -1704,7 +1723,7 @@ export class Cityscape {
   }
 
   getBuildings(): readonly CityBuilding[] {
-    return this.collisionBuildings
+    return this.metroWorld?.index.all ?? this.collisionBuildings
   }
 
   // True when the colony is lit by steerable window mirrors (Izma) rather than an
@@ -1726,7 +1745,7 @@ export class Cityscape {
     return this.cityPlan
   }
 
-  isAuthoredLandscape() { return this.authoredWorldId !== null }
+  isAuthoredLandscape() { return this.metroWorld !== null || this.authoredWorldId !== null }
 
   // The Car Kit pack once loaded (null until then); parkedCars.ts shares it.
   getKenneyCarPack(): KenneyCarGeometryPack | null {
@@ -1742,6 +1761,7 @@ export class Cityscape {
   }
 
   setDaylight(daylight: number) {
+    this.metroWorld?.setDaylight(daylight)
     this.authoredLandscape.setDaylight(daylight)
     this.authoredColony.setDaylight(daylight)
     this.riverLayer.setDaylight(daylight)
@@ -1807,6 +1827,7 @@ export class Cityscape {
   dispose() {
     this.disposed = true
     this.clear()
+    this.metro?.dispose()
     this.authoredLandscape.dispose()
     this.authoredColony.dispose()
     this.authoredBlock.dispose()
@@ -2030,6 +2051,7 @@ export class Cityscape {
   // The fine grid refreshes street access, interiors and traffic; the coarse
   // grid selects the nearby interior plans. ColonyBuildings owns exterior LODs.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
+    this.metroWorld?.update(azimuth, axial, altitude)
     this.authoredLandscape.update(azimuth, axial, altitude)
     this.authoredColony.update(azimuth, axial, altitude)
     this.authoredBlock.update(azimuth,axial,altitude)

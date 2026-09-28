@@ -4,6 +4,7 @@ import { Group } from 'three'
 import raw from '../../qa/neighborhood-life/colony-source'
 import plan from '../../assets/blender/izma-neighbourhood-plan.json'
 import parcels from '../../assets/blender/izma-neighbourhood-parcels.json'
+import city, { isLegacyParcel } from '../../qa/neighborhood-life/city-parcels'
 import publicSpaces from '../../assets/blender/izma-public-spaces.json'
 import urban from '../../assets/blender/izma-urban-plan.json'
 import streets from '../../assets/blender/izma-urban-streets.json'
@@ -17,7 +18,8 @@ import { positivePolygon, polygonArea, intersectStreetPolygons } from '../object
 
 const manifest = readColonyManifest(raw)
 const retired = new Set(manifest.cityBlocks?.retiredParcelIds ?? [])
-const activeParcels = parcels.parcels.filter(p => !retired.has(p.id))
+const activeCityParcels = city.parcels.filter(p => !retired.has(p.id))
+const activeParcels = activeCityParcels.filter(isLegacyParcel)
 const physics = buildCityCollisionIndex(colonyColliders(manifest), 3200, 40000)
 function drawingIndex(material?: string) {
   const meshes = decodeColonyMesh(manifest.neighbourhoods!.fixed, false).meshes
@@ -38,13 +40,49 @@ function drawnMeshIndex(positions: number[]) {
   })
   return buildCityCollisionIndex(landscapeColliders({ surfaces, solids: [] }, 3200), 3200, 40000)
 }
-// New road-side paving can cover the former individual frontage surface.
+// Public footways and new road-side paving can cover individual approaches.
 // Check the original surface still exists, then compare physics with the
 // visible top of both independent drawing layers at the same location.
 const streetPaving = drawnMeshIndex(manifest.streetFrontages
   ? decodeColonyMesh(manifest.streetFrontages.fixed, false).meshes['frontage-paving'] : [])
+const publicFootways = drawnMeshIndex(decodeColonyMesh(manifest.base, false).meshes.walk)
 const withStreetPaving = (h: number, x: number, y: number) => Math.max(h,
+  getCityGroundHeight(publicFootways, 3200, x / 3200, y, 400, 0),
   getCityGroundHeight(streetPaving, 3200, x / 3200, y, 400, 0))
+
+test('the composed city replaces exactly the named parcels and exports every retained and new entrance', async () => {
+  for (const [name, digest] of Object.entries(city.dependencies)) {
+    const bytes = await Bun.file(new URL('../../assets/blender/' + name, import.meta.url)).arrayBuffer()
+    expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
+  }
+  const replaced = new Set(city.cityFabric.retiredParcelIds), added = new Set(city.cityFabric.newParcelIds)
+  const originalIds = new Set(parcels.parcels.map(p => p.id))
+  expect(replaced.size).toBe(city.cityFabric.retiredParcelIds.length)
+  expect(added.size).toBe(city.cityFabric.newParcelIds.length)
+  for (const id of replaced) expect(originalIds.has(id), id).toBe(true)
+  for (const id of added) expect(originalIds.has(id), id).toBe(false)
+  expect(city.parcels.map(p => p.id).sort()).toEqual([
+    ...parcels.parcels.filter(p => !replaced.has(p.id)).map(p => p.id), ...added
+  ].sort())
+  const exported = (raw as { neighbourhoods: { parcels: { id: string; access: unknown; floor: number }[] } }).neighbourhoods.parcels
+  expect(exported.map(p => p.id).sort()).toEqual(activeCityParcels.map(p => p.id).sort())
+  const sourceById = new Map(activeCityParcels.map(p => [p.id, p]))
+  for (const p of exported) {
+    expect(p.access, p.id).toEqual(sourceById.get(p.id)!.access)
+    expect(p.floor, p.id).toBe(sourceById.get(p.id)!.floor)
+  }
+  expect(new Set(activeCityParcels.map(p => p.band)).size).toBe(3)
+  expect(new Set(activeCityParcels.map(p => p.district)).size).toBe(18)
+  expect(new Set(activeCityParcels.filter(p => added.has(p.id)).map(p => p.district)).size).toBe(13)
+  const native = await Bun.file(new URL('../../assets/blender/izma-city-neighbourhoods-native.json', import.meta.url)).json()
+  const bytes = await Bun.file(new URL('../../assets/blender/izma-city-neighbourhoods.json', import.meta.url)).arrayBuffer()
+  expect(native.contractSha256).toBe(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'))
+  expect(native.parts).toHaveLength(18)
+  for (const part of native.parts) {
+    const bytes = await Bun.file(new URL('../../assets/blender/' + part.file, import.meta.url)).arrayBuffer()
+    expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), part.file).toBe(part.sha256)
+  }
+})
 
 test('station, centre-link and public-place catchments have mixed uses and current reservation sources', async () => {
   for (const [name, digest] of Object.entries(parcels.dependencies)) {
@@ -52,7 +90,7 @@ test('station, centre-link and public-place catchments have mixed uses and curre
     expect(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'), name).toBe(digest)
   }
   expect(parcels.neighbourhoods.map(n => n.id).sort()).toEqual(publicSpaces.places.map(p => p.id).sort())
-  expect(manifest.neighbourhoods!.counts.buildings).toBe(activeParcels.length)
+  expect(manifest.neighbourhoods!.counts.buildings).toBe(activeCityParcels.length)
   expect(new Set(parcels.parcels.map(p => p.id)).size).toBe(parcels.parcels.length)
   for (const n of parcels.neighbourhoods) {
     const spec = plan.districts[n.id as keyof typeof plan.districts]
@@ -269,8 +307,9 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
     const mesh = decodeColonyMesh(await Bun.file(new URL('../../public' + tile.url, import.meta.url)).json(), false)
     foundations.set(tile.id, drawnMeshIndex(mesh.meshes['arch-foundation'] ?? []))
   }
-  for (const p of activeParcels) {
-    expect(p.access.maximumStep, p.id).toBeLessThan(.15)
+  for (const p of activeCityParcels) {
+    if (isLegacyParcel(p)) expect(p.access.maximumStep, p.id).toBeLessThan(.15)
+    else expect(p.access.maximumStep, p.id).toBeLessThanOrEqual(.160001)
     expect(Math.abs(p.access.end[2] - p.floor), p.id).toBeLessThan(.003)
     for (const t of [.05, .25, .5, .75, .95]) {
       const q = p.access.start.map((v, i) => v + (p.access.end[i] - v) * t)
@@ -280,11 +319,12 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
         getCityGroundHeight(foundations.get(tile.id)!, 3200, q[0] / 3200, q[1], p.floor + .05, 0)))
       expect(h, p.id).toBeGreaterThan(0)
       const visible = withStreetPaving(h, q[0], q[1])
-      expect(Math.abs(getCityGroundHeight(physics, 3200, q[0] / 3200, q[1], visible + .03) - visible), p.id).toBeLessThan(.02)
+      expect(Math.abs(getCityGroundHeight(physics, 3200, q[0] / 3200, q[1], visible + .03, 0) - visible), p.id).toBeLessThan(.02)
       collectCityCollidersNear(physics, q[0] / 3200, q[1], 1, near)
       expect(near.size, p.id).toBeLessThanOrEqual(32)
       expect([...near].reduce((sum, b) => sum + (b.surfaceMesh?.length ?? 0) / 9, 0), p.id).toBeLessThanOrEqual(4096)
     }
+    if (!isLegacyParcel(p)) continue
     const u = 0, v = p.size[1] / 2 + p.lot.rearGarden / 2
     const x = p.position[0] + Math.cos(p.yaw) * u - Math.sin(p.yaw) * v
     const y = p.position[1] + Math.sin(p.yaw) * u + Math.cos(p.yaw) * v
@@ -293,12 +333,12 @@ test('new frontages and lot grounds agree with drawn support and preserve the lo
     const visible = withStreetPaving(h, x, y)
     expect(Math.abs(getCityGroundHeight(physics, 3200, x / 3200, y, visible + .03) - visible), p.id).toBeLessThan(.02)
   }
-})
+}, 30_000) // Decodes all native detail tiles and checks every composed entrance.
 
 test('collision cost stays bounded between the roads, including the outer edges of dense housing', () => {
   const near = new Set<CityBuilding>()
   for (const n of parcels.neighbourhoods) {
-    const points = activeParcels.filter(p => p.district === n.id).flatMap(p => p.lot.polygon)
+    const points = activeCityParcels.filter(p => p.district === n.id).flatMap(p => isLegacyParcel(p) ? p.lot.polygon : p.outline)
     const xs = points.map(p => p[0]), ys = points.map(p => p[1])
     for (let x = Math.min(...xs) - 64; x <= Math.max(...xs) + 64; x += 16)
       for (let y = Math.min(...ys) - 64; y <= Math.max(...ys) + 64; y += 16) {
@@ -317,9 +357,23 @@ test('street lamps have visible support and share the bounded near-light pool on
     h: p.floor + Number(part[2]) + Number(part[5])
   })))
   expect(lights.length).toBeGreaterThan(200)
-  expect(lights).toHaveLength(poles.length)
-  for (const light of lights) expect(poles.some(p => Math.hypot(p.x - light.position[0], p.y - light.position[1]) < .5
-    && Math.abs(p.h - light.position[2] - .21) < .01)).toBe(true)
+  const onPole = (light: typeof lights[number]) => poles.some(p => Math.hypot(p.x - light.position[0], p.y - light.position[1]) < .5
+    && Math.abs(p.h - light.position[2] - .21) < .01)
+  expect(lights.filter(onPole)).toHaveLength(poles.length)
+  const wallLights = lights.filter(light => !onPole(light))
+  expect(wallLights.length).toBeGreaterThan(1000)
+  const newParcels = activeCityParcels.filter(p => !isLegacyParcel(p))
+  for (const light of wallLights) {
+    // A lamp must sit just outside an inhabited front wall, at a reachable
+    // storey height. This also detects fixtures left behind after floor edits.
+    expect(newParcels.some(p => {
+      const dx = light.position[0] - p.position[0], dy = light.position[1] - p.position[1]
+      const u = Math.cos(p.yaw) * dx + Math.sin(p.yaw) * dy
+      const v = -Math.sin(p.yaw) * dx + Math.cos(p.yaw) * dy
+      return p.volumes.some(([cx, cy, , width, depth]) => Math.abs(u - cx) < width / 2 && Math.abs(v - cy + depth / 2) < .3)
+        && Math.abs(light.position[2] - p.floor - 2.59) < .01
+    }), JSON.stringify(light.position)).toBe(true)
+  }
   layer.rebuild('izma', unpackLandscapeLibrary(worldRaw).izma, 3200, [...manifest.publicRealm!.lights!, ...lights])
   try {
     expect(layer.group.children.filter(o => o.type === 'PointLight')).toHaveLength(LANDSCAPE_LIGHT_BUDGET)

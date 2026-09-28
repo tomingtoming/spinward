@@ -13,6 +13,7 @@ import type { WatchActionId } from './watchLayout'
 import { parseWatchParameterAction } from './watchSchema'
 
 export type WatchRenderSnapshot = {
+  metroRoutes?: boolean
   outing?: {text:string;mode:string;canPark:boolean;active:boolean;label?:string;detail?:string}
   playerMode: PlayerTraversalMode
   // Which control scheme the legend should show (PC / SP / VR).
@@ -75,6 +76,8 @@ export type WatchRenderSnapshot = {
 export const createWatchRenderSnapshot = (
   settingsStore: SettingsStore,
   runtime: {
+    metroRoutes?: boolean
+    oldTownAvailable?: boolean
     outing?: WatchRenderSnapshot['outing']
     playerMode: PlayerTraversalMode
     platform: ControlPlatform
@@ -97,6 +100,7 @@ export const createWatchRenderSnapshot = (
     }
   }
 ): WatchRenderSnapshot => ({
+  metroRoutes: runtime.metroRoutes,
   outing: runtime.outing,
   playerMode: runtime.playerMode,
   platform: runtime.platform,
@@ -133,11 +137,11 @@ export const createWatchRenderSnapshot = (
   jetpackAcceleration: settingsStore.habitat.jetpackAcceleration,
   reattachThreshold: settingsStore.reattach.radialTolerance,
   axisEndRespawnEnabled: canRespawnOnAxisEnd(settingsStore.habitat.type),
-  oldTownRespawnEnabled:
+  oldTownRespawnEnabled: runtime.oldTownAvailable ?? (
     getArrivalSquare(
       settingsStore.habitat.radius,
       getHabitatSpan(settingsStore.habitat)
-    ) !== null,
+    ) !== null),
   radiusFineStep: settingsStore.getRadiusFineStep(),
   radiusCoarseStep: settingsStore.getRadiusCoarseStep(),
   lengthFineStep: settingsStore.getLengthFineStep(),
@@ -167,6 +171,7 @@ export const isWatchActionDisabled = (
   }
 
   if (action === 'park-car') return !snapshot.outing?.canPark
+  if (action.startsWith('guide-metro-')) return !snapshot.metroRoutes || snapshot.feltSpeed>=0
   if (action === 'guide-cancel') return !snapshot.outing?.active
   if (action === 'guide-cafe') return !snapshot.availablePlaces.has('visit-cafe')
   if (action === 'guide-garden') return !snapshot.availablePlaces.has('visit-garden') || snapshot.feltSpeed>=0

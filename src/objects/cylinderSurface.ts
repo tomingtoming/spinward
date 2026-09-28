@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { BULKHEAD_SECTORS, BULKHEAD_SECTOR_ANGLE } from './bulkheadLayout'
 
 type CylinderSurfaceRepeat = {
   circumferential: number
@@ -161,7 +162,7 @@ export const createEndCapBulkheadTextureSet = (size = 512): SurfaceTextureSet =>
     ctx.closePath()
   }
   for (let row = 1; row < radii.length; row++) {
-    const count = row * 8, step = Math.PI * 2 / count, offset = row % 2 ? 0 : step / 2
+    const count = row * BULKHEAD_SECTORS, step = Math.PI * 2 / count, offset = row % 2 ? 0 : step / 2
     for (let col = 0; col < count; col++) {
       wedge(radii[row - 1], radii[row], col * step + offset, (col + 1) * step + offset)
       ctx.fillStyle = palette[Math.floor(random() * palette.length)]; ctx.fill()
@@ -185,13 +186,13 @@ export const installEndCapPanelDetail = (material: THREE.MeshStandardMaterial) =
       float fw = max(length(dFdx(vBulkheadDisk)), length(dFdy(vBulkheadDisk)));
       float ringDistance = min(min(abs(r - .24), abs(r - .4)), min(abs(r - .58), abs(r - .78)));
       float bayRow = 1.0 + step(.24, r) + step(.4, r) + step(.58, r) + step(.78, r);
-      float count = bayRow * 8.0;
+      float count = bayRow * ${BULKHEAD_SECTORS.toFixed(1)};
       float angle = atan(vBulkheadDisk.y, vBulkheadDisk.x + .0000001) / 6.28318530718;
       float sector = fract(angle * count - (1.0 - mod(bayRow, 2.0)) * .5);
       float spokeDistance = min(sector, 1.0 - sector) * 6.28318530718 * r / count;
       float bayJoint = 1.0 - smoothstep(.0007 - fw * .5, .0007 + fw * .5, min(ringDistance, spokeDistance));
-      float primarySector = fract(angle * 8.0);
-      float primarySpoke = min(primarySector, 1.0 - primarySector) * .7853981634 * r;
+      float primarySector = fract(angle * ${BULKHEAD_SECTORS.toFixed(1)});
+      float primarySpoke = min(primarySector, 1.0 - primarySector) * ${BULKHEAD_SECTOR_ANGLE.toFixed(12)} * r;
       float primaryRing = min(min(abs(r - .26), abs(r - .58)), min(abs(r - .78), abs(r - .976)));
       float primaryDistance = min(primaryRing, mix(1.0, primarySpoke, step(.26, r)));
       float primaryJoint = 1.0 - smoothstep(.002 - fw * .5, .002 + fw * .5, primaryDistance);
@@ -206,7 +207,7 @@ export const installEndCapPanelDetail = (material: THREE.MeshStandardMaterial) =
       float plateTone = fract(sin(dot(floor(panelUV), vec2(127.1, 311.7))) * 43758.5453);
       diffuseColor.rgb *= 1.0 + panelDetail * ((plateTone - .5) * .035 - .22 * max(seams.x, seams.y));`)
   }
-  material.customProgramCacheKey = () => 'bulkhead-metric-panels-v2'
+  material.customProgramCacheKey = () => 'bulkhead-metric-panels-v3-twelve'
 }
 
 export const createExteriorHullTextureSet = (size = 512): SurfaceTextureSet => {

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export type StreetLampSource = { id: string; position: THREE.Vector3; down: THREE.Vector3; intensity?: number; distance?: number; angle?: number }
+export type StreetLampSource = { id: string; position: THREE.Vector3; down: THREE.Vector3; intensity?: number; distance?: number; angle?: number; color?: THREE.ColorRepresentation }
 export const STREET_LIGHT_RANGE = 42
 const LIGHT_INTENSITY = 200
 
@@ -66,6 +66,7 @@ export class StreetLampLighting {
           slot.light.target.position.copy(next.position).add(next.down)
           slot.light.distance = next.distance ?? 32
           slot.light.angle = next.angle ?? Math.PI / 3
+          slot.light.color.set(next.color ?? 0xffdfb5)
         } else slot.source = null
       }
       if (!changed && slot.source && this.desired.some(source => source.id === slot.source!.id)) slot.fade = Math.min(1, slot.fade + step)

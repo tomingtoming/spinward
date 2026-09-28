@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import raw from '../../qa/neighborhood-life/colony-source'
 import plan from '../../assets/blender/izma-block-parcels.json'
 import original from '../../assets/blender/izma-neighbourhood-parcels.json'
+import city from '../../qa/neighborhood-life/city-parcels'
 import { AuthoredColony, colonyColliders, decodeColonyMesh, readColonyManifest, type ColonyPackedMesh } from './authoredColony'
 import { buildCityCollisionIndex, collectCityCollidersNear, getCityGroundHeight } from '../objects/cityLayout'
 import { citySurfaceVertices } from '../objects/citySurfaceMesh'
@@ -18,7 +19,7 @@ test('complete blocks replace only named source parcels and keep every dependenc
   expect(replacement.retiredParcelIds.toSorted()).toEqual(retired)
   expect(new Set(retired).size).toBe(retired.length)
   for (const id of retired) expect(original.parcels.some(p => p.id === id), id).toBe(true)
-  expect(manifest.neighbourhoods!.counts.buildings + retired.length).toBe(original.parcels.length)
+  expect(manifest.neighbourhoods!.counts.buildings + retired.length).toBe(city.parcels.length)
   expect(replacement.counts.buildings).toBe(plan.blocks.reduce((n,b) => n+b.plots.length,0))
   const bytes = await Bun.file(new URL('../../assets/blender/izma-block-parcels.json', import.meta.url)).arrayBuffer()
   expect(replacement.planHash).toBe(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'))

@@ -19,6 +19,17 @@ def encoded(value):
     return (json.dumps(value, separators=(',', ':')) + '\n').encode()
 
 
+def write_immutable(path, payload):
+    """Reuse a content-addressed tile without rewriting shared native outputs."""
+    path = Path(path)
+    if path.exists():
+        if path.read_bytes() != payload:
+            raise ValueError('Existing immutable tile has unexpected contents: ' + str(path))
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+
+
 def read_manifest(path):
     path = Path(path)
     document = json.loads(path.read_text())

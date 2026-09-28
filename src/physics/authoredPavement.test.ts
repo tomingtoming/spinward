@@ -49,7 +49,7 @@ for (const [district,pulsed] of [['a-old-town',false],['b-housing',false],['c-ma
         city.update(state.surface.azimuth,y)
         stepGroundedPlayer(state,{radius,length:40000,omega,frameAngleEnd:frame*omega*dt,deltaSeconds:dt,
           tangentDistanceDelta:dx/Math.max(distance,.001)*speed*dt,axisDistanceDelta:dy/Math.max(distance,.001)*speed*dt,
-          sampleGroundHeight:(a,y,h)=>getCityGroundHeight(index,radius,a,y,h)})
+          sampleGroundHeight:(a,y,h,tolerance)=>getCityGroundHeight(index,radius,a,y,h,tolerance)})
         world.step();syncGroundedSurfaceFromPhysics(state,frame*omega*dt)
         expect(state.mode).toBe('grounded')
       }

@@ -19,7 +19,8 @@ try {
   const boot = async (query, time) => {
     await page.goto(`${base}/?debug&metrics=off&lock=0&dpr=1&tier=quest&landscape=authored&preset=izma&t=${time}&${query}`)
     await page.waitForSelector('#splash', { state: 'detached', timeout: 60000 })
-    await page.waitForFunction(() => window.__spinwardCity?.authoredColony.group.userData.pending === 0)
+    await page.waitForFunction(() => window.__spinwardCity?.authoredColony.group.userData.pending === 0 &&
+      (!window.__spinward?.regional || (window.__spinward.regional.state === 'ready' && !window.__spinward.regional.pendingArrival)))
     await page.evaluate(() => document.querySelector('.lil-gui')?.remove())
     if (await page.locator('.tour-notice button').count()) await page.locator('.tour-notice button').first().click()
     await page.waitForTimeout(350)
@@ -46,12 +47,16 @@ try {
       const s = window.__spinward, c = window.__spinwardCity
       const gl = document.querySelector('canvas').getContext('webgl2'), d = gl.getExtension('WEBGL_debug_renderer_info')
       return { gpu: d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown', mode: s.mode, x: s.azimuth * s.radius, y: s.axial,
-        h: s.groundHeight, radial: s.radial, colony: c.authoredColony.group.userData, study: c.authoredLandscape.group.userData,
+        h: s.groundHeight, radial: s.radial, regional: s.regional, colony: c.authoredColony.group.userData, study: c.authoredLandscape.group.userData,
+        localLights: window.__spinwardScene.getObjectsByProperty('isPointLight', true)
+          .filter(light => light.name.startsWith('landscape-local-light-'))
+          .map(light => ({ name: light.name, intensity: light.intensity, distance: light.distance })),
         jsHeap: performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize } : null }
     })
     incompleteCase.state = state
     gpu = state.gpu
     if (/unknown|SwiftShader|Software|llvmpipe/i.test(gpu)) throw Error('Hardware GPU required: ' + gpu)
+    if (state.localLights.length > 6) throw Error('Local point-light budget exceeded')
     if (state.colony.loaded > 18 || state.colony.pending > 3 || state.colony.failed.length) throw Error('Tile load failure/budget: ' + JSON.stringify(state.colony))
     const frames = await page.evaluate(async () => {
       const times = []; let last, start

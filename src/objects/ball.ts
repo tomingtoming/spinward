@@ -66,6 +66,7 @@ type BallOptions = {
 type BallStepConfig = {
   deltaSeconds: number
   habitatRadius: number
+  structuralRadius?: number
   habitatLength: number
   omega: number
   frameAngleEnd: number
@@ -608,7 +609,7 @@ export class Ball {
     }
     preCollisionVelocity.copy(this.rotatingVelocity)
     const collidedWall = confineSphereToRotatingCylinder(this.rotatingPosition, this.rotatingVelocity, {
-      radius: config.habitatRadius,
+      radius: config.structuralRadius ?? config.habitatRadius,
       length: config.habitatLength,
       sphereRadius: this.radius,
       restitution: this.restitution,

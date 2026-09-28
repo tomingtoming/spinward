@@ -6,9 +6,11 @@ import math
 import sys
 from collections import defaultdict
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from izma_authoring_paths import authoring_root
+ROOT=authoring_root();ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
-from colony_manifest_io import read_manifest,write_manifest,encoded
+from colony_manifest_io import read_manifest,write_manifest,encoded,write_immutable
 from izma_street_frontages import triangle_altitude
 
 contract=json.loads((ASSETS/'izma-corner-blocks.json').read_text())
@@ -69,7 +71,7 @@ for cell,ids in sorted(tiles.items()):
     data=pack(groups[0]);data['mid']=pack(groups[1]);payload=encoded(data)
     assert len(payload)<4*1024*1024
     name='corner-'+'-'.join(map(str,cell));filename=name+'-'+hashlib.sha256(payload).hexdigest()[:12]+'.json'
-    (ROOT/'public/landscapes/izma'/filename).write_bytes(payload);files.append({'url':'/landscapes/izma/'+filename,'bytes':len(payload)})
+    write_immutable(ROOT/'public/landscapes/izma'/filename,payload);files.append({'url':'/landscapes/izma/'+filename,'bytes':len(payload)})
     points=[p for values in groups[0].values() for p in values]
     manifest['tiles'].append({'id':name,'url':files[-1]['url'],'band':cell[0],'districts':sorted({parcels[i]['district'] for i in ids}),
         'bounds':[min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points),max(p[1] for p in points)],
@@ -81,5 +83,6 @@ for p in parcels.values():
 manifest['cornerBlocks']={'version':1,'fixed':pack(fixed,physical),'counts':counts,'parcels':contract['parcels']}
 result=write_manifest(source,manifest)
 out=ROOT/'qa/webxr/evidence/colony-corner-buildings-20260918'
+out.mkdir(parents=True,exist_ok=True)
 (out/'export.json').write_text(json.dumps({'counts':counts,'files':files,**result},indent=2)+'\n')
 print(json.dumps({'counts':counts,**result}),flush=True)

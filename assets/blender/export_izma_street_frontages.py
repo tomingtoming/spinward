@@ -6,15 +6,18 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
-ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from izma_authoring_paths import authoring_root,city_asset_name
+ROOT=authoring_root()
 ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
 from colony_manifest_io import read_manifest,write_manifest,encoded
 from izma_block_composition import invalidate_blocks
 from izma_street_frontages import triangle_altitude
-from izma_collision_mesh import simplify_collision_surface
+from izma_collision_mesh import simplify_collision_surface,simplify_packed_collision
+from colony_collision_partition import refine_city_ground
 
-contract=json.loads((ASSETS/'izma-street-frontages.json').read_text())
+contract=json.loads((ASSETS/city_asset_name('izma-street-frontages.json')).read_text())
 for name,digest in contract['dependencies'].items():
     assert hashlib.sha256((ASSETS/name).read_bytes()).hexdigest()==digest,('Rebuild street frontages',name)
 source=ROOT/'src/worlds/generated/izmaColony.json'
@@ -73,7 +76,15 @@ counts={'streets':len(contract['paths']),'districts':len({p['district'] for p in
         'collisionTriangles':sum(len(s['indices'])//3 for s in surfaces),'surfaceGroups':len(surfaces),
         'degenerateTrianglesRemoved':degenerate_triangles,
         'collisionTrianglesRemoved':collision_triangles_removed,'maximumSampledCollisionError':maximum_sampled_error}
-manifest['streetFrontages']={'version':1,'fixed':{'vertices':pool,'meshes':dict(meshes),'surfaces':surfaces},
+packed={'vertices':pool,'meshes':dict(meshes),'surfaces':surfaces}
+if city_asset_name('izma-street-frontages.json')!='izma-street-frontages.json':
+    packed,simplified=simplify_packed_collision(packed)
+    packed=refine_city_ground(packed)
+    counts['surfaceGroups']=len(packed['surfaces'])
+    counts['collisionTriangles']=sum(len(s['indices'])//3 for s in packed['surfaces'])
+    counts['collisionTrianglesRemoved']+=simplified['removedTriangles']
+    counts['maximumSampledCollisionError']=max(counts['maximumSampledCollisionError'],simplified['maximumSampledError'])
+manifest['streetFrontages']={'version':1,'fixed':packed,
                              'counts':counts,'paths':contract['paths']}
 result=write_manifest(source,manifest)
 out=ROOT/'qa/webxr/evidence/colony-street-corners-20260918'

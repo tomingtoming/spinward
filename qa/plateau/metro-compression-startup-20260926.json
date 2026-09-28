@@ -1,0 +1,212 @@
+[
+  {
+    "place": "shibuya",
+    "arrival": {
+      "id": "shibuya",
+      "region": "west",
+      "listed": true,
+      "actual": {
+        "azimuth": 2.4613990014697937,
+        "axial": -19300
+      },
+      "expected": {
+        "azimuth": -3.821786290345947,
+        "axial": -19299.999999999993,
+        "groundHeight": 15.239405241736563,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.7067697380316768,
+          "_y": 0.5357491292537004,
+          "_z": 0.021829736659772992,
+          "_w": -0.46148983792051335
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 9314.89999999851,
+    "wireBytes": 9426503,
+    "cdpBytes": 9424196,
+    "workerTimingBytes": 2307,
+    "completed": 60,
+    "inFlight": 4,
+    "errors": [],
+    "version": "baseline"
+  },
+  {
+    "place": "shibuya",
+    "arrival": {
+      "id": "shibuya",
+      "region": "west",
+      "listed": true,
+      "actual": {
+        "azimuth": 2.4613990750482975,
+        "axial": -19300
+      },
+      "expected": {
+        "azimuth": -3.821786290345947,
+        "axial": -19299.999999999993,
+        "groundHeight": 15.239405241736563,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.7067697380316768,
+          "_y": 0.5357491292537004,
+          "_z": 0.021829736659772992,
+          "_w": -0.46148983792051335
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 8648.599999997765,
+    "wireBytes": 8343709,
+    "cdpBytes": 8334648,
+    "workerTimingBytes": 9061,
+    "completed": 60,
+    "inFlight": 4,
+    "errors": [],
+    "version": "meshopt"
+  },
+  {
+    "place": "omiya",
+    "arrival": {
+      "id": "omiya",
+      "region": "west",
+      "listed": true,
+      "actual": {
+        "azimuth": 1.859955876755547,
+        "axial": 8879.32357788086
+      },
+      "expected": {
+        "azimuth": -4.423229427813266,
+        "axial": 8879.32350517003,
+        "groundHeight": 14.018408831597878,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.17365219863581774,
+          "_y": -0.6074786468215075,
+          "_z": 0.6854523425512138,
+          "_w": -0.36189735237482745
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 8398.10000000149,
+    "wireBytes": 8104825,
+    "cdpBytes": 8095764,
+    "workerTimingBytes": 9061,
+    "completed": 60,
+    "inFlight": 3,
+    "errors": [],
+    "version": "meshopt"
+  },
+  {
+    "place": "omiya",
+    "arrival": {
+      "id": "omiya",
+      "region": "west",
+      "listed": true,
+      "actual": {
+        "azimuth": 1.8599557697268636,
+        "axial": 8879.32357788086
+      },
+      "expected": {
+        "azimuth": -4.423229427813266,
+        "axial": 8879.32350517003,
+        "groundHeight": 14.018408831597878,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.17365219863581774,
+          "_y": -0.6074786468215075,
+          "_z": 0.6854523425512138,
+          "_w": -0.36189735237482745
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 9139.800000000745,
+    "wireBytes": 9158720,
+    "cdpBytes": 9156413,
+    "workerTimingBytes": 2307,
+    "completed": 60,
+    "inFlight": 4,
+    "errors": [],
+    "version": "baseline"
+  },
+  {
+    "place": "tokyo",
+    "arrival": {
+      "id": "tokyo",
+      "region": "east",
+      "listed": true,
+      "actual": {
+        "azimuth": 0.1843562048604992,
+        "axial": -18335.77423095703
+      },
+      "expected": {
+        "azimuth": 0.18435615909963426,
+        "axial": -18335.773964640226,
+        "groundHeight": 2.749549466688855,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.6798036888085615,
+          "_y": -0.632612270172663,
+          "_z": -0.1945943079390365,
+          "_w": -0.3159140953281281
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 9537.199999999255,
+    "wireBytes": 9715892,
+    "cdpBytes": 9713585,
+    "workerTimingBytes": 2307,
+    "completed": 62,
+    "inFlight": 4,
+    "errors": [],
+    "version": "baseline"
+  },
+  {
+    "place": "tokyo",
+    "arrival": {
+      "id": "tokyo",
+      "region": "east",
+      "listed": true,
+      "actual": {
+        "azimuth": 0.1843562048604992,
+        "axial": -18335.77423095703
+      },
+      "expected": {
+        "azimuth": 0.18435615909963426,
+        "axial": -18335.773964640226,
+        "groundHeight": 2.749549466688855,
+        "orientation": {
+          "isQuaternion": true,
+          "_x": 0.6798036888085615,
+          "_y": -0.632612270172663,
+          "_z": -0.1945943079390365,
+          "_w": -0.3159140953281281
+        }
+      }
+    },
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "networkModel": "rule",
+    "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+    "usableMs": 8760,
+    "wireBytes": 8388367,
+    "cdpBytes": 8379306,
+    "workerTimingBytes": 9061,
+    "completed": 62,
+    "inFlight": 4,
+    "errors": [],
+    "version": "meshopt"
+  }
+]

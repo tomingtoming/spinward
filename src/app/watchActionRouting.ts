@@ -1,5 +1,5 @@
 import type { WatchActionId } from '../ui/watch/watchLayout'
-import { PLACE_DESTINATIONS, type PlaceVisitAction } from './placeVisits'
+import { ALL_PLACE_DESTINATIONS as PLACE_DESTINATIONS, type PlaceVisitAction } from './placeVisits'
 
 export type RuntimeWatchAction =
   | {

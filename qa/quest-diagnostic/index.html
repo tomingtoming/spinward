@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spinward — VR起動の切り分け</title>
+<style>
+html{color-scheme:dark;background:#101820;color:#eff4f4;font:20px/1.5 system-ui,sans-serif}body{max-width:850px;margin:auto;padding:24px}h1{font-size:1.35rem}p{margin:12px 0}#view{width:100%;height:200px;border-radius:12px;overflow:hidden}canvas{display:block}button,a{font:inherit}#entry button{position:static!important;width:100%!important;margin:16px 0!important;min-height:64px;font-size:22px!important;opacity:1!important;background:#2457a8!important}#status,#previous{padding:14px;background:#1a2934;border-radius:10px;white-space:pre-wrap}a{color:#9fdbff}details{margin-top:20px}pre{white-space:pre-wrap;font-size:14px;overflow-wrap:anywhere}.note{color:#b6c4cc;font-size:16px}
+</style>
+<h1>Spinward — VR起動の切り分け</h1>
+<p>都市を読み込まず、床と青い箱だけでVRを開始します。本編と同じ描画エンジン・開始ボタンを使います。</p>
+<p>「ENTER VR」を1回押してください。入れた場合は約10秒で自動的に戻ります。</p>
+<p id="previous">前回の記録を確認中…</p>
+<div id="view"></div>
+<div id="entry"></div>
+<p id="status" role="status">準備中…</p>
+<p class="note">ブラウザが終了した場合は、このページを開き直すと最後の段階を表示します。記録はこの端末に保存します。手動でタブを閉じた場合も未完了になるので、記録だけではクラッシュと断定しません。</p>
+<details><summary>診断の詳細</summary><pre id="details"></pre></details>
+<p><a id="depth-alternative" href="?depth=plain">通常の奥行き設定で比較する</a></p>
+<p><a href="/?city=tokyo&preset=izma">Spinward東京版に戻る</a></p>
+<script type="module" src="./diagnostic.mjs"></script>
+</html>

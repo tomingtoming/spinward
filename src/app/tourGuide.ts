@@ -1,5 +1,5 @@
 import { formatModeControlsLine, getControlScheme, type ControlPlatform } from '../xr/controlScheme'
-import type { PlaceVisitAction } from './placeVisits'
+import { METRO_PLACE_DESTINATIONS, type PlaceVisitAction } from './placeVisits'
 
 export type TourEventId =
   | PlaceVisitAction
@@ -38,6 +38,11 @@ const FREEFLY_BRAKE_TOKEN = '{{FREEFLY_BRAKE}}'
 const TRAM_CONTROLS_TOKEN = '{{TRAM_CONTROLS}}'
 
 export const TOUR_CARDS: Record<TourEventId, TourCard> = {
+  ...Object.fromEntries(METRO_PLACE_DESTINATIONS.map(place => [place.id, {
+    title: place.label,
+    body: ['Explore the surrounding streets. Choose another destination in Places.'],
+    durationSeconds: 4
+  }])),
   'visit-landscape': {
     title: 'LANDSCAPE STUDY',
     body: ['Walk the terrain and compare the neighbourhoods.', 'Change habitat to visit another landscape.'],

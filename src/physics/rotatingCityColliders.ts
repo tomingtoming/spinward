@@ -5,6 +5,7 @@ import type { RapierModule } from './rapierContext'
 import { BUILDING_COLLISION_GROUPS, scaleLengthForRapier } from './rapierBoundary'
 import {
   collectCityCollidersNear,
+  CITY_COLLIDER_TRAVEL_BUFFER,
   type CityBuilding,
   type CityCollisionIndex
 } from '../objects/cityLayout'
@@ -114,12 +115,15 @@ export const createRotatingCityColliders = (
     // Stream the active set to the buildings within the window around the focus
     // (the car/walker surface position). Returns the active collider count.
     // INVARIANT: per-frame travel must stay well under the window half-size
-    // (~cellRadius * 32 m) or a fast body can reach a building before its
+    // (~cellRadius * 28 m) or a fast body can reach a building before its
     // collider streams in and tunnel through (bodies run CCD-off). Today the
     // car (<=~10 m/step at the dt cap) and walker (<=~0.25 m/step) clear the
-    // ~32 m buffer easily; revisit if a max speed or the dt cap is raised.
-    update(focusAzimuth: number, focusAxial: number) {
-      collectCityCollidersNear(index, focusAzimuth, focusAxial, cellRadius, near, margin)
+    // three-step lead-in plus the car radius; the range test guards changes
+    // to the maximum speed, frame cap and car collider size.
+    update(focusAzimuth: number, focusAxial: number, frameTravel = 0) {
+      const unitRange = Math.min(CITY_COLLIDER_TRAVEL_BUFFER, 2 * Math.PI * index.radius / index.azimuthCellCount, index.axialCellSize)
+      const travelCells = frameTravel > 0 ? Math.ceil((cellRadius * unitRange + frameTravel) / unitRange) : cellRadius
+      collectCityCollidersNear(index, focusAzimuth, focusAxial, travelCells, near, margin)
 
       for (const building of near) {
         if (!active.has(building)) {

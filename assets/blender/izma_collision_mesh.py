@@ -6,6 +6,9 @@ directions. A candidate exceeding the sampled error limit falls back intact.
 This audit is supplemented by rendered-height and live-body traversal tests.
 """
 import math
+import hashlib
+import json
+import struct
 import bmesh
 from mathutils.bvhtree import BVHTree
 from izma_street_frontages import triangle_altitude
@@ -61,3 +64,67 @@ def simplify_collision_candidates(original):
         points,deviation=simplify_collision_surface(original,angle_limit=angle)
         if len(points)<len(best):best,error=points,deviation
     return best,error
+
+
+def simplify_packed_collision(packed, threshold=64):
+    """Reduce redundant faces before small adjacent compounds are merged.
+
+    A single entrance pad can be cheap but many such pads share the player's
+    travel buffer. Include these medium compounds in the same error-bounded
+    reduction; the drawing mesh remains unchanged.
+    """
+    pool=list(packed['vertices']);lookup={tuple(pool[i:i+3]):i//3 for i in range(0,len(pool),3)}
+    surfaces=[];report={'tested':0,'accepted':0,'removedTriangles':0,'maximumSampledError':0}
+    for surface in packed['surfaces']:
+        ids=surface['indices']
+        if len(ids)<=threshold*3:
+            surfaces.append(surface);continue
+        report['tested']+=1
+        original=[tuple(pool[i*3:i*3+3]) for i in ids]
+        points,error=simplify_collision_candidates(original)
+        if len(points)>=len(original):
+            surfaces.append(surface);continue
+        report['accepted']+=1;report['removedTriangles']+=(len(original)-len(points))//3
+        report['maximumSampledError']=max(report['maximumSampledError'],error)
+        indices=[]
+        for point in points:
+            key=tuple(point)
+            if key not in lookup:lookup[key]=len(pool)//3;pool.extend(point)
+            indices.append(lookup[key])
+        a,b,c,d=surface['bounds'];xs=[p[0] for p in points];ys=[p[1] for p in points]
+        surfaces.append({**surface,'indices':indices,'bounds':[min(a,min(xs)),min(b,min(ys)),max(c,max(xs)),max(d,max(ys))]})
+    result={**packed,'vertices':pool,'surfaces':surfaces}
+    result.pop('collisionPartition',None)
+    return result,report
+
+
+def collision_signature(packed):
+    """Hash physical coordinates and metadata independently of drawing indices."""
+    digest=hashlib.sha256();vertices=packed['vertices']
+    for surface in packed['surfaces']:
+        metadata={k:v for k,v in surface.items()if k!='indices'}
+        digest.update(json.dumps(metadata,sort_keys=True,separators=(',',':')).encode())
+        digest.update(struct.pack('!I',len(surface['indices'])))
+        for i in surface['indices']:
+            digest.update(struct.pack('!ddd',*vertices[i*3:i*3+3]))
+    return digest.hexdigest()
+
+
+def finalize_packed_collision(packed):
+    """Simplify the final compounds once, after neighbouring faces are joined.
+
+    The 5 mm sampled bound is relative to this compiled input, not a continuous
+    bound against the native drawing. Repeated finalization must not accumulate
+    further approximation; changed finalized geometry needs a fresh native export.
+    """
+    signature=collision_signature(packed)
+    previous=packed.get('collisionFinalization')
+    if previous is not None:
+        if previous.get('version')!=1 or previous.get('geometrySha256')!=signature:
+            raise ValueError('Finalized collision geometry changed; export this layer from its native source again')
+        return packed,{**previous['audit'],'reused':True}
+    result,audit=simplify_packed_collision(packed)
+    if 'collisionPartition' in packed:result['collisionPartition']=packed['collisionPartition']
+    result['collisionFinalization']={'version':1,'sourceGeometrySha256':signature,
+                                    'geometrySha256':collision_signature(result),'audit':audit}
+    return result,{**audit,'reused':False}

@@ -1,9 +1,9 @@
 import { test, expect } from 'bun:test'
 import { createHash } from 'node:crypto'
 import raw from '../../qa/neighborhood-life/colony-source'
-import land from '../../assets/blender/izma-land-use.json'
+import land from '../../assets/blender/izma-city-land-use.json'
 import primary from '../../assets/blender/izma-parcels.json'
-import neighbourhoods from '../../assets/blender/izma-neighbourhood-parcels.json'
+import neighbourhoods, { isLegacyParcel } from '../../qa/neighborhood-life/city-parcels'
 import blocks from '../../assets/blender/izma-block-parcels.json'
 import { readColonyManifest, colonyColliders, decodeColonyMesh } from './authoredColony'
 import { landscapeColliders } from './authoredLandscape'
@@ -34,7 +34,7 @@ test('land use retains current reservations, all districts and distinct producti
 test('planted and working ground stays outside saved building plots',()=>{
  const poly=(p:number[][])=>positivePolygon(p.map(([x,y])=>({x,y,u:0,v:0})))
  const retired=new Set(blocks.blocks.flatMap(b=>b.retiredParcels))
- const lots=[...blocks.blocks.flatMap(b=>b.sectors.map(poly)),...neighbourhoods.parcels.filter(p=>!retired.has(p.id)).map(p=>poly(p.lot.polygon)),...primary.parcels.map(p=>poly([[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{
+ const lots=[...blocks.blocks.flatMap(b=>b.sectors.map(poly)),...neighbourhoods.parcels.filter(p=>!retired.has(p.id)).map(p=>poly(isLegacyParcel(p)?p.lot.polygon:p.outline)),...primary.parcels.map(p=>poly([[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{
   const x=u*(p.size[0]+1)/2,y=v*(p.size[1]+1)/2
   return[p.position[0]+Math.cos(p.yaw)*x-Math.sin(p.yaw)*y,p.position[1]+Math.sin(p.yaw)*x+Math.cos(p.yaw)*y]
  })))]

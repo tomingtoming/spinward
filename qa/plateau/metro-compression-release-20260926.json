@@ -1,0 +1,57 @@
+{
+  "origin": "ai",
+  "created": "2026-09-26T03:49:00.545Z",
+  "encoder": "meshoptimizer 0.22.0 / lossless sequence + vertex / gzip5",
+  "sourceRelease": "releases/c5cbf79810bd55169494049072c3f49a071315f7edf5c83dc4115c8e198f27ad.json",
+  "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+  "sourceBytes": 2875904387,
+  "bytes": 2370602829,
+  "objects": 71604,
+  "checkedTiles": 41048,
+  "compressedTiles": 31844,
+  "retainedTiles": 9204,
+  "beforeBinaryBytes": 2249199682,
+  "afterBinaryBytes": 1744112289,
+  "groups": {
+    "finish-v1": {
+      "count": 10295,
+      "before": 1199721637,
+      "after": 1063833861
+    },
+    "central": {
+      "count": 6810,
+      "before": 309894284,
+      "after": 184370298
+    },
+    "night-panes-v1": {
+      "count": 9567,
+      "before": 121164294,
+      "after": 120197679
+    },
+    "west": {
+      "count": 6810,
+      "before": 320438037,
+      "after": 190037558
+    },
+    "east": {
+      "count": 6810,
+      "before": 268012309,
+      "after": 159091893
+    },
+    "render-v2": {
+      "count": 752,
+      "before": 27337817,
+      "after": 24382152
+    },
+    "night-v2": {
+      "count": 3,
+      "before": 2590682,
+      "after": 2170655
+    },
+    "roads-v2": {
+      "count": 1,
+      "before": 40622,
+      "after": 28193
+    }
+  }
+}

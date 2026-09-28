@@ -7,9 +7,11 @@ available to the authoring pipeline. Courts are split into local compounds.
 import bpy,json,hashlib,math,sys,os
 from pathlib import Path
 from collections import defaultdict
-ROOT=Path(__file__).resolve().parents[2];ASSETS=ROOT/'assets/blender'
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from izma_authoring_paths import authoring_root,city_asset_name
+ROOT=authoring_root();ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
-from colony_manifest_io import read_manifest,write_manifest,encoded
+from colony_manifest_io import read_manifest,write_manifest,encoded,write_immutable
 from izma_block_composition import read_composition,invalidate_blocks
 from izma_street_frontages import triangle_altitude
 from izma_collision_mesh import simplify_collision_candidates
@@ -20,7 +22,7 @@ scene=bpy.data.scenes['SW_izma_blocks'];scene.view_layers[0].update()
 assert scene['owner']=='spinward-izma-complete-blocks-v1' and scene['plan_hash']==plan['planHash'],'Rebuild native complete blocks'
 assert manifest['neighbourhoods']['blockComposition']=={'planHash':plan['planHash'],'omittedParcelIds':sorted(plan['retiredParcelIds'])},'Export the neighbourhood replacement composition first'
 assert not set(plan['retiredParcelIds']) & {p['id'] for p in manifest['neighbourhoods']['parcels']}
-for name in ['izma-land-use-layout.json','izma-street-frontages.json','izma-corner-blocks-plan.json']:
+for name in [city_asset_name('izma-land-use-layout.json'),city_asset_name('izma-street-frontages.json'),'izma-corner-blocks-plan.json']:
     dependencies=json.loads((ASSETS/name).read_text())['dependencies']
     assert dependencies.get('izma-block-parcels.json')==plan['planHash'],('Reauthor block reservations',name)
 assert hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest()==plan['terrainHash']
@@ -80,7 +82,7 @@ for bid,block in blocks.items():
     lods=geometry[bid];data=pack(lods[0]);data['mid']=pack(lods[1]);payload=encoded(data)
     assert len(payload)<4*1024*1024,('Block exceeds detail request budget',bid)
     ident='block-'+bid;filename=ident+'-'+hashlib.sha256(payload).hexdigest()[:12]+'.json'
-    (ROOT/'public/landscapes/izma'/filename).write_bytes(payload);files.append({'url':'/landscapes/izma/'+filename,'bytes':len(payload)})
+    write_immutable(ROOT/'public/landscapes/izma'/filename,payload);files.append({'url':'/landscapes/izma/'+filename,'bytes':len(payload)})
     points=[p for values in lods[0].values() for p in values]
     manifest['tiles'].append({'id':ident,'url':files[-1]['url'],'band':block['band'],'districts':[block['district']],
         'bounds':[min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points),max(p[1] for p in points)],

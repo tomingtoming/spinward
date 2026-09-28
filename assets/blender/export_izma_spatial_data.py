@@ -213,11 +213,15 @@ def verify_surface(points, original, candidate, tolerance=.10):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output-root', type=Path, required=True)
+    parser.add_argument('--source-root', type=Path, default=ROOT,
+                        help='Absolute authoring root; allows a staged city assembly')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
     output = args.output_root
     if not output.is_absolute() or output.resolve() == ROOT.resolve():
         raise ValueError('Use a separate absolute output root for the candidate package')
-    source = read_manifest(ROOT / 'src/worlds/generated/izmaColony.json')
+    if not args.source_root.is_absolute():
+        raise ValueError('Use an absolute source root')
+    source = read_manifest(args.source_root / 'src/worlds/generated/izmaColony.json')
     catalog = write_regions(output, source)
     # A local region may be loaded beside distant neighbours. Shared drawing
     # vertices must survive exactly, irrespective of the far contour tolerance.
@@ -281,6 +285,17 @@ def main():
         else:
             runtime[name] = {k: v for k, v in source[name].items() if k not in ('fixed', 'parcels', 'streets')}
             runtime[name]['fixed'] = {'vertices': [], 'meshes': {}, 'surfaces': []}
+            if name == 'waterworks':
+                # Buried engineering routes remain in the native/full-source
+                # audit. Surface exploration needs only geometry and lights.
+                for key in ('facilities', 'loops', 'buriedPipes', 'burialAudit'):
+                    runtime[name].pop(key, None)
+            if name == 'interband':
+                for key in ('rings', 'approaches'):
+                    runtime[name].pop(key, None)
+            if name == 'motorway':
+                for key in ('interchanges', 'relocatedStructures', 'convertedCrossings', 'riverConnection'):
+                    runtime[name].pop(key, None)
     runtime['streaming'] = {**catalog, 'farRanges': ranges,
                             'farBlendSha256': hashlib.sha256(blend.read_bytes()).hexdigest()}
     target = output / 'src/worlds/generated/izmaColonyRuntime.json'
@@ -296,7 +311,7 @@ def main():
               'maxSampleError': max(a['maxSampleError'] for a in audits),
               'surfaceSamples': sum(a['samples'] for a in audits),
               'blendBytes': blend.stat().st_size,
-              'status': 'Candidate package; application streaming is not connected'}
+              'status': 'Candidate package; not installed into the application'}
     (output / 'export.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result), flush=True)
 

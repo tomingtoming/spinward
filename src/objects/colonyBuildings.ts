@@ -83,6 +83,7 @@ export class ColonyBuildings {
    this.capacities[kind]++
   }
   this.entryByBuilding=new Map(this.entries.map(e=>[e.spec.building,e]))
+  if(!this.entries.length)this.group.userData={buildings:0,visible:0,near:0,legacyBuildings:0,structuralInstances:0,balconyColliders:0}
   this.forecourts=streetDetails?planColonyForecourts(this.entries,buildings,roads,radius):new Map()
   this.stairwells=streetDetails?planColonyStairs(this.entries,buildings,roads,radius):new Map()
   this.extent=Math.hypot(radius,Math.max(0,...buildings.map(b=>Math.abs(b.axial)))+100)
@@ -111,6 +112,9 @@ export class ColonyBuildings {
   return batch
  }
  update(azimuth:number,axial:number,altitude:number){
+  // PLATEAU and cleared river districts have no procedural buildings. Even a
+  // zero-count InstancedMesh makes the renderer compile/upload its materials.
+  if(!this.entries.length)return
   const camera=new THREE.Vector3(Math.cos(azimuth)*(this.radius-altitude),axial,Math.sin(azimuth)*(this.radius-altitude))
   if(camera.distanceTo(this.focus)<8)return
   this.focus.copy(camera)

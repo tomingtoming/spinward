@@ -175,7 +175,7 @@ test('the car stops at a streamed building via real contact (P1), not an analyti
   // a building and compare with an empty city: the building must stream in and
   // stop the car at its near face, and the crash haptic must fire on the hit
   // (and never without a building).
-  const driveTowardBuilding = async (withBuilding: boolean) => {
+  const driveTowardBuilding = async (withBuilding: boolean, dt: number) => {
     const rapier = await initRapier()
     const world = new rapier.World({ x: 0, y: 0, z: 0 })
     const units = createUnitsContext(IZMA_SIM_SCALE)
@@ -207,7 +207,6 @@ test('the car stops at a streamed building via real contact (P1), not an analyti
     drive.parkAt(0, 0, Math.PI / 2) // heading +tangent, toward the building
     drive.enter(frameAngle, IZMA_OMEGA, IZMA_RADIUS, { rapier, world, units })
 
-    const dt = 1 / 60
     const steps = Math.round(10 / dt)
     let maxActive = 0
     let crashedFrames = 0
@@ -235,18 +234,18 @@ test('the car stops at a streamed building via real contact (P1), not an analyti
     return { maxActive, crashedFrames, maxTangential }
   }
 
-  const hit = await driveTowardBuilding(true)
-  const clear = await driveTowardBuilding(false)
+  for (const dt of [1 / 60, .05]) {
+    const hit = await driveTowardBuilding(true, dt)
+    const clear = await driveTowardBuilding(false, dt)
 
-  // The building streams in, stops the car at its near face (~64 m), and trips
-  // the crash haptic.
-  expect(hit.maxActive).toBeGreaterThan(0)
-  expect(hit.crashedFrames).toBeGreaterThan(0)
-  expect(hit.maxTangential).toBeLessThan(80)
-  // With an empty city nothing streams, the car coasts far past, and no crash.
-  expect(clear.maxActive).toBe(0)
-  expect(clear.crashedFrames).toBe(0)
-  expect(clear.maxTangential).toBeGreaterThan(200)
+    // Real contact must still stop the car when a slow frame reaches the cap.
+    expect(hit.maxActive).toBeGreaterThan(0)
+    expect(hit.crashedFrames).toBeGreaterThan(0)
+    expect(hit.maxTangential).toBeLessThan(80)
+    expect(clear.maxActive).toBe(0)
+    expect(clear.crashedFrames).toBe(0)
+    expect(clear.maxTangential).toBeGreaterThan(200)
+  }
 })
 
 

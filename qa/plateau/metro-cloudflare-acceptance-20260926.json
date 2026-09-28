@@ -1,0 +1,586 @@
+{
+  "origin": "ai",
+  "created": "2026-09-26",
+  "status": "historical PC/emulation acceptance passed; subsequent Quest 3S entry crash blocks production cutover (see quest-3s-entry-20260926.md)",
+  "appUrl": "https://spinward-metro-candidate.toming.workers.dev/",
+  "workerVersion": "617e0037-8532-40e1-84de-28d4e7cfb734",
+  "applicationPackageSha256": "4fec24b4d126f9f054e39b459ea59ab0b38037089f5309e11572055cb37c65b7",
+  "appAssetsVerified": 113,
+  "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+  "upload": {
+    "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+    "uploaded": 71604,
+    "reused": 0
+  },
+  "reuse": {
+    "release": "releases/ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4.json",
+    "uploaded": 0,
+    "reused": 71604
+  },
+  "cdnResponses": [
+    {
+      "key": "objects/00/0000942378f5741af278ccd238147be4d1734a8e9de8da0353c8149c24f6d995.png",
+      "pass": 0,
+      "status": 200,
+      "bytes": 7893,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "image/png",
+        "content-length": "7893",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"7cfa4e282754784a0e323dabee0a8c5b\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "HIT"
+      }
+    },
+    {
+      "key": "objects/00/0000942378f5741af278ccd238147be4d1734a8e9de8da0353c8149c24f6d995.png",
+      "pass": 1,
+      "status": 200,
+      "bytes": 7893,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "image/png",
+        "content-length": "7893",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"7cfa4e282754784a0e323dabee0a8c5b\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "HIT"
+      }
+    },
+    {
+      "key": "objects/00/00013c5fa1403f0e58c43b3e5511835090f85ea62c879616048a50b617abba5d.bin.gz",
+      "pass": 0,
+      "status": 200,
+      "bytes": 10105,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "content-length": "10105",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"0f6e4496295eac3c1a7a4822fe664865\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "MISS"
+      }
+    },
+    {
+      "key": "objects/00/00013c5fa1403f0e58c43b3e5511835090f85ea62c879616048a50b617abba5d.bin.gz",
+      "pass": 1,
+      "status": 200,
+      "bytes": 10105,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "content-length": "10105",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"0f6e4496295eac3c1a7a4822fe664865\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "HIT"
+      }
+    },
+    {
+      "key": "objects/00/0001d1592ce5a754c41534d2c56a48e27c1c38eb23ccdf4df9191e13a6364326.json.gz",
+      "pass": 0,
+      "status": 200,
+      "bytes": 24027,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "application/gzip",
+        "content-length": "24027",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"a25919f1665ed8a5f73cc0474a6d4965\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "MISS"
+      }
+    },
+    {
+      "key": "objects/00/0001d1592ce5a754c41534d2c56a48e27c1c38eb23ccdf4df9191e13a6364326.json.gz",
+      "pass": 1,
+      "status": 200,
+      "bytes": 24027,
+      "hashMatches": true,
+      "headers": {
+        "content-type": "application/gzip",
+        "content-length": "24027",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"a25919f1665ed8a5f73cc0474a6d4965\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "HIT"
+      }
+    },
+    {
+      "key": "https://data.spinward.toming.app/objects/00/0000000000000000000000000000000000000000000000000000000000000000.bin.gz?cdn-check=1790409056109",
+      "pass": 0,
+      "status": 404,
+      "headers": {
+        "content-type": "text/html",
+        "access-control-allow-origin": "*",
+        "cache-control": "no-store",
+        "cf-cache-status": "BYPASS",
+        "timing-allow-origin": "*"
+      }
+    },
+    {
+      "key": "https://data.spinward.toming.app/objects/00/0000000000000000000000000000000000000000000000000000000000000000.bin.gz?cdn-check=1790409056109",
+      "pass": 1,
+      "status": 404,
+      "headers": {
+        "content-type": "text/html",
+        "access-control-allow-origin": "*",
+        "cache-control": "no-store",
+        "cf-cache-status": "BYPASS",
+        "timing-allow-origin": "*"
+      }
+    },
+    {
+      "status": 200,
+      "bytes": 611,
+      "hash": "ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4",
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "611",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"318241cc5475dbed8bcd8567cfc8c9fd\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "MISS"
+      }
+    },
+    {
+      "status": 200,
+      "bytes": 611,
+      "hash": "ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4",
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "611",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=31536000, immutable",
+        "etag": "\"318241cc5475dbed8bcd8567cfc8c9fd\"",
+        "timing-allow-origin": "*",
+        "cf-cache-status": "HIT"
+      }
+    }
+  ],
+  "runtime": {
+    "passed": 18,
+    "seconds": 780,
+    "evidence": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/acceptance-cdn-runtime-v1",
+    "browser": "Chrome 154.0.8037.57",
+    "gpu": "Apple M1 Pro / ANGLE Metal",
+    "webxr": "playwright-webxr 0.3.0 / iwer 2.4.0 / Quest 3 emulation",
+    "realHmd": false
+  },
+  "production": {
+    "changed": false,
+    "version": "22ddddde-89bb-4369-9c2c-ee0c1bcacff6",
+    "dryRunPassed": true
+  },
+  "limitations": [
+    "Actual physical HMD not tested",
+    "Interrupted transfer and rollback fault injection uses local fake store; live R2 completed-upload replay is verified",
+    "CDN observations from this Japan connection, not worldwide latency guarantees",
+    "Shibuya first start was 9.865 seconds, with only 0.135 seconds headroom to the 10 second target; this is one measured cold-browser run, not a latency percentile guarantee."
+  ],
+  "visualReview": {
+    "method": "Direct inspection of candidate screenshots after runtime assertions",
+    "samples": [
+      "west street",
+      "VR Places first page stereo",
+      "Shibuya opposite wall at night",
+      "Omiya street at night"
+    ],
+    "observed": "Street markings, near facades, varied window light, opposite-wall city and stereo wrist controls are present; no obvious missing meshes or corrupt image patterns in inspected areas.",
+    "limits": "Screenshots do not establish comfort on a physical HMD; very dark areas and areas outside each view remain uncertain."
+  },
+  "startup": {
+    "conditions": "Actual CDN; browser cache cleared per destination; artificial downlink 10 Mbps, 100 ms, plus the real connection to NRT; CDN edge may already be warm",
+    "evidence": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/acceptance-cdn-startup-v1",
+    "results": [
+      {
+        "place": "shibuya",
+        "arrival": {
+          "id": "shibuya",
+          "region": "west",
+          "listed": true,
+          "actual": {
+            "azimuth": 2.4613990750482975,
+            "axial": -19300
+          },
+          "expected": {
+            "azimuth": -3.821786290345947,
+            "axial": -19299.999999999993,
+            "groundHeight": 15.239405241736563,
+            "orientation": {
+              "isQuaternion": true,
+              "_x": 0.7067697380316768,
+              "_y": 0.5357491292537004,
+              "_z": 0.021829736659772992,
+              "_w": -0.46148983792051335
+            }
+          }
+        },
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+        "networkModel": "rule",
+        "dataRoot": "https://data.spinward.toming.app/",
+        "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+        "usableMs": 9865.19999999553,
+        "wireBytes": 8333914,
+        "cdpBytes": 8324572,
+        "workerTimingBytes": 9342,
+        "cityBytes": 5127555,
+        "appBytes": 3206359,
+        "completed": 60,
+        "inFlight": 3,
+        "revisit": {
+          "usableMs": 1419.7000000029802,
+          "wireBytes": 10292,
+          "cdpBytes": 9692,
+          "workerTimingBytes": 600,
+          "cityBytes": 0,
+          "appBytes": 10292,
+          "cached": 36
+        },
+        "errors": []
+      },
+      {
+        "place": "omiya",
+        "arrival": {
+          "id": "omiya",
+          "region": "west",
+          "listed": true,
+          "actual": {
+            "azimuth": 1.8599557697268636,
+            "axial": 8879.32357788086
+          },
+          "expected": {
+            "azimuth": -4.423229427813266,
+            "axial": 8879.32350517003,
+            "groundHeight": 14.018408831597878,
+            "orientation": {
+              "isQuaternion": true,
+              "_x": 0.17365219863581774,
+              "_y": -0.6074786468215075,
+              "_z": 0.6854523425512138,
+              "_w": -0.36189735237482745
+            }
+          }
+        },
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+        "networkModel": "rule",
+        "dataRoot": "https://data.spinward.toming.app/",
+        "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+        "usableMs": 8499.19999999553,
+        "wireBytes": 8094499,
+        "cdpBytes": 8085157,
+        "workerTimingBytes": 9342,
+        "cityBytes": 4888396,
+        "appBytes": 3206103,
+        "completed": 60,
+        "inFlight": 4,
+        "revisit": {
+          "usableMs": 1450.6999999955297,
+          "wireBytes": 10337,
+          "cdpBytes": 9737,
+          "workerTimingBytes": 600,
+          "cityBytes": 0,
+          "appBytes": 10337,
+          "cached": 38
+        },
+        "errors": []
+      },
+      {
+        "place": "tokyo",
+        "arrival": {
+          "id": "tokyo",
+          "region": "east",
+          "listed": true,
+          "actual": {
+            "azimuth": 0.1843562048604992,
+            "axial": -18335.77423095703
+          },
+          "expected": {
+            "azimuth": 0.18435615909963426,
+            "axial": -18335.773964640226,
+            "groundHeight": 2.749549466688855,
+            "orientation": {
+              "isQuaternion": true,
+              "_x": 0.6798036888085615,
+              "_y": -0.632612270172663,
+              "_z": -0.1945943079390365,
+              "_w": -0.3159140953281281
+            }
+          }
+        },
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+        "networkModel": "rule",
+        "dataRoot": "https://data.spinward.toming.app/",
+        "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+        "usableMs": 9126.39999999851,
+        "wireBytes": 8378831,
+        "cdpBytes": 8369536,
+        "workerTimingBytes": 9295,
+        "cityBytes": 5172528,
+        "appBytes": 3206303,
+        "completed": 62,
+        "inFlight": 3,
+        "revisit": {
+          "usableMs": 1406.3999999985099,
+          "wireBytes": 10297,
+          "cdpBytes": 9697,
+          "workerTimingBytes": 600,
+          "cityBytes": 0,
+          "appBytes": 10297,
+          "cached": 38
+        },
+        "errors": []
+      }
+    ],
+    "passed": true
+  },
+  "flight": [
+    {
+      "evidence": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/acceptance-cdn-flight-normal-v1",
+      "summary": {
+        "scenario": "flight",
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+        "errors": [],
+        "networkModel": "rule",
+        "latencyMs": 100,
+        "bandwidthBytesPerSecond": 1250000,
+        "seconds": 30.04440000000596,
+        "frames": 1792,
+        "frameP50": 16.69999999999709,
+        "frameP95": 16.799999999995634,
+        "frameMax": 33.400000000001455,
+        "pauseCount": 0,
+        "pauseMs": 0,
+        "intervals": [],
+        "requestCpuP50": 0.09999999403953552,
+        "requestCpuP95": 0.19999999552965164,
+        "requestCpuMax": 2.100000001490116,
+        "collisionLoads": 49,
+        "reindexMax": 1.3000000044703484,
+        "longTasks": [],
+        "displacement": [
+          {
+            "at": 33905.1,
+            "a": 1.8599479445812435,
+            "y": 8879.32357788086,
+            "radial": 3185.600323349748,
+            "ground": 14.018498714247471,
+            "mode": "free-fly",
+            "speed": 176.39965271690807,
+            "relativeSpeed": 4.006909963642843,
+            "critical": 2,
+            "missingCritical": 0,
+            "prefetch": 4,
+            "retained": 0,
+            "loads": 17,
+            "aborts": 0,
+            "gate": "ready",
+            "pending": 0,
+            "entries": 6,
+            "bytes": 3159216
+          },
+          {
+            "at": 63887.3,
+            "a": 2.3063259327545986,
+            "y": 10498.111724853516,
+            "radial": 3188.097403404329,
+            "ground": 11.548371157160545,
+            "mode": "grounded",
+            "speed": 176.49863849784643,
+            "relativeSpeed": 0.22460136283052465,
+            "critical": 2,
+            "missingCritical": 0,
+            "prefetch": 4,
+            "retained": 0,
+            "loads": 66,
+            "aborts": 0,
+            "gate": "ready",
+            "pending": 0,
+            "entries": 6,
+            "bytes": 2325744
+          }
+        ]
+      },
+      "peakCollisionBytes": 16659648,
+      "peakRelativeSpeed": 295.63019392963315,
+      "speedMeasurement": "active flight phase only, excluding startup relocation"
+    },
+    {
+      "evidence": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/acceptance-cdn-flight-slow-v1",
+      "summary": {
+        "scenario": "endurance",
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+        "errors": [],
+        "networkModel": "rule",
+        "latencyMs": 200,
+        "bandwidthBytesPerSecond": 250000,
+        "seconds": 120.014,
+        "frames": 7190,
+        "frameP50": 16.69999999999709,
+        "frameP95": 16.70000000001164,
+        "frameMax": 33.400000000001455,
+        "pauseCount": 0,
+        "pauseMs": 0,
+        "intervals": [],
+        "requestCpuP50": 0,
+        "requestCpuP95": 0.10000000149011612,
+        "requestCpuMax": 0.5,
+        "collisionLoads": 38,
+        "reindexMax": 0.6999999955296516,
+        "longTasks": [],
+        "displacement": [
+          {
+            "at": 33517.8,
+            "a": 1.8599472329335596,
+            "y": 8879.32357788086,
+            "radial": 3185.4549378469865,
+            "ground": 14.018494193530842,
+            "mode": "free-fly",
+            "speed": 176.4157840219791,
+            "relativeSpeed": 4.349814451326801,
+            "critical": 2,
+            "missingCritical": 0,
+            "prefetch": 4,
+            "retained": 0,
+            "loads": 17,
+            "aborts": 0,
+            "gate": "ready",
+            "pending": 0,
+            "entries": 6,
+            "bytes": 3159216
+          },
+          {
+            "at": 153429.7,
+            "a": 1.9189939109203684,
+            "y": 10129.737091064453,
+            "radial": 3184.6722788988623,
+            "ground": 15.014758746707685,
+            "mode": "grounded",
+            "speed": 176.29910230278503,
+            "relativeSpeed": 0.16299297740569832,
+            "critical": 1,
+            "missingCritical": 0,
+            "prefetch": 6,
+            "retained": 0,
+            "loads": 55,
+            "aborts": 0,
+            "gate": "ready",
+            "pending": 0,
+            "entries": 7,
+            "bytes": 3931056
+          }
+        ]
+      },
+      "peakCollisionBytes": 7733520,
+      "peakRelativeSpeed": 120.87340152495773,
+      "speedMeasurement": "active flight phase only, excluding startup relocation",
+      "peakAboveLocalGround": 305.739420936663
+    }
+  ],
+  "repeatedVisits": {
+    "evidence": "/Volumes/BLAZE/Spinward/inland-b-20260924/production-20260925/acceptance-cdn-visits-slow-v1",
+    "latencyMs": 200,
+    "bandwidthBytesPerSecond": 250000,
+    "visits": [
+      {
+        "cycle": 0,
+        "id": "tokyo",
+        "usableMs": 4459.69999999553,
+        "region": "east",
+        "collisionBytes": 6679008
+      },
+      {
+        "cycle": 0,
+        "id": "shinjuku",
+        "usableMs": 5967,
+        "region": "central",
+        "collisionBytes": 5312016
+      },
+      {
+        "cycle": 0,
+        "id": "omiya",
+        "usableMs": 6704.79999999702,
+        "region": "west",
+        "collisionBytes": 8371008
+      },
+      {
+        "cycle": 0,
+        "id": "shibuya",
+        "usableMs": 544.5,
+        "region": "west",
+        "collisionBytes": 11832912
+      },
+      {
+        "cycle": 1,
+        "id": "tokyo",
+        "usableMs": 212.60000000149012,
+        "region": "east",
+        "collisionBytes": 10234080
+      },
+      {
+        "cycle": 1,
+        "id": "shinjuku",
+        "usableMs": 225.30000000447035,
+        "region": "central",
+        "collisionBytes": 9598032
+      },
+      {
+        "cycle": 1,
+        "id": "omiya",
+        "usableMs": 446.5,
+        "region": "west",
+        "collisionBytes": 10764000
+      },
+      {
+        "cycle": 1,
+        "id": "shibuya",
+        "usableMs": 461.5,
+        "region": "west",
+        "collisionBytes": 11832912
+      },
+      {
+        "cycle": 2,
+        "id": "tokyo",
+        "usableMs": 336,
+        "region": "east",
+        "collisionBytes": 10234080
+      },
+      {
+        "cycle": 2,
+        "id": "shinjuku",
+        "usableMs": 378.8999999985099,
+        "region": "central",
+        "collisionBytes": 9598032
+      },
+      {
+        "cycle": 2,
+        "id": "omiya",
+        "usableMs": 381.30000000447035,
+        "region": "west",
+        "collisionBytes": 10764000
+      },
+      {
+        "cycle": 2,
+        "id": "shibuya",
+        "usableMs": 487.5,
+        "region": "west",
+        "collisionBytes": 11832912
+      }
+    ],
+    "peakCollisionBytes": 15445872,
+    "peakNativeBytes": 8385720,
+    "errors": [],
+    "httpFailures": [],
+    "allBudgetsPassed": true,
+    "method": "Initial scene without artificial bandwidth restriction, then three rounds of actual Places UI in the same persistent Chrome; no cache clearing or forced GC between visits."
+  }
+}

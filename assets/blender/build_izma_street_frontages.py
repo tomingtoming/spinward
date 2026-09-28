@@ -11,7 +11,9 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
-ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from izma_authoring_paths import authoring_root,neighbourhood_contract_name,city_asset_name
+ROOT=authoring_root()
 ASSETS=ROOT/'assets/blender'
 sys.path.insert(0,str(ASSETS))
 from colony_manifest_io import read_manifest
@@ -22,7 +24,8 @@ from plan_izma_urban import rectangle,corridor,project,ReservationIndex,SPACING
 from izma_block_composition import read_composition
 
 manifest=read_manifest(ROOT/'src/worlds/generated/izmaColony.json')
-neighbours=json.loads((ASSETS/'izma-neighbourhood-parcels.json').read_text())
+neighbourhood_name=neighbourhood_contract_name()
+neighbours=json.loads((ASSETS/neighbourhood_name).read_text())
 composition=read_composition(ASSETS);retired=set(composition['retiredParcelIds'])
 neighbours['parcels']=[p for p in neighbours['parcels'] if p['id'] not in retired]
 primary=json.loads((ASSETS/'izma-parcels.json').read_text())
@@ -67,6 +70,10 @@ for (district,route_id,band),parcels in groups.items():
 
 reserved=[[] for _ in range(3)]
 for block in composition['blocks']:reserved[block['band']].extend(block['sectors'])
+if 'cityFabric' in neighbours:
+    for p in json.loads((ASSETS/'izma-corner-blocks.json').read_text())['parcels']:
+        reserved[p['band']].append(p['outline'])
+        e=p['entrance'];reserved[p['band']].append(corridor(e['start'],e['end'],e['width']+.015))
 for p in primary['parcels']+neighbours['parcels']:
     band=p['band']
     # Keep the full existing foundation envelope and the graded entrance.
@@ -85,7 +92,7 @@ for band,polygons in enumerate(reserved):
 # Actual drawn carriageway triangles, rather than ideal centreline rectangles,
 # preserve the mitres and crossing aprons already authored in the road meshes.
 for packed,names in [(manifest['base'],['local','arterial','walk','water']),
-                     (manifest['neighbourhoods']['fixed'],['arch-lane'])]:
+                     (manifest['neighbourhoods']['fixed'],['arch-lane','arch-paving','arch-court'])]:
     pool=packed['vertices']
     for name in names:
         ids=packed['meshes'].get(name,[])
@@ -161,8 +168,13 @@ for builder,band,vertices in boundary_edges.values():
         p,q=lerp(a,b,i/count),lerp(a,b,(i+1)/count)
         lo,hi=lerp(low_a,low_b,i/count),lerp(low_a,low_b,(i+1)/count)
         outside=((p[0]+q[0])/2+nx*.012,(p[1]+q[1])/2+ny*.012)
-        if covers(planners[band].accepted,outside) or covers(supports[band],outside):continue
+        if covers(planners[band].accepted,outside):continue
+        # A neighbouring road/entrance can support the edge without sharing
+        # its height. Close the curb down to the earth so a grazing view cannot
+        # see grass through the 4.5 cm pavement rise. Support suppresses a
+        # guard, not this visible riser.
         builder.face([p,q,hi,lo],'edge')
+        if covers(supports[band],outside):continue
         if min(p[2]-lo[2],q[2]-hi[2])<.8:continue
         # Exposed raised footways have a solid 14 cm parapet, including physical
         # side and top faces, independently of streamed building LOD.
@@ -179,14 +191,16 @@ for (district,x,y),builder in builders.items():
     obj['band']=next(p['band'] for p in paths if p['district']==district)
 scene.view_layers[0].update()
 dependencies={name:hashlib.sha256((ASSETS/name).read_bytes()).hexdigest() for name in [
-    'izma-neighbourhood-parcels.json','izma-parcels.json','izma-urban-plan.json',
+    neighbourhood_name,'izma-parcels.json','izma-urban-plan.json',
     'izma-colony-plan.json','izma-transport.json','izma-public-spaces.json','izma-rail.json','izma-block-parcels.json']}
+if 'cityFabric' in neighbours:
+    dependencies['izma-corner-blocks.json']=hashlib.sha256((ASSETS/'izma-corner-blocks.json').read_bytes()).hexdigest()
 contract={'origin':'ai','created':'2026-09-18','version':1,'dependencies':dependencies,
           'terrainHash':hashlib.sha256(json.dumps([manifest['base']['vertices'],manifest['base']['meshes']['earth']],separators=(',',':')).encode()).hexdigest(),
           'paths':reports,'maximumRaiseAboveTerrain':max_lift,'guardLength':guard_length,
           'materials':{'paving':{'color':'#9c9c90','surface':'paving'},'edge':{'color':'#6e736b','surface':'paving'},
                        'rail':{'color':'#48524c','surface':'metal'}}}
 assert {p['district'] for p in reports if p['pavingArea']>1}==urban,'Every urban district needs actual pavement'
-bpy.data.libraries.write(str(ASSETS/'izma-street-frontages.blend'),{scene},fake_user=True,compress=True)
-(ASSETS/'izma-street-frontages.json').write_text(json.dumps(contract,separators=(',',':'))+'\n')
+bpy.data.libraries.write(str(ASSETS/city_asset_name('izma-street-frontages.blend')),{scene},fake_user=True,compress=True)
+(ASSETS/city_asset_name('izma-street-frontages.json')).write_text(json.dumps(contract,separators=(',',':'))+'\n')
 print(json.dumps({'paths':len(reports),'districts':len(urban),'pavingArea':sum(p['pavingArea'] for p in reports),'objects':len(builders),'maximumRaiseAboveTerrain':max_lift}),flush=True)

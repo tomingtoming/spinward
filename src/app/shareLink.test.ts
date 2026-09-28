@@ -64,6 +64,14 @@ describe('share link round trip', () => {
     ).toBeCloseTo(38.3, 5)
   })
 
+  test('terrain below sea level retains its signed height', () => {
+    const query = encodeShareState({ ...IZMA_BASE, dayNightPhase: 0.5, raining: false,
+      pose: { mode: 'grounded', azimuth: .0625, axialPosition: 16840, groundHeight: -.6945 },
+      orientation: IDENTITY })
+    expect(decodeShareState(query).pose).toEqual({ mode: 'grounded', azimuth: .0625,
+      axialPosition: 16840, groundHeight: -.7 })
+  })
+
   test('free-fly pose, custom spin/dimensions and rain survive', () => {
     const query = encodeShareState({
       ...IZMA_BASE,

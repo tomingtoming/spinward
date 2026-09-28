@@ -25,14 +25,14 @@ export function citySurfaceRegions(vertices: ArrayLike<number>, indices?: readon
 }
 
 type ProjectedTriangle = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number;
-  toleranceU: number; toleranceV: number; toleranceW: number }
+  area: number; toleranceU: number; toleranceV: number; toleranceW: number }
 const projectedCache = new WeakMap<CitySurfaceMesh, { radius: number; triangles: ProjectedTriangle[] }>()
 
 /** A radial ray against the same curved vertices used by drawing and Rapier.
  * Large authored terrain faces have measurable chord height; interpolating
  * their unrolled heights would put the walking surface below the visible one.
  * The mesh is immutable after export; a new mesh/radius gets a new cache. */
-export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number, x: number, y: number, ceiling = Infinity) {
+export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number, x: number, y: number, ceiling = Infinity, minimumHeight = 0) {
   let cached = projectedCache.get(mesh)
   if (!cached || cached.radius !== radius) {
     const positions = citySurfaceVertices(mesh, radius)
@@ -46,19 +46,23 @@ export function sampleProjectedCitySurface(mesh: CitySurfaceMesh, radius: number
       // would grow into centimetres on a large terrain face.
       const tolerance = (length: number) => Math.max(1e-7, Math.min(.02, .002 * length / Math.max(area, 1e-12)))
       triangles.push({ ax: positions[i] + radius, ay: positions[i + 1], az: positions[i + 2], bx, by, bz, cx, cy, cz,
+        area,
         toleranceU: tolerance(Math.hypot(cx, cy, cz)), toleranceV: tolerance(Math.hypot(bx, by, bz)),
         toleranceW: tolerance(Math.hypot(bx - cx, by - cy, bz - cz)) })
     }
     cached = { radius, triangles }; projectedCache.set(mesh, cached)
   }
   const dx = Math.cos(x / radius), dz = Math.sin(x / radius)
-  let height = 0
+  let height = minimumHeight
   for (const t of cached.triangles) {
     // Moller-Trumbore from (0, y, 0), towards the hull. No dependence on a
     // renderer, scene matrix, reference-frame angle or source triangle normal.
     const px = -dz * t.cy, py = dz * t.cx - dx * t.cz, pz = dx * t.cy
     const det = t.bx * px + t.by * py + t.bz * pz
-    if (Math.abs(det) < 1e-10) continue
+    // Curving a vertical wall gives it a tiny radial component. Reject those
+    // near-parallel hits; this geometry query still includes steep terrain.
+    // Physical standing contact applies its own, stricter normal threshold.
+    if (Math.abs(det) < Math.max(1e-10, t.area * .01)) continue
     const tx = -t.ax, ty = y - t.ay, tz = -t.az
     const u = (tx * px + ty * py + tz * pz) / det
     if (u < -t.toleranceU) continue

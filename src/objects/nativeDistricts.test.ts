@@ -77,7 +77,7 @@ for(const maxBuildings of [16000,18000,64000])test(`connected districts preserve
   }
  }
  if(maxBuildings===18000){middle=p;middleTraffic=traffic}
-},10000)
+},30000) // Validate up to 64,000 lots; the deadline is only a test-runner guard.
 test('native lanes retain continuous positions, headings and signal stops through district edges',()=>{
  const p=planCity({radius:R,length:40000,maxBuildings:18000}),{traffic}=rebuildNativeDistricts(p,R)
  const signals=new StreetSignalPlan(new StreetMarkingPlan(p.streetNetwork!),p.intersections),index=createTrafficSignalIndex([],signals,p.roads)

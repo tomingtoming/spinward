@@ -471,7 +471,7 @@ export const renderWatch = (
     ctx.textAlign='left';ctx.textBaseline='top'
     // Navigation is the reason to look down here. Give the next instruction
     // two normal-width lines instead of squeezing it into a small status row.
-    ctx.fillStyle=TEXT_BRIGHT;ctx.font='600 28px \"Avenir Next\", sans-serif'
+    ctx.fillStyle=TEXT_BRIGHT;ctx.font='600 32px \"Avenir Next\", sans-serif'
     const lines:string[]=[], words=(snapshot.outing?.detail??snapshot.outing?.text??'Choose a place for directions.').split(' ')
     let line=''
     for(const word of words){
@@ -479,14 +479,14 @@ export const renderWatch = (
       if(line&&ctx.measureText(candidate).width>620){lines.push(line);line=word}else line=candidate
     }
     if(line)lines.push(line)
-    lines.slice(0,2).forEach((text,i)=>ctx.fillText(text,50,footer.top+i*33,620))
-    ctx.fillStyle=TEXT_DIM;ctx.font='500 21px \"Avenir Next\", sans-serif'
-    ctx.fillText(snapshot.outing?.label??'',50,footer.top+77,620)
+    lines.slice(0,2).forEach((text,i)=>ctx.fillText(text,50,footer.top+i*37,620))
+    ctx.fillStyle=TEXT_BRIGHT;ctx.font='500 24px \"Avenir Next\", sans-serif'
+    ctx.fillText(snapshot.outing?.label??'',50,footer.top+84,620)
   }
   if ((layout.screen === 'places' || layout.screen === 'places-more') && layout.placesSection) {
     const directions=layout.buttons.find(b=>b.id==='nav-outing')
     if(directions) drawButton(ctx,directions,hoveredAction,{accent:true})
-    drawSectionCard(ctx, layout.width, layout.placesSection, layout.placesFooter ? 'Arrive at the entrance, ready to explore' : 'Choose a place; dimmed places are unavailable')
+    drawSectionCard(ctx, layout.width, layout.placesSection, !directions ? 'Choose a location to arrive at street level' : layout.placesFooter ? 'Arrive at the entrance, ready to explore' : 'Choose a place; dimmed places are unavailable')
     for (const button of layout.placeButtons ?? []) drawButton(ctx, button, hoveredAction, {
       accent: true, disabled: isWatchActionDisabled(snapshot, button.id)
     })

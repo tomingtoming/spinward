@@ -1,0 +1,48 @@
+{
+  "origin": "ai",
+  "created": "2026-09-26",
+  "method": "10 Mbps / 100 ms; persistent Chrome 512 MiB disk cache; full initial background loading, then about:blank and ordinary navigation back. Resource Timing worker transfer includes standardized header estimates, not a packet trace.",
+  "measurements": [
+    {
+      "place": "shibuya",
+      "arrival": {
+        "id": "shibuya",
+        "region": "west",
+        "listed": true,
+        "actual": {
+          "azimuth": 2.4613990014697937,
+          "axial": -19300
+        },
+        "expected": {
+          "azimuth": -3.821786290345947,
+          "axial": -19299.999999999993,
+          "groundHeight": 15.239405241736563,
+          "orientation": {
+            "isQuaternion": true,
+            "_x": 0.7067697380316768,
+            "_y": 0.5357491292537004,
+            "_z": 0.021829736659772992,
+            "_w": -0.46148983792051335
+          }
+        }
+      },
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+      "networkModel": "rule",
+      "cacheModel": "persistent Chrome profile, 512 MiB disk cache",
+      "usableMs": 8639.60000000149,
+      "wireBytes": 8343766,
+      "cdpBytes": 8334705,
+      "workerTimingBytes": 9061,
+      "completed": 60,
+      "inFlight": 4,
+      "revisit": {
+        "usableMs": 1388.5999999977648,
+        "wireBytes": 766,
+        "cdpBytes": 166,
+        "workerTimingBytes": 600,
+        "cached": 63
+      },
+      "errors": []
+    }
+  ]
+}

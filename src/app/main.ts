@@ -1,7 +1,9 @@
+import { createXRDetailGovernor } from '../xr/detailGovernor'
 import { NeighborhoodJourney, OUTING_DESTINATIONS, planNeighborhoodRoute, pavementExit, canParkAt, wrapAngle, type GuideAction, type OutingDestination } from './neighborhoodRoute'
+import { METRO_DIRECTIONS } from '../worlds/metroRoads'
 import { unpackLandscapeLibrary } from '../worlds/landscapeData'
 import { readColonyManifest } from '../worlds/authoredColony'
-import { readColonyDocument } from '../worlds/colonyManifestDocument'
+import { ColonyDataError, readColonyDocument } from '../worlds/colonyManifestDocument'
 import { createOutingPanel } from '../ui/outingPanel'
 import { NeighborhoodLife } from '../objects/neighborhoodLife'
 import { PlayerBodyView } from '../objects/playerBodyView'
@@ -16,7 +18,9 @@ import { ColonyRail } from '../objects/colonyRail'
 import { RailColliders } from '../physics/railColliders'
 import { createRoomAction } from '../ui/roomAction'
 import * as THREE from 'three'
+import { configureSharedAssets } from './sharedAssetURL'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
+import { xrRenderProfile } from '../xr/renderProfile'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -155,6 +159,7 @@ import { applyWorldLengthUnit } from '../physics/rapierBoundary'
 import { initRapier } from '../physics/rapierContext'
 import { createRotatingCylinderBody } from '../physics/rotatingCylinder'
 import { createRotatingCityColliders } from '../physics/rotatingCityColliders'
+import { metroPhysicsSubsteps } from '../worlds/metroPhysics'
 import { applyPresetToSettingsStore, canRespawnOnAxisEnd, getPresetById, getPresetName } from '../presets/presetManager'
 import { inertialPositionToRotating, inertialVelocityToRotating } from '../sim/frameTransforms'
 import { createRainSample, sampleRainField } from '../sim/rainField'
@@ -166,7 +171,7 @@ import {
 import { createSettingsStore } from '../state/settingsStore'
 import { createDebugGui } from '../ui/debugGui'
 import { createBeatBar } from '../ui/beatBar'
-import { PLACE_DESTINATIONS, resolvePlaceVisit, type PlaceVisitAction } from './placeVisits'
+import { ALL_PLACE_DESTINATIONS as PLACE_DESTINATIONS, resolvePlaceVisit, type PlaceVisitAction } from './placeVisits'
 import { createDockBar } from '../ui/dockBar'
 import { createShareBar } from '../ui/shareBar'
 import { createStatsOverlay, isStatsOverlayRequested } from '../ui/statsOverlay'
@@ -174,6 +179,7 @@ import { createHud } from '../ui/hud'
 import { createTourNotice } from '../ui/tourNotice'
 import { TourCardPanel } from '../ui/tourCardPanel'
 import { ColonyMotionGate } from './colonyMotionGate'
+import type { RegionalMotion } from '../worlds/regionalMotion'
 import { getExteriorVantage } from '../gameplay/respawn'
 import { applyWatchAction, createWatchRenderSnapshot } from '../ui/watch/watchBindings'
 import { WatchPanel } from '../ui/watch/watchPanel'
@@ -198,6 +204,7 @@ export const resolveBeaconMinScreenRadius = (urlValue: string | null): number =>
 }
 
 export const bootstrapApp = async () => {
+  configureSharedAssets()
   const settingsStore = createSettingsStore()
   // The demo opens at Izma scale; Playground stays one preset tap away for
   // close-range physics play. `?preset=` deep-links any preset for testing
@@ -224,9 +231,16 @@ export const bootstrapApp = async () => {
     settingsStore.setHabitatConfig({ length: shareState.length })
   }
   const habitatConfig = settingsStore.habitat
+  const quality = getQualityProfile()
   // The study data is a separate lazy chunk; ordinary city/Playground boots
   // do not download several worlds of Blender meshes.
-  const landscapeStudy = new URLSearchParams(window.location.search).get('landscape') === 'authored'
+  const metro = (new URLSearchParams(location.search).get('city') === 'tokyo' || import.meta.env.VITE_METRO_RELEASE)
+    ? await (await import('../worlds/metroCity.js')).loadMetroCity(quality.tier).catch((error: unknown) => {
+      throw new ColonyDataError(error instanceof Error ? error.message : String(error), { cause: error })
+    }) : null
+  // Archived study manifests reference unpublished authoring assets. A pinned
+  // production city uses its release even when an old study URL is opened.
+  const landscapeStudy = !import.meta.env.VITE_METRO_RELEASE && new URLSearchParams(window.location.search).get('landscape') === 'authored'
   const landscapes = landscapeStudy
     ? unpackLandscapeLibrary((await import('../worlds/generated/worldLandscapes.json')).default) : null
   const colony = landscapeStudy
@@ -254,7 +268,6 @@ export const bootstrapApp = async () => {
   // mobile tiers run denser air, `?fog=<metres>` overrides for on-device
   // tuning and the `?debug` panel has a live slider. The confined-air case (a
   // ring's vacuum bore) is handled below by scaling with getAirColumnFraction.
-  const quality = getQualityProfile()
   const beaconMinScreenRadiusPx = resolveBeaconMinScreenRadius(
     new URLSearchParams(window.location.search).get('beacon')
   )
@@ -336,12 +349,16 @@ export const bootstrapApp = async () => {
     {
       landscapes,
       colony,
+      metro,
       maxBuildings: quality.maxBuildings,
       maxTraffic: quality.maxTraffic,
       focusStepMeters: quality.cityFocusStepMeters,
       roadTileDistance: quality.roadTileDistance
     }
   )
+  const regionalSource = () => cityscape.metroWorld ?? cityscape.authoredColony
+  const structuralRadius = () => habitatConfig.radius - (cityscape.metroWorld?.floorHeight ?? 0)
+  habitat.setFloorHeight(cityscape.metroWorld?.floorHeight ?? 0)
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
@@ -480,21 +497,40 @@ export const bootstrapApp = async () => {
   // but three's WebXR path takes projection matrices straight from the XR
   // runtime, so the reversedDepthBuffer flag cannot apply in-headset.
   const depthMode = loadDepthMode()
+  const xrProfile = xrRenderProfile(quality.tier, isQuestBrowser(), new URLSearchParams(window.location.search).get('xrScale'))
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: xrProfile.antialias,
     logarithmicDepthBuffer: depthMode === 'log'
   })
+  let releaseMetroScene: (() => void) | undefined
+  if (metro) {
+    const sceneReady = new Promise<void>(resolve => { releaseMetroScene = resolve })
+    metro.prepareVisual = async object => {
+      // Use the actual scene after its light/fog state has run once. Compiling
+      // against a temporary scene creates a second, incompatible program set.
+      await sceneReady
+      if (renderer.extensions.has('KHR_parallel_shader_compile')) {
+        await renderer.compileAsync(object, camera, scene)
+      }
+    }
+  }
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.25
   renderer.setPixelRatio(pixelRatio.ratio)
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.xr.enabled = true
   renderer.xr.setReferenceSpaceType('local-floor')
+  // Must precede setSession: the native compositor allocates its targets there.
+  renderer.xr.setFramebufferScaleFactor(xrProfile.framebufferScale)
+  renderer.xr.setFoveation(xrProfile.foveation)
+  renderer.domElement.dataset.xrProfile = xrProfile.name
+  renderer.domElement.dataset.xrScale = String(xrProfile.framebufferScale)
   // The perf meter reads renderer.info once per game-loop tick; manual reset
   // lets the counters accumulate across bloom's sub-passes instead of being
   // wiped by every internal render() call.
   renderer.info.autoReset = false
   const perfMeter = createPerfMeter()
+  const xrDetailGovernor = createXRDetailGovernor()
   // Desktop only: phones already cap the ratio at 1.75 and Quest renders into
   // the XR framebuffer, where setPixelRatio has no say. Started once the
   // splash is gone (below); steps down only, never up. `?dpr=` switches it off.
@@ -666,7 +702,7 @@ export const bootstrapApp = async () => {
 
   const restitution = 0.55
   const cylinderWall = createRotatingCylinderBody(rapier, physicsWorld, {
-    radius: habitatConfig.radius,
+    radius: structuralRadius(),
     length: getHabitatSpanMeters(),
     units: getUnits(),
     expressway: cityscape.getCityPlan()?.expressway ?? null
@@ -1004,8 +1040,8 @@ export const bootstrapApp = async () => {
   }
 
   const respawnPlayerOverlook = (prepared = false) => {
-    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
-      colonyMotion.queue(cityscape.authoredColony, { azimuth: 0, axial: 0, distance: 256 }, () => respawnPlayerOverlook(true))
+    if (!prepared && regionalSource().getRegionalStatus()) {
+      colonyMotion.queue(regionalSource(), { azimuth: 0, axial: 0, distance: 256 }, () => respawnPlayerOverlook(true))
       return true
     }
     const didRespawn = respawnPlayerOverlookRuntime(
@@ -1033,10 +1069,10 @@ export const bootstrapApp = async () => {
   }
 
   const respawnPlayerAxisEnd = (prepared = false) => {
-    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
+    if (!prepared && regionalSource().getRegionalStatus()) {
       const span = getHabitatSpanMeters()
       const axial = habitatConfig.type === 'cylinder' ? -Math.max(0, span / 2 - Math.min(50, Math.max(5, span * .1))) : 0
-      colonyMotion.queue(cityscape.authoredColony, { azimuth: 0, axial, distance: 256 }, () => respawnPlayerAxisEnd(true))
+      colonyMotion.queue(regionalSource(), { azimuth: 0, axial, distance: 256 }, () => respawnPlayerAxisEnd(true))
       return true
     }
     return respawnPlayerAxisEndRuntime(
@@ -1058,12 +1094,12 @@ export const bootstrapApp = async () => {
 
   const exteriorFacing = new THREE.Vector3()
   const respawnPlayerExterior = (prepared = false) => {
-    if (!prepared && cityscape.authoredColony.getRegionalStatus()) {
+    if (!prepared && regionalSource().getRegionalStatus()) {
       const position = getExteriorVantage({ type: habitatConfig.type, radius: habitatConfig.radius,
         length: getHabitatSpanMeters(), aspect: renderer.xr.isPresenting ? 1 : camera.aspect,
         verticalFovDegrees: camera.fov,
         mirrorReach: getWindowArcs(habitatConfig.topology).length ? getHabitatSpanMeters() * 1.02 : 0 })
-      colonyMotion.queue(cityscape.authoredColony, { azimuth: Math.atan2(position.z, position.x),
+      colonyMotion.queue(regionalSource(), { azimuth: Math.atan2(position.z, position.x),
         axial: position.y, distance: 256 }, () => respawnPlayerExterior(true))
       return true
     }
@@ -1221,7 +1257,7 @@ export const bootstrapApp = async () => {
 
   const prepareTravel = () => {
     colonyMotion.cancel()
-    cityscape.authoredColony.retryRegions()
+    regionalSource().retryRegions()
     railRide.cancel(playerTraversal)
     journey.cancel()
     // Travel leaves the old attachment before placing the new body. Otherwise
@@ -1243,6 +1279,12 @@ export const bootstrapApp = async () => {
     const plan=cityscape.getCityPlan(), radius=habitatConfig.radius
     const position=drive.driving?drive.surface:playerTraversal.surface
     routeOrigin={azimuth:position.azimuth,axial:position.axialPosition}
+    if(journey.action.startsWith('guide-metro-')){
+      const roads=cityscape.metroWorld?.roads, id=journey.action.slice('guide-metro-'.length)
+      const route=roads&&!drive.driving?roads.route({...routeOrigin,groundHeight:playerTraversal.groundHeight},id):null
+      journey.setRoute(route,drive.driving,METRO_DIRECTIONS.find(d=>d.id===journey.action)?.label??'Road directions')
+      routeRetry=0;return
+    }
     const carPoint={azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition}
     const destination=journey.action==='guide-car'
       ? {label:'Your car',entrance:carPoint,bay:null} : outingDestinations.get(journey.action)
@@ -1255,7 +1297,8 @@ export const bootstrapApp = async () => {
 
   function handleWatchAction(action: WatchActionId) {
     if(drive.driving && ['guide-car','guide-river','guide-garden'].includes(action))return false
-    if(OUTING_DESTINATIONS.some(d=>d.id===action)) {
+    if(OUTING_DESTINATIONS.some(d=>d.id===action)||METRO_DIRECTIONS.some(d=>d.id===action)) {
+      if(action.startsWith('guide-metro-')&&(!cityscape.metroWorld?.roads||drive.driving))return false
       desktopLookControls.cancelIntroReveal()
       if(tourGuide.activeEvent==='start'){tourGuide.activeEvent=null;tourGuide.remainingSeconds=0}
       journey.action=action as GuideAction;refreshJourney();audio.playClick();return true
@@ -1323,7 +1366,8 @@ export const bootstrapApp = async () => {
           return respawnPlayerInnerWall()
         }
         if (runtimeAction.mode === 'old-town') {
-          if (cityscape.authoredColony.getRegionalStatus()) {
+          if (cityscape.metroWorld) return false
+          if (regionalSource().getRegionalStatus()) {
             reportTour('old-town')
             return queuePlaceVisit('a-old-town')
           }
@@ -1367,7 +1411,7 @@ export const bootstrapApp = async () => {
         sun,
         camera,
         inertialObserverCamera,
-        cylinderWall,
+        cylinderWall: { ...cylinderWall, rebuild: config => cylinderWall.rebuild({ ...config, radius: structuralRadius() }) },
         applyPlayerTraversalState,
         playerRig,
         playerTraversal
@@ -1384,6 +1428,7 @@ export const bootstrapApp = async () => {
         type: habitatConfig.type
       }
     )
+    habitat.setFloorHeight(cityscape.metroWorld?.floorHeight ?? 0)
     parkCarNearPlaza()
     // The city index was just rebuilt for the new dimensions; re-seat the
     // streamed building colliders onto it (and the new sim scale / spin).
@@ -1440,7 +1485,8 @@ export const bootstrapApp = async () => {
           : []
       sidewalks.setSurfaces(cityPlan?.streetSurfaces && habitatConfig.type!=='ring' && getSidewalkWidth(habitatConfig.radius,span)>0
         ? cityPlan.streetSurfaces.sidewalks(isOpenSquare,cityscape.getStreetSidewalkCuts()) : [],habitatConfig.radius,cityPlan?.nativeDistricts)
-      playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark())
+      playerBodyView.surfaces.setPlan(cityPlan, sidewalkSegments, habitatConfig.radius, cityscape.getPublicPark(),
+        cityscape.metroWorld ? (azimuth, axial, height) => getCityGroundHeight(cityscape.getCollisionIndex(), habitatConfig.radius, azimuth, axial, height, .4) : null)
       playerBodyView.motion.reset()
       streetWalkers.setPlan(sidewalkSegments, habitatConfig.radius, cityscape.getRiverDistrict(), cityscape.curvedNeighborhood.plan,cityPlan)
     }
@@ -1487,6 +1533,7 @@ export const bootstrapApp = async () => {
     setRaining(!weather.raining), dock.primary
   )
   let placesPlan: ReturnType<typeof cityscape.getCityPlan> | undefined
+  let placesMetro = false
   const availablePlaces = new Set<PlaceVisitAction>()
 
   // Fold the current view into a URL: opening it boots at this exact spot,
@@ -1532,7 +1579,7 @@ export const bootstrapApp = async () => {
       pose,
       orientation: shareQuaternionScratch
     })
-    return `${window.location.origin}${window.location.pathname}?${query}${landscapeStudy ? '&landscape=authored' : ''}`
+    return `${window.location.origin}${window.location.pathname}?${query}${landscapeStudy ? '&landscape=authored' : ''}${metro ? '&city=tokyo' : ''}`
   }
 
   // Boot-time restore of a shared pose: seat the traversal state first, then
@@ -1554,7 +1601,7 @@ export const bootstrapApp = async () => {
         radius: habitatConfig.radius,
         frameAngle,
         omega,
-        groundHeight: THREE.MathUtils.clamp(pose.groundHeight, 0, habitatConfig.radius * 0.5)
+        groundHeight: THREE.MathUtils.clamp(pose.groundHeight, cityscape.metroWorld?.floorHeight ?? 0, habitatConfig.radius * 0.5)
       })
     } else {
       shareFreeFlyScratch.set(pose.position.x, pose.position.y, pose.position.z)
@@ -1613,13 +1660,13 @@ export const bootstrapApp = async () => {
     const axial = grounded ? THREE.MathUtils.clamp(pose.axialPosition, -span / 2 + 1.5, span / 2 - 1.5)
       : THREE.MathUtils.clamp(pose.position.y, -span, span)
     const azimuth = grounded ? pose.azimuth : Math.atan2(pose.position.z, pose.position.x)
-    colonyMotion.queue(cityscape.authoredColony, { azimuth, axial, distance: 256 }, () => applyReadyPose(pose, orientation))
+    colonyMotion.queue(regionalSource(), { azimuth, axial, distance: 256 }, () => applyReadyPose(pose, orientation))
   }
 
   const queuePlaceVisit = (kind: string | null) => {
     const target = cityscape.locateInteriorVisit(kind)
     if (!target) return false
-    colonyMotion.queue(cityscape.authoredColony, { azimuth: target.azimuth, axial: target.axial, distance: 256 }, () => {
+    colonyMotion.queue(regionalSource(), { azimuth: target.azimuth, axial: target.axial, distance: 256 }, () => {
       const visit = cityscape.getInteriorVisit(kind)
       if (!visit) throw Error('Arrival destination changed')
       applyReadyPose({ mode: 'grounded', azimuth: visit.azimuth, axialPosition: visit.axial,
@@ -1703,6 +1750,8 @@ export const bootstrapApp = async () => {
     // debugging session teleport the car to a spot (e.g. a ramp mouth) and
     // enter it without a minutes-long manual drive at software-GL framerates.
     ;(window as unknown as Record<string, unknown>).__spinwardScene = scene
+    ;(window as unknown as Record<string, unknown>).__spinwardMetro = metro
+    ;(window as unknown as Record<string, unknown>).__spinwardRenderer = renderer
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders }
@@ -2154,20 +2203,21 @@ export const bootstrapApp = async () => {
       : getExpresswayElevation(expressway, habitatConfig.radius, azimuth, axialPosition)
   }
 
-  const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number) => {
+  const sampleGroundHeight = (azimuth: number, axialPosition: number, altitude: number, stepTolerance = 1.5) => {
     const cityHeight = getCityGroundHeight(
       cityscape.getCollisionIndex(),
       habitatConfig.radius,
       azimuth,
       axialPosition,
-      altitude
+      altitude,
+      stepTolerance
     )
     // The deck behaves like a roof: it is your floor only when your feet are
     // already at (or just above) it — street level stays real underneath.
     const expresswayHeight = sampleExpresswayElevation(azimuth, axialPosition)
-    const deckCounts = expresswayHeight > 0 && altitude >= expresswayHeight - 1.5
+    const deckCounts = expresswayHeight > 0 && altitude >= expresswayHeight - stepTolerance
 
-    return Math.max(cityHeight, deckCounts ? expresswayHeight : 0)
+    return deckCounts ? Math.max(cityHeight, expresswayHeight) : cityHeight
   }
 
   // Landing absorb: the camera dips with the impact speed and springs back.
@@ -2211,13 +2261,19 @@ export const bootstrapApp = async () => {
   const regionalCurrent = new THREE.Vector3(), regionalFuture = new THREE.Vector3()
   const regionalInertialFuture = new THREE.Vector3(), regionalVelocity = new THREE.Vector3()
 
-  const gameLoop = new GameLoop(renderer, ({ deltaSeconds }) => {
+  const gameLoop = new GameLoop(renderer, ({ deltaSeconds, rawDeltaSeconds, elapsedSeconds }) => {
+    const xrSession = renderer.xr.getSession()
+    const xrDetailLevel = xrDetailGovernor.frame(elapsedSeconds * 1000,
+      renderer.xr.isPresenting && !!metro?.active,
+      !!metro?.operational && !metro?.visualFocus && xrSession?.visibilityState === 'visible',
+      xrSession?.frameRate ?? (xrProfile.name === 'standalone' ? 72 : 90))
+    metro?.setXRDetail(xrDetailLevel)
     const wallDelta = deltaSeconds
     // Sample the previous frame's accumulated renderer counters, then clear
     // them for the passes this tick will issue.
-    perfMeter.frame(deltaSeconds, renderer.info.render)
+    perfMeter.frame(rawDeltaSeconds, renderer.info.render)
     renderer.info.reset()
-    statsOverlay?.update(deltaSeconds, perfMeter.stats(), depthMode)
+    statsOverlay?.update(rawDeltaSeconds, perfMeter.stats(), depthMode)
 
     if (resolutionGovernor !== null && !renderer.xr.isPresenting) {
       const loweredRatio = resolutionGovernor.frame(performance.now())
@@ -2353,7 +2409,32 @@ export const bootstrapApp = async () => {
       inertialPositionToRotating(regionalInertialFuture, frameAngle + omega * wallDelta, regionalFuture)
       foci.push({ azimuth: Math.atan2(regionalFuture.z, regionalFuture.x), axial: regionalFuture.y, distance: 256 })
     }
-    const regionalReady = colonyMotion.step(cityscape.authoredColony, foci)
+    let metroMotion: RegionalMotion | undefined
+    let metroFrameTravel = 0
+    if (cityscape.metroWorld) {
+      inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, regionalCurrent)
+      inertialVelocityToRotating(playerTraversal.inertialPosition, playerTraversal.inertialVelocity, omega, frameAngle, regionalVelocity)
+      const speedBound = drive.driving ? Math.abs(drive.lastSpeed) + 10 : railRide.riding
+        ? rail.service?.data.configuration.maxSpeed ?? 6 : playerTraversal.mode === 'grounded' ? 6 : 0
+      metroMotion = { omega, deltaSeconds: wallDelta, bodies: [{
+        position: { ...regionalCurrent }, velocity: { ...regionalVelocity },
+        acceleration: habitatConfig.jetpackAcceleration, radius: 2, speedBound
+      }] }
+      // Collider activation must cover this frame's whole travel too. At altitude
+      // tangential displacement projects to a larger arc on the inner wall.
+      metroFrameTravel = (Math.max(speedBound, regionalVelocity.length()) * wallDelta +
+        habitatConfig.jetpackAcceleration * wallDelta * wallDelta) *
+        Math.max(1, habitatConfig.radius / Math.max(1, Math.hypot(regionalCurrent.x, regionalCurrent.z)))
+      for (const ball of balls) {
+        if (!ball.needsHabitatCollision) continue
+        ball.copyInertialPosition(regionalInertialFuture)
+        ball.copyInertialVelocity(regionalVelocity)
+        inertialVelocityToRotating(regionalInertialFuture, regionalVelocity, omega, frameAngle, regionalVelocity)
+        inertialPositionToRotating(regionalInertialFuture, frameAngle, regionalFuture)
+        metroMotion.bodies.push({ position: { ...regionalFuture }, velocity: { ...regionalVelocity }, acceleration: 0, radius: ball.radius })
+      }
+    }
+    const regionalReady = colonyMotion.step(regionalSource(), foci, metroMotion)
     if (!regionalReady) deltaSeconds = 0
 
     // Update order: input -> grab state -> simulation -> render.
@@ -2533,11 +2614,16 @@ export const bootstrapApp = async () => {
     if (regionalReady) {
       cityColliders.update(
         drive.driving ? drive.surface.azimuth : playerAzimuth,
-        drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y
+        drive.driving ? drive.surface.axialPosition : playerFixedColliderPosition.y,
+        metroFrameTravel
       )
-      physicsWorld.timestep = deltaSeconds
+      const physicsSteps = cityscape.metroWorld
+        ? metroPhysicsSubsteps(playerTraversal.inertialPosition, playerTraversal.inertialVelocity, omega, deltaSeconds)
+        : 1
+      physicsWorld.timestep = deltaSeconds / physicsSteps
       railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null)
-      physicsWorld.step()
+      for (let step = 0; step < physicsSteps; step++) physicsWorld.step()
+      physicsWorld.timestep = deltaSeconds
       if (railRide.riding) railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
       if (!roomSeating.seat && !railRide.riding) {
         syncPlayerTraversalFromPhysics(playerTraversal)
@@ -2701,6 +2787,7 @@ export const bootstrapApp = async () => {
       ball.step({
         deltaSeconds,
         habitatRadius: habitatConfig.radius,
+        structuralRadius: structuralRadius(),
         habitatLength: habitatSpan,
         omega,
         frameAngleEnd: frameAngle,
@@ -2722,7 +2809,7 @@ export const bootstrapApp = async () => {
     })
     const playerRegion = getPlayerTraversalRegion(
       playerTraversal,
-      habitatConfig.radius,
+      structuralRadius(),
       habitatSpan,
       frameAngle
     )
@@ -2746,7 +2833,8 @@ export const bootstrapApp = async () => {
     const feltSpeed = drive.driving ? drive.lastSpeed : -1
 
     const currentPlacePlan = cityscape.getCityPlan()
-    if (currentPlacePlan !== placesPlan) {
+    if (currentPlacePlan !== placesPlan || placesMetro !== !!cityscape.metroWorld) {
+      placesMetro = !!cityscape.metroWorld
       placesPlan = currentPlacePlan
       availablePlaces.clear()
       for (const place of PLACE_DESTINATIONS) {
@@ -2763,16 +2851,17 @@ export const bootstrapApp = async () => {
     outingCanPark=!!(drive.driving && drive.lastGrounded && destinationBay && canParkAt({azimuth:drive.surface.azimuth,axial:drive.surface.axialPosition},drive.heading,drive.lastSpeed,drive.lastElevation,destinationBay,habitatConfig.radius))
     outingAngle=wrapAngle(journey.bearing-bodyHeading)
     const turn=Math.abs(outingAngle)<.35?'Ahead':Math.abs(outingAngle)>2.6?'Behind':outingAngle>0?'Right':'Left'
-    outingDetail=journey.status==='unavailable'?'No local route · move nearer a street'
+    outingDetail=journey.status==='unavailable'?(journey.action?.startsWith('guide-metro-')?'Start at Tokyo, Takebashi or Suidobashi via Places.':'No local route · move nearer a street')
+      : journey.status==='arrived'&&journey.action?.startsWith('guide-metro-')?`${journey.label} · arrived`
       : journey.status==='arrived'?(drive.driving?'Brake in the bay, then Park':journey.action==='guide-car'?'Your car is here · E to enter':journey.action==='guide-cafe'?'Café entrance · step inside for coffee':journey.action==='guide-park'?'Park entrance · follow the path to a bench':journey.action==='guide-garden'?'Garden street · follow the bend':journey.action==='guide-river'?'Riverside · follow the water to a bench':'Central Square · welcome back')
       : `${turn} ${Math.ceil(journey.nextDistance)} m · ${Math.ceil(journey.remaining)} m ${drive.driving?'to parking':'on foot'}`
     if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.crosswalk &&
       (journey.nextDistance<12 || journey.points[journey.index-1]?.crosswalk))
-      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Crosswalk · check traffic`
+      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · ${journey.action?.startsWith('guide-metro-')?'Street crossing · look both ways':'Crosswalk · check traffic'}`
     else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.coveredWalk)
       outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · Covered walk`
     else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.riverWalk)
-      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · ${{bridge:'Bridge sidewalk',upper:'Upper promenade',ramp:'Riverside ramp',bank:'Riverside walk'}[journey.points[journey.index].riverWalk!]}`
+      outingDetail=`${turn} ${Math.ceil(journey.nextDistance)} m · ${journey.action?.startsWith('guide-metro-')?'Bridge crossing':{bridge:'Bridge sidewalk',upper:'Upper promenade',ramp:'Riverside ramp',bank:'Riverside walk'}[journey.points[journey.index].riverWalk!]}`
     else if(journey.status==='active' && !drive.driving && journey.points[journey.index]?.curvedWalk)
       outingDetail=`${turn} · ${Math.ceil(journey.remaining)} m on foot`
     if(journey.status==='arrived' && !drive.driving && journey.action==='guide-cafe' && cityscape.sampleRoomEnvironment(outingSurface.azimuth,outingSurface.axialPosition,playerTraversal.groundHeight).cafe>.5)outingDetail=coffeeService.phase==='holding'?'Enjoy your coffee · Your car in Places':'You are inside · coffee at the counter'
@@ -2781,8 +2870,10 @@ export const bootstrapApp = async () => {
     dock.driving.parentElement!.hidden = !drive.driving
     outingPanel.update({label:journey.label,detail:outingDetail,angle:journey.status==='active'?outingAngle:NaN,active:journey.status!=='idle',driving:drive.driving,mode:drive.mode,canPark:outingCanPark,hidden:renderer.xr.isPresenting})
     const watchSnapshot = createWatchRenderSnapshot(settingsStore, {
+      metroRoutes:!!cityscape.metroWorld?.roads,
+      oldTownAvailable: cityscape.metroWorld ? false : undefined,
       outing:{text:journey.action?`${journey.label} · ${outingDetail}`:'Choose a place; travel there on foot or by car.',
-        label:journey.action?journey.label:'',detail:journey.action?outingDetail:'Choose a place for directions.',
+        label:journey.action?journey.label:'',detail:journey.action?outingDetail:cityscape.metroWorld?.roads?'Walk Tokyo–Takebashi–Suidobashi. Start from Places.':'Choose a place for directions.',
         mode:drive.mode,canPark:outingCanPark,active:!!journey.action},
       playerMode: playerTraversal.mode,
       platform: currentControlPlatform(),
@@ -2830,12 +2921,13 @@ export const bootstrapApp = async () => {
     // The whole dock hides in VR; Travel/Spin stay reachable while driving.
     dock.setVisible(!renderer.xr.isPresenting)
     beatBar.update({
+      metroRoutes:!!cityscape.metroWorld?.roads,
       driving: drive.driving,
       rpm: habitatConfig.rpm,
       feltGravity,
       axisAvailable: canRespawnOnAxisEnd(habitatConfig.type),
       oldTownAvailable:
-        getArrivalSquare(habitatConfig.radius, getHabitatSpanMeters()) !== null,
+        !cityscape.metroWorld && getArrivalSquare(habitatConfig.radius, getHabitatSpanMeters()) !== null,
       raining: weather.raining,
       availablePlaces,
       muted: audio.isMuted
@@ -3003,6 +3095,7 @@ export const bootstrapApp = async () => {
     // (the daylighting geometry in cityscape drives that — mirror swing for Izma,
     // axial intensity for Cooper/Playground/Elysium), not a warm tint.
     cityscape.setSunlight(daylight, sunBeamColor)
+    releaseMetroScene?.(); releaseMetroScene = undefined
 
     // Colour grade from the active look's keyframed profile (neutral honest grade
     // for Izma, cool legacy for the rest). Light intensities stay on `daylight`
@@ -3043,6 +3136,7 @@ export const bootstrapApp = async () => {
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
     car.update(drive.driving, daylight, vehicleSteer)
+    streetLamps.setExternalLights(cityscape.metroWorld?.nightLights(streetLamps.group) ?? null)
     streetLamps.update(
       Math.atan2(carrierRotatingPosition.z, carrierRotatingPosition.x), carrierRotatingPosition.y,
       habitatConfig.radius - carrierRadial,
@@ -3089,6 +3183,8 @@ export const bootstrapApp = async () => {
     // Lightweight state probe for headless debugging.
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
+      metro: cityscape.metroWorld?.diagnostics() ?? null,
+      xrDetail: xrDetailGovernor.diagnostics(),
       tour: tourGuide.activeEvent,
       mode: playerTraversal.mode,
       room: { ...roomEnvironment, coffee: { phase: coffeeService.phase, servings: coffeeService.servings, sipRemaining: coffeeService.sipRemaining }, audio: audio.roomAudioState, seat: roomSeating.seat?.id ?? null,
@@ -3104,9 +3200,11 @@ export const bootstrapApp = async () => {
       axial: rotatingCameraPosition.y,
       azimuth: Math.atan2(rotatingCameraPosition.z, rotatingCameraPosition.x),
       speed: playerTraversal.inertialVelocity.length(),
+      relativeSpeed: inertialVelocityToRotating(playerTraversal.inertialPosition, playerTraversal.inertialVelocity,
+        omega, frameAngle, regionalVelocity).length(),
       frameAngle,
       regional: { state: colonyMotion.state, pendingArrival: colonyMotion.pendingArrival,
-        error: colonyMotion.error, ...cityscape.authoredColony.getRegionalStatus() },
+        error: colonyMotion.error, ...regionalSource().getRegionalStatus() },
       groundHeight: playerTraversal.groundHeight,
       rail: { time: rail.service?.time ?? 0, trains: rail.service?.trains.length ?? 0, rider: railRide.train?.id ?? null,
         speed: railRide.train?.speed ?? 0, station: railRide.train?.station?.id ?? null, next: railRide.train?.next.id ?? null,
@@ -3160,6 +3258,13 @@ export const bootstrapApp = async () => {
       airborneView: playerTraversal.mode === 'free-fly' && !renderer.xr.isPresenting
         ? airborneBodyView.multiplyMatrices(bodyFrameInverse, camera.matrixWorld) : undefined
     })
+    // Use one visual representation per tracked hand. Hardware remains the
+    // fallback while the avatar loads, is hidden, or cannot show that hand.
+    for (const { controller, model } of grabSystem.getControllers()) {
+      const handedness = xrInputMap.getHandedness(controller)
+      const index = handedness === 'left' ? 0 : handedness === 'right' ? 1 : -1
+      model.visible = !((index === 0 || index === 1) && trackedBody?.hands[index] && playerBodyView.group.visible && playerBodyView.group.userData.ready)
+    }
     if (stepped) audio.playFootstep(roomEnvironment, playerBodyView.motion.speed)
     if (playerBodyView.hand.parent !== coffeeView.held) coffeeView.held.add(playerBodyView.hand)
 

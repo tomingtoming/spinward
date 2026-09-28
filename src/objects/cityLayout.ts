@@ -649,16 +649,18 @@ export const isInsidePlaza = (
 const COLLISION_CELL_SIZE = 64
 const COLLISION_INSERT_MARGIN = 8
 // Streaming runs before every physics step. Even the car's capped step travels
-// less than 10 m; 32 m of extra bounds coverage leaves three steps of lead-in.
+// 8.9 m. Three steps plus the 0.5 m car radius require 27.2 m; round up to 28 m.
+// The range test exercises the actual frame cap, vehicle tuning and body radius.
 // This is independent of grid size, so dense streets need not load a whole
 // 64 m cell of meshes beyond the player's surroundings.
-export const CITY_COLLIDER_TRAVEL_BUFFER = 32
+export const CITY_COLLIDER_TRAVEL_BUFFER = 28
 
 const positiveModulo = (value: number, modulus: number) =>
   ((value % modulus) + modulus) % modulus
 
 export type CityCollisionIndex = {
   readonly kind: 'city-collision-index'
+  readonly floorHeight?: number
   readonly radius: number
   readonly azimuthCellCount: number
   readonly axialCellCount: number
@@ -914,17 +916,23 @@ export const getCityGroundHeight = (
     return 0
   }
 
-  let groundHeight = 0
+  const floor = 'kind' in buildings ? buildings.floorHeight ?? 0 : 0
+  let groundHeight = floor
 
   for (const building of resolveBuildingsNear(buildings, azimuth, axialPosition)) {
     const dx = wrapToPi(azimuth - building.azimuth) * radius, dy = axialPosition - building.axial
     const c = Math.cos(building.yaw ?? 0), s = Math.sin(building.yaw ?? 0)
-    const margin = (building.groundMargin ?? .3) * (Math.abs(c) + Math.abs(s))
+    // Centre/extent subtraction at large coordinates can put a shared edge
+    // just outside both bounds. Only the broad phase gets this rounding pad;
+    // projected triangles still decide whether an actual floor exists.
+    // Checking for the property must not invoke a lazy mesh getter before
+    // the bounds check: unloaded regional floors deliberately throw on read.
+    const margin = (building.groundMargin ?? .3) * (Math.abs(c) + Math.abs(s)) + ('surfaceMesh' in building ? 1e-6 : 0)
     if (Math.abs(dx) > (building.width * Math.abs(c) + building.depth * Math.abs(s)) / 2 + margin ||
         Math.abs(dy) > (building.depth * Math.abs(c) + building.width * Math.abs(s)) / 2 + margin) continue
     if (building.surfaceMesh) {
       if (building.groundSurface === false) continue
-      groundHeight = Math.max(groundHeight, sampleProjectedCitySurface(building.surfaceMesh, radius, dx, dy, altitude + stepTolerance))
+      groundHeight = Math.max(groundHeight, sampleProjectedCitySurface(building.surfaceMesh, radius, dx, dy, altitude + stepTolerance, floor))
       continue
     }
     const top = (building.baseHeight ?? 0) + building.height

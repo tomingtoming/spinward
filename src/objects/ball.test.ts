@@ -659,6 +659,21 @@ test('confineToHabitat defaults true and still confines a shot at exterior radiu
   world.free()
 })
 
+test('below-datum projectiles use the structural hull instead of the geographic datum', async () => {
+  const rapier = await initRapier(), world = new rapier.World({ x: 0, y: 0, z: 0 })
+  const ball = new Ball({ physics: { rapier, world, restitution: 0 },
+    initialPosition: new THREE.Vector3(3204, 0, 0), initialVelocity: new THREE.Vector3(2, 0, 0),
+    radius: .35, maxTrailPoints: 16, lifetimeSeconds: 30, frameAngle: 0, omega: 0 })
+  for (let i = 0; i < 600; i++) {
+    world.timestep = 1 / 60; world.step()
+    ball.step({ deltaSeconds: 1 / 60, habitatRadius: 3200, structuralRadius: 3216,
+      habitatLength: 40000, omega: 0, frameAngleEnd: 0, trailMode: 'both' })
+    if (i === 0) expect(ball.position.x).toBeGreaterThan(3204)
+  }
+  expect(ball.position.x).toBeCloseTo(3215.65, 2)
+  ball.dispose(); world.free()
+})
+
 test('a fast beam fired from inside still bursts on the inner wall after tunnelling past it', async () => {
   const rapier = await initRapier()
   const world = new rapier.World({ x: 0, y: 0, z: 0 })

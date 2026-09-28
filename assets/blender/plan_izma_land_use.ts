@@ -5,9 +5,13 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { positivePolygon, polygonArea, subtractStreetPolygon, intersectStreetPolygons, type StreetPolygon } from '../../src/objects/streetPolygon'
 
-const root = path.resolve(import.meta.dir, '../..'), assets = path.join(root, 'assets/blender')
+const root = process.env.SPINWARD_AUTHORING_ROOT ?? path.resolve(import.meta.dir, '../..')
+if (!path.isAbsolute(root)) throw new Error('Authoring root must be an absolute path')
+const assets = path.join(root, 'assets/blender')
+const neighbourhoodName = process.env.SPINWARD_CITY_FABRIC === '1' ? 'izma-city-neighbourhoods.json' : 'izma-neighbourhood-parcels.json'
+const outputName = process.env.SPINWARD_CITY_FABRIC === '1' ? 'izma-city-land-use-layout.json' : 'izma-land-use-layout.json'
 const read = (name: string) => JSON.parse(fs.readFileSync(path.join(assets, name), 'utf8'))
-const master = read('izma-colony-plan.json'), infill = read('izma-neighbourhood-parcels.json')
+const master = read('izma-colony-plan.json'), infill = read(neighbourhoodName)
 const primary = read('izma-parcels.json'), publicRealm = read('izma-public-spaces.json'), rail = read('izma-rail.json')
 const urban = read('izma-urban-plan.json'), streets = read('izma-urban-streets.json')
 const completeBlocks = read('izma-block-parcels.json')
@@ -23,6 +27,10 @@ const touches = (a:number[],b:number[]) => a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]
 const obstacles: { polygon:StreetPolygon; bounds:number[]; kind:string; route?:string }[] = []
 const reserve = (polygon:StreetPolygon,kind:string,route?:string) => obstacles.push({polygon,bounds:bounds(polygon),kind,route})
 for (const block of completeBlocks.blocks) for (const sector of block.sectors) reserve(poly(sector),'complete-block')
+if (infill.cityFabric) for (const p of read('izma-corner-blocks.json').parcels) {
+  reserve(poly(p.outline), 'retained-corner')
+  reserve(corridor(p.entrance.start,p.entrance.end,p.entrance.width+.1), 'corner-entrance')
+}
 for (const p of [...primary.parcels,...infill.parcels]) {
   if(retired.has(p.id))continue
   reserve(p.lot ? poly(p.lot.polygon) : rectangle(...p.position,p.yaw,p.size[0]+1.5,p.size[1]+1.5),'parcel')
@@ -84,7 +92,8 @@ for(const d of master.districts){
   add('land-'+d.id+'-'+(side<0?'left':'right'),d,use,outline)
  }
 }
-const inputs=['izma-colony-plan.json','izma-parcels.json','izma-neighbourhood-parcels.json','izma-public-spaces.json','izma-rail.json','izma-urban-plan.json','izma-urban-streets.json','izma-block-parcels.json']
+const inputs=['izma-colony-plan.json','izma-parcels.json',neighbourhoodName,'izma-public-spaces.json','izma-rail.json','izma-urban-plan.json','izma-urban-streets.json','izma-block-parcels.json']
+if (infill.cityFabric) inputs.push('izma-corner-blocks.json')
 for(const z of zones){
  const candidates:any[]=[]
  for(const piece of [...z.pieces].sort((a,b)=>polygonArea(poly(b))-polygonArea(poly(a))).slice(0,12)){
@@ -118,5 +127,5 @@ for(const z of zones){
  }
 }
 const dependencies=Object.fromEntries(inputs.map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(assets,name))).digest('hex')]))
-fs.writeFileSync(path.join(assets,'izma-land-use-layout.json'),JSON.stringify({origin:'ai',created:'2026-09-18',version:1,dependencies,zones},null,2)+'\n')
+fs.writeFileSync(path.join(assets,outputName),JSON.stringify({origin:'ai',created:'2026-09-19',version:1,dependencies,zones},null,2)+'\n')
 console.log(JSON.stringify({zones:zones.length,area:zones.reduce((s,z)=>s+z.area,0),districts:[...new Set(zones.map(z=>z.district))],uses:Object.fromEntries([...new Set(zones.map(z=>z.use))].map(use=>[use,zones.filter(z=>z.use===use).length]))},null,2))

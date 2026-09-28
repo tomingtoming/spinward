@@ -1,3 +1,5 @@
+import { METRO_PLACE_DESTINATIONS } from '../../app/placeVisits'
+import { METRO_DIRECTIONS } from '../../worlds/metroRoads'
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { PLACE_DESTINATIONS } from '../../app/placeVisits'
@@ -16,6 +18,18 @@ const centerUv = (layout: WatchScreenLayout, button: WatchButton) =>
     (button.x + button.width * 0.5) / layout.width,
     1 - (button.y + button.height * 0.5) / layout.height
   )
+
+test('Tokyo directions expose only the supported corridor and preserve full laser targets',()=>{
+  const layouts=createAllWatchLayouts(720,700,METRO_PLACE_DESTINATIONS,true)
+  expect(layouts.places.buttons.some(b=>b.id==='nav-outing')).toBe(true)
+  expect(layouts.outing.placeButtons!.map(b=>b.id)).toEqual([...METRO_DIRECTIONS.map(d=>d.id),'guide-cancel'])
+  for(const b of layouts.outing.placeButtons!){
+    expect(b.width).toBeGreaterThanOrEqual(280);expect(b.height).toBe(80)
+    expect(getWatchButtonAtUv(layouts.outing,centerUv(layouts.outing,b))?.id).toBe(b.id)
+    expect(b.y+b.height).toBeLessThan(layouts.outing.outingFooter!.top)
+  }
+  expect(createAllWatchLayouts().outing.placeButtons!.some(b=>b.id==='guide-car')).toBe(true)
+})
 
 test('home screen keeps travel, spin and the category nav one tap away', () => {
   const layout = createWatchLayout('home')
@@ -174,4 +188,22 @@ test('wrist directions reserve two readable instruction lines below every full-s
     expect(b.y+b.height).toBeLessThanOrEqual(footer.top-20)
   }
   expect(footer.height).toBeGreaterThanOrEqual(98)
+})
+
+
+test('sixteen Tokyo places fit two laser pages without overlapping navigation', () => {
+  const pages = ['places', 'places-more'].map(screen => createWatchLayout(screen as 'places' | 'places-more', 720, 700, METRO_PLACE_DESTINATIONS))
+  expect(pages.flatMap(p => p.placeButtons!.map(b => b.id))).toEqual(METRO_PLACE_DESTINATIONS.map(p => p.id))
+  for (const layout of pages) {
+    expect(layout.buttons.some(b => b.id === 'nav-outing')).toBe(false)
+    for (const [i, b] of layout.buttons.entries()) {
+      expect(b.y + b.height).toBeLessThanOrEqual(layout.height)
+      expect(getWatchButtonAtUv(layout, centerUv(layout, b))?.id).toBe(b.id)
+      for (const other of layout.buttons.slice(i + 1)) {
+        const overlap = Math.min(b.x + b.width, other.x + other.width) > Math.max(b.x, other.x) &&
+          Math.min(b.y + b.height, other.y + other.height) > Math.max(b.y, other.y)
+        expect(overlap).toBe(false)
+      }
+    }
+  }
 })

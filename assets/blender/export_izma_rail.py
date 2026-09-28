@@ -3,9 +3,10 @@ import bpy,json,hashlib,math
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from colony_manifest_io import read_manifest, write_manifest
+from colony_manifest_io import read_manifest, write_manifest,write_immutable
 from izma_block_composition import invalidate_blocks
-ROOT=Path(__file__).resolve().parents[2]
+from izma_authoring_paths import authoring_root
+ROOT=authoring_root()
 contract=json.loads((ROOT/'assets/blender/izma-rail.json').read_text())
 for name,digest in contract['dependencies'].items():
     assert hashlib.sha256((ROOT/'assets/blender'/name).read_bytes()).hexdigest()==digest,('Rebuild rail after changed reservation',name)
@@ -61,7 +62,7 @@ for id,lods in sorted(tiles.items()):
     data=pack(lods[0]);data['mid']=pack(lods[1]);encoded=json.dumps(data,separators=(',',':'))+'\n'
     assert len(encoded.encode())<4*1024*1024,(id,len(encoded))
     filename=id+'-'+hashlib.sha256(encoded.encode()).hexdigest()[:12]+'.json'
-    (ROOT/'public/landscapes/izma'/filename).write_text(encoded)
+    write_immutable(ROOT/'public/landscapes/izma'/filename,encoded.encode())
     vs=[p for points in lods[0].values()for p in points];proxies=[]
     station=stations.get(id.removeprefix('station-'))
     band=tile_bands[id]

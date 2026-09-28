@@ -76,8 +76,12 @@ test('exposed foundation aprons support feet outside the closed building walls',
 
 
 test('every frontage pavement reaches the actual street or its paved sidewalk', () => {
-  const base = decodeColonyMesh(readColonyManifest(raw).base)
-  const streets = drawnIndex(['local', 'arterial', 'walk'].flatMap(name => base.meshes[name] ?? []))
+  const manifest = readColonyManifest(raw), base = decodeColonyMesh(manifest.base)
+  const replacement = manifest.motorway ? decodeColonyMesh(manifest.motorway.fixed) : null
+  const streets = drawnIndex([
+    ...['local', 'arterial', 'walk'].flatMap(name => base.meshes[name] ?? []),
+    ...['local', 'arterial', 'walk', 'motorway-road', 'motorway-walk'].flatMap(name => replacement?.meshes[name] ?? [])
+  ])
   for (const p of parcels.parcels) {
     const [x, y, h] = p.access.start
     const street = getCityGroundHeight(streets, 3200, x / 3200, y, 400)

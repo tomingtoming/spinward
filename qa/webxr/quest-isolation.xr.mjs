@@ -1,0 +1,31 @@
+import {test,expect} from 'playwright-webxr'
+import fs from 'node:fs/promises'
+
+test.use({xrStereoEnabled:true,viewport:{width:2560,height:960}})
+for(const depth of ['log','plain'])test(`isolated Quest entry: ${depth} depth, no city requests, saved result`,async({page,xr},info)=>{
+  const errors=[],requests=[]
+  page.on('pageerror',error=>errors.push(error.message))
+  page.on('request',request=>requests.push(request.url()))
+  await page.goto('about:blank')
+  const gpu=await page.evaluate(()=>{const g=document.createElement('canvas').getContext('webgl2'),e=g.getExtension('WEBGL_debug_renderer_info'),name=g.getParameter(e.UNMASKED_RENDERER_WEBGL);g.getExtension('WEBGL_lose_context').loseContext();return name})
+  expect(gpu).not.toMatch(/SwiftShader|llvmpipe|software/i)
+  await page.goto(`/diagnostics/xr-entry-v1/?depth=${depth}`)
+  await expect(page.locator('#status')).toContainText('準備完了')
+  await xr.enterVR();await xr.waitForFrames(4)
+  const diagnostics=await xr.diagnostics()
+  const first=await page.evaluate(()=>JSON.parse(localStorage.getItem('spinward.xr-entry-isolation.v1')))
+  expect(['rendered','frames']).toContain(first.stage)
+  expect(first.three).toBe('180')
+  expect(first.context.antialias).toBe(false)
+  expect(first.depth).toBe(depth)
+  await xr.screenshot(info.outputPath('entry.png'),{canvas:'canvas',metadata:true})
+  await expect(page.locator('#status')).toHaveText('10秒の描画が完了した',{timeout:20000})
+  await expect(page.locator('#VRButton')).toHaveText('ENTER VR')
+  const result=await page.evaluate(()=>JSON.parse(localStorage.getItem('spinward.xr-entry-isolation.v1')))
+  expect(result.frames).toBeGreaterThan(60)
+  await page.reload()
+  await expect(page.locator('#previous')).toContainText('10秒の描画が完了した')
+  expect(requests.filter(url=>!url.startsWith('about:')).every(url=>new URL(url).pathname.startsWith('/diagnostics/xr-entry-v1/'))).toBe(true)
+  expect(errors).toEqual([])
+  await fs.writeFile(info.outputPath('result.json'),JSON.stringify({gpu,first,result,diagnostics,requests,errors},null,2))
+})

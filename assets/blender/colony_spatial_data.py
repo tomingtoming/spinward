@@ -25,7 +25,7 @@ def fixed_layers(manifest):
     return layers
 
 
-def partition(manifest, cell_size=REGION_SIZE):
+def partition(manifest, cell_size=REGION_SIZE, *, _preserve_surface_ids=False):
     if not math.isfinite(cell_size) or cell_size <= 0:
         raise ValueError('Invalid colony region size')
     regions = {}
@@ -72,7 +72,8 @@ def partition(manifest, cell_size=REGION_SIZE):
                 raise ValueError('Invalid collision compound: ' + name)
             # Keep one physical compound intact even if it spans many regions.
             chunk = region((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
-            chunk['surfaces'].append({**surface, 'id': name + ':' + str(i),
+            ident = surface['id'] if _preserve_surface_ids else name + ':' + str(i)
+            chunk['surfaces'].append({**surface, 'id': ident,
                                       'indices': remap(chunk, indices)})
     for chunk in regions.values():
         del chunk['_lookup']
@@ -86,11 +87,26 @@ def write_regions(root, manifest, *, cell_size=REGION_SIZE, byte_limit=PART_LIMI
     are verified, never overwritten. This function cannot replace the source or
     publish a partially assembled runtime index.
     """
-    prepared = []
-    for cell, packed in sorted(partition(manifest, cell_size).items()):
+    def bounded(ident, packed, size, depth=0):
         data = encoded(packed)
         if len(data) > byte_limit:
-            raise ValueError(f'Colony region {cell} exceeds request budget: {len(data)} > {byte_limit}')
+            if depth >= 8:
+                raise ValueError(f'Colony region {ident} exceeds request budget: {len(data)} > {byte_limit}; indivisible collision compounds remain intact')
+            # Dense city blocks need smaller requests than open countryside.
+            # Repartition drawing triangles and whole physical compounds by
+            # their original coordinates; never renumber a surface's identity.
+            children = partition({'base': packed}, size / 2, _preserve_surface_ids=True)
+            for cell, child in sorted(children.items()):
+                suffix = '-'.join(str(v).replace('-', 'n') for v in cell)
+                yield from bounded(ident + '-q-' + suffix, child, size / 2, depth + 1)
+            return
+        yield ident, packed, data
+
+    prepared = []
+    regions = partition(manifest, cell_size)
+    candidates = (candidate for cell, packed in sorted(regions.items())
+                  for candidate in bounded('region-' + '-'.join(str(v).replace('-', 'n') for v in cell), packed, cell_size))
+    for ident, packed, data in candidates:
         digest = hashlib.sha256(data).hexdigest()
         url = '/landscapes/izma/data-' + digest + '.json'
         vertices = packed['vertices']
@@ -108,7 +124,7 @@ def write_regions(root, manifest, *, cell_size=REGION_SIZE, byte_limit=PART_LIMI
                   min([*vertices[1::3], *(s['bounds'][1] for s in surfaces)]),
                   max([*vertices[0::3], *(s['bounds'][2] for s in surfaces)]),
                   max([*vertices[1::3], *(s['bounds'][3] for s in surfaces)])]
-        descriptor = {'id': 'region-' + '-'.join(str(v).replace('-', 'n') for v in cell),
+        descriptor = {'id': ident,
                       'url': url, 'bytes': len(data),
                       'bounds': bounds,
                       'maxHeight': max(vertices[2::3]), 'surfaces': surfaces}

@@ -30,7 +30,7 @@ test('all native corner approaches reach the door and their polygon walls stop t
         city.update(state.surface.azimuth,state.surface.axialPosition)
         stepGroundedPlayer(state,{radius,length:40000,omega,frameAngleEnd:frame*omega*dt,deltaSeconds:dt,
           tangentDistanceDelta:frame<60?0:dx*1.2*dt,axisDistanceDelta:frame<60?0:dy*1.2*dt,
-          sampleGroundHeight:(a,y,h)=>getCityGroundHeight(index,radius,a,y,h)})
+          sampleGroundHeight:(a,y,h,tolerance)=>getCityGroundHeight(index,radius,a,y,h,tolerance)})
         world.step();syncGroundedSurfaceFromPhysics(state,frame*omega*dt)
         const rawX=state.surface.azimuth*radius,x=rawX+Math.round((start[0]-rawX)/(Math.PI*6400))*Math.PI*6400
         const y=state.surface.axialPosition

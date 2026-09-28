@@ -16,6 +16,7 @@ export type GrabTarget = {
 type ControllerState = {
   controller: THREE.XRTargetRaySpace
   grip: THREE.XRGripSpace
+  model: THREE.Object3D
   ray: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>
   hoveredTarget: GrabTarget | null
 }
@@ -141,12 +142,14 @@ export class GrabSystem {
       this.options.onSqueezeStart?.(event.target)
     })
 
-    grip.add(this.controllerModelFactory.createControllerModel(grip))
+    const model = this.controllerModelFactory.createControllerModel(grip)
+    model.name = 'xr-controller-model'
+    grip.add(model)
     const controllerRoot = this.options.controllerRoot ?? this.options.scene
     controllerRoot.add(controller)
     controllerRoot.add(grip)
 
-    return { controller, grip, ray, hoveredTarget: null }
+    return { controller, grip, model, ray, hoveredTarget: null }
   }
 
   private makeControllerRay() {

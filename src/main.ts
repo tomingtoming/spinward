@@ -1,6 +1,5 @@
 import './style.css'
 
-import { bootstrapApp } from './app/main'
 import { ColonyDataError } from './worlds/colonyManifestDocument'
 import {
   bootFailureIssueUrl,
@@ -9,7 +8,18 @@ import {
   reportBootFailure
 } from './app/metrics'
 
-bootstrapApp().catch((error: unknown) => {
+const boot = async () => {
+  // The release build already has the complete three-band city in the main
+  // app. Keep the old standalone study available only to authoring builds.
+  if (!import.meta.env.VITE_METRO_RELEASE && new URLSearchParams(location.search).get('preset') === 'three-bands') {
+    const { bootstrapThreeBands } = await import('./app/threeBands/bootstrap')
+    return bootstrapThreeBands()
+  }
+  const { bootstrapApp } = await import('./app/main')
+  return bootstrapApp()
+}
+
+boot().catch((error: unknown) => {
   console.error('Failed to bootstrap app', error)
 
   const probe = probeBootCapabilities()

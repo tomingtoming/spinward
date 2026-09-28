@@ -1,0 +1,19 @@
+{
+  "origin": "ai",
+  "created": "2026-09-20",
+  "scope": "Plan-width crossings against retained transport and neighbourhood streets; native source replacement and supports not certified.",
+  "crossings": [
+    {
+      "ic": "a-civic-ic",
+      "newRoad": "a-civic-ic-ramp--1-1",
+      "existingRoad": "band-0-transfer-access-1",
+      "overlapArea": 140.1068004564293,
+      "minimumProfileClearance": 10.444468161498166,
+      "point": [
+        1276.9801070601852,
+        6501.949492991255
+      ]
+    }
+  ],
+  "failures": []
+}

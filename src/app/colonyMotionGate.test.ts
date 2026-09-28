@@ -97,3 +97,13 @@ test('a failed floor resolution remains unavailable instead of clearing the dest
   expect(gate.step(world, [here])).toBe(false)
   expect(gate.pendingArrival).toBe(true); expect(gate.state).toBe('failed')
 })
+
+test('predictive worlds receive the queued destination separately from background body foci',()=>{
+  const gate=new ColonyMotionGate(),world=source(),motion={omega:.05,deltaSeconds:1/60,bodies:[]}
+  let preparation:unknown
+  const predictive:RegionalReadiness={...world,prepareRegions:(_foci,p)=>{preparation=p;return true}}
+  gate.queue(predictive,there,()=>{})
+  expect(gate.step(predictive,[here],motion)).toBe(true)
+  expect(preparation).toEqual({motion,arrival:there})
+  gate.step(predictive,[here],motion);expect(preparation).toEqual({motion,arrival:undefined})
+})

@@ -58,3 +58,35 @@ def refine_colony_base(packed):
     result=refine_collision_surfaces(packed,128)
     result=refine_collision_surfaces(result,64)
     return {**result,'collisionPartition':policy}
+
+
+def refine_city_ground(packed):
+    """Keep dense ground local, while pairing small fixed surface compounds.
+
+    Faces and their winding stay unchanged. All pieces share the colony frame;
+    merging is limited to nearby small compounds with identical support flags.
+    Drawing geometry and building solids are not changed.
+    """
+    policy={'version':2,'cells':[32,16],'triangleThreshold':256,'mergeTriangles':256,'mergeSpan':48}
+    if packed.get('collisionPartition')==policy:return packed
+    result=refine_collision_surfaces(packed,32,256)
+    result=refine_collision_surfaces(result,16,256)
+    groups={};surfaces=[]
+    for surface in result['surfaces']:
+        if len(surface['indices'])>160*3:
+            surfaces.append(surface);continue
+        x0,y0,x1,y1=surface['bounds']
+        key=(math.floor((x0+x1)/64),math.floor((y0+y1)/64))
+        candidates=groups.setdefault(key,[])
+        metadata={k:v for k,v in surface.items() if k not in ['indices','bounds']}
+        for previous in candidates:
+            if {k:v for k,v in previous.items() if k not in ['indices','bounds']}!=metadata:continue
+            a,b,c,d=previous['bounds'];bounds=[min(a,x0),min(b,y0),max(c,x1),max(d,y1)]
+            if len(previous['indices'])+len(surface['indices'])>256*3 or max(bounds[2]-bounds[0],bounds[3]-bounds[1])>48:continue
+            previous['indices'].extend(surface['indices']);previous['bounds']=bounds
+            break
+        else:
+            merged={**surface,'indices':list(surface['indices']),'bounds':list(surface['bounds'])}
+            candidates.append(merged);surfaces.append(merged)
+    assert sum(len(s['indices']) for s in surfaces)==sum(len(s['indices']) for s in packed['surfaces'])
+    return {**result,'surfaces':surfaces,'collisionPartition':policy}

@@ -59,7 +59,8 @@ export type PlayerTraversalState = {
 export type GroundHeightSampler = (
   azimuth: number,
   axialPosition: number,
-  altitude: number
+  altitude: number,
+  stepTolerance?: number
 ) => number
 
 type GroundedPlayerStepConfig = {
@@ -150,6 +151,8 @@ const GROUND_CONTACT_MAX_RADIAL_SPEED = 1.8
 const GROUND_CONTACT_MAX_RELATIVE_SPEED = 6
 const GROUND_CONTACT_MAX_SEPARATION = 0.02
 const WALK_TRACTION_ACCEL = 28
+const WALK_STEP_HEIGHT = .2
+const WALK_STEP_SPEED = 1.4
 const walkOutward = new THREE.Vector3()
 const walkTangent = new THREE.Vector3()
 const walkDesired = new THREE.Vector3()
@@ -163,6 +166,27 @@ const syncPlayerContactFriction = (state: PlayerTraversalState) => {
   if (!collider) return
   const friction = state.mode === 'grounded' ? 0 : 0.5
   if (collider.friction() !== friction) collider.setFriction(friction)
+}
+
+const hasPhysicalFloorContact = (state: PlayerTraversalState) => {
+  if (!state.physics) return false
+  const { world, freeFlyBody, units } = state.physics
+  const collider = freeFlyBody.collider(0)
+  const separation = scaleLengthForRapier(GROUND_CONTACT_MAX_SEPARATION, units)
+  const radial = Math.max(Math.hypot(state.inertialPosition.x, state.inertialPosition.z), 1e-6)
+  let supported = false
+  world.contactPairsWith(collider, other => {
+    if (supported || other.isSensor() || other.parent()?.isDynamic()) return
+    world.contactPair(collider, other, (manifold, flipped) => {
+      const normal = manifold.normal()
+      const alignment = (flipped ? -1 : 1) * (normal.x * state.inertialPosition.x + normal.z * state.inertialPosition.z) / radial
+      if (alignment < .6) return
+      for (let i = 0; i < manifold.numSolverContacts(); i++) {
+        if (manifold.solverContactDist(i) <= separation) supported = true
+      }
+    })
+  })
+  return supported
 }
 
 export const DEFAULT_REATTACH_TUNING: ReattachTuning = {
@@ -207,7 +231,8 @@ export const createPlayerTraversalState = (
         .setCanSleep(false)
         // No CCD: sweeps ignore the wall's rotational surface velocity, so a
         // co-rotating body reads as a 177 m/s impact and gets stopped dead.
-        // Relative wall speeds are a few m/s against a meters-thick shell.
+        // The metro's thin native terrain uses relative-speed substeps in
+        // main.ts so high-speed landings also remain discrete and physical.
         .setCcdEnabled(false)
         .setEnabled(true),
       {
@@ -283,7 +308,7 @@ const stepGroundedPlayerPhysics = (
   // grounded check below releases to free-fall.
   const altitude = config.radius - radialDistance
   const groundHeight =
-    config.sampleGroundHeight?.(azimuth, nextRotatingPosition.y, altitude) ?? 0
+    config.sampleGroundHeight?.(azimuth, nextRotatingPosition.y, altitude, 0) ?? 0
   const surfaceRadius = config.radius - groundHeight
 
   const insideAxially =
@@ -327,13 +352,27 @@ const stepGroundedPlayerPhysics = (
     tangentVelocity +
     THREE.MathUtils.clamp(desiredTangent - tangentVelocity, -maxDelta, maxDelta)
 
-  // Radial axis is Rapier's contact, on the open floor AND on rooftops (P1: the
-  // buildings are real streamed colliders now). The body is pressed outward by
-  // its own co-rotation and held in by the wall — or a building roof — so we
-  // keep its actual radial velocity and let grounding and the felt-G emerge from
-  // that real normal force, never a scripted spring. The render stays pinned to
-  // radius - groundHeight, so any chord/seam ripple doesn't shake the view.
-  const newRadial = radialVelocity
+  // Ordinary support and falling remain real contact. A walking foot can lift
+  // onto a normal riser; a passive sphere otherwise needs a running start and
+  // rolls back when VR input pauses. Apply a bounded active lift only from an
+  // existing floor contact toward a nearby, low tread. Do not move the body or
+  // disable its colliders: ceilings and tall barriers still stop the motion.
+  let newRadial = radialVelocity
+  const desiredSpeed = Math.hypot(desiredAxial, desiredTangent)
+  const forwardSpeed = (axialVelocity * desiredAxial + tangentVelocity * desiredTangent) / Math.max(desiredSpeed, .001)
+  if (desiredSpeed > .05 && forwardSpeed < desiredSpeed * .75 && grip > .01 && config.sampleGroundHeight) {
+    let nextTread = Infinity
+    for (const ahead of [.12, .24, .36]) {
+      const h = config.sampleGroundHeight(azimuth + desiredTangent / desiredSpeed * ahead / config.radius,
+        nextRotatingPosition.y + desiredAxial / desiredSpeed * ahead, groundHeight + WALK_STEP_HEIGHT, 0)
+      if (h > groundHeight + .035 && h <= groundHeight + WALK_STEP_HEIGHT) nextTread = Math.min(nextTread, h)
+    }
+    const rise = nextTread - (altitude - PLAYER_COLLIDER_RADIUS)
+    if (Number.isFinite(nextTread) && rise > .005 && hasPhysicalFloorContact(state)) {
+      const liftSpeed = Math.min(WALK_STEP_SPEED * grip, rise * 10)
+      newRadial = Math.min(radialVelocity, Math.max(radialVelocity - maxDelta, -liftSpeed))
+    }
+  }
 
   walkDesired
     .copy(walkTangent)
@@ -408,7 +447,8 @@ export const updatePlayerGroundContact = (
     config.sampleGroundHeight?.(
       Math.atan2(nextRotatingPosition.z, nextRotatingPosition.x),
       nextRotatingPosition.y,
-      config.radius - radialDistance
+      config.radius - radialDistance,
+      0
     ) ?? 0
   const surfaceRadius = config.radius - groundHeight
 
@@ -442,25 +482,7 @@ export const updatePlayerGroundContact = (
   // Require a real floor/roof contact beneath the sphere before changing
   // mode. Rapier's broad-phase pairs alone include separated shapes, and a
   // vertical wall contact must not count as support.
-  const { world, freeFlyBody, units } = state.physics
-  const playerCollider = freeFlyBody.collider(0)
-  const maxSeparation = scaleLengthForRapier(GROUND_CONTACT_MAX_SEPARATION, units)
-  const inertialRadius = Math.max(Math.hypot(state.inertialPosition.x, state.inertialPosition.z), 1e-6)
-  let supported = false
-  world.contactPairsWith(playerCollider, other => {
-    if (supported || other.isSensor() || other.parent()?.isDynamic()) return
-    world.contactPair(playerCollider, other, (manifold, flipped) => {
-      const normal = manifold.normal()
-      const outwardAlignment = (flipped ? -1 : 1) * (
-        normal.x * state.inertialPosition.x + normal.z * state.inertialPosition.z
-      ) / inertialRadius
-      if (outwardAlignment < .6) return
-      for (let i = 0; i < manifold.numSolverContacts(); i++) {
-        if (manifold.solverContactDist(i) <= maxSeparation) supported = true
-      }
-    })
-  })
-  if (!supported) return false
+  if (!hasPhysicalFloorContact(state)) return false
 
   state.mode = 'grounded'
   syncPlayerContactFriction(state)

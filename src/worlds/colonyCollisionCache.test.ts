@@ -4,7 +4,7 @@ import { colonyColliders, readColonyManifest, type ColonyPackedMesh } from './au
 import { buildCityCollisionIndex, collectCityBuildingsInWindow, collectCityCollidersNear, getCityGroundHeight } from '../objects/cityLayout'
 import raw from '../../qa/neighborhood-life/colony-source'
 import parcels from '../../assets/blender/izma-parcels.json'
-import landUse from '../../assets/blender/izma-land-use.json'
+import landUse from '../../assets/blender/izma-city-land-use.json'
 
 const fixture = (): ColonyPackedMesh => ({
   vertices: [0, 0, 2, 10, 0, 2, 0, 10, 2, 20, 0, 4, 30, 0, 4, 20, 10, 4, 40, 0, 6, 50, 0, 6, 40, 10, 6],
@@ -81,8 +81,19 @@ test('street-edge floors keep every local collision window bounded without decod
     maximum = Math.max(maximum, collectCityBuildingsInWindow(index, a, y, 1, scratch).size)
   }
   expect(maximum).toBeGreaterThan(0)
-  expect(maximum).toBeLessThanOrEqual(18)
+  // Cell descriptors are only the broad phase. Dense new frontages put more
+  // descriptors in a cell without adding that many bodies near the player.
   expect(cache.stats.entries).toBe(0)
+  const nearby = new Set<ReturnType<typeof colonyColliders>[number]>()
+  for (const key of sites) {
+    const a = (key % n + .5) / n * Math.PI * 2
+    const y = index.axialMin + (Math.floor(key / n) + .5) * index.axialCellSize
+    collectCityCollidersNear(index, a, y, 1, nearby)
+    expect(nearby.size).toBeLessThanOrEqual(32)
+    expect([...nearby].reduce((n, body) => n + (body.surfaceMesh?.length ?? 0) / 9, 0)).toBeLessThanOrEqual(4096)
+    expect(cache.stats.entries).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_ENTRIES)
+    expect(cache.stats.bytes).toBeLessThanOrEqual(COLONY_COLLISION_CACHE_BYTES)
+  }
 })
 
 test('cold and evicted building and land-use approaches retain the whole-colony support heights', () => {
@@ -97,6 +108,9 @@ test('cold and evicted building and land-use approaches retain the whole-colony 
     ...(manifest.streetFrontages ? cache.colliders(manifest.streetFrontages.fixed, 3200) : []),
     ...(manifest.cornerBlocks ? cache.colliders(manifest.cornerBlocks.fixed, 3200) : []),
     ...(manifest.cityBlocks ? cache.colliders(manifest.cityBlocks.fixed, 3200) : []),
+    ...(manifest.waterworks ? cache.colliders(manifest.waterworks.fixed, 3200) : []),
+    ...(manifest.interband ? cache.colliders(manifest.interband.fixed, 3200) : []),
+    ...(manifest.motorway ? cache.colliders(manifest.motorway.fixed, 3200) : []),
     ...reference.all.filter(b => !b.surfaceMesh)], 3200, 40000)
   expect(cached.all.length).toBe(reference.all.length)
   expect(cache.stats.entries).toBe(0)

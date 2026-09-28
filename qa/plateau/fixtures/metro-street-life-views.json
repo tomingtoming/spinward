@@ -1,0 +1,21 @@
+{
+  "origin": "ai",
+  "created": "2026-09-25",
+  "method": "Source road inset .6m; buildings and water .8m; unobstructed ray to commercial ground frontage",
+  "views": [
+    {
+      "id": "13113:bldg_c00e2929-5bf4-464f-b518-e26728788531",
+      "family": "shop",
+      "usage": "商業施設",
+      "band": 2,
+      "tile": "3-195",
+      "spawn": [
+        -1005.2128837854348,
+        19179.95587627591
+      ],
+      "ground": 16.321637876418848,
+      "heading": -0.9452720314082742,
+      "distance": 5
+    }
+  ]
+}

@@ -201,6 +201,12 @@ export class StreetLamps {
 
   private spots: LampSpot[] = []
   private additionalLights: StreetLampSource[] = []
+  private externalLights: StreetLampSource[] | null = null
+
+  setExternalLights(sources: StreetLampSource[] | null) {
+    if (this.externalLights && !sources) this.focusAzimuth = Number.NaN
+    this.externalLights = sources
+  }
   private radius = 0
   private lampHeight = 8
   private focusAzimuth = Number.NaN
@@ -284,6 +290,7 @@ export class StreetLamps {
       this.relayout()
     }
     this.lightFocus.set(Math.cos(focusAzimuth) * (this.radius - altitude), focusAxial, Math.sin(focusAzimuth) * (this.radius - altitude))
+    if (this.externalLights) this.lighting.setSources(this.externalLights)
     this.lighting.update(this.lightFocus, deltaSeconds, !sheltered && this.group.visible)
   }
 
