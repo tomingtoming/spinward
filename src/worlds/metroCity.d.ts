@@ -4,6 +4,7 @@ import type { CityCollisionIndex } from '../objects/cityLayout'
 import type { HabitatTopology, HabitatType } from '../sim/habitatConfig'
 import type { RegionalReadiness } from '../app/colonyMotionGate'
 import type { MetroRoads } from './metroRoads'
+import type { MetroStudyFrame } from './metroPlaces'
 export interface MetroCity extends RegionalReadiness {
   group: Group
   active: boolean
@@ -11,6 +12,7 @@ export interface MetroCity extends RegionalReadiness {
   readonly visualFocus: unknown
   setXRDetail(level: number): void
   readonly roads: MetroRoads | null
+  readonly study: MetroStudyFrame
   prepareVisual: (object: Object3D) => Promise<void>
   readonly index: CityCollisionIndex
   readonly floorHeight: number

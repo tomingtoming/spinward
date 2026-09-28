@@ -18,7 +18,9 @@ import { ColonyRail } from '../objects/colonyRail'
 import { RailColliders } from '../physics/railColliders'
 import { createRoomAction } from '../ui/roomAction'
 import * as THREE from 'three'
-import { configureSharedAssets } from './sharedAssetURL'
+import { configureSharedAssets, sharedAssetURL } from './sharedAssetURL'
+import { metroRailData, type TramAsset } from '../worlds/metroTransit'
+import { MetroTramTrack } from '../objects/metroTramTrack'
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 import { xrRenderProfile } from '../xr/renderProfile'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -238,6 +240,13 @@ export const bootstrapApp = async () => {
     ? await (await import('../worlds/metroCity.js')).loadMetroCity(quality.tier).catch((error: unknown) => {
       throw new ColonyDataError(error instanceof Error ? error.message : String(error), { cause: error })
     }) : null
+  // Tokyo street trams reuse the shared tram model. A missing model leaves the
+  // city walkable without a service rather than failing the whole boot.
+  const metroTram: TramAsset | null = metro ? await fetch(sharedAssetURL('/assets/transit/three-band-tram.json'))
+    .then(r => r.ok ? r.json() : Promise.reject(Error(`${r.status} tram model`)))
+    .catch((error: unknown) => { console.warn('Tokyo tram service unavailable', error); return null }) : null
+  const metroRail = metro && metroTram ? metroRailData(metro.study, metroTram) : null
+  const metroRailAppearance = { palette: metroTram?.palette ?? {}, details: metroTram?.materialDetails ?? {} }
   // Archived study manifests reference unpublished authoring assets. A pinned
   // production city uses its release even when an old study URL is opened.
   const landscapeStudy = !import.meta.env.VITE_METRO_RELEASE && new URLSearchParams(window.location.search).get('landscape') === 'authored'
@@ -764,6 +773,7 @@ export const bootstrapApp = async () => {
   const drive = new DriveRuntime()
   const roomSeating = new RoomSeating()
   const rail = new ColonyRail(cityscape.group)
+  let metroTrack: MetroTramTrack | null = null
   const railRide = new RailRide()
   const railColliders = new RailColliders(rapier, physicsWorld)
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
@@ -2442,9 +2452,13 @@ export const bootstrapApp = async () => {
     if (!renderer.xr.isPresenting) desktopLookControls.advanceReferenceFrame(omega * deltaSeconds)
     starfield.setFrameAngle(frameAngle)
     mergeLocomotionIntent(desktopIntent, vrIntent, locomotionIntent)
-    const railData = cityscape.authoredColony.getRailData()
-    const railAppearance = cityscape.authoredColony.getRailAppearance()
-    if (rail.configure(railData, railAppearance.palette, railAppearance.details)) railRide.cancel(playerTraversal)
+    const railData = cityscape.metroWorld ? metroRail : cityscape.authoredColony.getRailData()
+    const railAppearance = cityscape.metroWorld ? metroRailAppearance : cityscape.authoredColony.getRailAppearance()
+    if (rail.configure(railData, railAppearance.palette, railAppearance.details as Parameters<typeof rail.configure>[2])) railRide.cancel(playerTraversal)
+    if (!!(cityscape.metroWorld && metroRail) !== !!metroTrack) {
+      metroTrack?.dispose()
+      metroTrack = cityscape.metroWorld && metroRail ? new MetroTramTrack(cityscape.group, metroRail) : null
+    }
     railColliders.configure(railData, getUnits())
     rail.update(deltaSeconds, playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,
       getDaylight(dayNightPhase) * (1 - .45 * weather.rainLevel), railRide.train?.id ?? null)
