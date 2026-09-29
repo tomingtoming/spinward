@@ -84,7 +84,9 @@ bun run build --config vite.metro.config.mjs
 
 - 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
-- 候補Worker版: `6bacc71d-2366-450a-95d5-26c7f53fdd08`（2026-09-29、`fc904fb` のbuild。地上で静止中は街のざわめきを無音にした
+- 候補Worker版: `116af104-ad0a-46e1-8d93-c694585694ac`（2026-09-29、`6be2269` のbuild。PC版の空中で腕を画面外へ下ろした
+  toming依頼の調整を追加。公開URLで空中の手・肘が画面外になることを確認）。その前の版は
+  `6bacc71d-2366-450a-95d5-26c7f53fdd08`（`fc904fb` のbuild。地上で静止中は街のざわめきを無音にした
   toming依頼の調整を追加。公開物6件のhash一致を確認）。その前の版は `4aec3276-8f35-4777-a10c-94f3ef7fa5e5`（`e737835` のbuild。
   本人の指示「候補Workerへdeploy」による）。建物の裏面カリングと都電荒川線を含む。
   前回からの変更はJSの4チャンクと `index.html` だけで、公開物の6件はパッケージとhashが一致した。
