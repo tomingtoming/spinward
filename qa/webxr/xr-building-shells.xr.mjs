@@ -31,11 +31,16 @@ for(const place of ['shibuya','omiya'])for(const day of [.42,.02])test(`Certifie
    const r=window.__spinwardRenderer,g=r.getContext(),layer=r.xr.getBaseLayer(),w=layer.framebufferWidth,h=layer.framebufferHeight
    const capture=()=>{const old=g.getParameter(g.FRAMEBUFFER_BINDING),data=new Uint8Array(w*h*4);g.bindFramebuffer(g.FRAMEBUFFER,layer.framebuffer);g.readPixels(0,0,w,h,g.RGBA,g.UNSIGNED_BYTE,data);g.bindFramebuffer(g.FRAMEBUFFER,old);const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d'),p=ctx.createImageData(w,h);for(let y=0;y<h;y++)p.data.set(data.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);ctx.putImageData(p,0,0);return{data,url:c.toDataURL()}}
    window.__qaDisableShell=true;r.render(...window.__qaArgs);const before=capture();window.__qaDisableShell=false;r.render(...window.__qaArgs);const after=capture()
-   let changed=0,severe=0,max=0,sum=0;for(let i=0;i<before.data.length;i+=4){const d=Math.max(...[0,1,2].map(j=>Math.abs(before.data[i+j]-after.data[i+j])));if(d>0)changed++;if(d>3)severe++;max=Math.max(max,d);sum+=d}
-   return{before:before.url,after:after.url,changed,severe,max,mean:sum/(w*h)}
+   let changed=0,severe=0,max=0,sum=0;const where=new Set();for(let i=0;i<before.data.length;i+=4){const d=Math.max(...[0,1,2].map(j=>Math.abs(before.data[i+j]-after.data[i+j])));if(d>0){changed++;if(where.size<1000)where.add(i/4)}if(d>3)severe++;max=Math.max(max,d);sum+=d}
+   // A changed pixel with a changed 8-neighbour is a visible coverage gap, not a silhouette-edge sample.
+   const clustered=[...where].filter(p=>{const x=p%w;for(const dy of [-1,0,1])for(const dx of [-1,0,1])if((dx||dy)&&x+dx>=0&&x+dx<w&&where.has(p+dy*w+dx))return true;return false}).length
+   return{before:before.url,after:after.url,changed,severe,max,mean:sum/(w*h),clustered}
   })
   for(const side of ['before','after'])await fs.writeFile(info.outputPath(`view-${pose[0]}-${pose[1]}-${pose[3]??1.6}-${side}.png`),Buffer.from(pair[side].split(',')[1],'base64'))
-  expect(pair.changed).toBe(0)
+  // toming accepted isolated silhouette-edge pixels for the rasterizer culling
+  // (2026-09-29); the 09-28 run measured 0-7 per stereo image. Gaps must not cluster.
+  expect(pair.changed).toBeLessThanOrEqual(16)
+  expect(pair.clustered).toBe(0)
   delete pair.before;delete pair.after;results.push({pose,...pair})
  }
  const profile=await page.evaluate(()=>({scale:Number(window.__spinwardRenderer.domElement.dataset.xrScale),log:window.__spinwardRenderer.capabilities.logarithmicDepthBuffer}))

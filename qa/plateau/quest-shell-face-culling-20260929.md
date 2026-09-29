@@ -70,7 +70,7 @@ Saturated GPU median, culling off → on:
 | Shibuya | 8.19, 8.24, 8.27 | 7.06–7.14 | −14% |
 | Omiya | 9.10, 9.11 | 7.93–7.98 | −13% |
 
-## Visual difference (decision pending)
+## Visual difference (accepted by toming, 2026-09-29)
 
 Same-frame stereo comparisons (Shibuya/Omiya × day/night × nine poses,
 ~2.46 M pixels per image) changed 0–7 pixels per image. The changes are
@@ -82,10 +82,12 @@ centre coverage rule on folded silhouette edges. The Quest tier renders
 without MSAA, so these edge pixels already vary as the head moves; that
 comparison was not measured.
 
-Consequently `xr-building-shells.xr.mjs`, which requires zero changed pixels,
-fails with this change. The gate was left unchanged: accepting isolated
-silhouette pixels for ~13–14% GPU time is toming's decision. Until then use
-`?shellCull=off` to compare on the headset.
+toming accepted these isolated silhouette pixels for the ~13–14% GPU saving
+("画素差を受け入れる", 2026-09-29). `xr-building-shells.xr.mjs` now allows up
+to 16 changed pixels per stereo image and fails if any changed pixel has a
+changed 8-neighbour, so coverage gaps are still detected. The rerun passed all
+36 pairs (0–5 pixels, none clustered). `?shellCull=off` remains for
+comparison on the headset.
 
 ## Verification
 
