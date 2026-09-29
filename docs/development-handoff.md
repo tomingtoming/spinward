@@ -84,7 +84,9 @@ bun run build --config vite.metro.config.mjs
 
 - 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
-- 候補Worker版: `6a9bca05-5036-4fef-a7b2-c63861821ece`（2026-09-29、`62b2152` のbuild。東京の下の構造床を窓際の400m帯だけに
+- 候補Worker版: `872aceeb-a034-43bf-899e-b3b2ec98c9a6`（2026-09-30、`c12cdfa` のbuild。窓際の地形の縁に擁壁を追加
+  （toming採用）。公開URLで擁壁の手すりで止まる歩行検査とVR入場を確認）。その前の版は
+  `6a9bca05-5036-4fef-a7b2-c63861821ece`（`62b2152` のbuild。東京の下の構造床を窓際の400m帯だけに
   絞った負荷改善を追加。公開物6件のhash一致とVR入場を確認）。その前の版は
   `116af104-ad0a-46e1-8d93-c694585694ac`（`6be2269` のbuild。PC版の空中で腕を画面外へ下ろした
   toming依頼の調整を追加。公開URLで空中の手・肘が画面外になることを確認）。その前の版は
