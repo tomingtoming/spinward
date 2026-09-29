@@ -84,7 +84,10 @@ bun run build --config vite.metro.config.mjs
 
 - 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
-- 候補Worker版: `6760f1e9-a694-416b-9518-52200dd4aec2`。
+- 候補Worker版: `4aec3276-8f35-4777-a10c-94f3ef7fa5e5`（2026-09-29、`e737835` のbuild。
+  本人の指示「候補Workerへdeploy」による）。建物の裏面カリングと都電荒川線を含む。
+  前回からの変更はJSの4チャンクと `index.html` だけで、公開物の6件はパッケージとhashが一致した。
+  公開URLで王子駅前の乗車検査とVR入場検査が合格した。切り戻し先は前版 `6760f1e9-a694-416b-9518-52200dd4aec2`。
 - 都市データ: R2 `spinward-metro`、配信 `https://data.spinward.toming.app/`。
 - データrelease: `ce65ac50fdc0bb7e8ddc3c7ce8de3f9243c5d2129ecefd4ce8a304574fa3c8f4`。
 - 本人のQuest 3Sは閲覧履歴の消去後にVR入場可能になった。以降の軽量化による改善も本人が報告。
