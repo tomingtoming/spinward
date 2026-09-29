@@ -120,8 +120,9 @@ const airborneUp = new THREE.Vector3(), airborneForward = new THREE.Vector3(), a
 const bodyToView = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
 
 /** Floating posture for the existing flat-screen jetpack attitude. The body
- * follows the eye's translation/roll without changing camera or physics. Its
- * hands stay below the sightline; unsupported knees never solve to the floor. */
+ * follows the eye's translation/roll without changing camera or physics. Arms
+ * hang at the sides, slightly back, so no arm enters the flat-screen view
+ * (toming, 2026-09-29); unsupported knees never solve to the floor. */
 export function poseAirborneBody(root: THREE.Object3D, eye: THREE.Matrix4) {
   airborneUp.setFromMatrixColumn(eye, 1).normalize()
   airborneForward.setFromMatrixColumn(eye, 2).normalize().negate()
@@ -132,7 +133,7 @@ export function poseAirborneBody(root: THREE.Object3D, eye: THREE.Matrix4) {
     root.getObjectByName(side + '_hip')!.rotation.x = -.28
     root.getObjectByName(side + '_knee')!.rotation.x = .55
     solveBodyArm(root.getObjectByName(side + '_shoulder')!, root.getObjectByName(side + '_elbow')!,
-      airborneHand.set(i === 0 ? -.12 : .12, .34, .5), i === 0 ? -1 : 1)
+      airborneHand.set(i === 0 ? -.25 : .25, -.12, -.08), i === 0 ? -1 : 1)
   }
 }
 
