@@ -14,6 +14,7 @@ import {MetroNight} from './plateau/metro-night.js'
 import {MetroTrees} from './plateau/metro-trees.js'
 import {createMetroCredits} from './plateau/metro-credits.js'
 import {metroPlacesForStudy} from './metroPlaces'
+import {metroEdgeWallMeshes,edgeWallUV,edgeWallCanvas} from './metroEdgeWalls'
 import {readMetroJSON,loadMetroRelease,objectHash,metroDataURL} from './plateau/data-source.js'
 import {distantDetail,selectTerrainLOD} from './plateau/adaptive-detail.js'
 import {metroRenderBudget} from './plateau/render-budget.js'
@@ -111,8 +112,23 @@ class MetroCity{
       if(generation!==this.generation)return
       this.bootstrapReady=true
     }
+    const parts=[]
+    // Retaining walls close the terrain sheet's open window-side edges. They
+    // are drawn and collided like the source bridges below.
+    for(const layer of this.layers){
+      const walls=metroEdgeWallMeshes(this.study,layer.base.sample.id,this.floorHeight)
+      for(const d of walls){
+        const mesh=layer.base.mesh(d,'structure')
+        this.edgeWallTexture??=Object.assign(new T.CanvasTexture(edgeWallCanvas()),{wrapS:T.RepeatWrapping,wrapT:T.RepeatWrapping,anisotropy:4,colorSpace:T.SRGBColorSpace})
+        mesh.geometry.setAttribute('uv',new T.BufferAttribute(edgeWallUV(d.attributes.position,this.floorHeight),2))
+        mesh.material.map=this.edgeWallTexture;mesh.material.needsUpdate=true
+        try{await this.prepareVisual(mesh)}catch(error){mesh.geometry.dispose();mesh.material.dispose();throw error}
+        if(generation!==this.generation){mesh.geometry.dispose();mesh.material.dispose();return}
+        mesh.castShadow=false;this.roadMeshes.push(mesh);this.group.add(mesh)
+      }
+      parts.push(...metroCollisionParts(walls.map(w=>({...w,name:'buildings'})),layer.base.sample.band,this.study.radius))
+    }
     if(this.roads){
-      const parts=[]
       for(const bridge of this.roads.data.bridges){
         const data=await fetchTile(bridge,this.visualController.signal)
         if(generation!==this.generation)return
@@ -125,9 +141,9 @@ class MetroCity{
         }
         parts.push(...metroCollisionParts(data,bridge.band,this.study.radius))
       }
-      if(generation!==this.generation)return
-      this.collision.setStructures(parts);this.structuresReady=true
     }
+    if(generation!==this.generation)return
+    this.collision.setStructures(parts);this.structuresReady=true
     // Trees can be close to the arrival. Prepare them before its first overview
     // releases the motion gate, not when the last remote district finishes.
     if(this.finish?.trees){
@@ -322,6 +338,6 @@ class MetroCity{
     finish:this.finish?{version:this.finish.version,trees:this.trees?.group.userData}:null,facadeContacts:this.facadeContacts.stats}}
   clearBootstrap(){for(const mesh of this.bootstrap){mesh.removeFromParent();mesh.geometry.dispose();mesh.material.dispose()}this.bootstrap=[]}
   clearRoads(){for(const mesh of this.roadMeshes){mesh.removeFromParent();mesh.geometry.dispose();mesh.material.dispose()}this.roadMeshes=[];this.structuresReady=!this.roads}
-  clear(){this.generation++;this.visualController?.abort();this.visualController=new AbortController();this.clearBootstrap();this.clearRoads();this.bootstrapReady=!this.lowrise?.bootstrap;this.collision?.dispose();this.facadeContacts=new FacadeContacts(this.study.radius);this.contactUpdate=-Infinity;this.trees?.dispose();this.trees=null;this.nightscape?.dispose();this.nightscape=null;for(const l of this.layers){l.panes?.dispose();l.stream.dispose();l.facade.dispose();l.lowrise?.dispose();l.base.dispose()};this.layers=[];this.group.clear();this.ready=false;this.failure=null;this.operational=false;this.visualFocus=null;nativeTiles.clear()}
+  clear(){this.edgeWallTexture?.dispose();this.edgeWallTexture=null;this.generation++;this.visualController?.abort();this.visualController=new AbortController();this.clearBootstrap();this.clearRoads();this.bootstrapReady=!this.lowrise?.bootstrap;this.collision?.dispose();this.facadeContacts=new FacadeContacts(this.study.radius);this.contactUpdate=-Infinity;this.trees?.dispose();this.trees=null;this.nightscape?.dispose();this.nightscape=null;for(const l of this.layers){l.panes?.dispose();l.stream.dispose();l.facade.dispose();l.lowrise?.dispose();l.base.dispose()};this.layers=[];this.group.clear();this.ready=false;this.failure=null;this.operational=false;this.visualFocus=null;nativeTiles.clear()}
   dispose(){this.clear();this.active=false;this.credit?.remove();this.group.removeFromParent()}
 }
