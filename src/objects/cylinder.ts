@@ -362,6 +362,15 @@ export class CylinderHabitat {
     if (height === this.floorHeight) return
     this.floorHeight = height; this.rebuildShells()
   }
+  // A lowered structural floor under a real-terrain city is hidden except
+  // where sightlines pass beneath the terrain sheet's open side edges beside
+  // the windows. Keep only strips of this width (metres) along each land edge;
+  // the rest was shaded under every ground pixel. null keeps the whole floor.
+  private floorEdgeBand: number | null = null
+  setFloorEdgeBand(width: number | null) {
+    if (width === this.floorEdgeBand) return
+    this.floorEdgeBand = width; this.rebuildShells()
+  }
   private radius = 0
   private length = 0
   private focusAzimuth = 0
@@ -736,15 +745,27 @@ export class CylinderHabitat {
       windowHoles
     )
 
+    // Floor strips: also cut the interior of each land arc when requested.
+    const band = this.floorEdgeBand === null ? 0 : this.floorEdgeBand / this.radius
+    // Start the land walk at a window's end so no land arc is split at 0 rad.
+    const walkStart = windowHoles.length ? windowHoles[0].start + windowHoles[0].length : 0
+    const floorHoles = band > 0 ? [...windowHoles, ...subtractArcIntervals(walkStart, fullTurn, windowHoles)
+      .filter(land => land.length > 2 * band)
+      .map(land => ({ start: land.start + band, length: land.length - 2 * band }))] : windowHoles
+    const nearFloorIntervals = band > 0 ? subtractArcIntervals(this.focusAzimuth - defaultNearArcRadians * 0.5,
+      defaultNearArcRadians, floorHoles) : nearIntervals
+    const farFloorIntervals = band > 0 ? subtractArcIntervals(this.focusAzimuth + defaultNearArcRadians * 0.5,
+      farArcRadians, floorHoles) : farIntervals
+
     const nearGeometry = this.buildShellGeometry(
-      nearIntervals,
+      nearFloorIntervals,
       nearShellSegmentsPerRadian(this.radius),
       surfaceRepeat.circumferential,
       surfaceRepeat.axial,
       this.radius - this.floorHeight
     )
     const farGeometry = this.buildShellGeometry(
-      farIntervals,
+      farFloorIntervals,
       farShellSegments / farArcRadians,
       surfaceRepeat.circumferential,
       surfaceRepeat.axial,

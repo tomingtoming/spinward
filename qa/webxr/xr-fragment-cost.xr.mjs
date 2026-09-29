@@ -81,6 +81,41 @@ for(const place of ['shibuya','omiya'])test(`XR fragment cost ${place} ${depth} 
    }
    // Rasterizer culling of certified shells (building-shell-culling.js).
    scene.traverse(o=>{if(o.userData.shellFaceCulling)o.userData.shellFaceCulling.enabled=mode!=='faceoff'})
+   // Surfaces of the host colony under the Tokyo ground (structural floor,
+   // hull, old arrival planes): never visible there, but still rasterized.
+   // Whole structural floor (before the Tokyo edge band) for comparison.
+   if(window.__spinwardHabitat)window.__spinwardHabitat.setFloorEdgeBand(mode==='floorfull'?null:window.__spinwardMetro?.active===false?null:400)
+   // Cheapest backstop variant: unlit flat colour on the structural floor.
+   window.__qaFloorSwap??=[]
+   for(const [o,m] of window.__qaFloorSwap)o.material=m
+   window.__qaFloorSwap=[]
+   if(mode==='floorbasic'){
+    const metro=window.__spinwardMetro?.group,city=window.__spinwardCity.group,inv=city.matrixWorld.clone().invert(),v=city.position.clone()
+    let Basic=null;scene.traverse(o=>{if(!Basic&&o.material?.type==='MeshBasicMaterial')Basic=o.material.constructor})
+    window.__qaFlatFloor??=new Basic({color:0x5a5f58,side:1})
+    scene.traverse(o=>{
+     if(!o.isMesh||!o.visible)return
+     for(let q=o;q;q=q.parent)if(q===metro)return
+     const p=o.geometry.attributes.position;if(!p)return
+     v.fromBufferAttribute(p,0).applyMatrix4(o.matrixWorld).applyMatrix4(inv)
+     if(Math.abs(3200-Math.hypot(v.x,v.z)+16)<.5&&!o.material.transparent){window.__qaFloorSwap.push([o,o.material]);o.material=window.__qaFlatFloor}
+    })
+   }
+   if(mode==='under'||mode.startsWith('under:')){
+    const part=mode.split(':')[1]
+    const metro=window.__spinwardMetro?.group,city=window.__spinwardCity.group,inv=city.matrixWorld.clone().invert(),v=city.position.clone()
+    scene.traverse(o=>{
+     if(!o.isMesh||!o.visible)return
+     for(let q=o;q;q=q.parent)if(q===metro)return
+     const p=o.geometry.attributes.position;if(!p)return
+     let lo=Infinity,hi=-Infinity;const step=Math.max(1,Math.floor(p.count/200))
+     for(let i=0;i<p.count;i+=step){v.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);const h=3200-Math.hypot(v.x,v.z);lo=Math.min(lo,h);hi=Math.max(hi,h)}
+     if(!(hi<=1&&lo>-100))return
+     const m=[o.material].flat()[0],kind=Math.abs(hi+16)<.5?'floor':Math.abs(hi+19.2)<.5?'hull':m.transparent&&Math.abs(hi-.3)<.05?'overlay':'other'
+     if(!part||part===kind)hide(o)
+    })
+    window.__qaUnderHidden=window.__qaHiddenMaterials.size
+   }
    if(mode.startsWith('hide:')){const c=mode.slice(5);scene.traverse(o=>{if((o.isMesh||o.isPoints||o.isLine)&&window.__qaCategoryKey(o)===c)hide(o)})}
    window.__qaMode=mode
    window.__qaRepeat=repeat
@@ -104,7 +139,7 @@ for(const place of ['shibuya','omiya'])test(`XR fragment cost ${place} ${depth} 
   await xr.waitForFrames(60);const sclk=await clock();await xr.waitForFrames(60)
   samples.push(await page.evaluate(sclk=>{
    const a=window.__qaGPU.sort((x,y)=>x-y),at=p=>a[Math.floor(a.length*p)]
-   return{mode:window.__qaMode,gpu:{n:a.length,p50:at(.5),p95:at(.95)},draw:{...window.__spinwardRenderer.info.render},fog:!!window.__spinwardScene.fog,sclk,repeat:window.__qaRepeat}
+   return{mode:window.__qaMode,underHidden:window.__qaUnderHidden,gpu:{n:a.length,p50:at(.5),p95:at(.95)},draw:{...window.__spinwardRenderer.info.render},fog:!!window.__spinwardScene.fog,sclk,repeat:window.__qaRepeat}
   },sclk))
  }
  const summary={}

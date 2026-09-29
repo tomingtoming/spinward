@@ -21,6 +21,8 @@ import * as THREE from 'three'
 import { configureSharedAssets, sharedAssetURL } from './sharedAssetURL'
 import { metroRailData, type TramAsset } from '../worlds/metroTransit'
 import { MetroTramTrack } from '../objects/metroTramTrack'
+// Floor kept beside the window edges under Tokyo's open terrain sheet (metres).
+const METRO_FLOOR_EDGE_BAND = 400
 import { VRButton } from 'three/addons/webxr/VRButton.js'
 import { xrRenderProfile } from '../xr/renderProfile'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -368,6 +370,7 @@ export const bootstrapApp = async () => {
   const regionalSource = () => cityscape.metroWorld ?? cityscape.authoredColony
   const structuralRadius = () => habitatConfig.radius - (cityscape.metroWorld?.floorHeight ?? 0)
   habitat.setFloorHeight(cityscape.metroWorld?.floorHeight ?? 0)
+  habitat.setFloorEdgeBand(cityscape.metroWorld ? METRO_FLOOR_EDGE_BAND : null)
   const spaceport = new Spaceport({
     radius: habitatConfig.radius,
     length: getHabitatSpan(habitatConfig)
@@ -1439,6 +1442,7 @@ export const bootstrapApp = async () => {
       }
     )
     habitat.setFloorHeight(cityscape.metroWorld?.floorHeight ?? 0)
+    habitat.setFloorEdgeBand(cityscape.metroWorld ? METRO_FLOOR_EDGE_BAND : null)
     parkCarNearPlaza()
     // The city index was just rebuilt for the new dimensions; re-seat the
     // streamed building colliders onto it (and the new sim scale / spin).
@@ -1763,6 +1767,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardMetro = metro
     ;(window as unknown as Record<string, unknown>).__spinwardRenderer = renderer
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
+    ;(window as unknown as Record<string, unknown>).__spinwardHabitat = habitat
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders }
     ;(window as unknown as Record<string, unknown>).__spinwardCar = car

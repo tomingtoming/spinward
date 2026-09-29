@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { CylinderHabitat } from './cylinder'
 import { FULL_360_TOPOLOGY, ISLAND_THREE_TOPOLOGY } from '../sim/habitatConfig'
+import { getWindowArcs } from './cityLayout'
 
 test('wall material separation preserves opaque caps, daylight glazing and the open ring', () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -65,5 +66,45 @@ test('wall material separation preserves opaque caps, daylight glazing and the o
   } finally {
     if (previous) Object.defineProperty(globalThis, 'document', previous)
     else delete (globalThis as { document?: Document }).document
+  }
+})
+
+test('a lowered floor can keep only strips beside the windows while the hull stays whole', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const gradient = () => ({ addColorStop() {} })
+  const context = new Proxy({ createLinearGradient: gradient, createRadialGradient: gradient }, { get: (o, k) => k in o ? o[k as keyof typeof o] : () => {} })
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => ({ width: 0, height: 0, getContext: () => context }) } })
+  try {
+    const radius = 3200, habitat = new CylinderHabitat({ radius, length: 40000, topology: ISLAND_THREE_TOPOLOGY, type: 'cylinder' })
+    habitat.setFloorHeight(-16)
+    // Arc positions (metres) of every vertex at a given radius in the shell group.
+    const arcs = (r: number) => {
+      const out: number[] = []
+      habitat.shellGroup.children.forEach(o => {
+        // The window haze panes share the floor radius; only opaque shells count.
+        if (((o as THREE.Mesh).material as THREE.Material).transparent) return
+        const p = (o as THREE.Mesh).geometry.attributes.position
+        for (let i = 0; i < p.count; i++) if (Math.abs(Math.hypot(p.getX(i), p.getZ(i)) - r) < .01) out.push(Math.atan2(p.getZ(i), p.getX(i)) * radius)
+      })
+      return out
+    }
+    const hullBefore = arcs(radius + 16 + 3.2).length, floorBefore = arcs(radius + 16)
+    habitat.setFloorEdgeBand(400)
+    const floor = arcs(radius + 16)
+    expect(floor.length).toBeGreaterThan(0)
+    expect(floor.length).toBeLessThan(floorBefore.length)
+    // Distance (m) from each vertex to the nearest window edge: interiors of the
+    // land arcs must be gone, every remaining vertex within the 400 m strips.
+    const edges = getWindowArcs(ISLAND_THREE_TOPOLOGY).flatMap(w => [w.centerAzimuth - w.arcRadians / 2, w.centerAzimuth + w.arcRadians / 2])
+    const near = (x: number) => Math.min(...edges.map(e => Math.abs(Math.atan2(Math.sin(x / radius - e), Math.cos(x / radius - e))) * radius))
+    const floorAll = floorBefore.map(near)
+    expect(Math.max(...floorAll)).toBeGreaterThan(800)
+    expect(Math.max(...floor.map(near))).toBeLessThanOrEqual(400.001) // float32 vertices
+    expect(arcs(radius + 16 + 3.2).length).toBe(hullBefore)
+    habitat.setFloorEdgeBand(null)
+    expect(arcs(radius + 16).length).toBe(floorBefore.length)
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous)
+    else delete (globalThis as { document?: unknown }).document
   }
 })
