@@ -3,11 +3,11 @@ import { describe, expect, test } from 'bun:test'
 import { computeAmbienceMix } from './ambienceMix'
 
 describe('ambience mix', () => {
-  test('street level by day: full city bed, no wind, no vacuum', () => {
+  test('walking the street by day: full city bed, no wind, no vacuum', () => {
     const mix = computeAmbienceMix({
       radialFraction: 1,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 1
     })
     expect(mix.city).toBe(1)
@@ -19,13 +19,13 @@ describe('ambience mix', () => {
     const day = computeAmbienceMix({
       radialFraction: 1,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 1
     })
     const night = computeAmbienceMix({
       radialFraction: 1,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 0
     })
     expect(night.city).toBeGreaterThan(0)
@@ -36,24 +36,35 @@ describe('ambience mix', () => {
     const overlook = computeAmbienceMix({
       radialFraction: 0.98,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 1
     })
     const highAltitude = computeAmbienceMix({
       radialFraction: 0.5,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 1
     })
     const axis = computeAmbienceMix({
       radialFraction: 0,
       inAir: true,
-      airspeed: 0,
+      airspeed: 6,
       daylight: 1
     })
     expect(overlook.city).toBe(1)
     expect(highAltitude.city).toBe(0)
     expect(axis.city).toBe(0)
+  })
+
+  test('standing still on the floor is silent: no city bed and no wind', () => {
+    for (const airspeed of [0, 0.16, 0.5]) {
+      const mix = computeAmbienceMix({ radialFraction: 1, inAir: true, airspeed, daylight: 1 })
+      expect(mix.city).toBe(0)
+      expect(mix.wind).toBe(0)
+    }
+    const starting = computeAmbienceMix({ radialFraction: 1, inAir: true, airspeed: 1.5, daylight: 1 })
+    expect(starting.city).toBeGreaterThan(0)
+    expect(starting.city).toBeLessThan(1)
   })
 
   test('walking sits in the wind dead zone; a dive builds toward a howl', () => {

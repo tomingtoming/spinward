@@ -3075,15 +3075,15 @@ export const bootstrapApp = async () => {
     // at airspeed through the co-rotating air, and wherever the air ends —
     // outside the hull, or in an open ring's vacuum bore — the world bus
     // mutes, leaving only your own breath and heartbeat.
-    audio.setEnvironment(
-      computeAmbienceMix({
-        radialFraction: carrierRadial / Math.max(1e-6, habitatConfig.radius),
-        inAir: carrierInAir,
-        airspeed: carrierRotatingVelocity.length(),
-        daylight,
-        shelter: roomEnvironment.shelter
-      })
-    )
+    const airspeed = carrierRotatingVelocity.length()
+    const ambienceMix = computeAmbienceMix({
+      radialFraction: carrierRadial / Math.max(1e-6, habitatConfig.radius),
+      inAir: carrierInAir,
+      airspeed,
+      daylight,
+      shelter: roomEnvironment.shelter
+    })
+    audio.setEnvironment(ambienceMix)
 
     audio.setRoomEnvironment(roomEnvironment)
 
@@ -3209,6 +3209,7 @@ export const bootstrapApp = async () => {
       raining: weather.raining,
       parking: parkedCars.debugStats(),
       rain: { strength: rainStrength, shelter: rainShelter, audibility: rainAudibility, pavementWetness: wetPavement.uniforms.pavingWetness.value },
+      ambience: { ...ambienceMix, airspeed },
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,

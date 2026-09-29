@@ -4,7 +4,9 @@ import * as THREE from 'three'
 // Pure mapping so the mix curve is testable; GameAudio only applies gains.
 //
 //  · City bed: the murmur of the inhabited floor. Fades with altitude — by
-//    the cloud deck it is gone and the colony is just structure hum.
+//    the cloud deck it is gone and the colony is just structure hum. Its
+//    filtered noise reads as wind, so it is silent while you stand still and
+//    returns as you start moving (toming, 2026-09-29: no wind when stopped).
 //  · Wind: airspeed through the CO-ROTATING air, so standing still in a
 //    spinning world is calm and a free-fall dive howls. Walking sits in the
 //    dead zone.
@@ -45,6 +47,9 @@ const WIND_SILENT_SPEED = 10
 const WIND_FULL_SPEED = 50
 // Night streets still murmur a little.
 const CITY_NIGHT_FLOOR = 0.55
+// Standing measures ~0.16 m/s of rotating-frame jitter; walking is 6 m/s.
+const CITY_STILL_SPEED = 0.5
+const CITY_MOVING_SPEED = 2.5
 
 export const computeAmbienceMix = ({
   radialFraction,
@@ -66,7 +71,8 @@ export const computeAmbienceMix = ({
     CITY_NIGHT_FLOOR + (1 - CITY_NIGHT_FLOOR) * THREE.MathUtils.clamp(daylight, 0, 1)
 
   return {
-    city: altitude * busy * (1 - 0.78 * THREE.MathUtils.clamp(shelter, 0, 1)),
+    city: altitude * busy * THREE.MathUtils.smoothstep(airspeed, CITY_STILL_SPEED, CITY_MOVING_SPEED) *
+      (1 - 0.78 * THREE.MathUtils.clamp(shelter, 0, 1)),
     wind: THREE.MathUtils.smoothstep(airspeed, WIND_SILENT_SPEED, WIND_FULL_SPEED) * (1 - 0.85 * THREE.MathUtils.clamp(shelter, 0, 1)),
     vacuum: 0
   }
