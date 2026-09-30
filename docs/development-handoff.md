@@ -84,7 +84,9 @@ bun run build --config vite.metro.config.mjs
 
 - 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
-- 候補Worker版: `375ae641-f0bd-4bab-8b7b-cf321f90cfac`（2026-09-30、`6428f82` のbuild。窓の点検レールをやめ、窓面を自走する
+- 候補Worker版: `8452dd89-7fea-4838-a37a-d3d068cd3404`（2026-09-30、`219258e` のbuild。点検ロボットの夜間灯火
+  （近くへ明滅する回転灯・対岸から見える常時点灯の位置灯・夜の作業灯）を追加。公開物のhash一致を確認）。その前の版は
+  `375ae641-f0bd-4bab-8b7b-cf321f90cfac`（2026-09-30、`6428f82` のbuild。窓の点検レールをやめ、窓面を自走する
   点検ロボットに置換（toming採用）。公開物のhash一致を確認）。その前の版は
   `412c85c9-c8be-4efd-b9ce-b1af32d5095a`（2026-09-30、`7ba1caf` のbuild。窓の高架・点検設備・早稲田までの
   荒川線と、降車・待機時の物理修正を追加。公開物のhash一致、高架の歩行とVR入場を公開URLで確認）。その前の版は
