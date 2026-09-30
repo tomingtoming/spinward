@@ -37,6 +37,31 @@ type PlayerTraversalPhysicsState = {
   world: World
   freeFlyBody: RigidBody
   units: UnitsContext
+  rapier: RapierModule
+}
+
+// Grounded traction belongs to the controller. Airborne contact restores
+// friction so a landing can exchange tangential momentum with the wall.
+const createPlayerCollider = (rapier: RapierModule, world: World, body: RigidBody, units: UnitsContext) =>
+  world.createCollider(
+    rapier.ColliderDesc.ball(scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, units))
+      .setFriction(0)
+      .setFrictionCombineRule(rapier.CoefficientCombineRule.Min)
+      .setCollisionGroups(PLAYER_COLLISION_GROUPS)
+      .setDensity(1.0)
+      .setRestitution(0.02),
+    body
+  )
+
+/** Replace the body's collider with a fresh solid one. Rapier keeps the
+ * intersection pair of a sensor whose bounds never stop overlapping a
+ * collider, so turning the sensor off leaves no contact with that ground and
+ * the body falls through it. A new collider is paired from scratch. */
+export const refreshPlayerCollider = (state: PlayerTraversalState) => {
+  const physics = state.physics
+  if (physics === null) return
+  for (let i = physics.freeFlyBody.numColliders() - 1; i >= 0; i--) physics.world.removeCollider(physics.freeFlyBody.collider(i), false)
+  createPlayerCollider(physics.rapier, physics.world, physics.freeFlyBody, physics.units)
 }
 
 export type PlayerTraversalPhysicsContext = {
@@ -241,23 +266,12 @@ export const createPlayerTraversalState = (
       },
       units
     )
-    // Grounded traction belongs to the controller. Airborne contact restores
-    // friction so a landing can exchange tangential momentum with the wall.
-    physics.world.createCollider(
-      physics.rapier.ColliderDesc.ball(
-        scaleLengthForRapier(PLAYER_COLLIDER_RADIUS, units)
-      )
-        .setFriction(0)
-        .setFrictionCombineRule(physics.rapier.CoefficientCombineRule.Min)
-        .setCollisionGroups(PLAYER_COLLISION_GROUPS)
-        .setDensity(1.0)
-        .setRestitution(0.02),
-      freeFlyBody
-    )
+    createPlayerCollider(physics.rapier, physics.world, freeFlyBody, units)
     state.physics = {
       world: physics.world,
       freeFlyBody,
-      units
+      units,
+      rapier: physics.rapier
     }
     syncFreeFlyBodyToState(state, false)
   }

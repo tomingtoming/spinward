@@ -1769,7 +1769,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardHabitat = habitat
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
-    ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders }
+    ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders, city: cityColliders, physics: { rapier, world: physicsWorld, units: getUnits } }
     ;(window as unknown as Record<string, unknown>).__spinwardCar = car
     ;(window as unknown as Record<string, unknown>).__spinwardTarget = throwTarget
     ;(window as unknown as Record<string, unknown>).__spinwardWatch = watchPanel
@@ -2640,7 +2640,7 @@ export const bootstrapApp = async () => {
         ? metroPhysicsSubsteps(playerTraversal.inertialPosition, playerTraversal.inertialVelocity, omega, deltaSeconds)
         : 1
       physicsWorld.timestep = deltaSeconds / physicsSteps
-      railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null)
+      railColliders.update(rail.service, playerAzimuth, playerFixedColliderPosition.y, frameAngle, getUnits(), railRide.train?.id ?? null, omega * deltaSeconds)
       for (let step = 0; step < physicsSteps; step++) physicsWorld.step()
       physicsWorld.timestep = deltaSeconds
       if (railRide.riding) railRide.pin(playerTraversal, seatFrame(), rail.service!.time)
@@ -3215,6 +3215,7 @@ export const bootstrapApp = async () => {
       parking: parkedCars.debugStats(),
       rain: { strength: rainStrength, shelter: rainShelter, audibility: rainAudibility, pavementWetness: wetPavement.uniforms.pavingWetness.value },
       ambience: { ...ambienceMix, airspeed },
+      colliderFocus: { azimuth: Math.atan2(playerFixedColliderPosition.z, playerFixedColliderPosition.x), axial: playerFixedColliderPosition.y },
       radial: Math.hypot(rotatingCameraPosition.x, rotatingCameraPosition.z),
       radius: habitatConfig.radius,
       axial: rotatingCameraPosition.y,

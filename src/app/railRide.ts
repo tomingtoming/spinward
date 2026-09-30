@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { resetPlayerToGrounded, type PlayerTraversalState } from './playerTraversal'
+import { refreshPlayerCollider, resetPlayerToGrounded, type PlayerTraversalState } from './playerTraversal'
 import { rotatingVelocityToInertial } from '../sim/frameTransforms'
 import { setRigidBodyLinvelFromReal } from '../physics/rapierBoundary'
 import { railTrainMatrix } from '../objects/colonyRail'
@@ -49,7 +49,8 @@ export class RailRide {
     return true
   }
   cancel(state: PlayerTraversalState) {
-    if (this.active?.state === state) this.sensor(state, false)
+    // A fresh solid collider, not a sensor switched off: see refreshPlayerCollider.
+    if (this.active?.state === state) refreshPlayerCollider(state)
     this.active = null; this.velocity.set(0, 0, 0)
   }
   prompt() {

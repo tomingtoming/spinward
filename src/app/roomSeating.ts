@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CAFE_PILOT, LOBBY_PILOT, matchesAuthoredPilot, cafePilotPoint } from '../objects/cafePilot'
 import type { BuildingInterior } from '../objects/buildingInteriors'
-import { resetPlayerToGrounded, type PlayerTraversalState } from './playerTraversal'
+import {refreshPlayerCollider, resetPlayerToGrounded, type PlayerTraversalState } from './playerTraversal'
 
 export type RoomSeat = {
   id: string; label: string; radius: number
@@ -60,8 +60,8 @@ export class RoomSeating {
   }
   // Keep the anchor in the rotating habitat, not in inertial world space.
   // The standing sphere becomes a sensor while attached to avoid impulses
-  // against the bench. It stays in the broad phase throughout the attachment;
-  // leaving restores contact response before normal walking resumes.
+  // against the bench. Leaving replaces it with a fresh solid collider
+  // (refreshPlayerCollider) so contact with the floor is paired again.
   private setSensor(state:PlayerTraversalState,sensor:boolean){
     const body=state.physics?.freeFlyBody
     if(body)for(let i=0;i<body.numColliders();i++)body.collider(i).setSensor(sensor)
@@ -74,7 +74,7 @@ export class RoomSeating {
     const a=this.active
     if(state!==a.state){this.active=null;return} // Previous body was disposed by a rebuild.
     if(frame.radius!==a.seat.radius||Math.abs(state.groundHeight-(a.seat.groundHeight??0))>.2||state.mode!=='grounded'||distance(state.surface,a.seat,frame.radius)>.03){
-      this.setSensor(state,false);this.active=null;return
+      refreshPlayerCollider(state);this.active=null;return
     }
     if(!seats.includes(a.seat)){this.leave(state,frame);return}
     this.pin(state,frame)
@@ -82,7 +82,7 @@ export class RoomSeating {
   leave(state:PlayerTraversalState,frame:SeatFrame){
     if(!this.active)return false
     const a=this.active;this.active=null;this.departure=.3
-    if(a.state===state){this.setSensor(state,false);resetPlayerToGrounded(state,{...a.seat.exit,...frame,groundHeight:a.seat.groundHeight??0})}
+    if(a.state===state){refreshPlayerCollider(state);resetPlayerToGrounded(state,{...a.seat.exit,...frame,groundHeight:a.seat.groundHeight??0})}
     return true
   }
 }
