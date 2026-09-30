@@ -12,7 +12,7 @@ type SourceLine = (typeof catalog.lines)[number]
 // A street tram, not the colony's automated line: 40 km/h and short dwells.
 // Doors open toward the centreline, so stops are street-level islands between
 // the two tracks; the boarding point is the island edge beside each door.
-export const METRO_TRAM = { maxSpeed: 11.1, dwellSeconds: 20, trainsPerLine: 6, islandEdge: catalog.islandEdge }
+export const METRO_TRAM = { maxSpeed: 11.1, dwellSeconds: 20, trainsPerLine: 12, islandEdge: catalog.islandEdge }
 
 /** Tokyo source metres to the colony rail frame used by RailService:
  * [arc along the hull, axial, height above the hull floor]. */

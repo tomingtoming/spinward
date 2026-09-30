@@ -15,6 +15,7 @@ import {MetroTrees} from './plateau/metro-trees.js'
 import {createMetroCredits} from './plateau/metro-credits.js'
 import {metroPlacesForStudy} from './metroPlaces'
 import {metroEdgeWallMeshes,edgeWallUV,edgeWallCanvas} from './metroEdgeWalls'
+import {metroBridgeMeshes,metroBridgeOpenings} from './metroBridges'
 import {readMetroJSON,loadMetroRelease,objectHash,metroDataURL} from './plateau/data-source.js'
 import {distantDetail,selectTerrainLOD} from './plateau/adaptive-detail.js'
 import {metroRenderBudget} from './plateau/render-budget.js'
@@ -115,8 +116,18 @@ class MetroCity{
     const parts=[]
     // Retaining walls close the terrain sheet's open window-side edges. They
     // are drawn and collided like the source bridges below.
+    const openings=metroBridgeOpenings(this.study)
     for(const layer of this.layers){
-      const walls=metroEdgeWallMeshes(this.study,layer.base.sample.id,this.floorHeight)
+      const walls=metroEdgeWallMeshes(this.study,layer.base.sample.id,this.floorHeight,openings)
+      // Window viaducts collide like the walls; rails and window upkeep are drawn only.
+      const viaducts=metroBridgeMeshes(this.study,layer.base.sample.id,this.floorHeight)
+      for(const d of [...viaducts.solid,...viaducts.detail]){
+        const mesh=layer.base.mesh(d,'structure')
+        try{await this.prepareVisual(mesh)}catch(error){mesh.geometry.dispose();mesh.material.dispose();throw error}
+        if(generation!==this.generation){mesh.geometry.dispose();mesh.material.dispose();return}
+        mesh.castShadow=false;this.roadMeshes.push(mesh);this.group.add(mesh)
+      }
+      parts.push(...metroCollisionParts(viaducts.solid.map(v=>({...v,name:'buildings'})),layer.base.sample.band,this.study.radius))
       for(const d of walls){
         const mesh=layer.base.mesh(d,'structure')
         this.edgeWallTexture??=Object.assign(new T.CanvasTexture(edgeWallCanvas()),{wrapS:T.RepeatWrapping,wrapT:T.RepeatWrapping,anisotropy:4,colorSpace:T.SRGBColorSpace})

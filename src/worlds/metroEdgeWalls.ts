@@ -10,28 +10,41 @@ const CHUNK = 200 // stations per mesh: 2 km at 10 m spacing
 export type EdgeWallMesh = { name: string; colour: string; roughness: number; solid: true
   attributes: { position: Float32Array; index: Uint32Array } }
 
-/** Source-metre wall meshes for one strip, or none if the crop differs. */
-export function metroEdgeWallMeshes(study: MetroStudyFrame, bandId: string, floorHeight: number): EdgeWallMesh[] {
+export type WallOpening = { band: string; side: number; y0: number; y1: number }
+
+/** Source-metre wall meshes for one strip, or none if the crop differs.
+ * Openings (viaduct abutments) are cut exactly at their y bounds. */
+export function metroEdgeWallMeshes(study: MetroStudyFrame, bandId: string, floorHeight: number,
+  openings: WallOpening[] = []): EdgeWallMesh[] {
   if (!matchesMetroFrames(study, catalog)) return []
   const meshes: EdgeWallMesh[] = []
   for (const edge of catalog.edges) {
     if (edge.band !== bandId) continue
     const inner = edge.x - edge.side * EDGE_WALL.cap, last = edge.top.length - 1
+    const cuts = openings.filter(o => o.band === edge.band && o.side === edge.side)
+    const groundAt = (y: number) => {
+      const u = (y - edge.y0) / catalog.spacing, i = Math.min(last - 1, Math.max(0, Math.floor(u))), t = u - i
+      return (edge.top[i] + (edge.top[i + 1] - edge.top[i]) * t) / 10
+    }
     for (let start = 0; start < last; start += CHUNK) {
-      const end = Math.min(last, start + CHUNK), count = end - start + 1
-      const position = new Float32Array(count * 4 * 3), index: number[] = []
-      for (let i = 0; i < count; i++) {
-        const y = edge.y0 + (start + i) * catalog.spacing, ground = edge.top[start + i] / 10, top = ground + EDGE_WALL.parapet
-        position.set([edge.x, y, floorHeight, edge.x, y, top, inner, y, top, inner, y, ground - EDGE_WALL.bury], i * 12)
-        if (!i) continue
-        // Outer face (floor to parapet), cap, then the parapet's land face.
-        for (let k = 0; k < 3; k++) {
-          const a = (i - 1) * 4 + k, b = i * 4 + k
-          index.push(a, b, a + 1, a + 1, b, b + 1)
+      const end = Math.min(last, start + CHUNK), position: number[] = [], index: number[] = []
+      for (let i = start; i < end; i++) {
+        // Wall pieces of this 10 m segment outside every opening.
+        let spans = [[edge.y0 + i * catalog.spacing, edge.y0 + (i + 1) * catalog.spacing]]
+        for (const c of cuts) spans = spans.flatMap(([a, b]) => c.y1 <= a || c.y0 >= b ? [[a, b]]
+          : [...c.y0 > a ? [[a, c.y0]] : [], ...c.y1 < b ? [[c.y1, b]] : []])
+        for (const [a, b] of spans) {
+          const base = position.length / 3
+          for (const y of [a, b]) {
+            const ground = groundAt(y), top = ground + EDGE_WALL.parapet
+            position.push(edge.x, y, floorHeight, edge.x, y, top, inner, y, top, inner, y, ground - EDGE_WALL.bury)
+          }
+          // Outer face (floor to parapet), cap, then the parapet's land face.
+          for (let k = 0; k < 3; k++) index.push(base + k, base + 4 + k, base + k + 1, base + k + 1, base + 4 + k, base + 5 + k)
         }
       }
-      meshes.push({ name: 'edge-walls', colour: EDGE_WALL.colour, roughness: EDGE_WALL.roughness, solid: true,
-        attributes: { position, index: Uint32Array.from(index) } })
+      if (index.length) meshes.push({ name: 'edge-walls', colour: EDGE_WALL.colour, roughness: EDGE_WALL.roughness, solid: true,
+        attributes: { position: Float32Array.from(position), index: Uint32Array.from(index) } })
     }
   }
   return meshes

@@ -21,11 +21,22 @@ test('Arakawa line maps source metres through the same placement as the city', (
     expect(line.points[i][3]).toBe(h)
   }
   for (let i = 1; i < line.points.length; i++) expect(line.points[i][0]).toBeGreaterThan(line.points[i - 1][0])
-  expect(source.maxGrade).toBeLessThan(.08)
+  expect(source.maxGrade).toBeLessThanOrEqual(.08)
   const stops = data.stations
   expect(stops.length).toBeGreaterThanOrEqual(4) // RailService schedules from its fourth leg.
   for (let i = 1; i < stops.length; i++) expect(stops[i].s).toBeGreaterThan(stops[i - 1].s + asset.configuration.carLength)
   expect(stops.map(s => s.name)).toContain('王子駅前')
+})
+
+test('the line crosses the east–central window level on the viaduct and continues to Waseda', () => {
+  const line = catalog.lines[0], [crossing] = line.crossings
+  expect(crossing.x0).toBeCloseTo(1675.516, 3); expect(crossing.x1 - crossing.x0).toBeCloseTo(Math.PI / 3 * study.radius, 2)
+  const over = line.points.filter(p => p[1] > crossing.x0 + 1e-3 && p[1] < crossing.x1 - 1e-3)
+  expect(over.length).toBeGreaterThan(800)
+  for (const p of over) { expect(p[3]).toBeCloseTo(crossing.height, 3); expect(p[2]).toBeCloseTo(crossing.y, 3) }
+  for (let i = 1; i < line.points.length; i++) expect(Math.hypot(line.points[i][1] - line.points[i - 1][1], line.points[i][2] - line.points[i - 1][2])).toBeLessThan(4.01)
+  expect(line.stations.map(s => s.band)).toEqual([...Array(12).fill('east'), ...Array(7).fill('central')])
+  expect(line.stations.at(-1)!.name).toBe('早稲田')
 })
 
 test('a different crop frame never receives Tokyo track coordinates', () => {

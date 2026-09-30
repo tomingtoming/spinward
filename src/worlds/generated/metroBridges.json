@@ -1,0 +1,97 @@
+{
+ "origin": "ai",
+ "created": "2026-09-30",
+ "layout": "inland-b",
+ "radius": 3200.0,
+ "span": 40000.0,
+ "frames": [
+  [
+   "east",
+   0,
+   {
+    "epsg": 6677,
+    "origin": [
+     -9929.11983872236,
+     -17801.912168926847
+    ],
+    "angle": -1.3962634015954636
+   }
+  ],
+  [
+   "central",
+   1,
+   {
+    "epsg": 6677,
+    "origin": [
+     -13229.242294254544,
+     -18383.812797479044
+    ],
+    "angle": -1.3962634015954636
+   }
+  ],
+  [
+   "west",
+   2,
+   {
+    "epsg": 6677,
+    "origin": [
+     -16529.36474978673,
+     -18965.71342603124
+    ],
+    "angle": -1.3962634015954636
+   }
+  ]
+ ],
+ "source": {
+  "alignment": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html",
+  "receipts": [
+   {
+    "kind": "stations",
+    "path": "/Users/toming/keel/lake/spinward-development/qa/webxr/evidence/plateau-transfer-20260922/N02-25_Station.geojson",
+    "sha256": "908e2c3036e9c80760ae3514be3682c77f81f0bd60ab5fb1b3da1aa9352bbd94"
+   },
+   {
+    "kind": "tracks",
+    "path": "/Users/toming/keel/lake/spinward-development/qa/webxr/evidence/plateau-transfer-20260922/N02-25_RailroadSection.geojson",
+    "sha256": "4269b076c0689db13cadf0d07801418b7215b2160ebf1278c508031cd08c4da2"
+   }
+  ]
+ },
+ "pierSpacing": 50.0,
+ "bridges": [
+  {
+   "id": "east-central-tracks-14409",
+   "name": "山手線",
+   "line": "山手線",
+   "band": "east",
+   "far": "central",
+   "sourceTrack": "tracks-14409",
+   "y": 11842.516,
+   "x0": 1675.516,
+   "x1": 5026.548,
+   "height": 24.707,
+   "width": 11.0,
+   "tracks": 2
+  },
+  {
+   "id": "east-central-tracks-13305",
+   "name": "都電荒川線",
+   "line": "荒川線",
+   "band": "east",
+   "far": "central",
+   "sourceTrack": "tracks-13305",
+   "y": 11933.105,
+   "x0": 1675.516,
+   "x1": 5026.548,
+   "height": 20.13,
+   "width": 8.0,
+   "tracks": 0
+  }
+ ],
+ "maintenance": {
+  "railSpacing": 100.0,
+  "railOffset": 25.0,
+  "gauge": 2.4,
+  "crawlerSpacing": 4000.0
+ }
+}
