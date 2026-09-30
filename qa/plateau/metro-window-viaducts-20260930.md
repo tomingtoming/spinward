@@ -39,49 +39,63 @@ asked to proceed (2026-09-30).
 
 ## Window upkeep
 
-toming wondered whether rails were needed at all ("ルンバみたいなのが走り回る
-だけでもいい") and accepted the proposal to drop them ("はい！"), then asked
-for a more considered robot shape (2026-09-30). `src/objects/windowRobots.ts`:
+History, all 2026-09-30 to 10-01:
 
-- Spin gravity (~1 g) holds a robot on the glass, so it needs no suction,
-  tethers or rails; soft rubber tracks grip and do not scratch.
-- The body is square, not round: there is no furniture to slip past, and a
-  1.1 m full-width brush and squeegee must reach pane corners on straight
-  lanes. A camera mast at the back carries an amber beacon so people on the
-  viaducts can see it, as airside vehicles do.
-- One robot per 1 km cell sweeps lanes one brush width (1 m) apart at
-  0.5 m/s, a full pass in about 23 days: sealed air soils the glass slowly,
-  so a monthly pass is enough. That is 480 robots on three windows. The
-  first build used 250 m cells (6,720 robots, a pass every three days);
-  toming saw the night windows and found them far too many ("ルンバ多すぎ
-  気持ち悪い", 2026-10-01). Lanes within 2.35 m of a pier
-  line (every 50 m from the window edge) are skipped, so no robot meets a
-  pier. Poses are a pure function of time; the renderer instances the
-  robots within 1.5 km of the camera.
+1. The first build laid crawler rails along every window. toming wondered
+   whether rails were needed at all ("ルンバみたいなのが走り回るだけでもいい")
+   and accepted dropping them ("はい！").
+2. Small free-roaming crawlers replaced the rails. toming asked for a more
+   considered shape, then for the night view. At one per 250 m (6,720) and
+   then one per 1 km (480), the night windows looked crowded ("ルンバ多すぎ
+   気持ち悪い").
+3. toming pointed out that a Roomba is round because it roams a furnished
+   floor, while the window has almost no obstacles, so a wide wiper could
+   sweep it. That is the current design.
+
+`src/objects/windowRobots.ts` (names kept from the robot stage):
+
+- Spin gravity (~1 g) holds the machine on the glass, so it needs no
+  suction, tethers or rails. It runs on soft tracks and wheels.
+- A 45 m truss beam carries a brush housing and a squeegee on each face (it
+  sweeps both ways). It rides on a crawler bogie at each end and on two
+  wheel towers between. The analogues are solar-farm row cleaners and
+  centre-pivot irrigation spans.
+- Lanes are 50 m apart along the axis, each centred between two viaduct
+  pier lines (every 50 m from the window edge). The beam passes every pier
+  with 1.1 m to spare, and it crabs sideways between lanes without turning.
+- The bogies stand on the glass, so the straight beam's middle rides 8 cm
+  above the curve. The squeegee is taken to be segmented so that it follows
+  the curve.
+- Sealed air soils the glass slowly. One wiper per 10 km of window covers
+  its section in about 14 days, giving 12 wipers on three windows. Poses
+  are a pure function of time, and all 12 are drawn instanced.
 
 ### Night view
 
-toming asked for the night view (2026-09-30). Each robot carries three
-lights, split by who should see them:
+toming asked for the night view (2026-09-30). The lights are split by who
+should see them:
 
-- A rotating amber beacon beamed along the glass, for people close by on
-  the viaducts or the edge walls. It flashes (1.1 s, a phase per robot) and
-  is drawn only for the near robots.
-- A shielded, steady, dim position lamp on the mast that faces up, the only
-  light the far side of the colony sees. Thousands of flashing lights across
-  a window would repeat the wind-farm complaint about flashing aviation
-  lights on a colony scale. All lamps are one point cloud (2.5 px,
-  fogged like everything else). It fades in with night, and a slice of
-  1/90 moves each frame. At 250 m cells, near robots plus lamps cost
-  0.07 ms per frame on the CPU; 1 km cells cost less.
-- A low raking work light along the brush, on only at night. Clean glass
-  scatters almost nothing, so it lights no pool: raking light shows
-  scratches and chips, which is why the inspection light is low.
+- **Rotating beacons.** An amber beacon on each bogie is beamed along the
+  glass for people close by on the viaducts or the edge walls. It flashes
+  every 1.1 s, with a phase per wiper.
+- **Position lamps.** A shielded, steady, dim position lamp beside each
+  beacon faces up. It is the only light the far side of the colony sees.
+  Thousands of flashing lights across a window would repeat, on a colony
+  scale, the complaints about flashing aviation lights on wind farms. The
+  24 lamps are one point cloud (2.5 px, fogged like everything else) that
+  fades in with night.
+- **Work lights.** A low raking work light along each face comes on only at
+  night. Clean glass scatters almost nothing, so it lights no pool; the
+  low raking angle is what shows scratches and chips.
 
-Hardware-GPU captures at t=.02: from the Oji arrival the windows overhead
-show amber points among the stars. They were dense at 250 m cells; at
-1 km cells they are about as sparse as the stars. Close up, the work light bar and
-the beacon read, and the body stays dark.
+Hardware-GPU captures:
+
+- From the Arakawa deck by day, the wiper reads as a long white truss over
+  the glass.
+- At t=.02 its work light bars read.
+- From the Oji arrival at night, the window overhead shows one pair of
+  amber points among the stars. At 250 m crawler cells the same view was
+  dense with them.
 
 ## Two physics faults found by the crossing ride
 
@@ -103,7 +117,8 @@ the beacon read, and the body stays dark.
 ## Verification
 
 - Unit: viaduct spans, heights, deck height equal to the tram crossing,
-  nothing laid on the windows, robot paths continuous and clear of piers, wall openings, line
+  nothing laid on the windows, wiper lanes between pier lines and
+  continuous paths inside each section, wall openings, line
   continuity and level crossing, sensor release, rail co-rotation.
 - WebXR 0.3.0 on the hardware GPU:
   - A walker goes from the east strip along the tram street onto the Arakawa
@@ -132,5 +147,5 @@ the beacon read, and the body stays dark.
 ## Open
 
 - Only the east–central window has viaducts; other surface-line cuts remain
-  (about 20 in total). Robots have no docks yet and do not react to people.
+  (about 20 in total). Wipers have no docks yet and do not react to people.
 - No lighting, catenary or night treatment on the viaducts yet.

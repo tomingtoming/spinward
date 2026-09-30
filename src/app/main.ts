@@ -779,7 +779,6 @@ export const bootstrapApp = async () => {
   const rail = new ColonyRail(cityscape.group)
   let metroTrack: MetroTramTrack | null = null
   let windowRobots: WindowRobots | null = null, windowRobotClock = 0
-  const windowRobotFocus = new THREE.Vector3()
   const railRide = new RailRide()
   const railColliders = new RailColliders(rapier, physicsWorld)
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
@@ -2468,7 +2467,7 @@ export const bootstrapApp = async () => {
       metroTrack?.dispose()
       metroTrack = cityscape.metroWorld && metroRail ? new MetroTramTrack(cityscape.group, metroRail) : null
     }
-    // Window upkeep robots roam the glass beyond each Tokyo strip's +x edge.
+    // Window wipers sweep the glass beyond each Tokyo strip's +x edge.
     const wantRobots = !!cityscape.metroWorld && bootParams.get('robots') !== '0' // ?robots=0 hides them
     if (wantRobots !== !!windowRobots) {
       windowRobots?.dispose()
@@ -2480,7 +2479,7 @@ export const bootstrapApp = async () => {
     }
     if (windowRobots) {
       windowRobotClock += deltaSeconds
-      windowRobots.update(windowRobotClock, cityscape.group.worldToLocal(camera.getWorldPosition(windowRobotFocus)))
+      windowRobots.update(windowRobotClock)
     }
     railColliders.configure(railData, getUnits())
     rail.update(deltaSeconds, playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,
