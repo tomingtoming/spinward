@@ -6,10 +6,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 // rails, suction or tethers: plain soft tracks grip under ~1 g. The body is
 // square, not round like a Roomba (there is no furniture to slip past), so a
 // full-width brush reaches pane corners along straight lanes. Lanes are one
-// brush width apart; one robot per 250 m cell at .5 m/s covers it in about
-// three days. Lanes near a pier line (every 50 m from the window edge) are
+// brush width apart. Sealed air soils the glass slowly, so a monthly pass is
+// enough: one robot per 1 km cell at .5 m/s covers it in about 23 days, 480
+// robots on three windows. (One per 250 m, 6,720 in all, looked far too many
+// at night to toming, 2026-10-01.) Lanes near a pier line (every 50 m from the window edge) are
 // skipped, so no robot ever meets a viaduct pier.
-export const WINDOW_ROBOT = { cell: 250, lane: 1, margin: 5, speed: .5, halfWidth: .55, pier: 1.4, pierSpacing: 50,
+export const WINDOW_ROBOT = { cell: 1000, lane: 1, margin: 5, speed: .5, halfWidth: .55, pier: 1.4, pierSpacing: 50,
   range: 1500, max: 512 }
 
 /** A window in colony arc metres: arcs increase from arc0 to arc1; piers are

@@ -49,12 +49,15 @@ for a more considered robot shape (2026-09-30). `src/objects/windowRobots.ts`:
   1.1 m full-width brush and squeegee must reach pane corners on straight
   lanes. A camera mast at the back carries an amber beacon so people on the
   viaducts can see it, as airside vehicles do.
-- One robot per 250 m cell sweeps lanes one brush width (1 m) apart at
-  0.5 m/s, a full pass in about three days. Lanes within 2.35 m of a pier
+- One robot per 1 km cell sweeps lanes one brush width (1 m) apart at
+  0.5 m/s, a full pass in about 23 days: sealed air soils the glass slowly,
+  so a monthly pass is enough. That is 480 robots on three windows. The
+  first build used 250 m cells (6,720 robots, a pass every three days);
+  toming saw the night windows and found them far too many ("ルンバ多すぎ
+  気持ち悪い", 2026-10-01). Lanes within 2.35 m of a pier
   line (every 50 m from the window edge) are skipped, so no robot meets a
   pier. Poses are a pure function of time; the renderer instances the
-  robots within 1.5 km of the camera (57 near the Arakawa deck), costing
-  0.09 ms per frame on the CPU.
+  robots within 1.5 km of the camera.
 
 ### Night view
 
@@ -67,16 +70,17 @@ lights, split by who should see them:
 - A shielded, steady, dim position lamp on the mast that faces up, the only
   light the far side of the colony sees. Thousands of flashing lights across
   a window would repeat the wind-farm complaint about flashing aviation
-  lights on a colony scale. All 6,720 lamps are one point cloud (2.5 px,
+  lights on a colony scale. All lamps are one point cloud (2.5 px,
   fogged like everything else). It fades in with night, and a slice of
-  1/90 moves each frame; near robots plus lamps cost 0.07 ms per frame on
-  the CPU.
+  1/90 moves each frame. At 250 m cells, near robots plus lamps cost
+  0.07 ms per frame on the CPU; 1 km cells cost less.
 - A low raking work light along the brush, on only at night. Clean glass
   scatters almost nothing, so it lights no pool: raking light shows
   scratches and chips, which is why the inspection light is low.
 
 Hardware-GPU captures at t=.02: from the Oji arrival the windows overhead
-show sparse amber points among the stars. Close up, the work light bar and
+show amber points among the stars. They were dense at 250 m cells; at
+1 km cells they are about as sparse as the stars. Close up, the work light bar and
 the beacon read, and the body stays dark.
 
 ## Two physics faults found by the crossing ride

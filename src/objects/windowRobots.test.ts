@@ -8,7 +8,7 @@ const strip: WindowStrip = { arc0: -(half + 2 * half), arc1: -half, axial0: -200
 test('robots sweep their cells continuously, inside the window, clear of the viaduct pier lines', () => {
   const cells = Math.ceil((strip.arc1 - strip.arc0) / WINDOW_ROBOT.cell)
   let robots = 0
-  for (const i of [0, 3, cells - 2, cells - 1]) for (const j of [0, 47, 159]) {
+  for (const i of [0, 3, cells - 2, cells - 1]) for (const j of [0, 17, 39]) {
     let previous = robotPose(strip, 1, i, j, 0)
     if (!previous) continue
     robots++
@@ -27,7 +27,7 @@ test('robots sweep their cells continuously, inside the window, clear of the via
       previous = p
     }
   }
-  expect(robots).toBeGreaterThanOrEqual(10)
+  expect(robots).toBe(12)
 })
 
 test('robot phases differ between cells and windows', () => {
@@ -42,7 +42,7 @@ test('night lights: beacons flash locally, position lamps stay steady and appear
   const R = 3200, strips = [0, 1, 2].map(band => { const arc1 = -(band * Math.PI * 2 / 3 * R + half); return { ...strip, arc0: arc1 - 2 * half, arc1 } })
   const robots = new WindowRobots(new THREE.Group(), strips, R)
   const far = robots.group.getObjectByName('window-robot-position-lamps') as THREE.Points
-  expect(robots.positionLamps).toBeGreaterThan(6000)
+  expect(robots.positionLamps).toBe(480)
   robots.setDaylight(1); expect(far.visible).toBe(false)
   robots.setDaylight(0); expect(far.visible).toBe(true)
   // Every lamp sits on a window, just above the glass.
