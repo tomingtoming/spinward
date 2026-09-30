@@ -1,7 +1,7 @@
-"""Viaducts across the windows at verified source cuts, and window upkeep.
+"""Viaducts across the windows at verified source cuts.
 
 toming chose short-span viaducts (no navigation clearance is needed over a
-window) and window maintenance crawlers running along the glass (2026-09-30).
+window, 2026-09-30). Window upkeep is done by free-roaming robots, not rails.
 Each viaduct carries one real line straight across the window at the cut's
 edge height, which both strips share. Coordinates are in the first strip's
 source frame; the window lies beyond its +x edge.
@@ -51,9 +51,7 @@ def main():
                   radius=study['radius'], span=study['span'],
                   frames=[[s['id'], s['band'], s['frame']] for s in study['samples']],
                   source=dict(alignment=source['source'], receipts=source['sourceReceipts']),
-                  pierSpacing=50.0, bridges=bridges,
-                  # Axial crawler rails on every window, offset from the pier lines.
-                  maintenance=dict(railSpacing=100.0, railOffset=25.0, gauge=2.4, crawlerSpacing=4000.0))
+                  pierSpacing=50.0, bridges=bridges)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=1) + '\n')
 
 

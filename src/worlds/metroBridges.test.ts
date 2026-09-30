@@ -21,26 +21,16 @@ test('viaducts span the whole window at the shared cut height and meet the tram 
     expect(Math.min(...deck.map(d => d[0]))).toBeCloseTo(b.x0, 3); expect(Math.max(...deck.map(d => d[1]))).toBeCloseTo(b.x1, 3)
     const piers = all.filter(([, , y0, y1, h0]) => h0 === -16 && Math.abs((y0 + y1) / 2 - b.y) < 1e-3)
     expect(piers.length).toBe(Math.floor((b.x1 - 10 - b.x0 - 1e-6) / catalog.pierSpacing))
-    // Crawler rails lie between pier lines, so crawlers pass beneath.
-    const m = catalog.maintenance
-    for (const [x0, x1] of piers) {
-      const nearest = Math.min(...Array.from({ length: 40 }, (_, k) => Math.abs((x0 + x1) / 2 - (b.x0 + m.railOffset + k * m.railSpacing))))
-      expect(nearest).toBeGreaterThan(m.gauge / 2 + VIADUCT.pier + 10)
-    }
   }
   const arakawa = bridges.find(b => b.line === '荒川線')!, crossing = transit.lines[0].crossings[0]
   expect(arakawa.height).toBeCloseTo(crossing.height, 2)
   expect(arakawa.y).toBeCloseTo(crossing.y, 2)
 })
 
-test('every strip lays crawler rails the full length of the window beyond its edge', () => {
+test('only the strip owning a viaduct builds it, and nothing is laid on the windows', () => {
   for (const band of ['east', 'central', 'west']) {
     const { detail, solid } = metroBridgeMeshes(study, band, -16)
-    const upkeep = boxes(detail.find(d => d.name === 'window-upkeep')!)
-    const rails = upkeep.filter(([, , y0, y1]) => Math.abs(y1 - y0 - study.span) < 1e-3)
-    expect(rails.length).toBe(2 * Math.floor((catalog.bridges[0].x1 - catalog.bridges[0].x0 - 2 * catalog.maintenance.railOffset) / catalog.maintenance.railSpacing + 1))
-    for (const [x0, x1] of rails) { expect(x0).toBeGreaterThan(catalog.bridges[0].x0); expect(x1).toBeLessThan(catalog.bridges[0].x1) }
-    expect(upkeep.length).toBeGreaterThan(rails.length)
     expect(solid.length).toBe(band === 'east' ? 1 : 0)
+    expect(detail.map(d => d.name)).toEqual(band === 'east' ? ['viaduct-rails'] : [])
   }
 })

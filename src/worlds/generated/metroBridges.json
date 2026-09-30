@@ -87,11 +87,5 @@
    "width": 8.0,
    "tracks": 0
   }
- ],
- "maintenance": {
-  "railSpacing": 100.0,
-  "railOffset": 25.0,
-  "gauge": 2.4,
-  "crawlerSpacing": 4000.0
- }
+ ]
 }

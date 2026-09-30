@@ -18,8 +18,8 @@ asked to proceed (2026-09-30).
   source cuts of the Yamanote line (y 11,842.5 m, 24.71 m, 11 m deck) and the
   Arakawa line (y 11,933.1 m, 20.13 m, 8 m deck). Both strips' edge heights
   agree within 1 cm. Each deck runs level across the 3,351 m window. Piers
-  stand every 50 m, and axial crawler rails lie every 100 m, 25 m off the pier
-  lines.
+  stand every 50 m. The first build also laid axial crawler rails on every
+  window; they were removed the same day (see Window upkeep).
 - `prepare_metro_transit.py` now joins the east and central strips across the
   Arakawa cut. It stores points in the east source frame (a later strip's x
   is shifted by 2πR/3), keeps the window section level at the deck height,
@@ -31,12 +31,30 @@ asked to proceed (2026-09-30).
 ## Runtime
 
 - `src/worlds/metroBridges.ts` builds decks, parapets, piers and pier caps
-  (solid, collided), visual Yamanote rails, and every window's crawler rails
-  with parked crawlers every 4 km (drawn only). `metroCity.js` draws them
+  (solid, collided) and visual Yamanote rails. `metroCity.js` draws them
   through the curved-tile path and adds the solids to structure collision.
 - Edge walls open exactly across each deck
   (`metroEdgeWallMeshes(..., openings)`).
 - The tram service runs 12 cars on the longer line.
+
+## Window upkeep
+
+toming wondered whether rails were needed at all ("ルンバみたいなのが走り回る
+だけでもいい") and accepted the proposal to drop them ("はい！"), then asked
+for a more considered robot shape (2026-09-30). `src/objects/windowRobots.ts`:
+
+- Spin gravity (~1 g) holds a robot on the glass, so it needs no suction,
+  tethers or rails; soft rubber tracks grip and do not scratch.
+- The body is square, not round: there is no furniture to slip past, and a
+  1.1 m full-width brush and squeegee must reach pane corners on straight
+  lanes. A camera mast at the back carries an amber beacon so people on the
+  viaducts can see it, as airside vehicles do.
+- One robot per 250 m cell sweeps lanes one brush width (1 m) apart at
+  0.5 m/s, a full pass in about three days. Lanes within 2.35 m of a pier
+  line (every 50 m from the window edge) are skipped, so no robot meets a
+  pier. Poses are a pure function of time; the renderer instances the
+  robots within 1.5 km of the camera (57 near the Arakawa deck), costing
+  0.09 ms per frame on the CPU.
 
 ## Two physics faults found by the crossing ride
 
@@ -57,8 +75,8 @@ asked to proceed (2026-09-30).
 
 ## Verification
 
-- Unit: viaduct spans, heights, pier/rail clearance, deck height equal to the
-  tram crossing, crawler rails on all three windows, wall openings, line
+- Unit: viaduct spans, heights, deck height equal to the tram crossing,
+  nothing laid on the windows, robot paths continuous and clear of piers, wall openings, line
   continuity and level crossing, sensor release, rail co-rotation.
 - WebXR 0.3.0 on the hardware GPU:
   - A walker goes from the east strip along the tram street onto the Arakawa
@@ -69,6 +87,10 @@ asked to proceed (2026-09-30).
   - The 王子駅前 ride still passes.
   - All 38 island edges on the 19 stops stay within 0.2 m of the street,
     including the 荒川車庫前 edge where a waiting tram had flung the walker.
+- After the robots were added, the Otsuka–Mukohara ride failed twice at
+  boarding (the trigger did not board although the car was pointed at),
+  passed with the robots disabled, then with them enabled on the same code
+  boarded in an instrumented run and passed the full ride once. Treated as a timing flake at the trigger; not yet explained.
 - The Yamanote viaduct is not reachable on foot from the east strip: a
   station building stands on the line at the edge. Rail viaducts are not
   public walkways, so this was left as found.
@@ -76,5 +98,5 @@ asked to proceed (2026-09-30).
 ## Open
 
 - Only the east–central window has viaducts; other surface-line cuts remain
-  (about 20 in total). Crawlers are parked, not moving.
+  (about 20 in total). Robots have no docks yet and do not react to people.
 - No lighting, catenary or night treatment on the viaducts yet.

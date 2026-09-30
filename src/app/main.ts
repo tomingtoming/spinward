@@ -21,6 +21,7 @@ import * as THREE from 'three'
 import { configureSharedAssets, sharedAssetURL } from './sharedAssetURL'
 import { metroRailData, type TramAsset } from '../worlds/metroTransit'
 import { MetroTramTrack } from '../objects/metroTramTrack'
+import { WindowRobots } from '../objects/windowRobots'
 // Floor kept beside the window edges under Tokyo's open terrain sheet (metres).
 const METRO_FLOOR_EDGE_BAND = 400
 import { VRButton } from 'three/addons/webxr/VRButton.js'
@@ -777,6 +778,8 @@ export const bootstrapApp = async () => {
   const roomSeating = new RoomSeating()
   const rail = new ColonyRail(cityscape.group)
   let metroTrack: MetroTramTrack | null = null
+  let windowRobots: WindowRobots | null = null, windowRobotClock = 0
+  const windowRobotFocus = new THREE.Vector3()
   const railRide = new RailRide()
   const railColliders = new RailColliders(rapier, physicsWorld)
   const seatFrame = () => ({ radius: habitatConfig.radius, frameAngle, omega: rpmToOmega(habitatConfig.rpm) })
@@ -1768,6 +1771,7 @@ export const bootstrapApp = async () => {
     ;(window as unknown as Record<string, unknown>).__spinwardRenderer = renderer
     ;(window as unknown as Record<string, unknown>).__spinwardCity = cityscape
     ;(window as unknown as Record<string, unknown>).__spinwardHabitat = habitat
+    ;(window as unknown as Record<string, unknown>).__spinwardWindowRobots = () => windowRobots
     ;(window as unknown as Record<string, unknown>).__spinwardBody = playerBodyView
     ;(window as unknown as Record<string, unknown>).__spinwardRail = { rail, ride: railRide, colliders: railColliders, city: cityColliders, physics: { rapier, world: physicsWorld, units: getUnits } }
     ;(window as unknown as Record<string, unknown>).__spinwardCar = car
@@ -2463,6 +2467,19 @@ export const bootstrapApp = async () => {
     if (!!(cityscape.metroWorld && metroRail) !== !!metroTrack) {
       metroTrack?.dispose()
       metroTrack = cityscape.metroWorld && metroRail ? new MetroTramTrack(cityscape.group, metroRail) : null
+    }
+    // Window upkeep robots roam the glass beyond each Tokyo strip's +x edge.
+    if (!!cityscape.metroWorld !== !!windowRobots) {
+      windowRobots?.dispose()
+      const world = cityscape.metroWorld, study = world?.study
+      windowRobots = world && study ? new WindowRobots(cityscape.group, study.samples.map(({ band }) => {
+        const half = Math.PI / 6 * study.radius, arc1 = -(band * Math.PI * 2 / 3 * study.radius + half)
+        return { arc0: arc1 - 2 * half, arc1, axial0: -study.span / 2, axial1: study.span / 2, floor: world.floorHeight }
+      }), study.radius) : null
+    }
+    if (windowRobots) {
+      windowRobotClock += deltaSeconds
+      windowRobots.update(windowRobotClock, cityscape.group.worldToLocal(camera.getWorldPosition(windowRobotFocus)))
     }
     railColliders.configure(railData, getUnits())
     rail.update(deltaSeconds, playerTraversal.surface.azimuth, playerTraversal.surface.axialPosition,

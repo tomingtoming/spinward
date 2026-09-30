@@ -2,11 +2,11 @@ import catalog from './generated/metroBridges.json'
 import { matchesMetroFrames, type MetroStudyFrame } from './metroPlaces'
 import type { EdgeWallMesh } from './metroEdgeWalls'
 
-// Short-span viaducts over the windows and the window upkeep they must clear
-// (toming, 2026-09-30). All geometry is in a strip's source metres; the
-// curved-tile path bends it onto the cylinder vertex by vertex.
+// Short-span viaducts over the windows (toming, 2026-09-30). All geometry is
+// in a strip's source metres; the curved-tile path bends it onto the cylinder
+// vertex by vertex. Window upkeep robots roam between the piers (windowRobots).
 export const VIADUCT = { girder: 1.6, parapet: 1.1, wall: .3, segment: 25, pier: 1.4, capDepth: 1.2,
-  deck: '#a9aca5', rail: '#6b7275', upkeep: '#c99a2e' }
+  deck: '#a9aca5', rail: '#6b7275' }
 const GAUGE = 1.435, TRACK_CENTRES = 3.6
 
 type Box = [number, number, number, number, number, number] // x0 x1 y0 y1 h0 h1
@@ -31,9 +31,9 @@ export function metroBridges(study: MetroStudyFrame): MetroBridge[] {
   return matchesMetroFrames(study, catalog) ? catalog.bridges : []
 }
 
-/** Deck, parapets and piers collide; rails and window upkeep are drawn only. */
+/** Deck, parapets and piers collide; rails are drawn only. */
 export function metroBridgeMeshes(study: MetroStudyFrame, bandId: string, floorHeight: number) {
-  const solid: Box[] = [], rails: Box[] = [], upkeep: Box[] = []
+  const solid: Box[] = [], rails: Box[] = []
   for (const b of metroBridges(study)) {
     if (b.band !== bandId) continue
     const w = b.width / 2, top = b.height, under = top - VIADUCT.girder
@@ -53,23 +53,9 @@ export function metroBridgeMeshes(study: MetroStudyFrame, bandId: string, floorH
       solid.push([x - 1, x + 1, b.y - w * .85, b.y + w * .85, under - VIADUCT.capDepth, under])
     }
   }
-  // Every strip owns the window beyond its +x edge. Crawler rails run the
-  // full axial length, between the pier lines, and carry parked crawlers.
-  const bounds = catalog.bridges[0] ? { x0: catalog.bridges[0].x0, x1: catalog.bridges[0].x1 } : null
-  if (bounds && matchesMetroFrames(study, catalog)) {
-    const m = catalog.maintenance, half = study.span / 2
-    for (let k = 0, x = bounds.x0 + m.railOffset; x < bounds.x1 - m.railOffset + 1e-6; k++, x += m.railSpacing) {
-      for (const g of [-m.gauge / 2, m.gauge / 2]) upkeep.push([x + g - .12, x + g + .12, -half, half, floorHeight + .15, floorHeight + .55])
-      // Crawlers (8 x 10 x 6 m) every few kilometres, staggered per rail.
-      for (let y = -half + 500 + (k * 1237) % m.crawlerSpacing; y < half - 500; y += m.crawlerSpacing) {
-        upkeep.push([x - 4, x + 4, y - 5, y + 5, floorHeight + .6, floorHeight + 5.2])
-        upkeep.push([x - .5, x + .5, y - 1, y + 1, floorHeight + 5.2, floorHeight + 7.4])
-      }
-    }
-  }
   return {
     solid: solid.length ? [mesh('window-viaducts', VIADUCT.deck, solid)] : [],
-    detail: [...rails.length ? [mesh('viaduct-rails', VIADUCT.rail, rails)] : [], ...upkeep.length ? [mesh('window-upkeep', VIADUCT.upkeep, upkeep)] : []]
+    detail: rails.length ? [mesh('viaduct-rails', VIADUCT.rail, rails)] : []
   }
 }
 
