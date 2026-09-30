@@ -2469,10 +2469,11 @@ export const bootstrapApp = async () => {
       metroTrack = cityscape.metroWorld && metroRail ? new MetroTramTrack(cityscape.group, metroRail) : null
     }
     // Window upkeep robots roam the glass beyond each Tokyo strip's +x edge.
-    if (!!cityscape.metroWorld !== !!windowRobots) {
+    const wantRobots = !!cityscape.metroWorld && bootParams.get('robots') !== '0' // ?robots=0 hides them
+    if (wantRobots !== !!windowRobots) {
       windowRobots?.dispose()
       const world = cityscape.metroWorld, study = world?.study
-      windowRobots = world && study ? new WindowRobots(cityscape.group, study.samples.map(({ band }) => {
+      windowRobots = wantRobots && world && study ? new WindowRobots(cityscape.group, study.samples.map(({ band }) => {
         const half = Math.PI / 6 * study.radius, arc1 = -(band * Math.PI * 2 / 3 * study.radius + half)
         return { arc0: arc1 - 2 * half, arc1, axial0: -study.span / 2, axial1: study.span / 2, floor: world.floorHeight }
       }), study.radius) : null
@@ -3171,6 +3172,7 @@ export const bootstrapApp = async () => {
     starfield.setDaylight(daylight, carrierInAir, deltaSeconds)
     intersectionFurniture.setDaylight(daylight)
     streetLamps.setDaylight(daylight)
+    windowRobots?.setDaylight(daylight)
     car.update(drive.driving, daylight, vehicleSteer)
     streetLamps.setExternalLights(cityscape.metroWorld?.nightLights(streetLamps.group) ?? null)
     streetLamps.update(

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { robotPose, WINDOW_ROBOT, type WindowStrip } from './windowRobots'
+import * as THREE from 'three'
+import { beaconFlash, robotPose, WINDOW_ROBOT, WindowRobots, type WindowStrip } from './windowRobots'
 
 const R = 3200, half = Math.PI / 6 * R
 const strip: WindowStrip = { arc0: -(half + 2 * half), arc1: -half, axial0: -20000, axial1: 20000, floor: -16 }
@@ -32,4 +33,24 @@ test('robots sweep their cells continuously, inside the window, clear of the via
 test('robot phases differ between cells and windows', () => {
   const a = robotPose(strip, 0, 2, 5, 100)!, b = robotPose(strip, 0, 3, 5, 100)!, c = robotPose(strip, 1, 2, 5, 100)!
   expect(new Set([a.axial - 5 * WINDOW_ROBOT.cell, b.axial - 5 * WINDOW_ROBOT.cell, c.axial - 5 * WINDOW_ROBOT.cell].map(v => v.toFixed(1))).size).toBeGreaterThan(1)
+})
+
+test('night lights: beacons flash locally, position lamps stay steady and appear only at night', () => {
+  let low = 1, high = 0
+  for (let t = 0; t < 2.2; t += .01) { const b = beaconFlash(t, .3); low = Math.min(low, b); high = Math.max(high, b) }
+  expect(low).toBeCloseTo(.25, 2); expect(high).toBeCloseTo(1, 2)
+  const R = 3200, strips = [0, 1, 2].map(band => { const arc1 = -(band * Math.PI * 2 / 3 * R + half); return { ...strip, arc0: arc1 - 2 * half, arc1 } })
+  const robots = new WindowRobots(new THREE.Group(), strips, R)
+  const far = robots.group.getObjectByName('window-robot-position-lamps') as THREE.Points
+  expect(robots.positionLamps).toBeGreaterThan(6000)
+  robots.setDaylight(1); expect(far.visible).toBe(false)
+  robots.setDaylight(0); expect(far.visible).toBe(true)
+  // Every lamp sits on a window, just above the glass.
+  const p = far.geometry.getAttribute('position')
+  for (let k = 0; k < robots.positionLamps; k += 37) {
+    const r = Math.hypot(p.getX(k), p.getZ(k)), arc = Math.atan2(p.getZ(k), p.getX(k)) * R
+    expect(r).toBeCloseTo(R + 16 - .86, 3)
+    expect(strips.some(s => [0, -1, 1].some(m => arc + m * 2 * Math.PI * R > s.arc0 && arc + m * 2 * Math.PI * R < s.arc1))).toBe(true)
+  }
+  robots.dispose()
 })

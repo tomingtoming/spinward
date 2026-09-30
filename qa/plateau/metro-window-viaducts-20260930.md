@@ -56,6 +56,29 @@ for a more considered robot shape (2026-09-30). `src/objects/windowRobots.ts`:
   robots within 1.5 km of the camera (57 near the Arakawa deck), costing
   0.09 ms per frame on the CPU.
 
+### Night view
+
+toming asked for the night view (2026-09-30). Each robot carries three
+lights, split by who should see them:
+
+- A rotating amber beacon beamed along the glass, for people close by on
+  the viaducts or the edge walls. It flashes (1.1 s, a phase per robot) and
+  is drawn only for the near robots.
+- A shielded, steady, dim position lamp on the mast that faces up, the only
+  light the far side of the colony sees. Thousands of flashing lights across
+  a window would repeat the wind-farm complaint about flashing aviation
+  lights on a colony scale. All 6,720 lamps are one point cloud (2.5 px,
+  fogged like everything else). It fades in with night, and a slice of
+  1/90 moves each frame; near robots plus lamps cost 0.07 ms per frame on
+  the CPU.
+- A low raking work light along the brush, on only at night. Clean glass
+  scatters almost nothing, so it lights no pool: raking light shows
+  scratches and chips, which is why the inspection light is low.
+
+Hardware-GPU captures at t=.02: from the Oji arrival the windows overhead
+show sparse amber points among the stars. Close up, the work light bar and
+the beacon read, and the body stays dark.
+
 ## Two physics faults found by the crossing ride
 
 1. **Falling through the street after leaving a tram.** Riders are sensors.
@@ -90,7 +113,14 @@ for a more considered robot shape (2026-09-30). `src/objects/windowRobots.ts`:
 - After the robots were added, the Otsuka–Mukohara ride failed twice at
   boarding (the trigger did not board although the car was pointed at),
   passed with the robots disabled, then with them enabled on the same code
-  boarded in an instrumented run and passed the full ride once. Treated as a timing flake at the trigger; not yet explained.
+  boarded in an instrumented run and passed the full ride once. It failed
+  once more in a later combined run. A boarding-only probe (the ride test
+  up to the trigger, alone and after the walk test) then boarded 14/14 with
+  robots and 12/12 with `?robots=0`; the edge-wall walk failed once in 20
+  runs with robots. The shared machine was also running someone else's
+  headless Chrome, 12 days old. The harness holds a button for only
+  120 ms, so a stalled frame could drop the press. That is a hypothesis,
+  not a measurement; the cause is still open.
 - The Yamanote viaduct is not reachable on foot from the east strip: a
   station building stands on the line at the edge. Rail viaducts are not
   public walkways, so this was left as found.
