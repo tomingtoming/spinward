@@ -52,7 +52,7 @@ test('twelve wipers; beacons flash locally, position lamps stay steady and appea
   const p = far.geometry.getAttribute('position')
   for (let k = 0; k < robots.positionLamps; k++) {
     const r = Math.hypot(p.getX(k), p.getZ(k)), arc = Math.atan2(p.getZ(k), p.getX(k)) * R
-    expect(Math.abs(r - (R + 16 - 1.3))).toBeLessThan(.02) // the bogies stand on the glass
+    expect(Math.abs(r - (R + 16 - .3 - 1.3))).toBeLessThan(.02) // the bogies stand on the glass
     expect(strips.some(s => [0, -1, 1].some(m => arc + m * 2 * Math.PI * R > s.arc0 && arc + m * 2 * Math.PI * R < s.arc1))).toBe(true)
   }
   robots.dispose()

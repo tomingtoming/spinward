@@ -70,6 +70,15 @@ History, all 2026-09-30 to 10-01:
   its section in about 14 days, giving 12 wipers on three windows. Poses
   are a pure function of time, and all 12 are drawn instanced.
 
+- The hex glazing used to sit 0.3 m inside the datum, while the Tokyo
+  structural floor, the window opening, the edge walls, the pier feet and
+  the wipers lie 16 m lower. toming saw the hex pattern and the wipers'
+  contact surface disagree (2026-10-02). `cityscape.ts` now scales the
+  glazing down to the floor whenever a world lowers it, and the wipers'
+  bogies stand on the glazing (0.3 m inside the floor). A brightened
+  capture from above a pier foot now shows the hex mullions at the pier
+  base; the same view before the fix showed none there.
+
 ### Night view
 
 toming asked for the night view (2026-09-30). The lights are split by who

@@ -2052,6 +2052,7 @@ export class Cityscape {
   // grid selects the nearby interior plans. ColonyBuildings owns exterior LODs.
   setFocusSurface(azimuth: number, axial: number, altitude = 1.8) {
     this.metroWorld?.update(azimuth, axial, altitude)
+    this.fitWindowGlassToFloor()
     this.authoredLandscape.update(azimuth, axial, altitude)
     this.authoredColony.update(azimuth, axial, altitude)
     this.authoredBlock.update(azimuth,axial,altitude)
@@ -3053,6 +3054,19 @@ export class Cityscape {
     const mesh = new THREE.Mesh(merged, this.spineRingMaterial)
     this.spineRings = mesh
     this.group.add(mesh)
+  }
+
+  // The glazing belongs where the structural floor opens to the window. A
+  // Tokyo world lowers that floor (to 16 m below the datum), so the hex glass
+  // follows it down; the viaduct piers, the edge walls and the window wipers
+  // all stand on that floor (toming saw the glass 16 m above them, 2026-10-02).
+  private fitWindowGlassToFloor() {
+    const floor = this.metroWorld?.floorHeight ?? 0
+    for (const strip of this.windowStrips) {
+      const r = (strip.geometry as THREE.CylinderGeometry).parameters.radiusTop
+      const k = (r - floor) / r
+      if (strip.scale.x !== k) strip.scale.set(k, 1, k)
+    }
   }
 
   private buildWindowStrips(radius: number, length: number) {

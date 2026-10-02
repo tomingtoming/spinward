@@ -56,6 +56,8 @@ export function robotPose(strip: WindowStrip, window: number, j: number, time: n
 type Part = [number, number, number, number, number, number] // x0 x1 y0 y1 z0 z1; x along the beam, +y up, z along the axis
 const box = ([x0, x1, y0, y1, z0, z1]: Part) =>
   new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+// The hex glazing sits 0.3 m inside the structural floor (cityscape buildWindowStrips).
+export const GLASS_INSET = .3
 const W = WINDOW_ROBOT.halfWidth, ENDS = [-1, 1], TOWERS = [-7.5, 7.5], LAMP_TOP = 1.3
 // Truss beam over a brush housing, a squeegee on each face (it sweeps both
 // ways), a crawler bogie at each end and wheel towers between. Lights (night
@@ -134,7 +136,7 @@ export class WindowRobots {
         // The beam always lies across the window; it crabs between lanes. The
         // bogies stand on the glass, so the straight 45 m beam's middle rides
         // 8 cm above the curve; the squeegee is segmented to follow it.
-        const a = pose.arc / R, floor = R - strip.floor, rr = floor - W * W / (2 * floor)
+        const a = pose.arc / R, floor = R - strip.floor - GLASS_INSET, rr = floor - W * W / (2 * floor)
         const up = new THREE.Vector3(-Math.cos(a), 0, -Math.sin(a)), forward = new THREE.Vector3(0, 1, 0)
         const right = new THREE.Vector3().crossVectors(up, forward)
         this.matrix.makeBasis(right, up, forward).setPosition(Math.cos(a) * rr, pose.axial, Math.sin(a) * rr)
