@@ -84,7 +84,9 @@ bun run build --config vite.metro.config.mjs
 
 - 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
-- 候補Worker版: `e29173f4-5c64-4d57-b179-3879a534b6aa`（2026-10-01、`0772946` のbuild。窓の清掃を幅45mのワイパー
+- 候補Worker版: `4c26e3f5-dad8-4b00-a6fd-6955d5ded0d3`（2026-10-02、`df02494` のbuild。窓の六角ガラスを東京の構造床
+  （−16m）へ下げ、ワイパー・橋脚・擁壁の足元と一致させた（本人指摘）。全ユニットテストと公開物のhash一致を確認）。その前の版は
+  `e29173f4-5c64-4d57-b179-3879a534b6aa`（2026-10-01、`0772946` のbuild。窓の清掃を幅45mのワイパー
   12台に置換（本人の指摘）。窓越え乗車を含むXR回帰と公開物のhash一致を確認）。その前の版は
   `07993311-9424-411b-8eb8-43eddf0751b6`（2026-10-01、`ee91c8d` のbuild。点検ロボットを1km四方に1台
   （計480台）へ減らした（本人「ルンバ多すぎ」）。公開物のhash一致を確認）。その前の版は
