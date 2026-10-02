@@ -131,3 +131,44 @@ test('an exterior heading survives frame rotation while manual look remains free
     if (savedDocument) Object.defineProperty(globalThis, 'document', savedDocument); else Reflect.deleteProperty(globalThis, 'document')
   }
 })
+
+// "After flying and landing, looking up is sometimes held back" (toming,
+// 2026-10-02): the stand-up ease ended only for arrow keys or a drag, so
+// pointer-locked mouse look kept being pulled back to level after a landing.
+test('pointer-locked mouse look takes over from the stand-up ease after a landing', () => {
+  const savedWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const savedDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const events = new EventTarget()
+  Object.defineProperty(globalThis, 'window', { value: events, configurable: true })
+  Object.defineProperty(globalThis, 'document', { value: new EventTarget(), configurable: true })
+  const rig = new THREE.Group(), view = new THREE.Group(), camera = new THREE.PerspectiveCamera()
+  // Stand on the surface at azimuth 0: the rig's basis is (axial, inward up, tangent).
+  rig.add(view); view.add(camera); rig.position.set(3200, 0, 0)
+  rig.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1)))
+  rig.updateMatrixWorld(true)
+  const controls = new DesktopLookControls(rig, camera, new EventTarget() as unknown as HTMLElement)
+  const key = (type: string) => {
+    const event = new Event(type)
+    Object.defineProperty(event, 'code', { value: 'ArrowDown' })
+    events.dispatchEvent(event)
+  }
+  const mouse = (movementY: number) => {
+    const event = new Event('pointermove')
+    Object.defineProperty(event, 'movementX', { value: 0 }); Object.defineProperty(event, 'movementY', { value: movementY })
+    events.dispatchEvent(event)
+  }
+  try {
+    // Fly pitched down, then land: the stand-up ease starts from that pitch.
+    controls.update(1 / 60, false, undefined, true)
+    key('keydown'); for (let i = 0; i < 20; i++) { controls.update(1 / 60, false, undefined, true); rig.updateMatrixWorld(true) } key('keyup')
+    controls.update(1 / 60, false)
+    expect(camera.rotation.x).toBeLessThan(-.2)
+    ;(controls as unknown as { locked: boolean }).locked = true
+    for (let i = 0; i < 40; i++) { mouse(-20); controls.update(1 / 60, false) }
+    expect(camera.rotation.x).toBeGreaterThan(1.2)
+  } finally {
+    controls.dispose()
+    if (savedWindow) Object.defineProperty(globalThis, 'window', savedWindow); else Reflect.deleteProperty(globalThis, 'window')
+    if (savedDocument) Object.defineProperty(globalThis, 'document', savedDocument); else Reflect.deleteProperty(globalThis, 'document')
+  }
+})

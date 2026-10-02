@@ -174,6 +174,7 @@ export class DesktopLookControls {
   // reveal (the reveal animates pitch and would fight the restored look).
   setLook(yaw: number, pitch: number) {
     this.introElapsed = null
+    this.standingUp = false
     this.yaw = yaw
     this.pitch = THREE.MathUtils.clamp(pitch, -MAX_PITCH, MAX_PITCH)
     this.camera.rotation.set(this.pitch, this.yaw, this.roll)
@@ -673,6 +674,9 @@ export class DesktopLookControls {
     if (this.freeFlyActive) {
       this.applyFreeFlyLook(yawDelta, pitchDelta, 0)
     } else {
+      // Pointer-locked mouse look takes the view over too; otherwise the
+      // stand-up ease keeps pulling a post-landing look back to level.
+      if (pitchDelta !== 0) this.standingUp = false
       this.applyLookDelta(yawDelta, pitchDelta)
     }
   }
