@@ -82,7 +82,12 @@ bun run build --config vite.metro.config.mjs
 
 ## 公開状態と実機の観測
 
-- 本番 `spinward.toming.app` には東京版・今回のQuest改善を未適用。mainは変更しない。
+- **本番 `spinward.toming.app` へ東京版を適用済み（2026-10-11、toming裁定）。** Worker版 `865eb182-a9bf-4884-aa8e-61071118020b`、
+  `3127dcd` のbuild（候補版 `dca006e5` と同一コード。差は埋め込みcommit印とそれに伴うchunk名のみ、diffで確認）。
+  監査パッケージ `f3d622e97d67457850cd20fc0bb09f0808cba494405cc87e69d5128de59aabc5`（116件）。
+  公開URLでHTML・JS4件のhash一致、OGP・`/metric` の応答、王子の到着（CDN要求369件すべて200、ページエラー0）を
+  ヘッドレスChrome（SwiftShader）で確認。実HMD未検証。切り戻し先は旧本番版 `22ddddde-89bb-4369-9c2c-ee0c1bcacff6`（09-14）。
+  同日 `codex/tokyo-metro-quest-20260929` をmainへfast-forward。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
 - 候補Worker版: `dca006e5-49a8-48d4-b17e-c7a47f2c6763`（2026-10-02、`e0bb8ba` のbuild。PCで着地後にマウスで
   見上げられない不具合を修正（本人報告）。公開物のhash一致を確認）。その前の版は
