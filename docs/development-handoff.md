@@ -88,6 +88,14 @@ bun run build --config vite.metro.config.mjs
   公開URLでHTML・JS4件のhash一致、OGP・`/metric` の応答、王子の到着（CDN要求369件すべて200、ページエラー0）を
   ヘッドレスChrome（SwiftShader）で確認。実HMD未検証。切り戻し先は旧本番版 `22ddddde-89bb-4369-9c2c-ee0c1bcacff6`（09-14）。
   同日 `codex/tokyo-metro-quest-20260929` をmainへfast-forward。
+- **mainへのpushが別の配信を引いた（2026-10-11）。** 10:26 UTCのmain push（`22a00cb`）の約1分後に、このサーバー以外から
+  Worker版 `c9e867c7` が作られ本番を上書きした。配信物の埋め込みcommit印は `22a00cb`、`VITE_METRO_RELEASE` 無しの
+  素の `bun run build` で、素のURLは旧手続き都市、`?city=tokyo` は `/facade-kit.json` 404で起動失敗した。
+  repoの `.github/workflows/ci.yml` はtest/buildのみで配信しない。09-13・09-14のmain pushでも同じ間隔で版が作られており、
+  push連動の自動配信（Cloudflare Workers Buildsのgit連携と推定、未確認）がある。本人（toming）の確認待ち。
+  同日 12:50 UTCに同じ監査パッケージを再deploy（Worker版 `521a9a0d`）し、素のURLで東京（CDN要求343件・active）、
+  `?preset=playground` からMenu→Izma Colonyで東京（427件・active）をヘッドレスChromeで確認。
+  **自動配信が止まるまでmainへpushしない。** pushするなら直後に本番の `index.html` のbundle名を確認し、必要なら再deployする。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
 - 候補Worker版: `dca006e5-49a8-48d4-b17e-c7a47f2c6763`（2026-10-02、`e0bb8ba` のbuild。PCで着地後にマウスで
   見上げられない不具合を修正（本人報告）。公開物のhash一致を確認）。その前の版は
