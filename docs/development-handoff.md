@@ -95,7 +95,14 @@ bun run build --config vite.metro.config.mjs
   push連動の自動配信（Cloudflare Workers Buildsのgit連携と推定、未確認）がある。本人（toming）の確認待ち。
   同日 12:50 UTCに同じ監査パッケージを再deploy（Worker版 `521a9a0d`）し、素のURLで東京（CDN要求343件・active）、
   `?preset=playground` からMenu→Izma Colonyで東京（427件・active）をヘッドレスChromeで確認。
-  **自動配信が止まるまでmainへpushしない。** pushするなら直後に本番の `index.html` のbundle名を確認し、必要なら再deployする。
+  本人のダッシュボード画面（10-12）で確定：Workers Buildsがrepo `tomingtoming/spinward` に接続され、production branch `main`、
+  build `bun run build`、deploy `npx wrangler deploy`。
+- **恒久対応（2026-10-12）**: `.env.production` に `VITE_METRO_RELEASE` と `VITE_METRO_DATA_ROOT` を固定し、素の
+  `bun run build` でも東京版になるようにした（`e662820`）。mainへpush後、Workers Buildsが版 `e137c597` を配信。
+  公開物の埋め込みcommit印 `e662820`、metroCity chunkに固定釘、素のURLで東京（CDN要求431件・active・地点16・
+  アプリ資産の失敗0）をヘッドレスChromeで確認。以後 **mainへのpush＝本番リリース**。監査パッケージの手動deployは
+  同じWorkerを上書きするので、手動で出す理由があるときだけ使い、直後にmainへpushしない。
+  釘を進めるときは `.env.production` を更新してmainへpushする。dev/metro configのシェル変数は従来どおり優先される。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
 - 候補Worker版: `dca006e5-49a8-48d4-b17e-c7a47f2c6763`（2026-10-02、`e0bb8ba` のbuild。PCで着地後にマウスで
   見上げられない不具合を修正（本人報告）。公開物のhash一致を確認）。その前の版は
