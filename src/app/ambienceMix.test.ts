@@ -3,68 +3,27 @@ import { describe, expect, test } from 'bun:test'
 import { computeAmbienceMix } from './ambienceMix'
 
 describe('ambience mix', () => {
-  test('walking the street by day: full city bed, no wind, no vacuum', () => {
+  test('walking the street by day: no wind, no vacuum', () => {
     const mix = computeAmbienceMix({
       radialFraction: 1,
       inAir: true,
       airspeed: 6,
       daylight: 1
     })
-    expect(mix.city).toBe(1)
     expect(mix.wind).toBe(0)
     expect(mix.vacuum).toBe(0)
   })
 
-  test('night streets still murmur, quieter than day', () => {
-    const day = computeAmbienceMix({
-      radialFraction: 1,
-      inAir: true,
-      airspeed: 6,
-      daylight: 1
-    })
-    const night = computeAmbienceMix({
-      radialFraction: 1,
-      inAir: true,
-      airspeed: 6,
-      daylight: 0
-    })
-    expect(night.city).toBeGreaterThan(0)
-    expect(night.city).toBeLessThan(day.city)
-  })
-
-  test('the city fades out by the cloud deck and is silent at the axis', () => {
-    const overlook = computeAmbienceMix({
-      radialFraction: 0.98,
-      inAir: true,
-      airspeed: 6,
-      daylight: 1
-    })
-    const highAltitude = computeAmbienceMix({
-      radialFraction: 0.5,
-      inAir: true,
-      airspeed: 6,
-      daylight: 1
-    })
-    const axis = computeAmbienceMix({
-      radialFraction: 0,
-      inAir: true,
-      airspeed: 6,
-      daylight: 1
-    })
-    expect(overlook.city).toBe(1)
-    expect(highAltitude.city).toBe(0)
-    expect(axis.city).toBe(0)
-  })
-
-  test('standing still on the floor is silent: no city bed and no wind', () => {
-    for (const airspeed of [0, 0.16, 0.5]) {
-      const mix = computeAmbienceMix({ radialFraction: 1, inAir: true, airspeed, daylight: 1 })
-      expect(mix.city).toBe(0)
-      expect(mix.wind).toBe(0)
+  test('the floor carries no sound that follows your own motion: standing, starting and walking are the same mix', () => {
+    // A speed-gated street murmur was heard as a jetpack while walking on PC
+    // (toming, 2026-10-13), so nothing below the wind dead zone may change
+    // with airspeed, by day or by night.
+    const expected = { wind: 0, vacuum: 0 }
+    for (const daylight of [1, 0]) {
+      for (const airspeed of [0, 0.16, 0.5, 1.5, 6]) {
+        expect(computeAmbienceMix({ radialFraction: 1, inAir: true, airspeed, daylight })).toEqual(expected)
+      }
     }
-    const starting = computeAmbienceMix({ radialFraction: 1, inAir: true, airspeed: 1.5, daylight: 1 })
-    expect(starting.city).toBeGreaterThan(0)
-    expect(starting.city).toBeLessThan(1)
   })
 
   test('walking sits in the wind dead zone; a dive builds toward a howl', () => {
@@ -92,14 +51,13 @@ describe('ambience mix', () => {
     expect(terminal.wind).toBe(1)
   })
 
-  test('outside the hull: vacuum — no city, no wind', () => {
+  test('outside the hull: vacuum — no wind', () => {
     const mix = computeAmbienceMix({
       radialFraction: 1.4,
       inAir: false,
       airspeed: 80,
       daylight: 1
     })
-    expect(mix.city).toBe(0)
     expect(mix.wind).toBe(0)
     expect(mix.vacuum).toBe(1)
   })
@@ -113,6 +71,6 @@ describe('ambience mix', () => {
       airspeed: 120,
       daylight: 1
     })
-    expect(mix).toEqual({ city: 0, wind: 0, vacuum: 1 })
+    expect(mix).toEqual({ wind: 0, vacuum: 1 })
   })
 })

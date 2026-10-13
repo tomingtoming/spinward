@@ -5,14 +5,13 @@ import { AudioActivity } from './audioActivity'
 // context unlocks on the first user gesture (browser autoplay policy).
 //
 // Two buses hang off the master:
-//  · world — every sound the AIR carries (ambience, city, wind, rain, impacts).
+//  · world — every sound the AIR carries (ambience, wind, rain, impacts).
 //    Outside the hull there is no air, so the whole bus ducks to silence.
 //  · self — what your own body makes (breath, heartbeat). It rises exactly
 //    when the world goes quiet: the vacuum is not silent, it is just you.
 
 const AMBIENCE_GAIN = 0.05
 const MASTER_GAIN = 0.6
-const CITY_BED_GAIN = 0.07
 // Deliberately quiet: the wind is a physics cue under the scene, never a
 // noise bed over it.
 const WIND_GAIN = 0.09
@@ -21,7 +20,6 @@ const SELF_GAIN = 0.8
 const HEARTBEAT_PERIOD_SECONDS = 0.95
 
 export type EnvironmentMix = {
-  city: number
   wind: number
   vacuum: number
 }
@@ -35,7 +33,6 @@ export class GameAudio {
   private master: GainNode | null = null
   private world: GainNode | null = null
   private ambienceGain: GainNode | null = null
-  private cityGain: GainNode | null = null
   private windGain: GainNode | null = null
   private windFilter: BiquadFilterNode | null = null
   private selfGain: GainNode | null = null
@@ -163,7 +160,7 @@ export class GameAudio {
   }
 
   // The standing voices, all built once and silent until their gains rise:
-  // structure hum (always), city bed + wind (setEnvironment), breath (vacuum).
+  // structure hum (always), wind (setEnvironment), breath (vacuum).
   private startAmbience() {
     const ctx = this.context
     const world = this.world
@@ -203,37 +200,6 @@ export class GameAudio {
     this.ambienceGain.connect(world)
     noise.start()
     drone.start()
-
-    // City bed: a mid-band murmur with a slow swell, the far streets breathing.
-    const cityNoise = this.makeLoopingNoise(5, 'white')
-
-    if (cityNoise !== null) {
-      const cityFilter = ctx.createBiquadFilter()
-      cityFilter.type = 'bandpass'
-      cityFilter.frequency.value = 750
-      cityFilter.Q.value = 0.4
-
-      // The swell rides a series gain so a silent city stays exactly silent.
-      const undulate = ctx.createGain()
-      undulate.gain.value = 1
-      const swell = ctx.createOscillator()
-      swell.type = 'sine'
-      swell.frequency.value = 0.06
-      const swellDepth = ctx.createGain()
-      swellDepth.gain.value = 0.3
-      swell.connect(swellDepth)
-      swellDepth.connect(undulate.gain)
-
-      this.cityGain = ctx.createGain()
-      this.cityGain.gain.value = 0
-
-      cityNoise.connect(cityFilter)
-      cityFilter.connect(undulate)
-      undulate.connect(this.cityGain)
-      this.cityGain.connect(world)
-      cityNoise.start()
-      swell.start()
-    }
 
     // Wind: a low turbulent rumble, not a bright hiss. Pink noise through a
     // dark lowpass, breathing on a slow gust LFO — bright white noise with a
@@ -345,12 +311,6 @@ export class GameAudio {
     const vacuum = Math.max(0, Math.min(1, mix.vacuum))
 
     world.gain.setTargetAtTime(1 - vacuum, now, 0.35)
-    this.cityGain?.gain.setTargetAtTime(
-      Math.max(0, Math.min(1, mix.city)) * CITY_BED_GAIN,
-      now,
-      0.5
-    )
-
     const wind = Math.max(0, Math.min(1, mix.wind))
     // Slow swell (a gust builds, it doesn't switch on) and a dark ceiling:
     // even at terminal velocity the rumble stays under ~800 Hz.
