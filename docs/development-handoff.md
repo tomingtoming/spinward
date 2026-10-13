@@ -103,6 +103,12 @@ bun run build --config vite.metro.config.mjs
   アプリ資産の失敗0）をヘッドレスChromeで確認。以後 **mainへのpush＝本番リリース**。監査パッケージの手動deployは
   同じWorkerを上書きするので、手動で出す理由があるときだけ使い、直後にmainへpushしない。
   釘を進めるときは `.env.production` を更新してmainへpushする。dev/metro configのシェル変数は従来どおり優先される。
+- **PCで歩行中にジェットパック音（本人報告 2026-10-13）**: 本番のPC経路で音のグラフを計測（AudioNode.connectを
+  フックし、立つ→歩く→止まるで生きているGainとその上流フィルタを列挙）。歩行中に立ち上がる音源は街のざわめき
+  （白色ノイズ・bandpass 750Hz）だけで、ジェット音源は未生成（mode=grounded）。09-29の「止まっている時は風を消す」で
+  自分の速度に開閉するようになり、動き出すと鳴る＝推進音に聞こえていた。本人の裁定「街のざわめきを外す」で
+  `acacfd1` にて音源ごと削除（構造ハム・雨・10m/s超の風は維持）。main push→Workers Builds版 `36ddea3d`。
+  再計測で立つ／歩く／止まるのグラフが同一になったことを確認。実機（本人の耳）での確認はまだ。
 - 候補: https://spinward-metro-candidate.toming.workers.dev/?city=tokyo&preset=izma&depth=log
 - 候補Worker版: `dca006e5-49a8-48d4-b17e-c7a47f2c6763`（2026-10-02、`e0bb8ba` のbuild。PCで着地後にマウスで
   見上げられない不具合を修正（本人報告）。公開物のhash一致を確認）。その前の版は
