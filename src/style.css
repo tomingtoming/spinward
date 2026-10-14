@@ -814,3 +814,10 @@ body.has-ui-popup .tour-notice { visibility: hidden; }
 .controls-card__row span:first-child { flex-shrink: 0; max-width: 90px; }
 .ui-panel > h2 { position: sticky; top: -16px; z-index: 1; background: var(--ui-surface); padding: 6px 0; }
 @media (max-width: 600px) { .controls-card__columns { flex-direction: column; gap: 14px; } }
+
+/* AR (?ar=1): one card above the dock with the single start button. */
+.ar-panel { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); transform: translateX(-50%);
+  width: min(360px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+  background: var(--ui-surface, rgba(6, 18, 28, 0.82)); border: 1px solid rgba(103, 232, 249, 0.3); border-radius: 14px;
+  color: #e6f4f9; font-size: 13px; z-index: 30; pointer-events: auto; }
+.ar-panel__status { color: var(--ui-muted, #9fb6c2); font-size: 12px; line-height: 1.5; }

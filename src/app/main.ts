@@ -192,6 +192,9 @@ import type { WatchActionId } from '../ui/watch/watchLayout'
 import { resolveRuntimeWatchAction } from './watchActionRouting'
 import { createUnitsContext, rpmToOmega } from '../units/units'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
+import { ArMode } from './arMode'
+import { metroPlacesForStudy } from '../worlds/metroPlaces'
+import type { GeoBand } from '../worlds/geo/jgd2011'
 import { GrabSystem } from '../xr/grabSystem'
 import { LaserPointer } from '../xr/laserPointer'
 import { VRLocomotion } from '../xr/vrLocomotion'
@@ -1689,6 +1692,25 @@ export const bootstrapApp = async () => {
         groundHeight: visit.groundHeight ?? 0 }, visit.orientation)
     })
     return true
+  }
+
+  // `?ar=1`: hold the phone up in the real Tokyo and see the colony's far
+  // field over the street (src/app/arMode.ts). Only the Tokyo world has a
+  // geographic frame; `?arnear=` tunes where the real street hands over.
+  let arMode: ArMode | null = null
+  if (bootParams.get('ar') === '1' && metro) {
+    const study = metro.study as unknown as { bandWidth: number; span: number; samples: GeoBand[] }
+    const arNear = Number(bootParams.get('arnear'))
+    arMode = new ArMode({
+      camera, viewRig, playerRig,
+      bands: study.samples,
+      places: metroPlacesForStudy(metro.study),
+      bandWidth: study.bandWidth,
+      span: study.span,
+      nearMeters: Number.isFinite(arNear) && arNear > 0 ? arNear : undefined,
+      mount: document.body,
+      onArrive: placeId => { queuePlaceVisit(`metro-${placeId}`) }
+    })
   }
 
   // Named so the keyboard (L / P — usable while the pointer is locked and the
@@ -3221,6 +3243,7 @@ export const bootstrapApp = async () => {
     inertialPositionToRotating(playerTraversal.inertialPosition, frameAngle, rotatingCameraPosition)
     ;(window as unknown as { __spinward?: unknown }).__spinward = {
       metro: cityscape.metroWorld?.diagnostics() ?? null,
+      ar: arMode?.diagnostics() ?? null,
       xrDetail: xrDetailGovernor.diagnostics(),
       tour: tourGuide.activeEvent,
       mode: playerTraversal.mode,
@@ -3311,6 +3334,7 @@ export const bootstrapApp = async () => {
       mobileControls.update(renderer.xr.isPresenting)
       mobileControls.setDriving(drive.driving)
     }
+    arMode?.update(renderer, renderer.xr.isPresenting)
     const activeTourCard = stepTourGuide(tourGuide, deltaSeconds)
     // Let the current room action teach itself. The large generic welcome
     // card otherwise covers the held cup and the seated body on portrait screens.
