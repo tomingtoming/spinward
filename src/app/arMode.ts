@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import { computeDeviceOrientationQuaternion } from '../pc/deviceOrientation'
-import { bandLocalNorth, nearestMetroPlace, type GeoBand, type GeoPlace } from '../worlds/geo/jgd2011'
+import { bandLocalFromLonLat, bandLocalNorth, nearestMetroPlace, type GeoBand, type GeoPlace } from '../worlds/geo/jgd2011'
 
 // Hold the phone up in Tokyo or Saitama and see the colony's far field over
 // the real street (`?ar=1`). The near field needs no segmentation: the Tokyo
@@ -12,11 +12,18 @@ import { bandLocalNorth, nearestMetroPlace, type GeoBand, type GeoPlace } from '
 // the opposite bands. The sky is replaced outright: it is where the two
 // worlds differ.
 //
-// Pose: GPS picks the nearest published arrival (v1 snaps to it; the overhead
-// curve is nearly invariant to a few hundred metres), the compass sets yaw
-// relative to geographic north on the band, the gyro supplies pitch and roll.
+// Pose: GPS lands the visitor on their own coordinates (v1 snapped to the
+// nearest published arrival; at Akihabara that was the palace 1.6 km away and
+// the near field could not match — toming, 2026-10-26). The compass sets yaw
+// relative to geographic north on the band, the gyro supplies pitch and roll,
+// and two buttons trim the heading by eye because phone compasses wander by
+// 10–20°. `?arfov=` matches the view to the phone camera's vertical angle.
 
 const DEFAULT_NEAR_METERS = 400
+// Stay off the band's retaining wall when the fix lands on the very edge.
+const EDGE_MARGIN_METERS = 25
+const YAW_TRIM_STEP_DEG = 2
+const YAW_TRIM_KEY = 'spinward.ar.yawTrimDeg'
 
 export type ArModeOptions = {
   camera: THREE.PerspectiveCamera
@@ -26,9 +33,12 @@ export type ArModeOptions = {
   places: readonly GeoPlace[]
   bandWidth: number
   span: number
+  radius: number
   nearMeters?: number
+  fovDeg?: number
   mount: HTMLElement
-  onArrive: (placeId: string) => void
+  // Band id and band-local metres, already clamped inside the band.
+  onArrive: (bandId: string, x: number, y: number) => void
 }
 
 type PermissionRequester = { requestPermission?: () => Promise<'granted' | 'denied'> }
@@ -55,6 +65,10 @@ export class ArMode {
   private readonly options: ArModeOptions
   private readonly forwardWorld = new THREE.Vector3()
   private lastYawNorth = 0
+  private yawTrimRad = 0
+  private savedFov: number | null = null
+  private readonly trim: HTMLElement
+  private landed: { bandId: string; x: number; y: number; inside: boolean; edge: number } | null = null
 
   constructor(options: ArModeOptions) {
     this.options = options
@@ -97,7 +111,28 @@ export class ArMode {
     this.button.className = 'beat-btn'
     this.button.textContent = 'カメラと位置を使って始める'
     this.button.addEventListener('click', () => { void this.start() })
-    this.panel.append(title, this.status, this.button)
+    this.trim = document.createElement('div')
+    this.trim.className = 'ar-panel__trim'
+    this.trim.hidden = true
+    const trimLabel = document.createElement('span')
+    const left = document.createElement('button'), right = document.createElement('button')
+    left.type = 'button'; right.type = 'button'
+    left.className = right.className = 'beat-btn'
+    left.textContent = '◀ 向き'; right.textContent = '向き ▶'
+    left.setAttribute('aria-label', '向きを左へ'); right.setAttribute('aria-label', '向きを右へ')
+    const stored = Number(readStorage(YAW_TRIM_KEY))
+    this.yawTrimRad = Number.isFinite(stored) ? THREE.MathUtils.degToRad(stored) : 0
+    const showTrim = () => { trimLabel.textContent = `補正 ${Math.round(THREE.MathUtils.radToDeg(this.yawTrimRad))}°` }
+    const nudge = (sign: number) => {
+      this.yawTrimRad += sign * THREE.MathUtils.degToRad(YAW_TRIM_STEP_DEG)
+      writeStorage(YAW_TRIM_KEY, String(THREE.MathUtils.radToDeg(this.yawTrimRad)))
+      showTrim()
+    }
+    left.addEventListener('click', () => nudge(1))
+    right.addEventListener('click', () => nudge(-1))
+    showTrim()
+    this.trim.append(left, trimLabel, right)
+    this.panel.append(title, this.status, this.button, this.trim)
     options.mount.append(this.panel)
   }
 
@@ -121,16 +156,24 @@ export class ArMode {
       this.status.textContent = '現在地を取得中…'
       const fix = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20_000, maximumAge: 60_000 }))
+      const landing = resolveLanding(this.options.bands, fix.coords.longitude, fix.coords.latitude,
+        this.options.bandWidth, this.options.span)
       const near = nearestMetroPlace(this.options.bands, this.options.places, fix.coords.longitude, fix.coords.latitude,
         this.options.bandWidth, this.options.span)
-      if (!near) throw Error('到着地点が見つかりません')
-      this.options.onArrive(near.place.id)
-      const km = near.distance >= 1000 ? `${(near.distance / 1000).toFixed(1)} km` : `${Math.round(near.distance)} m`
-      this.status.textContent = near.inside
-        ? `${near.place.label} から ${km}。空へ掲げてください`
-        : `コロニーの外です（最寄り ${near.place.label} から ${km}）。空へ掲げてください`
+      this.landed = landing
+      this.options.onArrive(landing.bandId, landing.x, landing.y)
+      const place = near ? `${near.place.label}から${near.distance >= 1000 ? `${(near.distance / 1000).toFixed(1)}km` : `${Math.round(near.distance)}m`}` : ''
+      this.status.textContent = landing.inside
+        ? `現在地に立ちました（${place}・帯の端まで${Math.round(landing.edge)}m）。空へ掲げ、◀▶で向きを合わせてください`
+        : `現在地は帯の${Math.round(landing.edge)}m外。帯の端に立ちます（${place}）。近景は一致しません`
       this.active = true
       this.plane.visible = true
+      this.trim.hidden = false
+      if (this.options.fovDeg) {
+        this.savedFov = this.options.camera.fov
+        this.options.camera.fov = this.options.fovDeg
+        this.options.camera.updateProjectionMatrix()
+      }
       this.button.textContent = '止める'
       this.button.disabled = false
       this.button.onclick = () => this.stop()
@@ -144,6 +187,12 @@ export class ArMode {
   private stop(reset = true) {
     this.active = false
     this.plane.visible = false
+    this.trim.hidden = true
+    if (this.savedFov !== null) {
+      this.options.camera.fov = this.savedFov
+      this.options.camera.updateProjectionMatrix()
+      this.savedFov = null
+    }
     window.removeEventListener('deviceorientationabsolute', this.handleOrientation as EventListener)
     window.removeEventListener('deviceorientation', this.handleOrientation as EventListener)
     for (const track of this.stream?.getTracks() ?? []) track.stop()
@@ -191,7 +240,7 @@ export class ArMode {
     const alpha = this.headingRad === null ? 0 : (Math.PI * 2 - this.headingRad) % (Math.PI * 2)
     const screen = (screen => THREE.MathUtils.degToRad(typeof screen?.angle === 'number' ? screen.angle : 0))(window.screen?.orientation)
     computeDeviceOrientationQuaternion(alpha, this.betaRad, this.gammaRad, screen, this.deviceQuaternion)
-    this.yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawNorth)
+    this.yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawNorth + this.yawTrimRad)
     camera.quaternion.copy(this.yawQuaternion).multiply(this.deviceQuaternion)
 
     // Fit the feed to the view frustum at NEAR with cover scaling.
@@ -222,6 +271,9 @@ export class ArMode {
       active: this.active,
       headingDeg: this.headingRad === null ? null : THREE.MathUtils.radToDeg(this.headingRad),
       yawNorthDeg: THREE.MathUtils.radToDeg(this.lastYawNorth),
+      yawTrimDeg: THREE.MathUtils.radToDeg(this.yawTrimRad),
+      landed: this.landed,
+      rig: (() => { const p = this.options.playerRig.getWorldPosition(this.position); return { axial: p.y, height: this.options.radius - Math.hypot(p.x, p.z) } })(),
       forward: [this.forwardWorld.x, this.forwardWorld.y, this.forwardWorld.z],
       status: this.status.textContent
     }
@@ -236,4 +288,29 @@ export class ArMode {
     this.video.remove()
     this.panel.remove()
   }
+}
+
+const readStorage = (key: string) => { try { return window.localStorage.getItem(key) } catch { return null } }
+const writeStorage = (key: string, value: string) => { try { window.localStorage.setItem(key, value) } catch { /* private mode */ } }
+
+/**
+ * Where to stand: the band containing the fix, else the band whose edge is
+ * nearest, with the point pulled inside by the edge margin. `edge` is the
+ * distance to the nearest band edge (positive inside, the overshoot outside).
+ */
+export function resolveLanding(bands: readonly GeoBand[], lonDeg: number, latDeg: number, bandWidth: number, span: number) {
+  const halfW = bandWidth / 2, halfS = span / 2
+  let best: { bandId: string; x: number; y: number; inside: boolean; edge: number; overshoot: number } | null = null
+  for (const band of bands) {
+    const [x, y] = bandLocalFromLonLat(band.frame, lonDeg, latDeg)
+    const overshoot = Math.max(Math.abs(x) - halfW, Math.abs(y) - halfS, 0)
+    const inside = overshoot === 0
+    const edge = inside ? Math.min(halfW - Math.abs(x), halfS - Math.abs(y)) : overshoot
+    const cx = THREE.MathUtils.clamp(x, -halfW + EDGE_MARGIN_METERS, halfW - EDGE_MARGIN_METERS)
+    const cy = THREE.MathUtils.clamp(y, -halfS + EDGE_MARGIN_METERS, halfS - EDGE_MARGIN_METERS)
+    if (best === null || overshoot < best.overshoot) best = { bandId: band.id, x: cx, y: cy, inside, edge, overshoot }
+  }
+  if (!best) throw Error('帯の座標系がありません')
+  const { overshoot: _o, ...landing } = best
+  return landing
 }

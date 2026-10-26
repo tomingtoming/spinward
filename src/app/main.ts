@@ -193,6 +193,7 @@ import { resolveRuntimeWatchAction } from './watchActionRouting'
 import { createUnitsContext, rpmToOmega } from '../units/units'
 import { ControllerVelocityTracker } from '../xr/controllerVelocity'
 import { ArMode } from './arMode'
+import { metroArrivalOrientation, metroSurfaceLocation } from '../worlds/metroPlacement'
 import { metroPlacesForStudy } from '../worlds/metroPlaces'
 import type { GeoBand } from '../worlds/geo/jgd2011'
 import { GrabSystem } from '../xr/grabSystem'
@@ -1700,16 +1701,34 @@ export const bootstrapApp = async () => {
   let arMode: ArMode | null = null
   if (bootParams.get('ar') === '1' && metro) {
     const study = metro.study as unknown as { bandWidth: number; span: number; samples: GeoBand[] }
-    const arNear = Number(bootParams.get('arnear'))
+    const arNear = Number(bootParams.get('arnear')), arFov = Number(bootParams.get('arfov'))
+    // Stand on the visitor's own coordinates. The ground is read from the
+    // streamed collision tiles once the region around the fix is resident;
+    // a fix under a roof stands on that roof rather than inside the building.
+    const queueMetroLocalVisit = (bandId: string, x: number, y: number) => {
+      const world = cityscape.metroWorld
+      const sample = study.samples.find(s => s.id === bandId)
+      if (!world || !sample) return
+      const location = metroSurfaceLocation(sample.band, x, y, habitatConfig.radius)
+      const [nx, ny] = [-Math.cos(sample.frame.angle), Math.sin(sample.frame.angle)]
+      const faceNorth = metroArrivalOrientation(location.azimuth, Math.atan2(-nx, ny))
+      colonyMotion.queue(regionalSource(), { azimuth: location.azimuth, axial: location.axial, distance: 256 }, () => {
+        const ground = getCityGroundHeight(cityscape.getCollisionIndex(), habitatConfig.radius,
+          location.azimuth, location.axial, (world.floorHeight ?? 0) + 80, .4)
+        applyReadyPose({ mode: 'grounded', azimuth: location.azimuth, axialPosition: location.axial, groundHeight: ground }, faceNorth)
+      })
+    }
     arMode = new ArMode({
       camera, viewRig, playerRig,
       bands: study.samples,
       places: metroPlacesForStudy(metro.study),
       bandWidth: study.bandWidth,
       span: study.span,
+      radius: habitatConfig.radius,
       nearMeters: Number.isFinite(arNear) && arNear > 0 ? arNear : undefined,
+      fovDeg: Number.isFinite(arFov) && arFov >= 20 && arFov <= 120 ? arFov : undefined,
       mount: document.body,
-      onArrive: placeId => { queuePlaceVisit(`metro-${placeId}`) }
+      onArrive: queueMetroLocalVisit
     })
   }
 

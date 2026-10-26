@@ -821,3 +821,5 @@ body.has-ui-popup .tour-notice { visibility: hidden; }
   background: var(--ui-surface, rgba(6, 18, 28, 0.82)); border: 1px solid rgba(103, 232, 249, 0.3); border-radius: 14px;
   color: #e6f4f9; font-size: 13px; z-index: 30; pointer-events: auto; }
 .ar-panel__status { color: var(--ui-muted, #9fb6c2); font-size: 12px; line-height: 1.5; }
+.ar-panel__trim { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ar-panel__trim span { color: var(--ui-muted, #9fb6c2); font-size: 12px; }
