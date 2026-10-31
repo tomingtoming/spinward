@@ -172,6 +172,11 @@ AIの設計：東京帯はPLATEAUなので近景は現実と同じ形。重ね�
   地面高は常駐した衝突タイルから `getCityGroundHeight` で読む。屋根の上に落ちた場合は屋根に立つ）。◀▶で向きを2°刻みで補正し
   localStorageに保存。`?arfov=` で縦画角を指定。帯の外では「近景は一致しません」と表示。
   ヘッドレス（偽GPS）: 神田駅で軸座標が一致・床上15m、秋葉原で「16m外」判定と端への着地を確認。
+- **v3（`b446f88`、候補Worker版 `4ad80f78`）**: 本人「帯の中に居るかどうか出せる？」（11-01）。「帯の中か確認」ボタンで位置の監視を始め、
+  「東帯の中（端まで308m・GPS±Xm）」「帯の外（東帯の端から16m）」を常時表示。AR中に30m以上動くと「現在地に立ち直す」が出る。
+  監視はtimeoutでは止めず、拒否・取得不能だけで止める。帯の輪郭は逆変換（Newton法、往復誤差2e-7°）で
+  [docs/metro-bands.geojson](metro-bands.geojson) に出力（`assets/plateau/export_band_outline.ts`）。地図で見るなら
+  https://geojson.io/#data=data:text/x-url,https://raw.githubusercontent.com/tomingtoming/spinward/codex/tokyo-metro-quest-20260929/docs/metro-bands.geojson
 - 次の候補: 画角の自動推定（端末ごと）、録画・共有ボタン、「東京」の名のプリセット、2回目に開く理由。
 
 ## コード保存時の検証
