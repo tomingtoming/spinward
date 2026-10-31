@@ -102,3 +102,36 @@ export function nearestMetroPlace(
   }
   return best ? { ...best, inside } : null
 }
+
+/**
+ * Band-local metres back to longitude/latitude. Newton iteration on the
+ * forward projection (the plane is nearly conformal, so the 2×2 Jacobian is a
+ * rotation-and-scale and converges in a few steps).
+ */
+export function lonLatFromBandLocal(frame: BandFrame, x: number, y: number): [number, number] {
+  const c = Math.cos(frame.angle), s = Math.sin(frame.angle)
+  // Invert the rotation (orthonormal, so transpose) and add the origin.
+  const targetEast = x * s + y * c + frame.origin[0]
+  const targetNorth = -x * c + y * s + frame.origin[1]
+  let lon = 139 + 50 / 60, lat = 36
+  for (let i = 0; i < 8; i += 1) {
+    const p = projectJgd2011ZoneIX(lon, lat)
+    const de = targetEast - p.east, dn = targetNorth - p.north
+    if (Math.abs(de) < 1e-4 && Math.abs(dn) < 1e-4) break
+    const h = 1e-5
+    const pe = projectJgd2011ZoneIX(lon + h, lat), pn = projectJgd2011ZoneIX(lon, lat + h)
+    const a = (pe.east - p.east) / h, b = (pn.east - p.east) / h
+    const d = (pe.north - p.north) / h, e = (pn.north - p.north) / h
+    const det = a * e - b * d
+    lon += (e * de - b * dn) / det
+    lat += (-d * de + a * dn) / det
+  }
+  return [lon, lat]
+}
+
+/** The four corners of a band as longitude/latitude, closed ring, for GeoJSON. */
+export function bandOutlineLonLat(frame: BandFrame, bandWidth: number, span: number): [number, number][] {
+  const w = bandWidth / 2, h = span / 2
+  const corners: [number, number][] = [[-w, -h], [w, -h], [w, h], [-w, h], [-w, -h]]
+  return corners.map(([x, y]) => lonLatFromBandLocal(frame, x, y))
+}

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { bandLocalFromLonLat, bandLocalNorth, nearestMetroPlace, projectJgd2011ZoneIX } from './jgd2011'
+import { bandLocalFromLonLat, bandLocalNorth, bandOutlineLonLat, lonLatFromBandLocal, nearestMetroPlace, projectJgd2011ZoneIX } from './jgd2011'
 
 // Source pins from the inland-b study (metro-overview.json): pyproj EPSG:6668→6677.
 const PINS = [
@@ -68,5 +68,23 @@ describe('JGD2011 zone IX', () => {
     const chiba = nearestMetroPlace(BANDS, places, 140.1, 35.6, 3351.03, 40000)!
     expect(chiba.inside).toBe(false)
     expect(chiba.place.id).toBe('palace')
+  })
+
+  test('band-local to longitude/latitude round-trips to the centimetre', () => {
+    for (const pin of PINS) {
+      const band = BANDS.find(b => b.id === pin.band)!
+      const [lon, lat] = lonLatFromBandLocal(band.frame, pin.local[0], pin.local[1])
+      expect(Math.abs(lon - pin.position[0])).toBeLessThan(2e-7)
+      expect(Math.abs(lat - pin.position[1])).toBeLessThan(2e-7)
+    }
+  })
+
+  test('a band outline is a closed ring of four corners about 3.35 km by 40 km', () => {
+    const ring = bandOutlineLonLat(BANDS[0].frame, 3351.032163829113, 40000)
+    expect(ring).toHaveLength(5)
+    expect(ring[0]).toEqual(ring[4])
+    const a = projectJgd2011ZoneIX(ring[0][0], ring[0][1]), b = projectJgd2011ZoneIX(ring[1][0], ring[1][1]), d = projectJgd2011ZoneIX(ring[3][0], ring[3][1])
+    expect(Math.hypot(b.east - a.east, b.north - a.north)).toBeCloseTo(3351.03, 0)
+    expect(Math.hypot(d.east - a.east, d.north - a.north)).toBeCloseTo(40000, 0)
   })
 })

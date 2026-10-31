@@ -69,6 +69,11 @@ export class ArMode {
   private savedFov: number | null = null
   private readonly trim: HTMLElement
   private landed: { bandId: string; x: number; y: number; inside: boolean; edge: number } | null = null
+  private readonly where: HTMLElement
+  private readonly whereButton: HTMLButtonElement
+  private readonly restand: HTMLButtonElement
+  private watchId: number | null = null
+  private lastFix: { lon: number; lat: number } | null = null
 
   constructor(options: ArModeOptions) {
     this.options = options
@@ -132,8 +137,66 @@ export class ArMode {
     right.addEventListener('click', () => nudge(-1))
     showTrim()
     this.trim.append(left, trimLabel, right)
-    this.panel.append(title, this.status, this.button, this.trim)
+    // Live band check, usable before AR starts (geolocation only).
+    this.where = document.createElement('span')
+    this.where.className = 'ar-panel__status'
+    this.where.hidden = true
+    this.whereButton = document.createElement('button')
+    this.whereButton.type = 'button'
+    this.whereButton.className = 'beat-btn'
+    this.whereButton.textContent = '帯の中か確認'
+    this.whereButton.addEventListener('click', () => this.watchWhere())
+    this.restand = document.createElement('button')
+    this.restand.type = 'button'
+    this.restand.className = 'beat-btn'
+    this.restand.textContent = '現在地に立ち直す'
+    this.restand.hidden = true
+    this.restand.addEventListener('click', () => { if (this.lastFix) this.landAt(this.lastFix.lon, this.lastFix.lat) })
+    this.panel.append(title, this.status, this.where, this.whereButton, this.button, this.trim, this.restand)
     options.mount.append(this.panel)
+  }
+
+  // Keep a position watch and say which band the visitor is on and how far
+  // the edge is. The colony's east edge runs through Akihabara, so a few
+  // hundred metres decide whether the near field can match at all.
+  private watchWhere() {
+    if (this.watchId !== null) return
+    this.whereButton.disabled = true
+    this.where.hidden = false
+    this.where.textContent = '現在地を取得中…'
+    this.watchId = navigator.geolocation.watchPosition(fix => {
+      this.lastFix = { lon: fix.coords.longitude, lat: fix.coords.latitude }
+      const l = resolveLanding(this.options.bands, fix.coords.longitude, fix.coords.latitude, this.options.bandWidth, this.options.span)
+      const band = { east: '東帯', central: '中央帯', west: '西帯' }[l.bandId] ?? l.bandId
+      const acc = Number.isFinite(fix.coords.accuracy) ? `・GPS±${Math.round(fix.coords.accuracy)}m` : ''
+      this.where.textContent = l.inside
+        ? `${band}の中（端まで${Math.round(l.edge)}m${acc}）`
+        : `帯の外（${band}の端から${Math.round(l.edge)}m${acc}）。近景は一致しません`
+      if (this.landed && this.active) {
+        const moved = l.bandId === this.landed.bandId ? Math.hypot(l.x - this.landed.x, l.y - this.landed.y) : Infinity
+        this.restand.hidden = !(moved > 30)
+        if (moved > 30) this.restand.textContent = Number.isFinite(moved) ? `現在地に立ち直す（${Math.round(moved)}m移動）` : '現在地に立ち直す（別の帯）'
+      }
+    }, error => {
+      // A watch keeps running after a timeout (no new fix yet); only a denial
+      // or an unavailable sensor ends it.
+      if (error.code === error.TIMEOUT) return
+      this.where.textContent = error.code === error.PERMISSION_DENIED ? '位置情報の許可が必要です' : '現在地を取得できません'
+      this.whereButton.disabled = false
+      this.watchId = null
+    }, { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 })
+  }
+
+  private landAt(lon: number, lat: number) {
+    const landing = resolveLanding(this.options.bands, lon, lat, this.options.bandWidth, this.options.span)
+    const near = nearestMetroPlace(this.options.bands, this.options.places, lon, lat, this.options.bandWidth, this.options.span)
+    this.landed = landing
+    this.options.onArrive(landing.bandId, landing.x, landing.y)
+    this.restand.hidden = true
+    const place = near ? `${near.place.label}から${near.distance >= 1000 ? `${(near.distance / 1000).toFixed(1)}km` : `${Math.round(near.distance)}m`}` : ''
+    this.status.textContent = landing.inside
+      ? `現在地に立ちました（${place}・帯の端まで${Math.round(landing.edge)}m）。空へ掲げ、◀▶で向きを合わせてください`
+      : `現在地は帯の${Math.round(landing.edge)}m外。帯の端に立ちます（${place}）。近景は一致しません`
   }
 
   get running() { return this.active }
@@ -156,16 +219,9 @@ export class ArMode {
       this.status.textContent = '現在地を取得中…'
       const fix = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20_000, maximumAge: 60_000 }))
-      const landing = resolveLanding(this.options.bands, fix.coords.longitude, fix.coords.latitude,
-        this.options.bandWidth, this.options.span)
-      const near = nearestMetroPlace(this.options.bands, this.options.places, fix.coords.longitude, fix.coords.latitude,
-        this.options.bandWidth, this.options.span)
-      this.landed = landing
-      this.options.onArrive(landing.bandId, landing.x, landing.y)
-      const place = near ? `${near.place.label}から${near.distance >= 1000 ? `${(near.distance / 1000).toFixed(1)}km` : `${Math.round(near.distance)}m`}` : ''
-      this.status.textContent = landing.inside
-        ? `現在地に立ちました（${place}・帯の端まで${Math.round(landing.edge)}m）。空へ掲げ、◀▶で向きを合わせてください`
-        : `現在地は帯の${Math.round(landing.edge)}m外。帯の端に立ちます（${place}）。近景は一致しません`
+      this.lastFix = { lon: fix.coords.longitude, lat: fix.coords.latitude }
+      this.landAt(fix.coords.longitude, fix.coords.latitude)
+      this.watchWhere()
       this.active = true
       this.plane.visible = true
       this.trim.hidden = false
@@ -281,6 +337,7 @@ export class ArMode {
 
   dispose() {
     this.stop(false)
+    if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId)
     this.plane.removeFromParent()
     this.plane.geometry.dispose()
     this.plane.material.dispose()
