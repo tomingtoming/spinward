@@ -179,6 +179,17 @@ AIの設計：東京帯はPLATEAUなので近景は現実と同じ形。重ね�
   https://geojson.io/#data=data:text/x-url,https://raw.githubusercontent.com/tomingtoming/spinward/codex/tokyo-metro-quest-20260929/docs/metro-bands.geojson
 - 次の候補: 画角の自動推定（端末ごと）、録画・共有ボタン、「東京」の名のプリセット、2回目に開く理由。
 
+## 素のRapierへ（2026-11-02・候補のみ）
+
+本人「Rust層を作る価値はある？」→AIの実測：Rapierの1フレーム費用は0.1〜0.4ms（建物ボックス100〜1,600・3サブステップ・node）、
+GPUは28〜46ms（09-28）。物理は律速でなくRust層は見送り。代わりに本人「素のrapier使うのいいね」で、ブラウザbuildだけ
+`@dimforge/rapier3d-compat` を `@dimforge/rapier3d` へalias（`vite.config.ts`・`vite-plugin-wasm`・`build.target: esnext`）。
+コードとテストはcompatのまま、`rapierContext.ts` は `init()` が無ければ即resolve。main.js 4.24MB→2.16MB（gzip 584KB）、
+wasm 1.57MBは別の不変アセット。候補Worker版 `bad91abc`（`6239ef9` のbuild）で `application/wasm`・immutableを確認、ヘッドレスで
+東京到着とジャンプ（free-fly遷移）を確認。本番の `public/_headers` は `/assets/*` 一括なのでwasmも自動で不変。
+共有パッケージの `_headers` は `/*` の no-cache が hashed asset にも重なって実質 no-cache だったので、`! Cache-Control` で外してから
+immutable を付ける形へ（`package_metro_shared.py` と `shared-v1/public/_headers` を同じ文字列に更新）。
+
 ## コード保存時の検証
 
 - `bun test`: 244ファイル・1,324件を実行、1,321件成功、3件が時間切れ。

@@ -1,4 +1,10 @@
 """Stage explicitly selected app assets, preserving relative GLTF dependencies."""
+HEADERS = (
+    '/*\n  Cache-Control: no-cache\n'
+    '/shared/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable\n'
+    '/assets/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable\n'
+)
+
 import argparse
 import hashlib
 import json
@@ -44,7 +50,10 @@ def stage(source, output, selection):
         shutil.copyfile(source / name, target)
         if hashlib.sha256(target.read_bytes()).hexdigest() != files[name]['sha256']:
             raise ValueError(f'Shared asset copy changed: {name}')
-    (output / 'public' / '_headers').write_text('/*\n  Cache-Control: no-cache\n/shared/*\n  Cache-Control: public, max-age=31536000, immutable\n/assets/*.js\n  Cache-Control: public, max-age=31536000, immutable\n/assets/*.css\n  Cache-Control: public, max-age=31536000, immutable\n')
+    # index.html revalidates; every hashed path is immutable. `! Cache-Control`
+    # detaches the `/*` value first, otherwise the two are appended and the
+    # browser honours no-cache (the engine wasm joined /assets on 2026-11-02).
+    (output / 'public' / '_headers').write_text(HEADERS)
     result = {'version': 1, 'root': '/' + prefix, 'objects': files, 'bytes': sum(v['bytes'] for v in files.values())}
     (output / 'shared-index.json').write_bytes(canonical(result))
     return {'root': result['root'], 'files': len(files), 'bytes': result['bytes']}
