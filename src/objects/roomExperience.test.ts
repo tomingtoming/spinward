@@ -38,12 +38,12 @@ for(const contract of [cafe,lobby]) {
  })
 }
 
-test('room shelter quiets city and wind while retaining the vacuum override',()=>{
+test('room shelter quiets the wind while retaining the vacuum override',()=>{
+ // The city bed was removed on 2026-10-13 (it read as a jetpack while walking).
  const input={radialFraction:1,inAir:true,airspeed:35,daylight:1}
  const street=computeAmbienceMix(input),room=computeAmbienceMix({...input,shelter:1})
- expect(room.city).toBeCloseTo(street.city*.22)
  expect(room.wind).toBeCloseTo(street.wind*.15)
- expect(computeAmbienceMix({...input,shelter:1,inAir:false})).toEqual({city:0,wind:0,vacuum:1})
+ expect(computeAmbienceMix({...input,shelter:1,inAir:false})).toEqual({wind:0,vacuum:1})
 })
 
 test('Blender dressing is bounded to rooms and leaves the existing door paths clear',async()=>{
