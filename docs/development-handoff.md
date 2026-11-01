@@ -190,6 +190,12 @@ wasm 1.57MBは別の不変アセット。候補Worker版 `bad91abc`（`6239ef9` 
 共有パッケージの `_headers` は `/*` の no-cache が hashed asset にも重なって実質 no-cache だったので、`! Cache-Control` で外してから
 immutable を付ける形へ（`package_metro_shared.py` と `shared-v1/public/_headers` を同じ文字列に更新）。
 
+## 本番反映（2026-11-02・toming「本番反映」）
+
+mainを `eadd63d` へfast-forward（19:29 UTC）→Workers Builds版 `34722624`（19:30 UTC）。本番で埋め込みcommit印 `eadd63d`、
+main.js 2,164,752 bytes、`rapier_wasm3d_bg-bb0TTxsO.wasm` が `application/wasm`・immutableで配信、ヘッドレスで東京到着・
+ジャンプ（free-fly遷移）・エラー0を確認。これでAR（`?ar=1`）も本番に乗った（入口はURLのみ、メニュー未配線）。
+
 ## コード保存時の検証
 
 - `bun test`: 244ファイル・1,324件を実行、1,321件成功、3件が時間切れ。
