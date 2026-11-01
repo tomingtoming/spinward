@@ -14,6 +14,7 @@
     "test:xr": "playwright test --config qa/webxr/playwright.config.mjs"
   },
   "dependencies": {
+    "@dimforge/rapier3d": "0.19.3",
     "@dimforge/rapier3d-compat": "^0.19.3",
     "lil-gui": "^0.20.0",
     "meshoptimizer": "0.22.0",
@@ -26,6 +27,7 @@
     "playwright-webxr": "0.3.0",
     "typescript": "^5.9.2",
     "vite": "^6.0.0",
+    "vite-plugin-wasm": "^3.6.0",
     "wrangler": "^4.104.0"
   }
 }
